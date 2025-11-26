@@ -49,7 +49,6 @@ const Board: Component = () => {
   const currentPos = createMemo<Point>(() => position() || createPoint(0, 0));
   
   // State variables
-  const [basePoints, setBasePoints] = createSignal<BasePoint[]>([]);
   const [isSaving, setIsSaving] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [pickedUpBasePoint, setPickedUpBasePoint] = createSignal<[number, number] | null>(null);
@@ -67,7 +66,9 @@ const Board: Component = () => {
   
   // Base points fetching
   const { 
-    fetchBasePoints, 
+    basePoints, 
+    fetchBasePoints,
+    setBasePoints
   } = useFetchBasePoints({
     user,
     currentPosition: () => position() || [0, 0]
