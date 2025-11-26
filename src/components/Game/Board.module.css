@@ -190,14 +190,77 @@
 .square.basePoint { 
   background-color: #e8f5e9;
   background-image: none;
+  position: relative;
+  z-index: 2;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .square.basePoint:hover { 
   background-color: #d8edd9;
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  z-index: 3;
 }
 
 .square.selected.basePoint {
   background-color: #d0ebe7;
+}
+
+/* Dragging States */
+.square.dragging {
+  opacity: 0.5;
+  transform: scale(0.95);
+  cursor: grabbing;
+}
+
+.square.draggable {
+  cursor: grab;
+}
+
+.square.draggable:active {
+  cursor: grabbing;
+}
+
+/* Drop Targets */
+.square.valid-drop {
+  background-color: rgba(76, 175, 80, 0.2);
+  box-shadow: inset 0 0 0 2px #4CAF50;
+  transform: scale(1.05);
+}
+
+.square.invalid-drop {
+  background-color: rgba(244, 67, 54, 0.2);
+  cursor: not-allowed;
+}
+
+/* Base Point Marker */
+.basePointMarker {
+  width: 70%;
+  height: 70%;
+  border-radius: 50%;
+  background-color: #4CAF50;
+  z-index: 2;
+  pointer-events: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s ease;
+}
+
+.square:hover .basePointMarker {
+  transform: scale(1.1);
+}
+
+/* Empty marker (for debugging) */
+.emptyMarker {
+  color: #e0e0e0;
+  font-size: 1.2em;
+  user-select: none;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.square:hover .emptyMarker {
+  opacity: 0.8;
+}
   border: 2px solid #00897b;
   box-shadow: 0 0 0 1px rgb(0 137 123 / 30%);
 }

@@ -49,8 +49,14 @@ const Board: Component = () => {
   const currentPos = createMemo<Point>(() => position() || createPoint(0, 0));
   
   // State variables
-  const [isSaving, setIsSaving] = createSignal<boolean>(false);
-  
+  const [basePoints, setBasePoints] = createSignal<BasePoint[]>([]);
+  const [isSaving, setIsSaving] = createSignal(false);
+  const [error, setError] = createSignal<string | null>(null);
+  const [pickedUpBasePoint, setPickedUpBasePoint] = createSignal<[number, number] | null>(null);
+  const [isDragging, setIsDragging] = createSignal(false);
+  const [hoveredCell, setHoveredCell] = createSignal<[number, number] | null>(null);
+  const [hoveredSquare, setHoveredSquare] = createSignal<number | null>(null);
+
   // Direction handling
   const { isMoving, handleDirection } = useDirectionHandler({
     position,
@@ -61,7 +67,6 @@ const Board: Component = () => {
   
   // Base points fetching
   const { 
-    basePoints, 
     fetchBasePoints, 
   } = useFetchBasePoints({
     user,
@@ -98,10 +103,6 @@ const Board: Component = () => {
     }
   });
 
-  const [hoveredSquare, setHoveredSquare] = createSignal<number | null>(null);
-  const [error, setError] = createSignal<string | null>(null);
-  const [reachedBoundary, setReachedBoundary] = createSignal<boolean>(false);
-  
   // Validate if a square can have a base point
   const validateSquarePlacementLocal = (index: number) => {
     const pos = position();
@@ -167,7 +168,7 @@ const Board: Component = () => {
   // Event handler types
   type KeyboardHandler = (e: KeyboardEvent) => void;
   
-  // Handle keyboard events - only calculate direction without moving
+  // Handle keyboard events with boundary checking
   const handleKeyDown: KeyboardHandler = async (e) => {
     e.preventDefault();
 
@@ -195,11 +196,55 @@ const Board: Component = () => {
       // You can use the newPosition for preview or other logic without updating the actual position
     }
   };
+
+  // Handle mouse up anywhere on the document to cancel dragging
+  const handleGlobalMouseUp = () => {
+    if (isDragging()) {
+      setIsDragging(false);
+      setPickedUpBasePoint(null);
+      setHoveredCell(null);
+    }
+  };
   
+  // Handle base point pickup
+  const handleBasePointPickup = (point: [number, number]) => {
+    setPickedUpBasePoint(point);
+    setIsDragging(true);
+  };
+
+  // Handle base point placement
+  const handleBasePointPlacement = (target: [number, number]) => {
+    const basePoint = pickedUpBasePoint();
+    if (!basePoint) return;
+
+    const [targetX, targetY] = target;
+    const index = targetY * BOARD_CONFIG.GRID_SIZE + targetX;
+    
+    // Validate the target position
+    const validation = validateSquarePlacementLocal(index);
+    if (!validation.isValid) {
+      console.error('Invalid placement:', validation.reason);
+      return;
+    }
+
+    // Update the base point's position
+    const updatedPoints = basePoints().map(bp => 
+      bp.x === basePoint[0] && bp.y === basePoint[1] 
+        ? { ...bp, x: targetX, y: targetY } 
+        : bp
+    );
+    
+    setBasePoints(updatedPoints);
+    setPickedUpBasePoint(null);
+    setIsDragging(false);
+    setHoveredCell(null);
+  };
+
   // Setup and cleanup event listeners
   onMount(() => {
     const eventListeners: [string, EventListener][] = [
       ['keydown', handleKeyDown as EventListener],
+      ['mouseup', handleGlobalMouseUp as EventListener],
     ];
     
     // Add event listeners
@@ -221,8 +266,15 @@ const Board: Component = () => {
     const pos = position();
     if (!pos) return;
     
-    const [worldX, worldY] = gridToWorld(index, pos);
+    const [worldX, worldY] = gridToWorld(index, [0, 0]);
     
+    // If we're dragging a base point, handle the drop
+    if (isDragging() && pickedUpBasePoint()) {
+      handleBasePointPlacement([worldX, worldY]);
+      return;
+    }
+    
+    // Otherwise, handle adding a new base point
     setIsSaving(true);
     
     try {
@@ -232,7 +284,6 @@ const Board: Component = () => {
         currentUser,
         setIsSaving,
         setBasePoints: (value: BasePoint[] | ((prev: BasePoint[]) => BasePoint[])) => {
-          // This will trigger a re-fetch of base points through the effect
           handleFetchBasePoints();
           return value;
         },
@@ -240,7 +291,7 @@ const Board: Component = () => {
       });
       
       if (result.success) {
-        setRestrictedSquares(calculateRestrictedSquares(gridToWorld(index, pos), getRestrictedSquares(), pos));
+        setRestrictedSquares(calculateRestrictedSquares([worldX, worldY], getRestrictedSquares(), pos));
       } else if (result.error) {
         setError(result.error);
       }
@@ -262,27 +313,35 @@ const Board: Component = () => {
         }}
       >
         {Array.from({ length: BOARD_CONFIG.GRID_SIZE * BOARD_CONFIG.GRID_SIZE }).map((_, index) => {
-          const [x, y] = gridToWorld(index, [0, 0]); // No offset needed
+          const [x, y] = [index % BOARD_CONFIG.GRID_SIZE, Math.floor(index / BOARD_CONFIG.GRID_SIZE)];
           const isBP = isBasePoint(x, y, basePoints());
           const isSelected = getRestrictedSquares().includes(index);
           
           const cellState = {
             isBasePoint: isBP,
             isSelected,
-            isHovered: hoveredSquare() === index,
+            isHovered: hoveredSquare() === index || (hoveredCell() && hoveredCell()![0] === x && hoveredCell()![1] === y),
             isSaving: isSaving()
           };
 
           return (
             <GridCell
+              x={x}
+              y={y}
               state={cellState}
-              onHover={(hovered: boolean) => {
+              isDragging={isDragging()}
+              pickedUpBasePoint={pickedUpBasePoint()}
+              onHover={(hovered) => {
                 if (hovered) {
                   handleSquareHover(index);
-                } else {
+                  setHoveredCell([x, y]);
+                } else if (hoveredCell()?.[0] === x && hoveredCell()?.[1] === y) {
                   handleSquareHover(null);
+                  setHoveredCell(null);
                 }
               }}
+              onBasePointPickup={handleBasePointPickup}
+              onBasePointPlacement={handleBasePointPlacement}
               onClick={() => {
                 handleSquareClick(index)
                   .catch(err => {
