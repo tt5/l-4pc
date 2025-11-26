@@ -1,5 +1,6 @@
 import { type Component, JSX } from 'solid-js';
 import styles from './Board.module.css';
+import type { BasePoint } from '../../types/board';
 
 type Point = [number, number];
 
@@ -20,6 +21,7 @@ interface GridCellProps {
   onClick: () => void;
   onBasePointPickup: (point: Point) => void;
   onBasePointPlacement: (point: Point) => void;
+  setBasePoints: (updater: (prev: BasePoint[]) => BasePoint[]) => void;
 }
 
 export const GridCell: Component<GridCellProps> = (props) => {

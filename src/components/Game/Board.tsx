@@ -229,13 +229,14 @@ const Board: Component = () => {
     }
 
     // Update the base point's position
-    const updatedPoints = basePoints().map(bp => 
-      bp.x === basePoint[0] && bp.y === basePoint[1] 
-        ? { ...bp, x: targetX, y: targetY } 
-        : bp
+    setBasePoints(prevPoints => 
+      prevPoints.map(bp => 
+        bp.x === basePoint[0] && bp.y === basePoint[1]
+          ? { ...bp, x: targetX, y: targetY }
+          : bp
+      )
     );
     
-    setBasePoints(updatedPoints);
     setPickedUpBasePoint(null);
     setIsDragging(false);
     setHoveredCell(null);
@@ -343,6 +344,7 @@ const Board: Component = () => {
               }}
               onBasePointPickup={handleBasePointPickup}
               onBasePointPlacement={handleBasePointPlacement}
+              setBasePoints={setBasePoints}
               onClick={() => {
                 handleSquareClick(index)
                   .catch(err => {

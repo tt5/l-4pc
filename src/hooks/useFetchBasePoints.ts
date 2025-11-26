@@ -34,5 +34,6 @@ export function useFetchBasePoints({ user, currentPosition }: UseFetchBasePoints
     error,
     fetchBasePoints,
     lastFetchTime,
+    setBasePoints, // Expose setBasePoints
   };
 }
