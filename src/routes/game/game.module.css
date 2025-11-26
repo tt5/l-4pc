@@ -1,0 +1,82 @@
+@import '../../styles/variables.css';
+
+.container {
+  --spacing: 1rem;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+.gameContainer {
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  height: calc(100vh - 0px);
+  overflow: hidden;
+}
+
+.sidePanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing);
+  overflow-y: auto;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-bg-light);
+}
+
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-light);
+}
+
+.tab {
+  flex: 1;
+  text-align: center;
+  cursor: pointer;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text);
+  transition: background-color 0.2s ease;
+}
+
+.tab:hover {
+  background: var(--color-bg);
+}
+
+.tab.active {
+  color: var(--color-primary);
+  font-weight: 500;
+  background: var(--color-bg);
+  border-bottom: 2px solid var(--color-primary);
+}
+
+.tabContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing);
+  overflow-y: auto;
+  background: var(--color-bg);
+}
+
+.gameBoard {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: var(--spacing);
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--color-bg);
+}
+
+.loadingContainer,
+.loginContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  text-align: center;
+}

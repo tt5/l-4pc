@@ -1,0 +1,123 @@
+@import '../../styles/variables.css';
+
+.loginContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--spacing-lg);
+  background-color: var(--color-background);
+}
+
+.loginForm {
+  width: 100%;
+  max-width: 400px;
+  padding: var(--spacing-xxl);
+  text-align: center;
+  background: var(--color-background-card);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.loginForm h2 {
+  margin: 0 0 var(--spacing-xl) 0;
+  color: var(--color-text);
+  font-size: var(--font-size-xxl);
+}
+
+.loginForm label {
+  display: block;
+  margin-bottom: var(--spacing-xs);
+  color: var(--color-text);
+  font-weight: 500;
+  font-size: var(--font-size-sm);
+  text-align: left;
+}
+
+.loginForm input {
+  width: 100%;
+  margin-bottom: var(--spacing-md);
+  padding: var(--spacing-md);
+  color: var(--color-text);
+  font-size: var(--font-size-md);
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  transition: var(--transition-default);
+}
+
+.loginForm input:focus {
+  border-color: var(--color-primary);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-primary-light);
+}
+
+.loginForm button {
+  width: 100%;
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-md);
+  color: var(--color-text-inverse);
+  font-weight: 500;
+  font-size: var(--font-size-md);
+  background-color: var(--color-primary);
+  border: none;
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  transition: var(--transition-default);
+}
+
+.loginForm button:hover {
+  background-color: var(--color-primary-dark);
+}
+
+.loginForm button:active {
+  transform: translateY(1px);
+}
+
+.loginForm button:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-primary-light);
+}
+
+.loginForm button:disabled,
+.buttonLoading {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.successMessage {
+  margin-bottom: var(--spacing-md);
+  padding: var(--spacing-md);
+  color: var(--color-success-dark);
+  font-size: var(--font-size-sm);
+  background-color: var(--color-success-light);
+  border-radius: var(--border-radius-sm);
+}
+
+.errorMessage {
+  margin-bottom: var(--spacing-md);
+  padding: var(--spacing-md);
+  color: var(--color-error-dark);
+  font-size: var(--font-size-sm);
+  background-color: var(--color-error-light);
+  border-radius: var(--border-radius-sm);
+}
+
+.footer {
+  margin-top: var(--spacing-xl);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+.link {
+  color: var(--color-primary);
+  font-weight: 500;
+  text-decoration: none;
+  transition: color var(--transition-default);
+}
+
+.link:hover {
+  color: var(--color-primary-dark);
+  text-decoration: underline;
+}

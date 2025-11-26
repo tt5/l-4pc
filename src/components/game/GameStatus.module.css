@@ -1,0 +1,151 @@
+@import '../../styles/variables.css';
+
+.gameStatus {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 10%);
+}
+
+.loading {
+  padding: 0.5rem;
+  color: #666;
+  font-style: italic;
+  text-align: center;
+}
+
+.errorMessage {
+  margin: 0.5rem 0;
+  padding: 0.75rem;
+  color: #721c24;
+  font-size: 0.9rem;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+}
+
+.successMessage {
+  margin: 0.5rem 0;
+  padding: 0.75rem;
+  color: #155724;
+  font-size: 0.9rem;
+  background-color: #d4edda;
+  border: 1px solid #c3e6cb;
+  border-radius: 4px;
+}
+
+.statusInfo {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.statusInfo.isLoading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.statusRow {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f1f1f1;
+}
+
+.statusRow:last-child {
+  margin-bottom: 0;
+  border-bottom: none;
+}
+
+.statusLabel {
+  color: #495057;
+  font-weight: 500;
+}
+
+.statusValue {
+  color: #212529;
+  font-weight: 500;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.joinButton,
+.leaveButton {
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.joinButton {
+  color: white;
+  background-color: #28a745;
+}
+
+.joinButton:hover {
+  background-color: #218838;
+}
+
+.joinButton:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+.leaveButton {
+  color: white;
+  background-color: #dc3545;
+}
+
+.leaveButton:hover {
+  background-color: #c82333;
+}
+
+.leaveButton:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+.statusValue.inProgress {
+  color: var(--color-warning);
+  font-weight: var(--font-weight-medium);
+}
+
+.statusValue.notStarted {
+  color: #6c757d;
+  font-style: italic;
+}
+
+.progressContainer {
+  width: 100%;
+  height: 1rem;
+  margin-top: 0.5rem;
+  overflow: hidden;
+  background-color: #e9ecef;
+  border-radius: 4px;
+}
+
+.progressBar {
+  height: 100%;
+  background-color: #28a745;
+  transition: width 0.3s ease-in-out;
+}
+
+.progressText {
+  margin-top: 0.25rem;
+  color: #6c757d;
+  font-size: 0.8rem;
+  text-align: right;
+}

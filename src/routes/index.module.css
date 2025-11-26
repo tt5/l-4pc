@@ -1,0 +1,83 @@
+@import '../styles/variables.css';
+
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  text-align: center;
+  background-color: var(--color-background);
+}
+
+.title {
+  margin-bottom: var(--spacing-xxl);
+  color: var(--color-text);
+  font-weight: 600;
+  font-size: var(--font-size-xxl);
+}
+
+.links {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  width: 100%;
+  max-width: 300px;
+}
+
+.link {
+  display: inline-block;
+  color: var(--color-text-inverse);
+  font-weight: 500;
+  font-size: var(--font-size-md);
+  text-align: center;
+  text-decoration: none;
+  background-color: var(--color-primary);
+  border: none;
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  transition: var(--transition-default);
+}
+
+.link:hover {
+  background-color: var(--color-primary-dark);
+  transform: translateY(-1px);
+}
+
+.link:active {
+  transform: translateY(0);
+}
+
+/* Specific styles for different links */
+.link[href*="login"] {
+  background-color: var(--color-primary);
+}
+
+.link[href*="register"] {
+  background-color: var(--color-secondary);
+}
+
+.link[href*="game"],
+.link[href*="admin"] {
+  color: var(--color-text);
+  background-color: var(--color-background-card);
+  border: 1px solid var(--color-border);
+}
+
+.link[href*="game"]:hover,
+.link[href*="admin"]:hover {
+  background-color: var(--color-background);
+}
+
+/* Responsive adjustments */
+@media (width >= 768px) {
+  .links {
+    flex-flow: row wrap;
+    justify-content: center;
+    max-width: 600px;
+  }
+  
+  .link {
+    min-width: 180px;
+  }
+}
