@@ -59,6 +59,12 @@ export const GridCell: Component<GridCellProps> = (props) => {
     return classes.join(' ');
   };
 
+  // Create class list with proper typing
+  const classList = {
+    [styles.draggable]: isBasePoint,
+    [styles['valid-drop']]: isHovered && isDraggingProp && pickedUpBasePoint !== null,
+  } as Record<string, boolean>;
+
   return (
     <button
       class={squareClass()}
@@ -67,10 +73,7 @@ export const GridCell: Component<GridCellProps> = (props) => {
       onMouseUp={handleMouseUp}
       onMouseLeave={() => props.onHover(false)}
       onClick={props.onClick}
-      classList={{
-        [styles.draggable]: isBasePoint,
-        [styles['valid-drop']]: isHovered && isDraggingProp && pickedUpBasePoint,
-      }}
+      classList={classList}
     >
       {isBasePoint && <div class={styles.basePoint} />}
       {isBasePoint ? (

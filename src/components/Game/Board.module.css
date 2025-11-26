@@ -261,9 +261,6 @@
 .square:hover .emptyMarker {
   opacity: 0.8;
 }
-  border: 2px solid #00897b;
-  box-shadow: 0 0 0 1px rgb(0 137 123 / 30%);
-}
 
 /* Base points on restricted squares */
 .square.restricted.basePoint {
@@ -359,7 +356,11 @@
 }
 
 .logoutButton {
-  composes: button;
+  padding: var(--spacing-xs) var(--spacing-md);
+  border: none;
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  transition: background-color var(--transition-normal);
   color: white;
   background: var(--color-error);
 }
@@ -374,12 +375,15 @@
 }
 
 .directionButton {
-  composes: button;
+  padding: var(--spacing-xs) var(--spacing-md);
+  border: none;
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-normal);
   min-width: 80px;
   color: white;
   font-weight: bold;
   background: var(--color-primary);
-  transition: all var(--transition-normal);
 }
 
 .directionButton:hover { background: var(--color-primary-dark); }

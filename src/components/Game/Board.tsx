@@ -316,11 +316,11 @@ const Board: Component = () => {
           const [x, y] = [index % BOARD_CONFIG.GRID_SIZE, Math.floor(index / BOARD_CONFIG.GRID_SIZE)];
           const isBP = isBasePoint(x, y, basePoints());
           const isSelected = getRestrictedSquares().includes(index);
-          
+          // Update the cell state to include the new hover state
           const cellState = {
             isBasePoint: isBP,
             isSelected,
-            isHovered: hoveredSquare() === index || (hoveredCell() && hoveredCell()![0] === x && hoveredCell()![1] === y),
+            isHovered: !!(hoveredSquare() === index || (hoveredCell() && hoveredCell()![0] === x && hoveredCell()![1] === y)),
             isSaving: isSaving()
           };
 

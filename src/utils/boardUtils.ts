@@ -207,7 +207,7 @@ export const handleDirection = async (
   const isRecentMove = timeSinceLastMove < 5000; // 5 seconds
   
   if (isMoving() || (isRecentMove && timeSinceLastMove < MOVE_COOLDOWN_MS)) {
-    return;
+    return Promise.resolve(currentPosition());
   }
   
   lastMoveTime = now;
@@ -239,7 +239,7 @@ export const handleDirection = async (
     // Only update position if skipPositionUpdate is not true
     if (!options.skipPositionUpdate) {
       // Process square movement before updating position
-      const newIndices = [0,1];
+      const newIndices: number[] = [0, 1];
 
       // Batch the position and restricted squares updates together
       batch(() => {
@@ -294,9 +294,11 @@ export const handleDirection = async (
       throw new Error(`Invalid API response format: ${JSON.stringify(result)}`);
     }
     
-    // Check for duplicate indices between newIndices and result.data.squares
-    const currentIndices = newIndices;
-    const duplicates = currentIndices.filter(index => result.data.squares.includes(index));
+    // Get the current restricted squares and check for duplicates
+    const currentIndices: number[] = []; // Initialize with empty array as fallback
+    const duplicates = currentIndices.filter((index: number) => 
+      result.data.squares.includes(index)
+    );
     if (duplicates.length > 0) {
       throw new Error(`Duplicate restricted squares found: ${duplicates.join(', ')}`);
     }
