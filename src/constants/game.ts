@@ -2,6 +2,7 @@ import { createPoint } from '../types/board';
 
 export const BOARD_CONFIG = {
   GRID_SIZE: 14, // 14x14 grid
+  WORLD_SIZE: 14, // World size matches grid size
   DEFAULT_POSITION: createPoint(0, 0),
   BUTTONS: [
     { label: 'Random', className: 'randomButton' },

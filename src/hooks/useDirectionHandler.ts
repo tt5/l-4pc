@@ -9,6 +9,10 @@ type UseDirectionHandlerProps = {
   setRestrictedSquares: (value: number[] | ((prev: number[]) => number[])) => void;
 };
 
+type HandleDirectionOptions = {
+  skipPositionUpdate?: boolean;
+};
+
 export function useDirectionHandler({
   position,
   setPosition,
@@ -17,18 +21,21 @@ export function useDirectionHandler({
 }: UseDirectionHandlerProps) {
   const [isMoving, setIsMoving] = createSignal(false);
 
-  const handleDirection = async (dir: Direction) => {
-    if (isMoving()) return;
+  const handleDirection = async (dir: Direction, options: HandleDirectionOptions = {}) => {
+    if (isMoving() && !options.skipPositionUpdate) return;
 
     try {
-      await handleDirectionUtil(dir, {
+      const newPosition = await handleDirectionUtil(dir, {
         isMoving,
         currentPosition: () => position() || [0, 0],
         setCurrentPosition: (value: Point) => (setPosition(value), value),
         restrictedSquares: getRestrictedSquares,
         setRestrictedSquares,
         setIsMoving,
+        skipPositionUpdate: options.skipPositionUpdate
       });
+      
+      return newPosition;
     } catch (error) {
       console.error('Error handling direction:', error);
       setIsMoving(false);

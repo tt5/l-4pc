@@ -29,7 +29,7 @@ async function fetchRestrictedSquares(position: Point): Promise<number[] | null>
       body: JSON.stringify({
         borderIndices,
         currentPosition: position,
-        direction: 'up' // Direction is required but not used for calculation
+        destination: [position[0], position[1] - 1] // Calculate a point 1 unit above current position
       }),
     });
 

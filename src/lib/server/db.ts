@@ -4,7 +4,6 @@ import { promises as fs } from 'fs';
 import { dirname } from 'path';
 import { assertServer } from './utils';
 import { BasePointRepository } from './repositories/base-point.repository';
-import { MapTileRepository } from './repositories/map-tile.repository';
 
 export type SqliteDatabase = Database<sqlite3.Database, sqlite3.Statement>;
 
@@ -20,7 +19,6 @@ const dbPath = join(dbDir, 'app.db');
 // Initialize database
 let db: SqliteDatabase;
 let basePointRepo: BasePointRepository | null = null;
-let mapTileRepo: MapTileRepository | null = null;
 
 async function getDb(): Promise<SqliteDatabase> {
   assertServer();
@@ -109,14 +107,6 @@ async function getBasePointRepository(): Promise<BasePointRepository> {
   return basePointRepo;
 }
 
-async function getMapTileRepository(): Promise<MapTileRepository> {
-  if (!mapTileRepo) {
-    const db = await getDb();
-    mapTileRepo = new MapTileRepository(db);
-  }
-  return mapTileRepo;
-}
-
 // Initialize repositories when the database is ready
 async function initializeRepositories() {
   if (!db) await getDb();
@@ -153,9 +143,6 @@ async function initializeRepositories() {
   // Initialize basePointRepo and mapTileRepo if not already done
   if (!basePointRepo) {
     basePointRepo = new BasePointRepository(db);
-  }
-  if (!mapTileRepo) {
-    mapTileRepo = new MapTileRepository(db);
   }
 }
 
@@ -284,7 +271,6 @@ export {
   getDb,
   ensureUserTable,
   getBasePointRepository,
-  getMapTileRepository,
   initializeRepositories,
   runMigrations
 };

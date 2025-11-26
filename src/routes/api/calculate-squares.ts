@@ -5,20 +5,21 @@ import { createErrorResponse, generateRequestId } from '~/utils/api';
 import { BOARD_CONFIG } from '~/constants/game';
 import { performanceTracker } from '~/utils/performance';
 
+type Point = [number, number];
+
 type CalculateSquaresRequest = {
   borderIndices: number[];
-  currentPosition: [number, number];
-  direction: 'up' | 'down' | 'left' | 'right';
+  currentPosition: Point;
+  destination: Point;
 };
 
-// The directionMap is kept for potential future use with direction-based calculations
-// Currently, direction is only used to determine which border to calculate
-const directionMap = {
-  'up': [0, 0],
-  'down': [0, 0],
-  'right': [0, 0],
-  'left': [0, 0]
-} as const;
+// Calculate direction vector from current position to destination
+function getDirectionVector(current: Point, destination: Point): Point {
+  // Calculate the difference between destination and current position
+  const dx = Math.sign(destination[0] - current[0]);
+  const dy = Math.sign(destination[1] - current[1]);
+  return [dx, dy];
+}
 
 export const POST = withAuth(async ({ request, user }) => {
   const requestId = generateRequestId();
@@ -26,7 +27,37 @@ export const POST = withAuth(async ({ request, user }) => {
   const startTime = performance.now();
   
   try {
-    const { borderIndices, currentPosition, direction } = await request.json() as CalculateSquaresRequest;
+    let requestBody;
+    try {
+      requestBody = await request.json();
+    } catch (e) {
+      throw new Error('Invalid JSON in request body');
+    }
+    
+    if (!requestBody || typeof requestBody !== 'object') {
+      throw new Error('Request body must be a JSON object');
+    }
+    
+    const { borderIndices, currentPosition, destination } = requestBody as CalculateSquaresRequest;
+    
+    // Validate required fields
+    if (!Array.isArray(borderIndices)) {
+      throw new Error('borderIndices must be an array of numbers');
+    }
+    
+    const validatePoint = (point: unknown, name: string): point is Point => {
+      if (!Array.isArray(point) || point.length !== 2 || 
+          typeof point[0] !== 'number' || typeof point[1] !== 'number') {
+        throw new Error(`${name} must be a tuple of two numbers [x, y]`);
+      }
+      return true;
+    };
+    
+    validatePoint(currentPosition, 'currentPosition');
+    validatePoint(destination, 'destination');
+    
+    // Calculate direction vector
+    const [dx, dy] = getDirectionVector(currentPosition, destination);
     
     // Track request start
     const dbStartTime = performance.now();
@@ -45,7 +76,6 @@ export const POST = withAuth(async ({ request, user }) => {
       ? [...new Map(basePoints.map(p => [`${p.x},${p.y}`, p])).values()]
       : [{ x: 0, y: 0, userId: 'default' }];
     
-    const [dx, dy] = directionMap[direction];
     const newSquares = borderIndices.flatMap((i, index) => {
       const x = (i % BOARD_CONFIG.GRID_SIZE) - currentPosition[0];
       const y = Math.floor(i / BOARD_CONFIG.GRID_SIZE) - currentPosition[1];
@@ -106,6 +136,7 @@ export const POST = withAuth(async ({ request, user }) => {
   } catch (error) {
     console.error(`[${requestId}] Error in calculate-squares:`, error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return createErrorResponse('Failed to calculate squares', 500, errorMessage, { requestId });
+    const statusCode = error.message.includes('must be') ? 400 : 500; // 400 for validation errors
+    return createErrorResponse('Failed to calculate squares', statusCode, errorMessage, { requestId });
   }
 });

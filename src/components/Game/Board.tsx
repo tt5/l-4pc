@@ -74,29 +74,26 @@ const Board: Component = () => {
     document.documentElement.style.setProperty('--grid-size', BOARD_CONFIG.GRID_SIZE.toString());
     
     try {
-      // If we don't have a position yet, try to jump to the default position
+      // Set initial position to (0, 0) if not set
       if (!position()) {
-        const result = await jumpToPosition(
-          BOARD_CONFIG.DEFAULT_POSITION[0],
-          BOARD_CONFIG.DEFAULT_POSITION[1],
-          setContextPosition  // Pass the setPosition function
-        );
+        setContextPosition(createPoint(0, 0));
         
-        if (!result) {
-          throw new Error('Failed to jump to default position. The game cannot start without a valid position.');
-        } else {
-          const { restrictedSquares } = result;
-          setRestrictedSquares(restrictedSquares);
-        }
+        // Calculate initial restricted squares
+        const restricted = calculateRestrictedSquares(
+          [0, 0],
+          [],
+          [0, 0]
+        );
+        setRestrictedSquares(restricted);
       }
       
-      // Fetch base points with the current position
+      // Fetch base points
       await fetchBasePoints();
     } catch (error) {
       if (error instanceof Error) {
-        throw new Error(`Failed to initialize game: ${error.message}`);
+        console.error(`Failed to initialize game: ${error.message}`);
       } else {
-        throw new Error('Failed to initialize game: Unknown error occurred');
+        console.error('Failed to initialize game: Unknown error occurred');
       }
     }
   });
@@ -160,32 +157,43 @@ const Board: Component = () => {
     { defer: true }
   ));
 
-  // Effect to handle position changes and fetch base points
+  // Effect to handle user changes and fetch base points
   createEffect(() => {
-    const currentPos = position();
     const currentUser = user();
-    
-    // Skip if we don't have a position or user
-    if (!currentPos || !currentUser) return;
-    
-    // Use requestIdleCallback to batch the fetch with the position update
-    const id = requestIdleCallback(() => {
+    if (currentUser) {
       handleFetchBasePoints();
-    });
-    
-    return () => cancelIdleCallback(id);
+    }
   });
   // Event handler types
   type KeyboardHandler = (e: KeyboardEvent) => void;
   
-  // Handle keyboard events with boundary checking
+  // Handle keyboard events - only calculate direction without moving
   const handleKeyDown: KeyboardHandler = async (e) => {
-    
     e.preventDefault();
 
-    const direction = e.key;
-    
-    await handleDirection(direction);
+    // Map keyboard keys to direction strings
+    const keyToDirection: Record<string, Direction> = {
+      'ArrowUp': 'up',
+      'w': 'up',
+      'W': 'up',
+      'ArrowDown': 'down',
+      's': 'down',
+      'S': 'down',
+      'ArrowLeft': 'left',
+      'a': 'left',
+      'A': 'left',
+      'ArrowRight': 'right',
+      'd': 'right',
+      'D': 'right'
+    };
+
+    const direction = keyToDirection[e.key];
+    if (direction) {
+      // Only calculate direction without updating position
+      const newPosition = await handleDirection(direction, { skipPositionUpdate: true });
+      console.log('Direction:', direction, 'New position would be:', newPosition);
+      // You can use the newPosition for preview or other logic without updating the actual position
+    }
   };
   
   // Setup and cleanup event listeners
@@ -246,14 +254,16 @@ const Board: Component = () => {
   
   return (
     <div class={styles.board}>
-      <div class={styles.grid}>
+      <div 
+        class={styles.grid}
+        style={{
+          'grid-template-columns': `repeat(${BOARD_CONFIG.GRID_SIZE}, 1fr)`,
+          'grid-template-rows': `repeat(${BOARD_CONFIG.GRID_SIZE}, 1fr)`
+        }}
+      >
         {Array.from({ length: BOARD_CONFIG.GRID_SIZE * BOARD_CONFIG.GRID_SIZE }).map((_, index) => {
-
-          const pos = currentPos();
-          if (!pos) return null; // Skip rendering if position is not yet set
-          const [worldX, worldY] = gridToWorld(index, pos);
-          const isBP = isBasePoint(worldX, worldY, basePoints());
-
+          const [x, y] = gridToWorld(index, [0, 0]); // No offset needed
+          const isBP = isBasePoint(x, y, basePoints());
           const isSelected = getRestrictedSquares().includes(index);
           
           const cellState = {

@@ -172,13 +172,14 @@ type FetchBasePointsOptions = {
   setIsFetching: (value: boolean | ((prev: boolean) => boolean)) => void;
 }
 
-export type HandleDirectionOptions = {
+export interface HandleDirectionOptions {
   isMoving: Accessor<boolean>;
   currentPosition: Accessor<Point>;
   setCurrentPosition: (value: Point) => void;
   restrictedSquares: Accessor<number[]>;
   setRestrictedSquares: ((value: number[]) => void) & ((updater: (prev: number[]) => number[]) => void);
   setIsMoving: (value: boolean | ((prev: boolean) => boolean)) => void;
+  skipPositionUpdate?: boolean;
 };
 
 // Track the last movement time to prevent rapid successive movements
@@ -188,7 +189,7 @@ const MOVE_COOLDOWN_MS = 50; // Minimum time between movements in milliseconds
 export const handleDirection = async (
   dir: Direction,
   options: HandleDirectionOptions
-): Promise<void> => {
+): Promise<Point> => {
   const {
     isMoving,
     currentPosition,
@@ -214,36 +215,73 @@ export const handleDirection = async (
   
   try {
     const [x, y] = currentPosition();
-    // opposite direction
-    const newX = x;
-    const newY = y;
+    let newX = x;
+    let newY = y;
+    
+    // Update position based on direction
+    switch (dir) {
+      case 'up':
+        newY -= 1;
+        break;
+      case 'down':
+        newY += 1;
+        break;
+      case 'left':
+        newX -= 1;
+        break;
+      case 'right':
+        newX += 1;
+        break;
+    }
     
     const newPosition = createPoint(newX, newY);
     
-    // Process square movement before updating position
-    const newIndices = [0,1];
+    // Only update position if skipPositionUpdate is not true
+    if (!options.skipPositionUpdate) {
+      // Process square movement before updating position
+      const newIndices = [0,1];
 
-    // Batch the position and restricted squares updates together
-    batch(() => {
-      
-      // Update position
-      setCurrentPosition(newPosition);
-      
-      // Set temporary restricted squares to prevent flicker
-      setRestrictedSquares(prev => [...newIndices]);
-    });
+      // Batch the position and restricted squares updates together
+      batch(() => {
+        // Update position
+        setCurrentPosition(newPosition);
+        
+        // Set temporary restricted squares to prevent flicker
+        setRestrictedSquares(prev => [...newIndices]);
+      });
+    }
+    
+    // Return the calculated position without updating the state
+    return newPosition;
     
     // Get the border indices for the opposite direction using directionUtils
     const borderSquares = [0,1];
 
     // Fetch new border indices from calculate-squares
+    // Calculate destination based on direction
+    let destination: Point = [...newPosition];
+    switch (dir) {
+      case 'up':
+        destination[1] -= 1;
+        break;
+      case 'down':
+        destination[1] += 1;
+        break;
+      case 'left':
+        destination[0] -= 1;
+        break;
+      case 'right':
+        destination[0] += 1;
+        break;
+    }
+
     const response = await fetch('/api/calculate-squares', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         borderIndices: borderSquares,
         currentPosition: newPosition,
-        direction: dir
+        destination: destination
       })
     });
     
@@ -291,39 +329,33 @@ export const pointsToIndices = (points: Point[]): number[] =>
   points.map(([x, y]) => y * BOARD_CONFIG.GRID_SIZE + x);
 
 /**
- * Converts grid coordinates to world coordinates using the current position offset
+ * Converts between grid coordinates and world coordinates (which are the same in this implementation)
  * @overload Converts a grid index to world coordinates
  * @param index The grid index to convert
- * @param offset The current position offset
- * @returns [worldX, worldY] in world coordinates
+ * @returns [worldX, worldY] in world coordinates (same as grid coordinates)
  * 
  * @overload Converts grid coordinates to world coordinates
- * @param gridX X coordinate in grid space
- * @param gridY Y coordinate in grid space
- * @param offsetX X offset from current position
- * @param offsetY Y offset from current position
- * @returns [worldX, worldY] in world coordinates
+ * @param x X coordinate in grid space
+ * @param y Y coordinate in grid space
+ * @returns [worldX, worldY] in world coordinates (same as grid coordinates)
  */
-export function gridToWorld(index: number, offset: Point): Point;
-export function gridToWorld(gridX: number, gridY: number, offsetX: number, offsetY: number): Point;
+export function gridToWorld(index: number, _offset?: Point): Point;
+export function gridToWorld(x: number, y: number, _offsetX?: number, _offsetY?: number): Point;
 export function gridToWorld(
   first: number | Point,
-  second: number | Point,
-  offsetX?: number,
-  offsetY?: number
+  second?: number | Point,
+  _offsetX?: number,
+  _offsetY?: number
 ): Point {
-  // Handle the index + offset point overload
-  if (typeof second !== 'number') {
+  // Handle the index overload
+  if (typeof second === 'undefined' || Array.isArray(second)) {
     const index = first as number;
-    const [offsetX, offsetY] = second;
-    const [gridX, gridY] = indicesToPoints([index])[0];
-    return createPoint(gridX - offsetX, gridY - offsetY);
+    const gridSize = BOARD_CONFIG.GRID_SIZE;
+    return createPoint(index % gridSize, Math.floor(index / gridSize));
   }
   
-  // Handle the gridX, gridY, offsetX, offsetY overload
-  const gridX = first as number;
-  const gridY = second as number;
-  return createPoint(gridX - offsetX!, gridY - offsetY!);
+  // Handle the x, y coordinates overload
+  return createPoint(first as number, second as number);
 }
 
 /**
