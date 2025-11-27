@@ -1,8 +1,7 @@
-import { createSignal, createEffect, onMount, Show } from 'solid-js';
+import { createSignal } from 'solid-js';
 import styles from './GameStatus.module.css';
 import { useUser } from '../../contexts/UserContext';
 import { usePlayerPosition } from '../../contexts/PlayerPositionContext';
-import { useNavigation } from '../../lib/utils/navigation';
 
 // Component state type
 interface GameStatusState {
@@ -19,8 +18,7 @@ export function GameStatus() {
   });
   
   const userContext = useUser();
-  const { jumpToPosition } = useNavigation();
-  const { setPosition, setRestrictedSquares } = usePlayerPosition();
+  const { setRestrictedSquares } = usePlayerPosition();
   
   // Show message or error state
   return (
