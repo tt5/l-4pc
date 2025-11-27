@@ -67,14 +67,25 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
     
     console.log(`[API] Updated base point ${basePointId} to (${data.x}, ${data.y})`);
     
-    // Emit update event
+    // Emit update event with proper data structure for SSE
+    const updateEvent = {
+      type: 'basePoint:updated',
+      point: {
+        id: updatedPoint.id,
+        x: updatedPoint.x,
+        y: updatedPoint.y,
+        userId: updatedPoint.userId,
+        createdAtMs: updatedPoint.createdAtMs || Date.now()
+      }
+    };
+    
+    // Emit through both the event service and broadcast to SSE
     basePointEventService.emitUpdated(updatedPoint);
+    basePointEventService.broadcast('message', updateEvent);
     
     return createApiResponse({ 
       success: true,
-      data: {
-        basePoint: updatedPoint
-      }
+      data: updatedPoint
     }, { requestId });
     
   } catch (error) {

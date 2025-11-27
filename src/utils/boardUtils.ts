@@ -435,8 +435,11 @@ export const updateBasePoint = async (id: number, x: number, y: number): Promise
       };
     }
 
+    // Log the full response for debugging
+    console.log('[updateBasePoint] Full response:', JSON.stringify(responseData, null, 2));
+    
     // Check if the response has the expected structure
-    if (!responseData.success || !responseData.data?.basePoint) {
+    if (!responseData.success || !responseData.data) {
       console.error('[updateBasePoint] Invalid response format:', responseData);
       return {
         success: false,
@@ -445,7 +448,30 @@ export const updateBasePoint = async (id: number, x: number, y: number): Promise
       };
     }
 
-    const basePoint = responseData.data.basePoint;
+    // Handle nested response structure: response.data.data or response.data
+    const responseDataObj = responseData.data;
+    let basePoint = responseDataObj;
+    
+    // If the data is nested inside another data property
+    if (responseDataObj.data) {
+      basePoint = responseDataObj.data;
+    }
+    
+    // If we still don't have a valid base point, try to get it from a basePoint property
+    if ((!basePoint.x || !basePoint.y) && responseDataObj.basePoint) {
+      basePoint = responseDataObj.basePoint;
+    }
+    
+    if (!basePoint || typeof basePoint.x !== 'number' || typeof basePoint.y !== 'number') {
+      console.error('[updateBasePoint] Invalid base point data:', basePoint);
+      console.error('[updateBasePoint] Response data structure:', responseDataObj);
+      return {
+        success: false,
+        error: 'Invalid base point data in response',
+        timestamp: Date.now()
+      };
+    }
+    
     console.log(`[updateBasePoint] Successfully updated base point ${id} to (${basePoint.x}, ${basePoint.y})`);
     
     return {

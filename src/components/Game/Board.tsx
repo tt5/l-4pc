@@ -14,6 +14,7 @@ import { usePlayerPosition } from '../../contexts/PlayerPositionContext';
 import { jumpToPosition } from '../../lib/utils/navigation';
 import { useFetchBasePoints } from '../../hooks/useFetchBasePoints';
 import { useDirectionHandler } from '../../hooks/useDirectionHandler';
+import { useSSE } from '../../hooks/useSSE';
 import { 
   type Direction, 
   type Point, 
@@ -169,45 +170,37 @@ const Board: Component = () => {
       handleFetchBasePoints();
     }
   });
-  // Set up WebSocket event listeners for real-time updates
-  onMount(() => {
-    console.log('[Board] Setting up WebSocket event listeners');
+  // Set up SSE for real-time updates
+  useSSE('/api/sse', (message) => {
+    console.log('[SSE] Received message:', message);
     
-    // Handle base point updates
-    const handleBasePointUpdated = (updatedPoint: BasePoint) => {
-      console.log('[Board] Received basePoint:updated event:', updatedPoint);
+    // The point data might be in message.point or message.basePoint or the message itself
+    const point = message.point || message.basePoint || message;
+    
+    if (point && point.id) {
+      console.log('[SSE] Processing base point update for ID:', point.id, 'with data:', point);
       
       setBasePoints(prev => {
-        const index = prev.findIndex(bp => bp.id === updatedPoint.id);
+        const index = prev.findIndex(bp => bp.id === point.id);
         
         if (index !== -1) {
           // Create a new array with the updated base point
           const newBasePoints = [...prev];
           newBasePoints[index] = {
             ...newBasePoints[index],
-            ...updatedPoint
+            ...point
           };
-          console.log('[Board] Updated base points array:', newBasePoints);
+          console.log('[SSE] Updated base points array:', newBasePoints);
           return newBasePoints;
         }
         
         // If the base point wasn't found, log a warning and return the previous state
-        console.warn('[Board] Received update for unknown base point:', updatedPoint);
+        console.warn('[SSE] Received update for unknown base point:', point);
         return prev;
       });
-    };
-
-    // Subscribe to the update event
-    basePointEventService.on('updated', handleBasePointUpdated);
-    
-    // Log when the event listener is added
-    console.log('[Board] Added WebSocket event listener for base point updates');
-
-    // Clean up the event listener when the component unmounts
-    return () => {
-      console.log('[Board] Cleaning up WebSocket event listeners');
-      basePointEventService.off('updated', handleBasePointUpdated);
-    };
+    } else {
+      console.warn('[SSE] Received invalid point data in message:', message);
+    }
   });
 
   // Event handler types

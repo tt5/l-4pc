@@ -171,16 +171,18 @@ export class BasePointEventService {
    * @param point - The updated base point
    */
   public emitUpdated(point: BasePoint): void {
+    // Emit the event to local listeners
     this.eventEmitter.emit('updated', point);
-    this.broadcast('updated', {
-      type: 'basePointChanged',
-      event: 'updated',
+    
+    // Broadcast to all connected clients
+    this.broadcast('basePoint:updated', {
+      type: 'basePoint:updated',
       point: {
         id: point.id,
         x: point.x,
         y: point.y,
         userId: point.userId,
-        timestamp: point.createdAtMs || Date.now()
+        createdAtMs: point.createdAtMs || Date.now()
       }
     });
   }

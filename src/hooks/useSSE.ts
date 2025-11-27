@@ -20,7 +20,9 @@ type SSEMessage = {
   [key: string]: any;
 };
 
-export const useSSE = (url: string) => {
+type BasePointUpdateHandler = (point: any) => void;
+
+export const useSSE = (url: string, onBasePointUpdated?: BasePointUpdateHandler) => {
   // State
   const [totalBasePoints, setTotalBasePoints] = createSignal<number | null>(null);
   const [oldestPrimeTimestamp, setOldestPrimeTimestamp] = createSignal<number | null>(null);
@@ -60,6 +62,7 @@ export const useSSE = (url: string) => {
   };
 
   const handleMessage = (message: SSEMessage) => {
+    console.log('[SSE] handleMessage called with:', message);
     try {
       switch (message.type) {
         case 'basePoint:created':
@@ -77,7 +80,15 @@ export const useSSE = (url: string) => {
           break;
           
         case 'basePoint:updated':
-          // Handle base point updates if needed
+          console.log('[SSE] Processing basePoint:updated:', message);
+          if (onBasePointUpdated) {
+            // Use the point property if it exists, otherwise use the message itself
+            const pointData = message.point || message.basePoint || message;
+            console.log('[SSE] Calling onBasePointUpdated with point:', pointData);
+            onBasePointUpdated(pointData);
+          } else {
+            console.warn('[SSE] No onBasePointUpdated handler registered');
+          }
           break;
           
         case 'init':
@@ -183,8 +194,20 @@ export const useSSE = (url: string) => {
 
       eventSource.addEventListener('basePoint:updated', (e: MessageEvent) => {
         try {
+          console.log('[SSE] Received basePoint:updated raw event:', e);
           const data = JSON.parse(e.data);
-          handleMessage({ type: 'basePoint:updated', ...data });
+          console.log('[SSE] Parsed basePoint:updated data:', data);
+          
+          // Extract the point data from the basePoint property if it exists
+          const pointData = data.basePoint || data;
+          const message = { 
+            type: 'basePoint:updated', 
+            point: pointData,
+            ...data 
+          };
+          
+          console.log('[SSE] Dispatching to handleMessage:', message);
+          handleMessage(message);
         } catch (err) {
           console.error('Error handling basePoint:updated event:', err);
         }
