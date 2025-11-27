@@ -189,10 +189,25 @@ export class BasePointRepository {
    * Creates a new base point with a specific timestamp
    */
   async getById(id: number): Promise<BasePoint | null> {
-    return this.db.get<BasePoint>(
+    const result = await this.db.get<BasePoint>(
       'SELECT id, user_id as userId, x, y, game_created_at_ms as createdAtMs FROM base_points WHERE id = ?',
       [id]
-    ) || null;
+    );
+    return result ? result : null;
+  }
+
+  /**
+   * Finds a base point by its coordinates
+   * @param x The x-coordinate
+   * @param y The y-coordinate
+   * @returns The base point if found, null otherwise
+   */
+  async findByCoordinates(x: number, y: number): Promise<BasePoint | null> {
+    const result = await this.db.get<BasePoint>(
+      'SELECT id, user_id as userId, x, y, game_created_at_ms as createdAtMs FROM base_points WHERE x = ? AND y = ?',
+      [x, y]
+    );
+    return result ? result : null;
   }
 
   async update(id: number, x: number, y: number): Promise<BasePoint | null> {

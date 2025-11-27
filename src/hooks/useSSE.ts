@@ -110,6 +110,22 @@ export const useSSE = (url: string) => {
     }
   };
 
+  const attemptReconnect = () => {
+    if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+      const delay = INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttemptsRef.current);
+      reconnectAttemptsRef.current++;
+      console.log(`[SSE] Attempting to reconnect in ${delay}ms (attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})`);
+      
+      reconnectTimeoutRef.current = setTimeout(() => {
+        if (isMountedRef.current) {
+          connect();
+        }
+      }, delay);
+    } else {
+      console.error('[SSE] Max reconnection attempts reached');
+    }
+  };
+
   const connect = () => {
     if (!isMountedRef.current) return;
 
@@ -118,71 +134,85 @@ export const useSSE = (url: string) => {
     setError(null);
     
     try {
-      eventSourceRef.current = new EventSource(url);
+      console.log(`[SSE] Attempting to connect to ${url}`);
+      eventSourceRef.current = new EventSource(url, { withCredentials: true });
       const eventSource = eventSourceRef.current;
 
       // Connection timeout
       connectionTimeoutRef.current = setTimeout(() => {
         if (!isConnected() && eventSourceRef.current) {
+          console.error('[SSE] Connection timeout');
           eventSourceRef.current.close();
           eventSourceRef.current = null;
           setError(new Error('Connection timeout'));
-          
-          // Attempt to reconnect
-          if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
-            const delay = INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttemptsRef.current);
-            reconnectAttemptsRef.current++;
-            
-            reconnectTimeoutRef.current = setTimeout(() => {
-              if (isMountedRef.current) {
-                connect();
-              }
-            }, delay);
-          }
+          attemptReconnect();
         }
       }, CONNECTION_TIMEOUT);
 
       eventSource.onopen = () => {
+        console.log('[SSE] Connection opened');
         if (connectionTimeoutRef.current) {
           clearTimeout(connectionTimeoutRef.current);
           connectionTimeoutRef.current = null;
         }
         setIsConnected(true);
         reconnectAttemptsRef.current = 0;
+        setError(null);
       };
 
       eventSource.onerror = (event: Event) => {
-        console.error('[SSE] Error:', event);
+        console.error('[SSE] Connection error:', event);
         if (!isMountedRef.current) return;
         
-        setError(new Error('SSE connection error'));
         setIsConnected(false);
+        setError(new Error('SSE connection error'));
         cleanup();
         
-        // Attempt to reconnect if we haven't exceeded max attempts
-        if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
-          const delay = INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttemptsRef.current);
-          reconnectAttemptsRef.current++;
-          
-          reconnectTimeoutRef.current = setTimeout(() => {
-            if (isMountedRef.current) {
-              connect();
-            }
-          }, delay);
-        }
+        attemptReconnect();
       };
 
+      // Handle custom events
+      eventSource.addEventListener('basePoint:created', (e: MessageEvent) => {
+        try {
+          const data = JSON.parse(e.data);
+          handleMessage({ type: 'basePoint:created', ...data });
+        } catch (err) {
+          console.error('Error handling basePoint:created event:', err);
+        }
+      });
+
+      eventSource.addEventListener('basePoint:updated', (e: MessageEvent) => {
+        try {
+          const data = JSON.parse(e.data);
+          handleMessage({ type: 'basePoint:updated', ...data });
+        } catch (err) {
+          console.error('Error handling basePoint:updated event:', err);
+        }
+      });
+
+      eventSource.addEventListener('basePoint:deleted', (e: MessageEvent) => {
+        try {
+          const data = JSON.parse(e.data);
+          handleMessage({ type: 'basePoint:deleted', ...data });
+        } catch (err) {
+          console.error('Error handling basePoint:deleted event:', err);
+        }
+      });
+
+      // Handle generic messages
       eventSource.onmessage = (event: MessageEvent) => {
         try {
-          const message: SSEMessage = JSON.parse(event.data);
+          const message = JSON.parse(event.data);
           handleMessage(message);
         } catch (err) {
           console.error('Error parsing SSE message:', err);
         }
       };
+
     } catch (err) {
       console.error('Error creating SSE connection:', err);
       setError(err instanceof Error ? err : new Error('Failed to create SSE connection'));
+      attemptReconnect();
     }
   };
 

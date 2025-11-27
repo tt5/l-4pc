@@ -379,8 +379,22 @@ type ValidateSquarePlacementOptions = {
 /**
  * Validates if a square can have a base point placed on it
  */
+/**
+ * Updates a base point's position in the database
+ * @param id The ID of the base point to update
+ * @param x The new x-coordinate
+ * @param y The new y-coordinate
+ * @returns A promise that resolves to the API response with the updated base point
+ */
 export const updateBasePoint = async (id: number, x: number, y: number): Promise<ApiResponse<BasePoint>> => {
   try {
+    console.log(`[updateBasePoint] Updating base point ${id} to (${x}, ${y})`);
+    
+    // Validate input
+    if (typeof x !== 'number' || typeof y !== 'number' || isNaN(x) || isNaN(y)) {
+      throw new Error('Invalid coordinates provided');
+    }
+
     const response = await fetch(`/api/base-points/${id}`, {
       method: 'PATCH',
       headers: {
@@ -391,13 +405,14 @@ export const updateBasePoint = async (id: number, x: number, y: number): Promise
       body: JSON.stringify({ x, y })
     });
 
+    // Handle non-JSON responses
     const responseText = await response.text();
     let responseData;
     
     try {
       responseData = responseText ? JSON.parse(responseText) : {};
     } catch (e) {
-      console.error('Failed to parse response:', responseText);
+      console.error('[updateBasePoint] Failed to parse response:', responseText);
       return {
         success: false,
         error: `Invalid server response: ${response.status} ${response.statusText}`,
@@ -405,7 +420,14 @@ export const updateBasePoint = async (id: number, x: number, y: number): Promise
       };
     }
 
+    // Handle non-OK responses
     if (!response.ok) {
+      console.error(`[updateBasePoint] Update failed:`, {
+        status: response.status,
+        statusText: response.statusText,
+        error: responseData.error
+      });
+      
       return {
         success: false,
         error: responseData.error || `Failed to update base point: ${response.status} ${response.statusText}`,
@@ -413,12 +435,26 @@ export const updateBasePoint = async (id: number, x: number, y: number): Promise
       };
     }
 
+    // Check if the response has the expected structure
+    if (!responseData.success || !responseData.data?.basePoint) {
+      console.error('[updateBasePoint] Invalid response format:', responseData);
+      return {
+        success: false,
+        error: 'Invalid response format from server',
+        timestamp: Date.now()
+      };
+    }
+
+    const basePoint = responseData.data.basePoint;
+    console.log(`[updateBasePoint] Successfully updated base point ${id} to (${basePoint.x}, ${basePoint.y})`);
+    
     return {
       success: true,
-      data: responseData.data?.basePoint || responseData.basePoint,
+      data: basePoint,
       timestamp: Date.now()
     };
   } catch (error) {
+    console.error('[updateBasePoint] Error updating base point:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to update base point',

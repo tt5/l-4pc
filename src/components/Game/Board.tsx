@@ -171,25 +171,41 @@ const Board: Component = () => {
   });
   // Set up WebSocket event listeners for real-time updates
   onMount(() => {
+    console.log('[Board] Setting up WebSocket event listeners');
+    
     // Handle base point updates
     const handleBasePointUpdated = (updatedPoint: BasePoint) => {
+      console.log('[Board] Received basePoint:updated event:', updatedPoint);
+      
       setBasePoints(prev => {
         const index = prev.findIndex(bp => bp.id === updatedPoint.id);
+        
         if (index !== -1) {
           // Create a new array with the updated base point
           const newBasePoints = [...prev];
-          newBasePoints[index] = updatedPoint;
+          newBasePoints[index] = {
+            ...newBasePoints[index],
+            ...updatedPoint
+          };
+          console.log('[Board] Updated base points array:', newBasePoints);
           return newBasePoints;
         }
+        
+        // If the base point wasn't found, log a warning and return the previous state
+        console.warn('[Board] Received update for unknown base point:', updatedPoint);
         return prev;
       });
     };
 
     // Subscribe to the update event
     basePointEventService.on('updated', handleBasePointUpdated);
+    
+    // Log when the event listener is added
+    console.log('[Board] Added WebSocket event listener for base point updates');
 
     // Clean up the event listener when the component unmounts
     return () => {
+      console.log('[Board] Cleaning up WebSocket event listeners');
       basePointEventService.off('updated', handleBasePointUpdated);
     };
   });
@@ -241,23 +257,34 @@ const Board: Component = () => {
     setIsDragging(true);
   };
 
-  // Handle base point placement
+  /**
+   * Handles placing a base point at the target coordinates
+   * @param target The target [x, y] coordinates where the base point should be placed
+   */
   const handleBasePointPlacement = async (target: [number, number]) => {
     const basePoint = pickedUpBasePoint();
-    if (!basePoint) return;
+    if (!basePoint) {
+      console.log('[handleBasePointPlacement] No base point is currently picked up');
+      return;
+    }
 
     const [targetX, targetY] = target;
     const index = targetY * BOARD_CONFIG.GRID_SIZE + targetX;
     
+    console.log(`[handleBasePointPlacement] Attempting to place base point at (${targetX}, ${targetY})`);
+    
     // Validate the target position
     const validation = validateSquarePlacementLocal(index);
     if (!validation.isValid) {
-      console.error('Invalid placement:', validation.reason);
+      const errorMsg = `Invalid placement: ${validation.reason || 'Unknown reason'}`;
+      console.error('[handleBasePointPlacement]', errorMsg);
+      setError(errorMsg);
       return;
     }
 
     try {
       setIsSaving(true);
+      setError(null);
       
       // Find the base point being moved
       const pointToMove = basePoints().find(bp => 
@@ -265,21 +292,28 @@ const Board: Component = () => {
       );
 
       if (!pointToMove) {
-        console.error('Base point not found');
+        const errorMsg = 'Base point not found in current base points';
+        console.error('[handleBasePointPlacement]', errorMsg);
+        setError(errorMsg);
         return;
       }
 
+      console.log(`[handleBasePointPlacement] Moving base point ${pointToMove.id} from (${pointToMove.x}, ${pointToMove.y}) to (${targetX}, ${targetY})`);
+      
       // Update the base point in the database
       const result = await updateBasePoint(pointToMove.id, targetX, targetY);
       
       if (!result.success) {
-        throw new Error(result.error);
+        throw new Error(result.error || 'Failed to update base point');
       }
 
+      console.log('[handleBasePointPlacement] Successfully updated base point, waiting for WebSocket update...');
+      
       // The UI will update automatically via the WebSocket event
     } catch (error) {
-      console.error('Error updating base point:', error);
-      setError(error instanceof Error ? error.message : 'Failed to update base point');
+      const errorMsg = error instanceof Error ? error.message : 'Failed to update base point';
+      console.error('[handleBasePointPlacement]', errorMsg, error);
+      setError(errorMsg);
     } finally {
       setPickedUpBasePoint(null);
       setIsDragging(false);
