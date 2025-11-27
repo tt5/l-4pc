@@ -23,7 +23,8 @@ import {
   isBasePoint,
   validateSquarePlacement,
   gridToWorld,
-  calculateRestrictedSquares
+  calculateRestrictedSquares,
+  updateBasePoint
 } from '../../utils/boardUtils';
 import styles from './Board.module.css';
 
@@ -214,7 +215,7 @@ const Board: Component = () => {
   };
 
   // Handle base point placement
-  const handleBasePointPlacement = (target: [number, number]) => {
+  const handleBasePointPlacement = async (target: [number, number]) => {
     const basePoint = pickedUpBasePoint();
     if (!basePoint) return;
 
@@ -228,18 +229,36 @@ const Board: Component = () => {
       return;
     }
 
-    // Update the base point's position
-    setBasePoints(prevPoints => 
-      prevPoints.map(bp => 
+    try {
+      setIsSaving(true);
+      
+      // Find the base point being moved
+      const pointToMove = basePoints().find(bp => 
         bp.x === basePoint[0] && bp.y === basePoint[1]
-          ? { ...bp, x: targetX, y: targetY }
-          : bp
-      )
-    );
-    
-    setPickedUpBasePoint(null);
-    setIsDragging(false);
-    setHoveredCell(null);
+      );
+
+      if (!pointToMove) {
+        console.error('Base point not found');
+        return;
+      }
+
+      // Update the base point in the database
+      const result = await updateBasePoint(pointToMove.id, targetX, targetY);
+      
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
+      // The UI will update automatically via the WebSocket event
+    } catch (error) {
+      console.error('Error updating base point:', error);
+      setError(error instanceof Error ? error.message : 'Failed to update base point');
+    } finally {
+      setPickedUpBasePoint(null);
+      setIsDragging(false);
+      setHoveredCell(null);
+      setIsSaving(false);
+    }
   };
 
   // Setup and cleanup event listeners

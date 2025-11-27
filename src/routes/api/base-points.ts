@@ -1,6 +1,6 @@
 import { getBasePointRepository } from '~/lib/server/db';
 import { withAuth } from '~/middleware/auth';
-import { createApiResponse, createErrorResponse, generateRequestId, type ApiResponse } from '~/utils/api';
+import { createApiResponse, createErrorResponse, generateRequestId } from '~/utils/api';
 import { basePointEventService } from '~/lib/server/events/base-point-events';
 
 type BasePointRequest = { x: number; y: number };

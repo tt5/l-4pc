@@ -379,6 +379,54 @@ type ValidateSquarePlacementOptions = {
 /**
  * Validates if a square can have a base point placed on it
  */
+export const updateBasePoint = async (id: number, x: number, y: number): Promise<ApiResponse<BasePoint>> => {
+  try {
+    const response = await fetch(`/api/base-points/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      credentials: 'include',
+      body: JSON.stringify({ x, y })
+    });
+
+    const responseText = await response.text();
+    let responseData;
+    
+    try {
+      responseData = responseText ? JSON.parse(responseText) : {};
+    } catch (e) {
+      console.error('Failed to parse response:', responseText);
+      return {
+        success: false,
+        error: `Invalid server response: ${response.status} ${response.statusText}`,
+        timestamp: Date.now()
+      };
+    }
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: responseData.error || `Failed to update base point: ${response.status} ${response.statusText}`,
+        timestamp: Date.now()
+      };
+    }
+
+    return {
+      success: true,
+      data: responseData.data?.basePoint || responseData.basePoint,
+      timestamp: Date.now()
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update base point',
+      timestamp: Date.now()
+    };
+  }
+};
+
 export const validateSquarePlacement = ({
   index,
   currentPosition,

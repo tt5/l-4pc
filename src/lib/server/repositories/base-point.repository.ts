@@ -188,6 +188,22 @@ export class BasePointRepository {
   /**
    * Creates a new base point with a specific timestamp
    */
+  async getById(id: number): Promise<BasePoint | null> {
+    return this.db.get<BasePoint>(
+      'SELECT id, user_id as userId, x, y, game_created_at_ms as createdAtMs FROM base_points WHERE id = ?',
+      [id]
+    ) || null;
+  }
+
+  async update(id: number, x: number, y: number): Promise<BasePoint | null> {
+    await this.db.run(
+      'UPDATE base_points SET x = ?, y = ? WHERE id = ?',
+      [x, y, id]
+    );
+    
+    return this.getById(id);
+  }
+
   async create(input: CreateBasePointInput): Promise<BasePoint> {
     const { userId, x, y, gameCreatedAtMs } = input;
     
