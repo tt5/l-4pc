@@ -127,10 +127,19 @@ const Board: Component = () => {
     const pos = position();
     if (!pos) return { isValid: false, reason: 'Position not initialized' };
     
+    // Get the current base points, excluding the one being moved (if any)
+    const currentBasePoints = basePoints();
+    const pickedUp = pickedUpBasePoint();
+    
+    // If we're moving a base point, exclude it from the validation
+    const filteredBasePoints = pickedUp 
+      ? currentBasePoints.filter(bp => bp.x !== pickedUp[0] || bp.y !== pickedUp[1])
+      : currentBasePoints;
+    
     return validateSquarePlacement({
       index,
       currentPosition: pos,
-      basePoints: basePoints(),
+      basePoints: filteredBasePoints,
       restrictedSquares: getRestrictedSquares()
     });
   };
