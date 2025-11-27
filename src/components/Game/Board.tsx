@@ -36,6 +36,9 @@ import styles from './Board.module.css';
 import { BOARD_CONFIG } from '~/constants/game';
 
 const Board: Component = () => {
+  // Refs
+  let boardRef: HTMLDivElement | undefined;
+  
   // Hooks
   const { user } = useAuth();
   
@@ -273,12 +276,10 @@ const Board: Component = () => {
   const handleMouseMove = (e: MouseEvent) => {
     if (!isDragging() || !pickedUpBasePoint()) return;
 
-    // Get the grid element
-    const gridElement = document.querySelector(`.${styles.grid}`);
-    if (!gridElement) return;
+    const board = boardRef;
+    if (!board) return;
 
-    // Calculate the grid cell under the mouse
-    const rect = gridElement.getBoundingClientRect();
+    const rect = board.getBoundingClientRect();
     const gridX = Math.floor((e.clientX - rect.left) / (rect.width / BOARD_CONFIG.GRID_SIZE));
     const gridY = Math.floor((e.clientY - rect.top) / (rect.height / BOARD_CONFIG.GRID_SIZE));
 
@@ -299,7 +300,7 @@ const Board: Component = () => {
     if (!lastCell || (lastCell[0] !== currentCell[0] || lastCell[1] !== currentCell[1])) {
       // Update the base point position
       handleBasePointPlacement(currentCell);
-      // Immediately update the last hovered cell to prevent multiple updates
+      // Update the last hovered cell
       setLastHoveredCell([...currentCell]);
     }
   };
@@ -317,8 +318,9 @@ const Board: Component = () => {
   const handleBasePointPickup = (point: [number, number]) => {
     setPickedUpBasePoint(point);
     setIsDragging(true);
-    setLastHoveredCell(point);  // Initialize last hovered cell
+    setLastHoveredCell(point);
     setHoveredCell(point);
+    setError(null); // Clear any previous errors
   };
 
   /**
@@ -351,34 +353,15 @@ const Board: Component = () => {
       return;
     }
 
-    // Get the current position in world coordinates
-    const [gridX, gridY] = [basePoint[0], basePoint[1]];
-    const [offsetX, offsetY] = position() || [0, 0];
-    const [worldX, worldY] = gridToWorld(gridX, gridY, offsetX, offsetY);
+    let pointToMove: BasePoint | undefined;
     
-    // Optimistically update the UI with world coordinates
-    setBasePoints(prev => {
-      const pointToMove = prev.find(bp => bp.x === worldX && bp.y === worldY);
-      if (!pointToMove) return prev;
-      
-      return prev.map(bp => 
-        bp.id === pointToMove.id 
-          ? { ...bp, x: targetX, y: targetY } 
-          : bp
-      );
-    });
-
     try {
       setIsSaving(true);
       setError(null);
       
-      // Find the base point being moved using world coordinates
-      const [gridX, gridY] = [basePoint[0], basePoint[1]];
-      const [offsetX, offsetY] = position() || [0, 0];
-      const [worldX, worldY] = gridToWorld(gridX, gridY, offsetX, offsetY);
-      
-      const pointToMove = basePoints().find(bp => 
-        bp.x === worldX && bp.y === worldY
+      // Find the base point being moved using the original position
+      pointToMove = basePoints().find(bp => 
+        bp.x === basePoint[0] && bp.y === basePoint[1]
       );
 
       if (!pointToMove) {
@@ -388,10 +371,22 @@ const Board: Component = () => {
         return;
       }
 
-      console.log(`[handleBasePointPlacement] Moving base point ${pointToMove.id} from (${pointToMove.x}, ${pointToMove.y}) to (${targetX}, ${targetY})`);
+      // At this point, TypeScript knows pointToMove is defined
+      const point = pointToMove!;
+      
+      console.log(`[handleBasePointPlacement] Moving base point ${point.id} from (${point.x}, ${point.y}) to (${targetX}, ${targetY})`);
+      
+      // Optimistically update the UI
+      setBasePoints(prev => 
+        prev.map(bp => 
+          bp.id === point.id 
+            ? { ...bp, x: targetX, y: targetY } 
+            : bp
+        )
+      );
       
       // Update the base point in the database
-      const result = await updateBasePoint(pointToMove.id, targetX, targetY);
+      const result = await updateBasePoint(point.id, targetX, targetY);
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to update base point');
@@ -405,16 +400,16 @@ const Board: Component = () => {
       setError(errorMsg);
       
       // Revert the optimistic update on error
-      setBasePoints(prev => {
-        const pointToRevert = prev.find(bp => bp.x === targetX && bp.y === targetY);
-        if (!pointToRevert) return prev;
-        
-        return prev.map(bp => 
-          bp.id === pointToRevert.id 
-            ? { ...bp, x: basePoint[0], y: basePoint[1] } 
-            : bp
+      const currentPointToMove = pointToMove; // Create a local constant
+      if (currentPointToMove) {
+        setBasePoints(prev => 
+          prev.map(bp => 
+            bp.id === currentPointToMove.id 
+              ? { ...bp, x: basePoint[0], y: basePoint[1] } 
+              : bp
+          )
         );
-      });
+      }
     } finally {
       setIsSaving(false);
     }
