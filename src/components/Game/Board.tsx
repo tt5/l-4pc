@@ -11,12 +11,9 @@ import { basePointEventService } from '~/lib/server/events/base-point-events';
 import { GridCell } from './GridCell';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlayerPosition } from '../../contexts/PlayerPositionContext';
-import { jumpToPosition } from '../../lib/utils/navigation';
 import { useFetchBasePoints } from '../../hooks/useFetchBasePoints';
-import { useDirectionHandler } from '../../hooks/useDirectionHandler';
 import { useSSE } from '../../hooks/useSSE';
 import { 
-  type Direction, 
   type Point, 
   type BasePoint,
   createPoint
@@ -24,7 +21,6 @@ import {
 import { 
   handleAddBasePoint,
   isBasePoint,
-  validateSquarePlacement,
   gridToWorld,
   calculateRestrictedSquares,
   updateBasePoint,
@@ -66,13 +62,6 @@ const Board: Component = () => {
   const [hoveredSquare, setHoveredSquare] = createSignal<number | null>(null);
   const [lastHoveredCell, setLastHoveredCell] = createSignal<[number, number] | null>(null);
 
-  // Direction handling
-  const { isMoving, handleDirection } = useDirectionHandler({
-    position,
-    setPosition: setContextPosition,
-    getRestrictedSquares,
-    setRestrictedSquares,
-  });
   
   // Base points fetching
   const { 
@@ -89,18 +78,8 @@ const Board: Component = () => {
     // Set up CSS variable for grid size
     document.documentElement.style.setProperty('--grid-size', BOARD_CONFIG.GRID_SIZE.toString());
 
-    // Set up event listeners
-    const eventListeners: [string, EventListener][] = [
-      ['keydown', handleKeyDown as EventListener],
-      ['mouseup', handleGlobalMouseUp as EventListener],
-      ['mousemove', handleMouseMove as EventListener],
-      ['mouseleave', handleGlobalMouseUp as EventListener] // Handle mouse leaving the window
-    ];
-    
-    // Add event listeners
-    eventListeners.forEach(([event, handler]) => {
-      window.addEventListener(event, handler);
-    });
+    // Set up mouse event listeners
+    window.addEventListener('mouseup', handleGlobalMouseUp as EventListener);
     
     try {
       // Set initial position to (0, 0) if not set
@@ -240,38 +219,6 @@ const Board: Component = () => {
       console.warn('[SSE] Received invalid point data in message:', message);
     }
   });
-
-  // Event handler types
-  type KeyboardHandler = (e: KeyboardEvent) => void;
-  
-  // Handle keyboard events with boundary checking
-  const handleKeyDown: KeyboardHandler = async (e) => {
-    e.preventDefault();
-
-    // Map keyboard keys to direction strings
-    const keyToDirection: Record<string, Direction> = {
-      'ArrowUp': 'up',
-      'w': 'up',
-      'W': 'up',
-      'ArrowDown': 'down',
-      's': 'down',
-      'S': 'down',
-      'ArrowLeft': 'left',
-      'a': 'left',
-      'A': 'left',
-      'ArrowRight': 'right',
-      'd': 'right',
-      'D': 'right'
-    };
-
-    const direction = keyToDirection[e.key];
-    if (direction) {
-      // Only calculate direction without updating position
-      const newPosition = await handleDirection(direction, { skipPositionUpdate: true });
-      console.log('Direction:', direction, 'New position would be:', newPosition);
-      // You can use the newPosition for preview or other logic without updating the actual position
-    }
-  };
 
   // Handle mouse move for dragging
   const handleMouseMove = (e: MouseEvent) => {
@@ -443,7 +390,6 @@ const Board: Component = () => {
   // Setup and cleanup event listeners
   onMount(() => {
     const eventListeners: [string, EventListener][] = [
-      ['keydown', handleKeyDown as EventListener],
       ['mouseup', handleGlobalMouseUp as EventListener],
     ];
     

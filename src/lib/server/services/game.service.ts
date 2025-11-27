@@ -2,7 +2,6 @@ import { Database } from 'sqlite';
 import { BasePointRepository, CreateBasePointInput } from '../repositories/base-point.repository';
 import { UserRepository } from '../repositories/user.repository';
 import { getDb, SqliteDatabase } from '../db';
-import { getOldestPrimeTimestamp } from '../../../utils/randomSlopes';
 
 // Types for the game service responses
 export interface JoinGameResult {
@@ -151,8 +150,8 @@ export class GameService {
           userId,
           x,
           y,
-          // Use the oldest prime timestamp minus 1 millisecond, or current time if no primes found
-          gameCreatedAtMs: (getOldestPrimeTimestamp() ?? Date.now()) - 1
+          // Use current time
+          gameCreatedAtMs: Date.now() - 1
         });
         console.log(`[joinGame] Created new base point for ${userId} at (${x}, ${y})`)
 

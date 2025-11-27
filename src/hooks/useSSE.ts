@@ -15,7 +15,6 @@ type SSEMessage = {
   count?: number;
   totalBasePoints?: number;
   initialCount?: number;
-  oldestPrimeTimestamp?: number;
   message?: string;
   [key: string]: any;
 };
@@ -25,11 +24,9 @@ type BasePointUpdateHandler = (point: any) => void;
 export const useSSE = (url: string, onBasePointUpdated?: BasePointUpdateHandler) => {
   // State
   const [totalBasePoints, setTotalBasePoints] = createSignal<number | null>(null);
-  const [oldestPrimeTimestamp, setOldestPrimeTimestamp] = createSignal<number | null>(null);
   const [notifications, setNotifications] = createSignal<Notification[]>([]);
   const [addedCount, setAddedCount] = createSignal(0);
   const [deletedCount, setDeletedCount] = createSignal(0);
-  const [oldestPrimeNotification, setOldestPrimeNotification] = createSignal<Notification | null>(null);
   const [isConnected, setIsConnected] = createSignal(false);
   const [error, setError] = createSignal<Error | null>(null);
 
@@ -87,16 +84,12 @@ export const useSSE = (url: string, onBasePointUpdated?: BasePointUpdateHandler)
             console.log('[SSE] Calling onBasePointUpdated with point:', pointData);
             onBasePointUpdated(pointData);
           } else {
-            console.warn('[SSE] No onBasePointUpdated handler registered');
           }
           break;
           
         case 'init':
           if (message.totalBasePoints !== undefined) {
             setTotalBasePoints(message.totalBasePoints);
-          }
-          if (message.oldestPrimeTimestamp !== undefined) {
-            setOldestPrimeTimestamp(message.oldestPrimeTimestamp);
           }
           break;
           
@@ -258,11 +251,9 @@ export const useSSE = (url: string, onBasePointUpdated?: BasePointUpdateHandler)
     isConnected,
     error,
     totalBasePoints,
-    oldestPrimeTimestamp,
     notifications,
     addedCount,
     deletedCount,
-    oldestPrimeNotification,
     reconnect
   };
 };

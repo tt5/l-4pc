@@ -14,8 +14,7 @@ type InfoTabProps = {
   username: string;
   addedCount: number;
   deletedCount: number;
-  totalBasePoints: () => number | null;
-  oldestPrimeNotification: Notification | null;
+  totalBasePoints: number | null;
 };
 
 const Counter: Component<{ value: number; label: string; type: 'added' | 'deleted' }> = (props) => (
@@ -40,8 +39,8 @@ const InfoTab: Component<InfoTabProps> = (props) => (
       <GameStatus />
     </div>
 
-    <Show when={props.totalBasePoints() !== null}>
-      <p>Total base points: {props.totalBasePoints()}</p>
+    <Show when={props.totalBasePoints !== null}>
+      <p>Total base points: {props.totalBasePoints}</p>
     </Show>
 
   </div>

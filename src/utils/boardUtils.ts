@@ -140,17 +140,7 @@ export const calculateRestrictedSquares = (
     ...calculateLine(1, -1),  // Top-right diagonal
     ...calculateLine(-1, -1), // Top-left diagonal
     ...calculateLine(1, 1),   // Bottom-right diagonal
-    ...calculateLine(-1, 1),  // Bottom-left diagonal
-    
-    // Prime-numbered slopes
-    ...calculateLine(2, -1),  // Slope 2:1 (up-right)
-    ...calculateLine(-2, -1), // Slope 2:1 (up-left)
-    ...calculateLine(1, -2),  // Slope 1:2 (up-right)
-    ...calculateLine(-1, -2), // Slope 1:2 (up-left)
-    ...calculateLine(2, 1),   // Slope 2:1 (down-right)
-    ...calculateLine(-2, 1),  // Slope 2:1 (down-left)
-    ...calculateLine(1, 2),   // Slope 1:2 (down-right)
-    ...calculateLine(-1, 2),  // Slope 1:2 (down-left)
+    ...calculateLine(-1, 1)   // Bottom-left diagonal
   ].filter(square => square !== x + y * gridSize); // Exclude the current position
 
   // Combine with existing restricted squares and remove duplicates
