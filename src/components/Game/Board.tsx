@@ -27,7 +27,8 @@ import {
   validateSquarePlacement,
   gridToWorld,
   calculateRestrictedSquares,
-  updateBasePoint
+  updateBasePoint,
+  indicesToPoints
 } from '../../utils/boardUtils';
 import styles from './Board.module.css';
 
@@ -127,21 +128,31 @@ const Board: Component = () => {
     const pos = position();
     if (!pos) return { isValid: false, reason: 'Position not initialized' };
     
-    // Get the current base points, excluding the one being moved (if any)
+    // Get the current base points
     const currentBasePoints = basePoints();
     const pickedUp = pickedUpBasePoint();
     
     // If we're moving a base point, exclude it from the validation
     const filteredBasePoints = pickedUp 
-      ? currentBasePoints.filter(bp => bp.x !== pickedUp[0] || bp.y !== pickedUp[1])
+      ? currentBasePoints.filter(bp => !(bp.x === pickedUp[0] && bp.y === pickedUp[1]))
       : currentBasePoints;
     
-    return validateSquarePlacement({
-      index,
-      currentPosition: pos,
-      basePoints: filteredBasePoints,
-      restrictedSquares: getRestrictedSquares()
-    });
+    // Get the target position in world coordinates
+    const [gridX, gridY] = indicesToPoints([index])[0];
+    const [offsetX, offsetY] = pos;
+    const [worldX, worldY] = gridToWorld(gridX, gridY, offsetX, offsetY);
+    
+    // Check if the target position is already occupied (excluding the picked up point)
+    if (filteredBasePoints.some(bp => bp.x === worldX && bp.y === worldY)) {
+      return { isValid: false, reason: 'Base point already exists here' };
+    }
+    
+    // Check if it's a restricted square
+    if (getRestrictedSquares().includes(index)) {
+      return { isValid: false, reason: 'Cannot place in restricted area' };
+    }
+    
+    return { isValid: true };
   };
 
   // Handle square hover
@@ -340,9 +351,14 @@ const Board: Component = () => {
       return;
     }
 
-    // Optimistically update the UI
+    // Get the current position in world coordinates
+    const [gridX, gridY] = [basePoint[0], basePoint[1]];
+    const [offsetX, offsetY] = position() || [0, 0];
+    const [worldX, worldY] = gridToWorld(gridX, gridY, offsetX, offsetY);
+    
+    // Optimistically update the UI with world coordinates
     setBasePoints(prev => {
-      const pointToMove = prev.find(bp => bp.x === basePoint[0] && bp.y === basePoint[1]);
+      const pointToMove = prev.find(bp => bp.x === worldX && bp.y === worldY);
       if (!pointToMove) return prev;
       
       return prev.map(bp => 
@@ -356,9 +372,13 @@ const Board: Component = () => {
       setIsSaving(true);
       setError(null);
       
-      // Find the base point being moved
+      // Find the base point being moved using world coordinates
+      const [gridX, gridY] = [basePoint[0], basePoint[1]];
+      const [offsetX, offsetY] = position() || [0, 0];
+      const [worldX, worldY] = gridToWorld(gridX, gridY, offsetX, offsetY);
+      
       const pointToMove = basePoints().find(bp => 
-        bp.x === basePoint[0] && bp.y === basePoint[1]
+        bp.x === worldX && bp.y === worldY
       );
 
       if (!pointToMove) {
