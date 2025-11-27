@@ -21,6 +21,7 @@ type SSEMessage = {
 };
 
 export const useSSE = (url: string) => {
+  // State
   const [totalBasePoints, setTotalBasePoints] = createSignal<number | null>(null);
   const [oldestPrimeTimestamp, setOldestPrimeTimestamp] = createSignal<number | null>(null);
   const [notifications, setNotifications] = createSignal<Notification[]>([]);
@@ -33,116 +34,155 @@ export const useSSE = (url: string) => {
   // Reconnection state
   const MAX_RECONNECT_ATTEMPTS = 5;
   const INITIAL_RECONNECT_DELAY = 1000;
-  const CONNECTION_TIMEOUT = 5000;
+  const CONNECTION_TIMEOUT = 10000;
   
-  let eventSource: EventSource | null = null;
-  let reconnectAttempts = 0;
-  let reconnectTimeout: NodeJS.Timeout | null = null;
-  let connectionTimeout: NodeJS.Timeout | null = null;
-  let isMounted = true;
+  // Refs
+  const eventSourceRef = { current: null as EventSource | null };
+  const reconnectAttemptsRef = { current: 0 };
+  const reconnectTimeoutRef = { current: null as NodeJS.Timeout | null };
+  const connectionTimeoutRef = { current: null as NodeJS.Timeout | null };
+  const isMountedRef = { current: true };
 
+  // Cleanup function
   const cleanup = () => {
-    if (eventSource) {
-      eventSource.close();
-      eventSource = null;
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
     }
-    if (reconnectTimeout) clearTimeout(reconnectTimeout);
-    if (connectionTimeout) clearTimeout(connectionTimeout);
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = null;
+    }
+  };
+
+  const handleMessage = (message: SSEMessage) => {
+    try {
+      switch (message.type) {
+        case 'basePoint:created':
+          setAddedCount(prev => prev + 1);
+          if (message.totalBasePoints !== undefined) {
+            setTotalBasePoints(message.totalBasePoints);
+          }
+          break;
+          
+        case 'basePoint:deleted':
+          setDeletedCount(prev => prev + 1);
+          if (message.totalBasePoints !== undefined) {
+            setTotalBasePoints(message.totalBasePoints);
+          }
+          break;
+          
+        case 'basePoint:updated':
+          // Handle base point updates if needed
+          break;
+          
+        case 'init':
+          if (message.totalBasePoints !== undefined) {
+            setTotalBasePoints(message.totalBasePoints);
+          }
+          if (message.oldestPrimeTimestamp !== undefined) {
+            setOldestPrimeTimestamp(message.oldestPrimeTimestamp);
+          }
+          break;
+          
+        default:
+          console.warn('Unhandled message type:', message.type);
+      }
+      
+      // Add notification if message contains one
+      if (message.message) {
+        const notification: Notification = {
+          id: Date.now(),
+          message: message.message,
+          timestamp: Date.now(),
+          userId: message.userId,
+          count: message.count
+        };
+        
+        setNotifications(prev => [notification, ...prev].slice(0, 50));
+      }
+    } catch (err) {
+      console.error('Error handling SSE message:', err);
+    }
   };
 
   const connect = () => {
-    if (!isMounted) return;
+    if (!isMountedRef.current) return;
 
     cleanup();
     
     setError(null);
-    eventSource = new EventSource(url);
-
-    // Connection timeout
-    connectionTimeout = setTimeout(() => {
-      if (!isConnected() && eventSource) {
-        eventSource.close();
-        handleError(new Error('Connection timeout'));
-      }
-    }, CONNECTION_TIMEOUT);
-
-    eventSource.onopen = () => {
-      if (connectionTimeout) clearTimeout(connectionTimeout);
-      setIsConnected(true);
-      reconnectAttempts = 0;
-    };
-
-    eventSource.onmessage = (event) => handleMessage(event);
-
-    eventSource.onerror = (event) => {
-      console.error('[SSE] Error:', event);
-      handleError(new Error('SSE connection error'));
-    };
-  };
-
-  const handleError = (err: Error) => {
-    if (!isMounted) return;
     
-    setError(err);
-    setIsConnected(false);
-    cleanup();
-    
-    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-      const delay = Math.min(INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttempts), 30000);
-      reconnectAttempts++;
-      reconnectTimeout = setTimeout(() => connect(), delay);
-    } else {
-      console.error('[SSE] Max reconnection attempts reached');
-    }
-  };
-
-  const handleMessage = (event: MessageEvent) => {
-    if (!event.data?.trim()) return;
-
     try {
-      const message: SSEMessage = event.data.startsWith('{') 
-        ? JSON.parse(event.data)
-        : { type: event.type, ...JSON.parse(event.data) };
+      eventSourceRef.current = new EventSource(url);
+      const eventSource = eventSourceRef.current;
 
-      // Handle base point changes
-      if (message.type === 'basePointChanged' || message.event === 'basePointChanged' ||
-          message.type === 'basePointDeleted' || message.event === 'basePointDeleted') {
-        const pointData = message.point || message;
-        if (!pointData) return;
-
-        const isDeletion = message.type === 'basePointDeleted' || message.event === 'basePointDeleted';
-        const count = message.count || 1;
-
-        if (isDeletion) {
-          setDeletedCount(prev => prev + count);
-        } else {
-          setAddedCount(prev => prev + count);
+      // Connection timeout
+      connectionTimeoutRef.current = setTimeout(() => {
+        if (!isConnected() && eventSourceRef.current) {
+          eventSourceRef.current.close();
+          eventSourceRef.current = null;
+          setError(new Error('Connection timeout'));
+          
+          // Attempt to reconnect
+          if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+            const delay = INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttemptsRef.current);
+            reconnectAttemptsRef.current++;
+            
+            reconnectTimeoutRef.current = setTimeout(() => {
+              if (isMountedRef.current) {
+                connect();
+              }
+            }, delay);
+          }
         }
+      }, CONNECTION_TIMEOUT);
 
-        const notification: Notification = {
-          id: pointData.id || Date.now(),
-          message: isDeletion 
-            ? `Removed ${count} base point${count > 1 ? 's' : ''} at (${pointData.x}, ${pointData.y})`
-            : `Added ${count} base point${count > 1 ? 's' : ''} at (${pointData.x}, ${pointData.y})`,
-          timestamp: pointData.timestamp || Date.now(),
-          userId: pointData.userId,
-          count
-        };
-
-        setNotifications(prev => [notification, ...prev].slice(0, 50));
-      }
-
-      // Handle cleanup events
-      if (message.type === 'cleanup' || message.event === 'cleanup') {
-        if (message.totalBasePoints !== undefined || message.initialCount !== undefined) {
-          setTotalBasePoints(message.initialCount ?? message.totalBasePoints ?? null);
+      eventSource.onopen = () => {
+        if (connectionTimeoutRef.current) {
+          clearTimeout(connectionTimeoutRef.current);
+          connectionTimeoutRef.current = null;
         }
-        if (message.oldestPrimeTimestamp !== undefined) {
-          setOldestPrimeTimestamp(message.oldestPrimeTimestamp);
+        setIsConnected(true);
+        reconnectAttemptsRef.current = 0;
+      };
+
+      eventSource.onerror = (event: Event) => {
+        console.error('[SSE] Error:', event);
+        if (!isMountedRef.current) return;
+        
+        setError(new Error('SSE connection error'));
+        setIsConnected(false);
+        cleanup();
+        
+        // Attempt to reconnect if we haven't exceeded max attempts
+        if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+          const delay = INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttemptsRef.current);
+          reconnectAttemptsRef.current++;
+          
+          reconnectTimeoutRef.current = setTimeout(() => {
+            if (isMountedRef.current) {
+              connect();
+            }
+          }, delay);
         }
-      }
+      };
+
+      eventSource.onmessage = (event: MessageEvent) => {
+        try {
+          const message: SSEMessage = JSON.parse(event.data);
+          handleMessage(message);
+        } catch (err) {
+          console.error('Error parsing SSE message:', err);
+        }
+      };
     } catch (err) {
-      console.error('[SSE] Error processing message:', err);
+      console.error('Error creating SSE connection:', err);
+      setError(err instanceof Error ? err : new Error('Failed to create SSE connection'));
     }
   };
 
@@ -151,9 +191,15 @@ export const useSSE = (url: string) => {
 
   // Cleanup on unmount
   onCleanup(() => {
-    isMounted = false;
+    isMountedRef.current = false;
     cleanup();
   });
+
+  // Reconnect function
+  const reconnect = () => {
+    reconnectAttemptsRef.current = 0;
+    connect();
+  };
 
   return {
     isConnected,
@@ -164,9 +210,6 @@ export const useSSE = (url: string) => {
     addedCount,
     deletedCount,
     oldestPrimeNotification,
-    reconnect: () => {
-      reconnectAttempts = 0;
-      connect();
-    }
+    reconnect
   };
 };
