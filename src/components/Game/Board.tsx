@@ -4,8 +4,10 @@ import {
   createSignal, 
   createMemo,
   onMount,
-  on
+  on,
+  batch
 } from 'solid-js';
+import { basePointEventService } from '~/lib/server/events/base-point-events';
 import { GridCell } from './GridCell';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlayerPosition } from '../../contexts/PlayerPositionContext';
@@ -167,6 +169,31 @@ const Board: Component = () => {
       handleFetchBasePoints();
     }
   });
+  // Set up WebSocket event listeners for real-time updates
+  onMount(() => {
+    // Handle base point updates
+    const handleBasePointUpdated = (updatedPoint: BasePoint) => {
+      setBasePoints(prev => {
+        const index = prev.findIndex(bp => bp.id === updatedPoint.id);
+        if (index !== -1) {
+          // Create a new array with the updated base point
+          const newBasePoints = [...prev];
+          newBasePoints[index] = updatedPoint;
+          return newBasePoints;
+        }
+        return prev;
+      });
+    };
+
+    // Subscribe to the update event
+    basePointEventService.on('updated', handleBasePointUpdated);
+
+    // Clean up the event listener when the component unmounts
+    return () => {
+      basePointEventService.off('updated', handleBasePointUpdated);
+    };
+  });
+
   // Event handler types
   type KeyboardHandler = (e: KeyboardEvent) => void;
   
