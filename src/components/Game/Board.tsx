@@ -59,6 +59,7 @@ const Board: Component = () => {
   // State variables
   const [isSaving, setIsSaving] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  const [dragStartPosition, setDragStartPosition] = createSignal<[number, number] | null>(null);
   const [pickedUpBasePoint, setPickedUpBasePoint] = createSignal<[number, number] | null>(null);
   const [isDragging, setIsDragging] = createSignal(false);
   const [hoveredCell, setHoveredCell] = createSignal<[number, number] | null>(null);
@@ -359,34 +360,39 @@ const Board: Component = () => {
       setIsSaving(true);
       setError(null);
       
-      // Find the base point being moved using the original position
+      // Find the base point being moved using the original position from the drag start
+      // or the current position if this is a new placement
+      const dragPos = dragStartPosition();
+      const originalX = dragPos ? dragPos[0] : basePoint[0];
+      const originalY = dragPos ? dragPos[1] : basePoint[1];
+      
       pointToMove = basePoints().find(bp => 
-        bp.x === basePoint[0] && bp.y === basePoint[1]
+        bp.x === originalX && bp.y === originalY
       );
 
       if (!pointToMove) {
-        const errorMsg = 'Base point not found in current base points';
-        console.error('[handleBasePointPlacement]', errorMsg);
+        const errorMsg = `Base point not found at original position (${originalX}, ${originalY})`;
+        console.error('[handleBasePointPlacement]', errorMsg, { basePoints: basePoints() });
         setError(errorMsg);
         return;
       }
 
-      // At this point, TypeScript knows pointToMove is defined
-      const point = pointToMove!;
-      
-      console.log(`[handleBasePointPlacement] Moving base point ${point.id} from (${point.x}, ${point.y}) to (${targetX}, ${targetY})`);
+      console.log(`[handleBasePointPlacement] Moving base point ${pointToMove.id} from (${pointToMove.x}, ${pointToMove.y}) to (${targetX}, ${targetY})`);
       
       // Optimistically update the UI
       setBasePoints(prev => 
         prev.map(bp => 
-          bp.id === point.id 
+          bp.id === pointToMove!.id 
             ? { ...bp, x: targetX, y: targetY } 
             : bp
         )
       );
       
+      // Clear the drag start position after successful move
+      setDragStartPosition(null);
+      
       // Update the base point in the database
-      const result = await updateBasePoint(point.id, targetX, targetY);
+      const result = await updateBasePoint(pointToMove.id, targetX, targetY);
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to update base point');
