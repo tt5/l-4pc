@@ -360,22 +360,41 @@ const Board: Component = () => {
       setIsSaving(true);
       setError(null);
       
-      // Find the base point being moved using the original position from the drag start
-      // or the current position if this is a new placement
+      // Find the base point being moved, first check the drag start position, then the current position
+      let pointToCheck = null;
       const dragPos = dragStartPosition();
-      const originalX = dragPos ? dragPos[0] : basePoint[0];
-      const originalY = dragPos ? dragPos[1] : basePoint[1];
       
-      pointToMove = basePoints().find(bp => 
-        bp.x === originalX && bp.y === originalY
-      );
+      if (dragPos) {
+        // First try to find the point at the drag start position
+        pointToCheck = basePoints().find(bp => 
+          bp.x === dragPos[0] && bp.y === dragPos[1]
+        );
+        
+        // If not found, try the current position (in case this is a continuation of a drag)
+        if (!pointToCheck) {
+          pointToCheck = basePoints().find(bp => 
+            bp.x === basePoint[0] && bp.y === basePoint[1]
+          );
+        }
+      } else {
+        // If no drag position, use the current position
+        pointToCheck = basePoints().find(bp => 
+          bp.x === basePoint[0] && bp.y === basePoint[1]
+        );
+      }
 
-      if (!pointToMove) {
-        const errorMsg = `Base point not found at original position (${originalX}, ${originalY})`;
-        console.error('[handleBasePointPlacement]', errorMsg, { basePoints: basePoints() });
+      if (!pointToCheck) {
+        const errorMsg = `Base point not found at position (${basePoint[0]}, ${basePoint[1]})`;
+        console.error('[handleBasePointPlacement]', errorMsg, { 
+          basePoints: basePoints(),
+          dragStartPosition: dragPos,
+          targetPosition: [targetX, targetY]
+        });
         setError(errorMsg);
         return;
       }
+      
+      pointToMove = pointToCheck;
 
       console.log(`[handleBasePointPlacement] Moving base point ${pointToMove.id} from (${pointToMove.x}, ${pointToMove.y}) to (${targetX}, ${targetY})`);
       
@@ -388,8 +407,8 @@ const Board: Component = () => {
         )
       );
       
-      // Clear the drag start position after successful move
-      setDragStartPosition(null);
+      // Update the drag start position to the new position after successful move
+      setDragStartPosition([targetX, targetY]);
       
       // Update the base point in the database
       const result = await updateBasePoint(pointToMove.id, targetX, targetY);
