@@ -59,6 +59,7 @@ const Board: Component = () => {
   const [isDragging, setIsDragging] = createSignal(false);
   const [hoveredCell, setHoveredCell] = createSignal<[number, number] | null>(null);
   const [hoveredSquare, setHoveredSquare] = createSignal<number | null>(null);
+  const [lastHoveredCell, setLastHoveredCell] = createSignal<[number, number] | null>(null);
 
   // Direction handling
   const { isMoving, handleDirection } = useDirectionHandler({
@@ -82,6 +83,19 @@ const Board: Component = () => {
   onMount(async () => {
     // Set up CSS variable for grid size
     document.documentElement.style.setProperty('--grid-size', BOARD_CONFIG.GRID_SIZE.toString());
+
+    // Set up event listeners
+    const eventListeners: [string, EventListener][] = [
+      ['keydown', handleKeyDown as EventListener],
+      ['mouseup', handleGlobalMouseUp as EventListener],
+      ['mousemove', handleMouseMove as EventListener],
+      ['mouseleave', handleGlobalMouseUp as EventListener] // Handle mouse leaving the window
+    ];
+    
+    // Add event listeners
+    eventListeners.forEach(([event, handler]) => {
+      window.addEventListener(event, handler);
+    });
     
     try {
       // Set initial position to (0, 0) if not set
@@ -235,19 +249,51 @@ const Board: Component = () => {
     }
   };
 
-  // Handle mouse up anywhere on the document to cancel dragging
-  const handleGlobalMouseUp = () => {
-    if (isDragging()) {
-      setIsDragging(false);
-      setPickedUpBasePoint(null);
-      setHoveredCell(null);
+  // Handle mouse move for dragging
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging() || !pickedUpBasePoint()) return;
+
+    // Get the grid element
+    const gridElement = document.querySelector(`.${styles.grid}`);
+    if (!gridElement) return;
+
+    // Calculate the grid cell under the mouse
+    const rect = gridElement.getBoundingClientRect();
+    const gridX = Math.floor((e.clientX - rect.left) / (rect.width / BOARD_CONFIG.GRID_SIZE));
+    const gridY = Math.floor((e.clientY - rect.top) / (rect.height / BOARD_CONFIG.GRID_SIZE));
+
+    // Check if we're still within the grid
+    if (gridX < 0 || gridX >= BOARD_CONFIG.GRID_SIZE || gridY < 0 || gridY >= BOARD_CONFIG.GRID_SIZE) {
+      return;
     }
+
+    const currentCell: [number, number] = [gridX, gridY];
+    const lastCell = lastHoveredCell();
+
+    // Only update if we've moved to a new cell
+    if (!lastCell || lastCell[0] !== gridX || lastCell[1] !== gridY) {
+      setLastHoveredCell(currentCell);
+      setHoveredCell(currentCell);
+    }
+  };
+
+  // Handle mouse up anywhere on the document to complete dragging
+  const handleGlobalMouseUp = () => {
+    if (isDragging() && pickedUpBasePoint() && hoveredCell()) {
+      handleBasePointPlacement(hoveredCell()!);
+    }
+    setIsDragging(false);
+    setPickedUpBasePoint(null);
+    setHoveredCell(null);
+    setLastHoveredCell(null);
   };
   
   // Handle base point pickup
   const handleBasePointPickup = (point: [number, number]) => {
     setPickedUpBasePoint(point);
     setIsDragging(true);
+    setLastHoveredCell(point);
+    setHoveredCell(point);
   };
 
   /**
@@ -332,11 +378,17 @@ const Board: Component = () => {
       eventListeners.forEach(([event, handler]) => {
         window.removeEventListener(event, handler);
       });
+      
+      // Clean up drag state
+      setIsDragging(false);
+      setPickedUpBasePoint(null);
+      setHoveredCell(null);
+      setLastHoveredCell(null);
     };
   });
   
   const handleSquareClick = async (index: number) => {
-    if (isSaving()) return;
+    if (isSaving() || isDragging()) return;
     
     const pos = position();
     if (!pos) return;
