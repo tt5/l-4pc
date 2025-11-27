@@ -4,7 +4,6 @@ import { useAuth } from '~/contexts/AuthContext';
 import { PlayerPositionProvider } from '~/contexts/PlayerPositionContext';
 import Board from '~/components/Game/Board';
 import SidePanel from '~/components/Game/SidePanel';
-import PositionIndicator from '~/components/Game/PositionIndicator';
 import styles from './game.module.css';
 
 function GameContent() {
@@ -38,7 +37,6 @@ function GameContent() {
               />
               
               <div class={styles.gameBoard}>
-                <PositionIndicator />
                 <Show when={activeTab() === 'info'}>
                   <Board />
                 </Show>

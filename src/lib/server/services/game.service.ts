@@ -3,22 +3,6 @@ import { BasePointRepository, CreateBasePointInput } from '../repositories/base-
 import { UserRepository } from '../repositories/user.repository';
 import { getDb, SqliteDatabase } from '../db';
 
-// Types for the game service responses
-export interface JoinGameResult {
-  success: boolean;
-  gameJoined: boolean;
-  homeX: number;
-  homeY: number;
-  message?: string;
-  error?: string;
-}
-
-export interface LeaveGameResult {
-  success: boolean;
-  message?: string;
-  error?: string;
-}
-
 export interface GameStatusResult {
   success: boolean;
   gameJoined: boolean;
@@ -72,9 +56,9 @@ export class GameService {
   }
 
   /**
-   * Handles the logic for a user joining the game
-   * @param userId The ID of the user joining the game
-   * @returns Promise with the result of the join operation
+   * Executes a database transaction
+   * @param callback The function to execute within the transaction
+   * @returns Promise with the result of the callback
    */
   async executeTransaction<T>(callback: () => Promise<T>): Promise<T> {
     const db = await getDb();
@@ -86,131 +70,6 @@ export class GameService {
     } catch (error) {
       await db.run('ROLLBACK');
       throw error;
-    }
-  }
-
-  async joinGame(userId: string): Promise<JoinGameResult> {
-    try {
-      return await this.executeTransaction<JoinGameResult>(async () => {
-        // Check if user exists and has already joined
-        const currentStatus = await this.userRepository.getGameStatus(userId);
-
-        console.log(`[joinGame] currentStatus: ${JSON.stringify(currentStatus)}`);
-        
-        if (!currentStatus) {
-          return { 
-            success: false, 
-            gameJoined: false, 
-            homeX: 0, 
-            homeY: 0,
-            error: 'User not found',
-            message: 'User account could not be found.'
-          };
-        }
-        
-        if (currentStatus.gameJoined) {
-          return { 
-            success: true, 
-            gameJoined: true, 
-            homeX: currentStatus.homeX, 
-            homeY: currentStatus.homeY,
-            message: 'You have already joined the game.'
-          };
-        }
-
-        // Find the oldest base point to determine the next position
-        const oldestBase = await this.basePointRepository.getOldest();
-        
-        // Calculate new position
-        let x = 0, y = 0;
-        if (oldestBase) {
-          console.log(`[joinGame] oldestBase: ${JSON.stringify(oldestBase)}`);
-          if (oldestBase.x < 0) {
-            x = oldestBase.x + 3;
-          } else {
-            x = oldestBase.x - 3;
-          }
-          if (oldestBase.y < 0) {
-            y = oldestBase.y + 2;
-          } else {
-            y = oldestBase.y - 2;
-          }
-          
-          // Delete the oldest base point after using it
-          await this.basePointRepository.delete(oldestBase.id);
-          console.log(`[joinGame] Deleted oldest base point ${oldestBase.id} at (${oldestBase.x}, ${oldestBase.y})`);
-        }
-
-        // Set user's home position and mark as joined
-        await this.userRepository.setHomePosition(userId, x, y);
-        await this.userRepository.setGameJoined(userId, true);
-        
-        // Create a base point for the user
-        await this.basePointRepository.create({
-          userId,
-          x,
-          y,
-          // Use current time
-          gameCreatedAtMs: Date.now() - 1
-        });
-        console.log(`[joinGame] Created new base point for ${userId} at (${x}, ${y})`)
-
-        return { 
-          success: true, 
-          gameJoined: true, 
-          homeX: x, 
-          homeY: y,
-          message: 'Successfully joined the game! Your home base has been established.'
-        };
-        });
-    } catch (error) {
-      console.error('Error in joinGame:', error);
-      return {
-        success: false,
-        gameJoined: false,
-        homeX: 0,
-        homeY: 0,
-        error: 'Failed to join game',
-        message: 'An unexpected error occurred while joining the game.'
-      };
-    }
-  }
-
-  async leaveGame(userId: string): Promise<LeaveGameResult> {
-    try {
-      return await this.executeTransaction<LeaveGameResult>(async () => {
-        const currentStatus = await this.userRepository.getGameStatus(userId);
-        
-        if (!currentStatus) {
-          return { 
-            success: false, 
-            error: 'User not found',
-            message: 'User account could not be found.'
-          };
-        }
-        
-        if (!currentStatus.gameJoined) {
-          return { 
-            success: true, 
-            message: 'You have not joined the game yet.'
-          };
-        }
-        
-        // Just update the user's status, don't remove their base
-        await this.userRepository.setGameJoined(userId, false);
-        
-        return { 
-          success: true, 
-          message: 'You have left the game. Your base remains on the map.'
-        };
-        });
-    } catch (error) {
-      console.error('Error in leaveGame:', error);
-      return { 
-        success: false, 
-        error: 'Failed to leave game',
-        message: 'An unexpected error occurred while leaving the game.'
-      };
     }
   }
 

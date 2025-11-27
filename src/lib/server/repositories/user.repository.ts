@@ -4,22 +4,7 @@ import { User, UserGameStatus } from '../../../types/user';
 export class UserRepository {
   constructor(private db: Database) {}
 
-  async setGameJoined(userId: string, status: boolean): Promise<void> {
-    await this.db.run(
-      'UPDATE users SET game_joined = ?, updated_at_ms = strftime("%s", "now") * 1000 WHERE id = ?',
-      [status, userId]
-    );
-  }
-
-  // Alias for backward compatibility
-  setGameJoinedStatus = this.setGameJoined;
-
-  async setHomePosition(userId: string, x: number, y: number): Promise<void> {
-    await this.db.run(
-      'UPDATE users SET home_x = ?, home_y = ?, updated_at_ms = strftime("%s", "now") * 1000 WHERE id = ?',
-      [x, y, userId]
-    );
-  }
+  // Game status related methods
 
   async getGameStatus(userId: string): Promise<UserGameStatus | null> {
     const result = await this.db.get<{ 
