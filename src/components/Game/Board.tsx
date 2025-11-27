@@ -268,20 +268,25 @@ const Board: Component = () => {
     }
 
     const currentCell: [number, number] = [gridX, gridY];
+    
+    // Always update the hovered cell during drag
+    setHoveredCell(currentCell);
+    
+    // Get the current last hovered cell
     const lastCell = lastHoveredCell();
-
-    // Only update if we've moved to a new cell
-    if (!lastCell || lastCell[0] !== gridX || lastCell[1] !== gridY) {
-      setLastHoveredCell(currentCell);
-      setHoveredCell(currentCell);
+    
+    // If we don't have a last hovered cell or it's different from current cell
+    if (!lastCell || (lastCell[0] !== currentCell[0] || lastCell[1] !== currentCell[1])) {
+      // Update the base point position
+      handleBasePointPlacement(currentCell);
+      // Immediately update the last hovered cell to prevent multiple updates
+      setLastHoveredCell([...currentCell]);
     }
   };
 
   // Handle mouse up anywhere on the document to complete dragging
   const handleGlobalMouseUp = () => {
-    if (isDragging() && pickedUpBasePoint() && hoveredCell()) {
-      handleBasePointPlacement(hoveredCell()!);
-    }
+    // Clean up drag state
     setIsDragging(false);
     setPickedUpBasePoint(null);
     setHoveredCell(null);
@@ -292,7 +297,7 @@ const Board: Component = () => {
   const handleBasePointPickup = (point: [number, number]) => {
     setPickedUpBasePoint(point);
     setIsDragging(true);
-    setLastHoveredCell(point);
+    setLastHoveredCell(point);  // Initialize last hovered cell
     setHoveredCell(point);
   };
 
@@ -321,6 +326,23 @@ const Board: Component = () => {
       return;
     }
 
+    // Don't do anything if we're already at the target position
+    if (basePoint[0] === targetX && basePoint[1] === targetY) {
+      return;
+    }
+
+    // Optimistically update the UI
+    setBasePoints(prev => {
+      const pointToMove = prev.find(bp => bp.x === basePoint[0] && bp.y === basePoint[1]);
+      if (!pointToMove) return prev;
+      
+      return prev.map(bp => 
+        bp.id === pointToMove.id 
+          ? { ...bp, x: targetX, y: targetY } 
+          : bp
+      );
+    });
+
     try {
       setIsSaving(true);
       setError(null);
@@ -348,15 +370,23 @@ const Board: Component = () => {
 
       console.log('[handleBasePointPlacement] Successfully updated base point, waiting for WebSocket update...');
       
-      // The UI will update automatically via the WebSocket event
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Failed to update base point';
       console.error('[handleBasePointPlacement]', errorMsg, error);
       setError(errorMsg);
+      
+      // Revert the optimistic update on error
+      setBasePoints(prev => {
+        const pointToRevert = prev.find(bp => bp.x === targetX && bp.y === targetY);
+        if (!pointToRevert) return prev;
+        
+        return prev.map(bp => 
+          bp.id === pointToRevert.id 
+            ? { ...bp, x: basePoint[0], y: basePoint[1] } 
+            : bp
+        );
+      });
     } finally {
-      setPickedUpBasePoint(null);
-      setIsDragging(false);
-      setHoveredCell(null);
       setIsSaving(false);
     }
   };
