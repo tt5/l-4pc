@@ -501,7 +501,6 @@ const Board: Component = () => {
 
         // 5. Calculate new restricted squares from the server
         console.log('Calling /api/calculate-squares with:', {
-          borderIndices: newRestrictedSquares,
           currentPosition: [startX, startY],
           destination: [targetX, targetY],
         });
@@ -511,7 +510,6 @@ const Board: Component = () => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              borderIndices: newRestrictedSquares,
               currentPosition: [startX, startY],
               destination: [targetX, targetY],
             })

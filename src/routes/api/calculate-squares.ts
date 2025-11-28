@@ -8,7 +8,6 @@ import { performanceTracker } from '~/utils/performance';
 type Point = [number, number];
 
 type CalculateSquaresRequest = {
-  borderIndices: number[];
   currentPosition: Point;
   destination: Point;
 };
@@ -39,12 +38,7 @@ export const POST = withAuth(async ({ request, user }) => {
       throw new Error('Request body must be a JSON object');
     }
     
-    const { borderIndices, currentPosition, destination } = requestBody as CalculateSquaresRequest;
-    
-    // Validate required fields
-    if (!Array.isArray(borderIndices)) {
-      throw new Error('borderIndices must be an array of numbers');
-    }
+    const { currentPosition, destination } = requestBody as CalculateSquaresRequest;
     
     const validatePoint = (point: unknown, name: string): point is Point => {
       if (!Array.isArray(point) || point.length !== 2 || 
