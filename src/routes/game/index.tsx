@@ -1,7 +1,7 @@
 import { Title } from "@solidjs/meta";
 import { Show, createSignal } from 'solid-js';
 import { useAuth } from '~/contexts/AuthContext';
-import { PlayerPositionProvider } from '~/contexts/PlayerPositionContext';
+import { RestrictedSquaresProvider } from '~/contexts/RestrictedSquaresContext';
 import Board from '~/components/Game/Board';
 import SidePanel from '~/components/Game/SidePanel';
 import styles from './game.module.css';
@@ -26,7 +26,7 @@ function GameContent() {
             <p>Please log in to access the game.</p>
           </div>
         }>
-          <PlayerPositionProvider>
+          <RestrictedSquaresProvider>
             <div class={styles.gameContainer}>
               <SidePanel 
                 activeTab={activeTab() as 'info' | 'settings'}
@@ -45,7 +45,7 @@ function GameContent() {
                 </Show>
               </div>
             </div>
-          </PlayerPositionProvider>
+          </RestrictedSquaresProvider>
         </Show>
       </Show>
     </div>
@@ -54,8 +54,8 @@ function GameContent() {
 
 export default function GamePage() {
   return (
-    <PlayerPositionProvider>
+    <RestrictedSquaresProvider>
       <GameContent />
-    </PlayerPositionProvider>
+    </RestrictedSquaresProvider>
   );
 }

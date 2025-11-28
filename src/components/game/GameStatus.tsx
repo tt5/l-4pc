@@ -1,7 +1,6 @@
 import { createSignal } from 'solid-js';
 import styles from './GameStatus.module.css';
 import { useUser } from '../../contexts/UserContext';
-import { usePlayerPosition } from '../../contexts/PlayerPositionContext';
 
 // Component state type
 interface GameStatusState {
@@ -18,7 +17,6 @@ export function GameStatus() {
   });
   
   const userContext = useUser();
-  const { setRestrictedSquares } = usePlayerPosition();
   
   // Show message or error state
   return (

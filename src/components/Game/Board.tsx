@@ -10,7 +10,7 @@ import {
 import { basePointEventService } from '~/lib/server/events/base-point-events';
 import { GridCell } from './GridCell';
 import { useAuth } from '../../contexts/AuthContext';
-import { usePlayerPosition } from '../../contexts/PlayerPositionContext';
+import { useRestrictedSquares } from '../../contexts/RestrictedSquaresContext';
 import { useFetchBasePoints } from '../../hooks/useFetchBasePoints';
 import { useSSE } from '../../hooks/useSSE';
 import { 
@@ -107,12 +107,10 @@ const Board: Component = () => {
   const currentUser = user();
   
   // Get position and restricted squares from context
-  const { 
-    position,
-    setPosition: setContextPosition,
+  const {
     restrictedSquares: getRestrictedSquares,
     setRestrictedSquares
-  } = usePlayerPosition();
+  } = useRestrictedSquares();
   
   // State variables
   const [isSaving, setIsSaving] = createSignal(false);
