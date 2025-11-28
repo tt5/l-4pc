@@ -61,8 +61,8 @@ export const POST = withAuth(async ({ request, user }) => {
     const db = await getDb();
     const basePointRepository = new BasePointRepository(db);
     
-    // Get base points and remove duplicates
-    const basePoints = await basePointRepository.getAll();
+    // Get only the current user's base points
+    const basePoints = await basePointRepository.getByUser(user.userId);
     if (!Array.isArray(basePoints)) {
       throw new Error(`Expected basePoints to be an array, got ${typeof basePoints}`);
     }
