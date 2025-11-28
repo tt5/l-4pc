@@ -156,37 +156,32 @@ const Board: Component = () => {
     
     try {
       // Set initial position to (0, 0) if not set
-      if (!position()) {
-        const initialPosition = createPoint(0, 0);
-        setContextPosition(initialPosition);
-        
-        // Call calculate-squares API to get initial restricted squares
-        try {
-          const response = await fetch('/api/calculate-squares', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              borderIndices: [],
-              currentPosition: initialPosition,
-              destination: initialPosition
-            })
-          });
+      // Call calculate-squares API to get initial restricted squares
+      try {
+        const response = await fetch('/api/calculate-squares', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            borderIndices: [],
+            currentPosition: createPoint(0,0),
+            destination: createPoint(0,0)
+          })
+        });
 
-          if (!response.ok) {
-            throw new Error(`API error: ${response.statusText}`);
-          }
-
-          const result = await response.json();
-          if (result.success) {
-            setRestrictedSquares(result.data.squares || []);
-            setRestrictedSquaresInfo(result.data.squaresWithOrigins || []);
-          }
-        } catch (error) {
-          console.error('Failed to fetch initial restricted squares:', error);
-          setError('Failed to load restricted squares. Please refresh the page.');
-          setRestrictedSquares([]);
-          setRestrictedSquaresInfo([]);
+        if (!response.ok) {
+          throw new Error(`API error: ${response.statusText}`);
         }
+
+        const result = await response.json();
+        if (result.success) {
+          setRestrictedSquares(result.data.squares || []);
+          setRestrictedSquaresInfo(result.data.squaresWithOrigins || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch initial restricted squares:', error);
+        setError('Failed to load restricted squares. Please refresh the page.');
+        setRestrictedSquares([]);
+        setRestrictedSquaresInfo([]);
       }
       
       // Fetch base points
@@ -711,9 +706,6 @@ const Board: Component = () => {
   const handleSquareClick = async (index: number) => {
     // Prevent handling clicks during drag operations
     if (isSaving() || isDragging()) return;
-    
-    const pos = position();
-    if (!pos) return;
     
     const [worldX, worldY] = gridToWorld(index, [0, 0]);
     
