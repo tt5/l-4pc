@@ -254,17 +254,56 @@ const Board: Component = () => {
   };
 
   // Handle mouse up anywhere on the document to complete dragging
-  const handleGlobalMouseUp = () => {
+  const handleGlobalMouseUp = async () => {
+    if (!isDragging() || !pickedUpBasePoint()) {
+      return;
+    }
+
+    const lastCell = lastHoveredCell();
+    if (lastCell) {
+      // Only call calculate-squares if we actually moved to a new cell
+      const [startX, startY] = dragStartPosition() || [];
+      const [endX, endY] = lastCell;
+      
+      if (startX !== undefined && startY !== undefined && 
+          (startX !== endX || startY !== endY)) {
+        try {
+          const response = await fetch('/api/calculate-squares', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              borderIndices: [],
+              currentPosition: [endX, endY],
+              destination: [startX, startY],
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error(`API error: ${response.statusText}`);
+          }
+
+          const result = await response.json();
+          if (result.success && Array.isArray(result.data?.squares)) {
+            setRestrictedSquares(result.data.squares);
+          }
+        } catch (error) {
+          console.error('Failed to update restricted squares after drag:', error);
+        }
+      }
+    }
+
     // Clean up drag state
     setIsDragging(false);
     setPickedUpBasePoint(null);
     setHoveredCell(null);
     setLastHoveredCell(null);
+    setDragStartPosition(null);
   };
   
   // Handle base point pickup
   const handleBasePointPickup = (point: [number, number]) => {
     setPickedUpBasePoint(point);
+    setDragStartPosition([...point]);
     setIsDragging(true);
     setLastHoveredCell(point);
     setHoveredCell(point);
@@ -285,7 +324,7 @@ const Board: Component = () => {
     const [targetX, targetY] = target;
     const index = targetY * BOARD_CONFIG.GRID_SIZE + targetX;
     
-    console.log(`[handleBasePointPlacement] Attempting to place base point at (${targetX}, ${targetY})`);
+    console.log(`[handleBasePointPlacement] Previewing base point at (${targetX}, ${targetY})`);
     
     // Validate the target position
     const validation = validateSquarePlacementLocal(index);
@@ -295,6 +334,9 @@ const Board: Component = () => {
       setError(errorMsg);
       return;
     }
+
+    // Clear any previous errors if validation passed
+    setError(null);
 
     // Don't do anything if we're already at the target position
     if (basePoint[0] === targetX && basePoint[1] === targetY) {
@@ -357,32 +399,8 @@ const Board: Component = () => {
       // Update the drag start position to the new position after successful move
       setDragStartPosition([targetX, targetY]);
       
-      // Call calculate-squares API to update restricted squares
-      try {
-        const response = await fetch('/api/calculate-squares', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            borderIndices: [], // Add any relevant border indices if needed
-            currentPosition: [basePoint[0], basePoint[1]], // Use the base point's current position
-            destination: [targetX, targetY]
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error(`API error: ${response.statusText}`);
-        }
-
-        const result = await response.json();
-        if (result.success && Array.isArray(result.data?.squares)) {
-          setRestrictedSquares(result.data.squares);
-        } else {
-          console.warn('Unexpected API response format:', result);
-        }
-      } catch (apiError) {
-        console.error('Failed to update restricted squares:', apiError);
-        // Don't fail the entire operation if this API call fails
-      }
+      // Note: calculate-squares API call has been moved to handleGlobalMouseUp
+      // to only trigger once after drag ends
 
       // Update the base point in the database
       const result = await updateBasePoint(pointToMove.id, targetX, targetY);
