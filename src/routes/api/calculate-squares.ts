@@ -84,35 +84,47 @@ export const POST = withAuth(async ({ request, user }) => {
 
     const uniqueBasePoints = updatedBasePoints.length > 0 
       ? [...new Map(updatedBasePoints.map(p => [`${p.x},${p.y}`, p])).values()]
-      : [{ x: 0, y: 0, userId: 'default' }];
+      : [{ id: 'default', x: 0, y: 0, userId: 'default' }];
     
-    const newSquares = Array.from({length: 196}, (_, i) => i).flatMap((i, index) => {
+    // Track squares with their originating base points
+    const squaresWithOrigins = Array.from({length: 196}, (_, i) => {
       const x = (i % BOARD_CONFIG.GRID_SIZE);
       const y = Math.floor(i / BOARD_CONFIG.GRID_SIZE);
+      const index = x + y * BOARD_CONFIG.GRID_SIZE;
       
-      return uniqueBasePoints.flatMap(({ x: bx, y: by }) => {
+      // For each square, find all base points that restrict it
+      const restrictedBy = uniqueBasePoints.flatMap(({ x: bx, y: by, id }) => {
         if (bx === x && by === y) return [];
         const xdiff = Math.abs(x - bx);
         const ydiff = Math.abs(y - by);
         
-        if (xdiff === 0 || ydiff === 0 || xdiff === ydiff
-          ) {
-          const nx = x;
-          const ny = y;
-          
-            // Original logic for straight lines and diagonals
-            return nx >= 0 && nx < BOARD_CONFIG.GRID_SIZE && ny >= 0 && ny < BOARD_CONFIG.GRID_SIZE 
-              ? [nx + ny * BOARD_CONFIG.GRID_SIZE] 
-              : [];
+        if (xdiff === 0 || ydiff === 0 || xdiff === ydiff) {
+          // Check if the square is within bounds
+          if (x >= 0 && x < BOARD_CONFIG.GRID_SIZE && y >= 0 && y < BOARD_CONFIG.GRID_SIZE) {
+            return [{
+              basePointId: id,
+              basePointX: bx,
+              basePointY: by
+            }];
+          }
         }
         return [];
       });
+      
+      return {
+        index,
+        x,
+        y,
+        isRestricted: restrictedBy.length > 0,
+        restrictedBy
+      };
     });
     
     const responseData = {
       success: true,
       data: {
-        squares: newSquares
+        squares: squaresWithOrigins.filter(sq => sq.isRestricted).map(sq => sq.index),
+        squaresWithOrigins: squaresWithOrigins.filter(sq => sq.isRestricted)
       }
     };
     

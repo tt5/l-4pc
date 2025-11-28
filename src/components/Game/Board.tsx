@@ -60,6 +60,18 @@ const Board: Component = () => {
   const [isDragging, setIsDragging] = createSignal(false);
   const [hoveredCell, setHoveredCell] = createSignal<[number, number] | null>(null);
   const [hoveredSquare, setHoveredSquare] = createSignal<number | null>(null);
+  
+  // Track restricted squares with their origin information
+  const [restrictedSquaresInfo, setRestrictedSquaresInfo] = createSignal<Array<{
+    index: number;
+    x: number;
+    y: number;
+    restrictedBy: Array<{
+      basePointId: string;
+      basePointX: number;
+      basePointY: number;
+    }>;
+  }>>([]);
   const [lastHoveredCell, setLastHoveredCell] = createSignal<[number, number] | null>(null);
 
   
@@ -93,6 +105,8 @@ const Board: Component = () => {
           [0, 0]
         );
         setRestrictedSquares(restricted);
+        // Initialize with empty array for now
+        setRestrictedSquaresInfo([]);
       }
       
       // Fetch base points
@@ -131,9 +145,19 @@ const Board: Component = () => {
     }
     
     // Check if it's a restricted square
-    if (getRestrictedSquares().includes(index)) {
-      return { isValid: false, reason: 'Cannot place in restricted area' };
+    const isRestricted = getRestrictedSquares().includes(index);
+    const restrictionInfo = restrictedSquaresInfo().find(sq => sq.index === index);
+    
+    // Base points can only be placed on squares that are restricted by other base points
+    if (!isRestricted) {
+      return { 
+        isValid: false, 
+        reason: 'Base points can only be placed on squares restricted by other base points' 
+      };
     }
+    
+    // If we get here, it's a restricted square, so it's a valid target for a base point
+    return { isValid: true };
     
     return { isValid: true };
   };
@@ -171,6 +195,7 @@ const Board: Component = () => {
       // Clear state on logout
       if (!currentUser) {
         setRestrictedSquares([]);
+        setRestrictedSquaresInfo([]);
         return;
       }
       
@@ -283,8 +308,11 @@ const Board: Component = () => {
           }
 
           const result = await response.json();
-          if (result.success && Array.isArray(result.data?.squares)) {
-            setRestrictedSquares(result.data.squares);
+          if (result.success) {
+            // Update both the simple array for backward compatibility
+            setRestrictedSquares(result.data.squares || []);
+            // And the detailed information
+            setRestrictedSquaresInfo(result.data.squaresWithOrigins || []);
           }
         } catch (error) {
           console.error('Failed to update restricted squares after drag:', error);
@@ -488,7 +516,10 @@ const Board: Component = () => {
       });
       
       if (result.success) {
-        setRestrictedSquares(calculateRestrictedSquares([worldX, worldY], getRestrictedSquares(), pos));
+        // We'll update the restricted squares through the context
+        const restricted = calculateRestrictedSquares([worldX, worldY], getRestrictedSquares(), pos);
+        setRestrictedSquares(restricted);
+        // Note: The detailed restrictedSquaresInfo will be updated on the next render
       } else if (result.error) {
         setError(result.error);
       }
