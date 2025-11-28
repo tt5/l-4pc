@@ -13,11 +13,12 @@ type CalculateSquaresRequest = {
   destination: Point;
 };
 
-// Calculate direction vector from current position to destination
+// Calculate the distance vector from current position to destination
+// Returns [deltaX, deltaY] representing the actual distances
 function getDirectionVector(current: Point, destination: Point): Point {
-  // Calculate the difference between destination and current position
-  const dx = Math.sign(destination[0] - current[0]);
-  const dy = Math.sign(destination[1] - current[1]);
+  // Calculate the actual distance between points
+  const dx = destination[0] - current[0];
+  const dy = destination[1] - current[1];
   return [dx, dy];
 }
 
@@ -72,8 +73,17 @@ export const POST = withAuth(async ({ request, user }) => {
       throw new Error(`Expected basePoints to be an array, got ${typeof basePoints}`);
     }
 
-    const uniqueBasePoints = basePoints.length > 0 
-      ? [...new Map(basePoints.map(p => [`${p.x},${p.y}`, p])).values()]
+    // If we're moving a base point, update its position in the array
+    const updatedBasePoints = basePoints.map(point => {
+      // If this is the point being moved (same as currentPosition), use destination
+      if (point.x === currentPosition[0] && point.y === currentPosition[1]) {
+        return { ...point, x: destination[0], y: destination[1] };
+      }
+      return point;
+    });
+
+    const uniqueBasePoints = updatedBasePoints.length > 0 
+      ? [...new Map(updatedBasePoints.map(p => [`${p.x},${p.y}`, p])).values()]
       : [{ x: 0, y: 0, userId: 'default' }];
     
     const newSquares = Array.from({length: 196}, (_, i) => i).flatMap((i, index) => {

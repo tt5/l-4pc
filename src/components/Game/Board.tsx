@@ -364,7 +364,7 @@ const Board: Component = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             borderIndices: [], // Add any relevant border indices if needed
-            currentPosition: position() || [0, 0],
+            currentPosition: [basePoint[0], basePoint[1]], // Use the base point's current position
             destination: [targetX, targetY]
           })
         });
