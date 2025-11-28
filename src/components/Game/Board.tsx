@@ -57,46 +57,46 @@ const Board: Component = () => {
     const [offsetX, offsetY] = pos;
     const [worldX, worldY] = gridToWorld(gridX, gridY, offsetX, offsetY);
     
-    // If we're not moving a base point, use default validation for new placements
-    if (!pickedUp) {
-      // Check if the target position is already occupied
-      if (currentBasePoints.some(bp => bp.x === worldX && bp.y === worldY)) {
+    // If we're moving a base point
+    if (pickedUp) {
+      // Check if the target position is already occupied (excluding the picked up point)
+      if (currentBasePoints.some(bp => 
+        bp.x === worldX && 
+        bp.y === worldY && 
+        !(bp.x === pickedUp[0] && bp.y === pickedUp[1])
+      )) {
         return { isValid: false, reason: 'Base point already exists here' };
       }
       
-      // For new base points, they can only be placed on restricted squares
-      if (!getRestrictedSquares().includes(index)) {
+      // Check if the target square is restricted by the picked up base point
+      const restrictionInfo = restrictedSquaresInfo().find(sq => sq.index === index);
+      const isRestrictedByPickedUp = restrictionInfo?.restrictedBy.some(
+        restriction => 
+          restriction.basePointX === pickedUp[0] && 
+          restriction.basePointY === pickedUp[1]
+      );
+
+      if (!isRestrictedByPickedUp) {
         return { 
           isValid: false, 
-          reason: 'Base points can only be placed on restricted squares' 
+          reason: 'Base points can only be moved to squares they restrict' 
         };
       }
       
       return { isValid: true };
     }
     
-    // If we're moving a base point
-    // Check if the target position is already occupied (excluding the picked up point)
-    if (currentBasePoints.some(bp => 
-      bp.x === worldX && 
-      bp.y === worldY && 
-      !(bp.x === pickedUp[0] && bp.y === pickedUp[1])
-    )) {
+    // If we're not moving a base point, use default validation for new placements
+    // Check if the target position is already occupied
+    if (currentBasePoints.some(bp => bp.x === worldX && bp.y === worldY)) {
       return { isValid: false, reason: 'Base point already exists here' };
     }
     
-    // Check if the target square is restricted by the picked up base point
-    const restrictionInfo = restrictedSquaresInfo().find(sq => sq.index === index);
-    const isRestrictedByPickedUp = restrictionInfo?.restrictedBy.some(
-      restriction => 
-        restriction.basePointX === pickedUp[0] && 
-        restriction.basePointY === pickedUp[1]
-    );
-
-    if (!isRestrictedByPickedUp) {
+    // For new base points, they can only be placed on restricted squares
+    if (!getRestrictedSquares().includes(index)) {
       return { 
         isValid: false, 
-        reason: 'Base points can only be moved to squares they restrict' 
+        reason: 'Base points can only be placed on restricted squares' 
       };
     }
     
@@ -395,23 +395,47 @@ const Board: Component = () => {
   };
 
   // Handle mouse up anywhere on the document to complete dragging
-  const handleGlobalMouseUp = async () => {
+  const handleGlobalMouseUp = async (e?: MouseEvent | Event) => {
+    // Convert to MouseEvent if it's a standard Event
+    const mouseEvent = e && 'clientX' in e ? e : undefined;
+    
+    console.log('handleGlobalMouseUp triggered', { 
+      isDragging: isDragging(),
+      pickedUpBasePoint: pickedUpBasePoint(),
+      targetPosition: targetPosition(),
+      eventTarget: mouseEvent?.target?.toString()
+    });
+    
     if (!isDragging() || !pickedUpBasePoint()) {
+      console.log('Not dragging or no picked up base point, returning early');
       return;
     }
 
-    const target = targetPosition();
+    // If we don't have a target position, try to get it from the hovered cell
+    let target = targetPosition();
     if (!target) {
-      cleanupDragState();
-      return;
+      console.log('No target position, trying to get from hovered cell');
+      const hovered = hoveredCell();
+      if (hovered) {
+        console.log('Using hovered cell as target position');
+        target = [...hovered];
+        setTargetPosition(target);
+      } else {
+        console.log('No hovered cell available, cleaning up');
+        cleanupDragState();
+        return;
+      }
     }
 
     const [targetX, targetY] = target;
     const index = targetY * BOARD_CONFIG.GRID_SIZE + targetX;
     
-    // Final validation
+    console.log('Target position:', { targetX, targetY, index });
+    
+    // Final validation - pass the index of the target position
     const validation = validateSquarePlacementLocal(index);
     if (!validation.isValid) {
+      console.log('Validation failed:', validation.reason);
       setError(`Invalid placement: ${validation.reason || 'Unknown reason'}`);
       cleanupDragState();
       return;
@@ -419,14 +443,18 @@ const Board: Component = () => {
 
     const startPos = dragStartPosition();
     if (!startPos) {
+      console.log('No start position, cleaning up');
       cleanupDragState();
       return;
     }
 
     const [startX, startY] = startPos;
+    console.log('Start position:', { startX, startY });
     
     // Only proceed if we actually moved to a new cell
     if (startX !== targetX || startY !== targetY) {
+      console.log('Processing move from', { startX, startY }, 'to', { targetX, targetY });
+      
       // Save the current state for potential rollback
       const originalBasePoints = [...basePoints()];
       const originalRestrictedSquares = [...getRestrictedSquares()];
@@ -439,9 +467,10 @@ const Board: Component = () => {
             ? { ...bp, x: targetX, y: targetY }
             : bp
         );
+        console.log('Updating base points in UI');
         setBasePoints(updatedBasePoints);
 
-        // 2. Optimistically update the base point in the database
+        // 2. Find the base point being moved
         const pointToMove = originalBasePoints.find(bp => 
           bp.x === startX && bp.y === startY
         );
@@ -450,7 +479,10 @@ const Board: Component = () => {
           throw new Error(`Base point not found at position (${startX}, ${startY})`);
         }
 
+        console.log('Found base point to move:', pointToMove);
+
         // 3. Update restricted squares optimistically
+        console.log('Updating restricted squares optimistically');
         const newRestrictedSquares = calculateRestrictedSquares(
           [targetX, targetY],
           originalRestrictedSquares,
@@ -459,32 +491,58 @@ const Board: Component = () => {
         setRestrictedSquares(newRestrictedSquares);
 
         // 4. Update the base point in the database
+        console.log('Updating base point in database...');
         const result = await updateBasePoint(pointToMove.id, targetX, targetY);
         
         if (!result.success) {
           throw new Error(result.error || 'Failed to update base point');
         }
+        console.log('Base point updated in database successfully');
 
-        // 5. Update restricted squares with server response
-        const response = await fetch('/api/calculate-squares', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            borderIndices: originalRestrictedSquares,
-            currentPosition: [startX, startY],
-            destination: [targetX, targetY],
-          })
+        // 5. Calculate new restricted squares from the server
+        console.log('Calling /api/calculate-squares with:', {
+          borderIndices: newRestrictedSquares,
+          currentPosition: [startX, startY],
+          destination: [targetX, targetY],
         });
 
-        if (!response.ok) {
-          throw new Error(`API error: ${response.statusText}`);
-        }
+        try {
+          const response = await fetch('/api/calculate-squares', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              borderIndices: newRestrictedSquares,
+              currentPosition: [startX, startY],
+              destination: [targetX, targetY],
+            })
+          });
 
-        const result2 = await response.json();
-        if (result2.success) {
-          // Update with server-calculated values
-          setRestrictedSquares(result2.data.squares || []);
-          setRestrictedSquaresInfo(result2.data.squaresWithOrigins || []);
+          console.log('API Response status:', response.status);
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('API Error:', errorText);
+            throw new Error(`API error: ${response.status} ${response.statusText}\n${errorText}`);
+          }
+
+          const result2 = await response.json();
+          console.log('API Response:', result2);
+          
+          if (result2.success) {
+            // Update with server-calculated values
+            console.log('Updating with server-calculated values:', {
+              squares: result2.data?.squares,
+              squaresWithOrigins: result2.data?.squaresWithOrigins
+            });
+            setRestrictedSquares(result2.data?.squares || newRestrictedSquares);
+            setRestrictedSquaresInfo(result2.data?.squaresWithOrigins || []);
+          } else {
+            console.warn('API call was not successful, using optimistic update');
+          }
+        } catch (apiError) {
+          console.error('Error in calculate-squares API call:', apiError);
+          // Continue with the optimistic update even if the API call fails
+          console.log('Continuing with optimistic update after API error');
         }
       } catch (error) {
         // Revert to original state on error
@@ -494,9 +552,11 @@ const Board: Component = () => {
         setRestrictedSquaresInfo(originalRestrictedSquaresInfo);
         setError(error instanceof Error ? error.message : 'Failed to place base point');
       } finally {
+        console.log('Cleaning up drag state');
         cleanupDragState();
       }
     } else {
+      console.log('No movement detected, cleaning up');
       cleanupDragState();
     }
   };
@@ -625,20 +685,45 @@ const Board: Component = () => {
 
   // Setup and cleanup event listeners
   onMount(() => {
-    const eventListeners: [string, EventListener][] = [
-      ['mouseup', handleGlobalMouseUp as EventListener],
-    ];
+    const handleMouseUp = (e: Event) => {
+      // Only process if we're currently dragging
+      if (isDragging() && pickedUpBasePoint()) {
+        console.log('Mouse up during drag', { 
+          target: e.target?.toString(),
+          isDragging: isDragging(),
+          pickedUpBasePoint: pickedUpBasePoint()
+        });
+        handleGlobalMouseUp(e as MouseEvent);
+      }
+    };
+
+    const handleMouseMoveWrapper = (e: Event) => {
+      const mouseEvent = e as MouseEvent;
+      // Only process if we're currently dragging
+      if (isDragging() && pickedUpBasePoint()) {
+        mouseEvent.preventDefault();
+        mouseEvent.stopPropagation();
+        handleMouseMove(mouseEvent);
+      }
+    };
+
+    const handleMouseLeave = (e: Event) => {
+      // Only process if we're currently dragging
+      if (isDragging() && pickedUpBasePoint()) {
+        handleGlobalMouseUp(e as MouseEvent);
+      }
+    };
+
+    // Add event listeners with passive: false for better performance
+    window.addEventListener('mouseup', handleMouseUp, { capture: true, passive: false });
+    window.addEventListener('mousemove', handleMouseMoveWrapper, { capture: true, passive: false });
+    window.addEventListener('mouseleave', handleMouseLeave, { capture: true, passive: true });
     
-    // Add event listeners
-    eventListeners.forEach(([event, handler]) => {
-      window.addEventListener(event, handler);
-    });
-    
-    // Cleanup function to remove event listeners
+    // Cleanup function to remove event listeners and reset state
     return () => {
-      eventListeners.forEach(([event, handler]) => {
-        window.removeEventListener(event, handler);
-      });
+      window.removeEventListener('mouseup', handleMouseUp, true);
+      window.removeEventListener('mousemove', handleMouseMoveWrapper, true);
+      window.removeEventListener('mouseleave', handleMouseLeave, true);
       
       // Clean up drag state
       setIsDragging(false);
@@ -649,6 +734,7 @@ const Board: Component = () => {
   });
   
   const handleSquareClick = async (index: number) => {
+    // Prevent handling clicks during drag operations
     if (isSaving() || isDragging()) return;
     
     const pos = position();
@@ -656,11 +742,7 @@ const Board: Component = () => {
     
     const [worldX, worldY] = gridToWorld(index, [0, 0]);
     
-    // If we're dragging a base point, handle the drop
-    if (isDragging() && pickedUpBasePoint()) {
-      handleBasePointPlacement([worldX, worldY]);
-      return;
-    }
+    // Note: We no longer handle drag operations here - they're handled in handleGlobalMouseUp
     
     // Otherwise, handle adding a new base point
     setIsSaving(true);

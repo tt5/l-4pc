@@ -37,15 +37,11 @@ export const GridCell: Component<GridCellProps> = (props) => {
 
   const handleMouseEnter = () => {
     props.onHover(true);
-    if (isDraggingProp && pickedUpBasePoint) {
-      props.onBasePointPlacement([x, y]);
-    }
+    // Don't call onBasePointPlacement during drag - we'll handle it in handleGlobalMouseUp
   };
 
   const handleMouseUp = () => {
-    if (isDraggingProp && pickedUpBasePoint) {
-      props.onBasePointPlacement([x, y]);
-    }
+    // Don't call onBasePointPlacement here - we'll handle it in handleGlobalMouseUp
   };
 
   const squareClass = () => {
