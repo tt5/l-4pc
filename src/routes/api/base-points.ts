@@ -5,7 +5,7 @@ import { basePointEventService } from '~/lib/server/events/base-point-events';
 
 type BasePointRequest = { x: number; y: number };
 
-const MAX_COORDINATE = 1000; // Reasonable limit to prevent abuse
+const MAX_COORDINATE = 13;
 // Return all base points regardless of position
 
 const validateCoordinates = (x: number, y: number) => {
