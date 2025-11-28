@@ -96,17 +96,41 @@ const Board: Component = () => {
     try {
       // Set initial position to (0, 0) if not set
       if (!position()) {
-        setContextPosition(createPoint(0, 0));
+        const initialPosition = createPoint(0, 0);
+        setContextPosition(initialPosition);
         
-        // Calculate initial restricted squares
-        const restricted = calculateRestrictedSquares(
-          [0, 0],
-          [],
-          [0, 0]
-        );
-        setRestrictedSquares(restricted);
-        // Initialize with empty array for now
-        setRestrictedSquaresInfo([]);
+        // Call calculate-squares API to get initial restricted squares
+        try {
+          const response = await fetch('/api/calculate-squares', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              borderIndices: [],
+              currentPosition: initialPosition,
+              destination: initialPosition
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error(`API error: ${response.statusText}`);
+          }
+
+          const result = await response.json();
+          if (result.success) {
+            setRestrictedSquares(result.data.squares || []);
+            setRestrictedSquaresInfo(result.data.squaresWithOrigins || []);
+          }
+        } catch (error) {
+          console.error('Failed to fetch initial restricted squares:', error);
+          // Fallback to local calculation if API call fails
+          const restricted = calculateRestrictedSquares(
+            [0, 0],
+            [],
+            [0, 0]
+          );
+          setRestrictedSquares(restricted);
+          setRestrictedSquaresInfo([]);
+        }
       }
       
       // Fetch base points
