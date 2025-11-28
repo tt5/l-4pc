@@ -6,7 +6,7 @@ import { basePointEventService } from '~/lib/server/events/base-point-events';
 type BasePointRequest = { x: number; y: number };
 
 const MAX_COORDINATE = 1000; // Reasonable limit to prevent abuse
-const VIEW_RADIUS = 20; // Fetch points within this radius of the current position
+// Return all base points regardless of position
 
 const validateCoordinates = (x: number, y: number) => {
   // Type checking
@@ -45,24 +45,12 @@ const handleApiError = (error: unknown, requestId: string, endpoint: string) => 
   );
 };
 
-export const GET = withAuth(async ({ request }) => {
+export const GET = withAuth(async () => {
   const requestId = generateRequestId();
-  const url = new URL(request.url);
-  const x = parseInt(url.searchParams.get('x') || '0');
-  const y = parseInt(url.searchParams.get('y') || '0');
 
   try {
     const repository = await getBasePointRepository();
-    let basePoints = await repository.getAll();
-    
-    // Filter base points to only those within the view radius
-    if (!isNaN(x) && !isNaN(y)) {
-      basePoints = basePoints.filter(point => {
-        const dx = point.x - x;
-        const dy = point.y - y;
-        return Math.abs(dx) <= VIEW_RADIUS && Math.abs(dy) <= VIEW_RADIUS;
-      });
-    }
+    const basePoints = await repository.getAll();
     
     return createApiResponse({ basePoints }, { requestId });
   } catch (error) {
