@@ -153,35 +153,53 @@ const Board: Component = () => {
     const currentBasePoints = basePoints();
     const pickedUp = pickedUpBasePoint();
     
-    // If we're moving a base point, exclude it from the validation
-    const filteredBasePoints = pickedUp 
-      ? currentBasePoints.filter(bp => !(bp.x === pickedUp[0] && bp.y === pickedUp[1]))
-      : currentBasePoints;
-    
     // Get the target position in world coordinates
     const [gridX, gridY] = indicesToPoints([index])[0];
     const [offsetX, offsetY] = pos;
     const [worldX, worldY] = gridToWorld(gridX, gridY, offsetX, offsetY);
     
+    // If we're not moving a base point, use default validation for new placements
+    if (!pickedUp) {
+      // Check if the target position is already occupied
+      if (currentBasePoints.some(bp => bp.x === worldX && bp.y === worldY)) {
+        return { isValid: false, reason: 'Base point already exists here' };
+      }
+      
+      // For new base points, they can only be placed on restricted squares
+      if (!getRestrictedSquares().includes(index)) {
+        return { 
+          isValid: false, 
+          reason: 'Base points can only be placed on restricted squares' 
+        };
+      }
+      
+      return { isValid: true };
+    }
+    
+    // If we're moving a base point
     // Check if the target position is already occupied (excluding the picked up point)
-    if (filteredBasePoints.some(bp => bp.x === worldX && bp.y === worldY)) {
+    if (currentBasePoints.some(bp => 
+      bp.x === worldX && 
+      bp.y === worldY && 
+      !(bp.x === pickedUp[0] && bp.y === pickedUp[1])
+    )) {
       return { isValid: false, reason: 'Base point already exists here' };
     }
     
-    // Check if it's a restricted square
-    const isRestricted = getRestrictedSquares().includes(index);
+    // Check if the target square is restricted by the picked up base point
     const restrictionInfo = restrictedSquaresInfo().find(sq => sq.index === index);
-    
-    // Base points can only be placed on squares that are restricted by other base points
-    if (!isRestricted) {
+    const isRestrictedByPickedUp = restrictionInfo?.restrictedBy.some(
+      restriction => 
+        restriction.basePointX === pickedUp[0] && 
+        restriction.basePointY === pickedUp[1]
+    );
+
+    if (!isRestrictedByPickedUp) {
       return { 
         isValid: false, 
-        reason: 'Base points can only be placed on squares restricted by other base points' 
+        reason: 'Base points can only be moved to squares they restrict' 
       };
     }
-    
-    // If we get here, it's a restricted square, so it's a valid target for a base point
-    return { isValid: true };
     
     return { isValid: true };
   };
