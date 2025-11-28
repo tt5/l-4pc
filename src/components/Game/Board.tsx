@@ -427,9 +427,22 @@ const Board: Component = () => {
     
     // Only proceed if we actually moved to a new cell
     if (startX !== targetX || startY !== targetY) {
+      // Save the current state for potential rollback
+      const originalBasePoints = [...basePoints()];
+      const originalRestrictedSquares = [...getRestrictedSquares()];
+      const originalRestrictedSquaresInfo = [...restrictedSquaresInfo()];
+      
       try {
-        // Update the base point in the database
-        const pointToMove = basePoints().find(bp => 
+        // 1. Optimistically update the base points in the UI
+        const updatedBasePoints = basePoints().map(bp => 
+          bp.x === startX && bp.y === startY
+            ? { ...bp, x: targetX, y: targetY }
+            : bp
+        );
+        setBasePoints(updatedBasePoints);
+
+        // 2. Optimistically update the base point in the database
+        const pointToMove = originalBasePoints.find(bp => 
           bp.x === startX && bp.y === startY
         );
 
@@ -437,21 +450,29 @@ const Board: Component = () => {
           throw new Error(`Base point not found at position (${startX}, ${startY})`);
         }
 
-        // Update the base point in the database
+        // 3. Update restricted squares optimistically
+        const newRestrictedSquares = calculateRestrictedSquares(
+          [targetX, targetY],
+          originalRestrictedSquares,
+          [startX, startY]
+        );
+        setRestrictedSquares(newRestrictedSquares);
+
+        // 4. Update the base point in the database
         const result = await updateBasePoint(pointToMove.id, targetX, targetY);
         
         if (!result.success) {
           throw new Error(result.error || 'Failed to update base point');
         }
 
-        // Update restricted squares after successful move
+        // 5. Update restricted squares with server response
         const response = await fetch('/api/calculate-squares', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            borderIndices: [],
-            currentPosition: [targetX, targetY],
-            destination: [startX, startY],
+            borderIndices: originalRestrictedSquares,
+            currentPosition: [startX, startY],
+            destination: [targetX, targetY],
           })
         });
 
@@ -461,13 +482,16 @@ const Board: Component = () => {
 
         const result2 = await response.json();
         if (result2.success) {
-          // Update both the simple array for backward compatibility
+          // Update with server-calculated values
           setRestrictedSquares(result2.data.squares || []);
-          // And the detailed information
           setRestrictedSquaresInfo(result2.data.squaresWithOrigins || []);
         }
       } catch (error) {
+        // Revert to original state on error
         console.error('Error during base point placement:', error);
+        setBasePoints(originalBasePoints);
+        setRestrictedSquares(originalRestrictedSquares);
+        setRestrictedSquaresInfo(originalRestrictedSquaresInfo);
         setError(error instanceof Error ? error.message : 'Failed to place base point');
       } finally {
         cleanupDragState();
