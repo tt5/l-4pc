@@ -357,6 +357,33 @@ const Board: Component = () => {
       // Update the drag start position to the new position after successful move
       setDragStartPosition([targetX, targetY]);
       
+      // Call calculate-squares API to update restricted squares
+      try {
+        const response = await fetch('/api/calculate-squares', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            borderIndices: [], // Add any relevant border indices if needed
+            currentPosition: position() || [0, 0],
+            destination: [targetX, targetY]
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`API error: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        if (result.success && Array.isArray(result.data?.squares)) {
+          setRestrictedSquares(result.data.squares);
+        } else {
+          console.warn('Unexpected API response format:', result);
+        }
+      } catch (apiError) {
+        console.error('Failed to update restricted squares:', apiError);
+        // Don't fail the entire operation if this API call fails
+      }
+
       // Update the base point in the database
       const result = await updateBasePoint(pointToMove.id, targetX, targetY);
       

@@ -76,23 +76,19 @@ export const POST = withAuth(async ({ request, user }) => {
       ? [...new Map(basePoints.map(p => [`${p.x},${p.y}`, p])).values()]
       : [{ x: 0, y: 0, userId: 'default' }];
     
-    const newSquares = borderIndices.flatMap((i, index) => {
-      const x = (i % BOARD_CONFIG.GRID_SIZE) - currentPosition[0];
-      const y = Math.floor(i / BOARD_CONFIG.GRID_SIZE) - currentPosition[1];
+    const newSquares = Array.from({length: 196}, (_, i) => i).flatMap((i, index) => {
+      const x = (i % BOARD_CONFIG.GRID_SIZE);
+      const y = Math.floor(i / BOARD_CONFIG.GRID_SIZE);
       
       return uniqueBasePoints.flatMap(({ x: bx, y: by }) => {
         if (bx === x && by === y) return [];
         const xdiff = Math.abs(x - bx);
         const ydiff = Math.abs(y - by);
         
-        // Check for straight lines (horizontal/vertical/diagonal) or slopes 2:1 and 1:2
         if (xdiff === 0 || ydiff === 0 || xdiff === ydiff
-          || (2 * xdiff === ydiff) || (2 * ydiff === xdiff)
-          || (3 * xdiff === ydiff) || (3 * ydiff === xdiff)
-          || (5 * xdiff === ydiff) || (5 * ydiff === xdiff)
           ) {
-          const nx = x + currentPosition[0] + dx;
-          const ny = y + currentPosition[1] + dy;
+          const nx = x;
+          const ny = y;
           
             // Original logic for straight lines and diagonals
             return nx >= 0 && nx < BOARD_CONFIG.GRID_SIZE && ny >= 0 && ny < BOARD_CONFIG.GRID_SIZE 
@@ -103,18 +99,10 @@ export const POST = withAuth(async ({ request, user }) => {
       });
     });
     
-    // Filter to only include squares that are in both newSquares and borderIndices
-    const borderIndicesSet = new Set(borderIndices);
-    const filteredSquares = [...new Set(newSquares)].filter(square => 
-      borderIndicesSet.has(square)
-    );
-    //TODO: why two times?
-    //console.log(filteredSquares)
-
     const responseData = {
       success: true,
       data: {
-        squares: filteredSquares
+        squares: newSquares
       }
     };
     
@@ -136,7 +124,7 @@ export const POST = withAuth(async ({ request, user }) => {
   } catch (error) {
     console.error(`[${requestId}] Error in calculate-squares:`, error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const statusCode = error.message.includes('must be') ? 400 : 500; // 400 for validation errors
+    const statusCode = error instanceof Error && error.message.includes('must be') ? 400 : 500; // 400 for validation errors
     return createErrorResponse('Failed to calculate squares', statusCode, errorMessage, { requestId });
   }
 });
