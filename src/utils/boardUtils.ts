@@ -93,7 +93,6 @@ export const handleAddBasePoint = async ({
 
 type FetchBasePointsOptions = {
   user: () => any;
-  currentPosition: () => [number, number];
   lastFetchTime: () => number;
   isFetching: () => boolean;
   setBasePoints: (value: BasePoint[] | ((prev: BasePoint[]) => BasePoint[])) => void;
@@ -296,7 +295,6 @@ export const validateSquarePlacement = ({
 
 export const fetchBasePoints = async ({
   user,
-  currentPosition,
   lastFetchTime,
   isFetching,
   setBasePoints,
@@ -319,11 +317,7 @@ export const fetchBasePoints = async ({
   setIsFetching(true);
 
   try {
-    let [x, y] = currentPosition();
-    // moves opposite direction
-    x = -x;
-    y = -y;
-    const response = await fetch(`/api/base-points?x=${x}&y=${y}`, {
+    const response = await fetch(`/api/base-points`, {
       credentials: 'include',
       headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
     });

@@ -1,14 +1,13 @@
 import { createSignal } from 'solid-js';
 import { fetchBasePoints as fetchBasePointsUtil } from '../utils/boardUtils';
 import type { User } from '../types/user';
-import type { Point, BasePoint } from '../types/board';
+import type { BasePoint } from '../types/board';
 
 type UseFetchBasePointsProps = {
   user: () => User | null;
-  currentPosition: () => Point;
 };
 
-export function useFetchBasePoints({ user, currentPosition }: UseFetchBasePointsProps) {
+export function useFetchBasePoints({ user }: UseFetchBasePointsProps) {
   const [basePoints, setBasePoints] = createSignal<BasePoint[]>([]);
   const [isFetching, setIsFetching] = createSignal(false);
   const [lastFetchTime, setLastFetchTime] = createSignal(0);
@@ -17,7 +16,6 @@ export function useFetchBasePoints({ user, currentPosition }: UseFetchBasePoints
   const fetchBasePoints = async () => {
     await fetchBasePointsUtil({
       user,
-      currentPosition,
       lastFetchTime,
       isFetching,
       setBasePoints,

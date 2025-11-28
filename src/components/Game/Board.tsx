@@ -44,8 +44,6 @@ const Board: Component = () => {
 
   // Helper function to validate square placement
   const validateSquarePlacementLocal = (index: number) => {
-    const pos = position();
-    if (!pos) return { isValid: false, reason: 'Position not initialized' };
     
     // Get the current base points
     const currentBasePoints = basePoints();
@@ -53,15 +51,13 @@ const Board: Component = () => {
     
     // Get the target position in world coordinates
     const [gridX, gridY] = indicesToPoints([index])[0];
-    const [offsetX, offsetY] = pos;
-    const [worldX, worldY] = gridToWorld(gridX, gridY, offsetX, offsetY);
     
     // If we're moving a base point
     if (pickedUp) {
       // Check if the target position is already occupied (excluding the picked up point)
       if (currentBasePoints.some(bp => 
-        bp.x === worldX && 
-        bp.y === worldY && 
+        bp.x === gridX && 
+        bp.y === gridY && 
         !(bp.x === pickedUp[0] && bp.y === pickedUp[1])
       )) {
         return { isValid: false, reason: 'Base point already exists here' };
@@ -87,7 +83,7 @@ const Board: Component = () => {
     
     // If we're not moving a base point, use default validation for new placements
     // Check if the target position is already occupied
-    if (currentBasePoints.some(bp => bp.x === worldX && bp.y === worldY)) {
+    if (currentBasePoints.some(bp => bp.x === gridX && bp.y === gridY)) {
       return { isValid: false, reason: 'Base point already exists here' };
     }
     
@@ -117,9 +113,6 @@ const Board: Component = () => {
     restrictedSquares: getRestrictedSquares,
     setRestrictedSquares
   } = usePlayerPosition();
-  
-  // Create a memoized version of the current position to avoid recreating it
-  const currentPos = createMemo<Point>(() => position() || createPoint(0, 0));
   
   // State variables
   const [isSaving, setIsSaving] = createSignal(false);
@@ -151,7 +144,6 @@ const Board: Component = () => {
     setBasePoints
   } = useFetchBasePoints({
     user,
-    currentPosition: () => position() || [0, 0]
   });
   
   // Initialize board on mount
