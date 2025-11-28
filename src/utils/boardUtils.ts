@@ -90,67 +90,6 @@ export const handleAddBasePoint = async ({
 };
 
 
-export const calculateRestrictedSquares = (
-  p: Point,
-  currentRestrictedSquares: number[],
-  currentPosition: Point
-): number[] => {
-  const [x, y] = p; // Base point position in world coordinates
-  const [offsetX, offsetY] = currentPosition; // Player's current position
-  // opposite direction
-  const gridX = x + offsetX;
-  const gridY = y + offsetY;
-
-  const gridSize = BOARD_CONFIG.GRID_SIZE;
-  const maxIndex = gridSize * gridSize - 1;
-  
-  
-  // Helper function to check if a point is within the grid
-  const isValidSquare = (square: number): boolean => {
-    return square >= 0 && square <= maxIndex;
-  };
-
-  // Calculate squares in a straight line from (gridX,gridY) in a given direction
-  const calculateLine = (dx: number, dy: number): number[] => {
-    const squares: number[] = [];
-    let cx = gridX + dx;
-    let cy = gridY + dy;
-    
-    while (cx >= 0 && cx < gridSize && cy >= 0 && cy < gridSize) {
-      const square = cx + cy * gridSize;
-      if (isValidSquare(square)) {
-        squares.push(square);
-      }
-      cx += dx;
-      cy += dy;
-    }
-    
-    return squares;
-  };
-
-  // Calculate all restricted squares
-  const newRestrictedSquares = [
-    // Horizontal and vertical lines
-    ...calculateLine(1, 0),   // Right
-    ...calculateLine(-1, 0),  // Left
-    ...calculateLine(0, 1),   // Down
-    ...calculateLine(0, -1),  // Up
-    
-    // Diagonal lines (slope 1 and -1)
-    ...calculateLine(1, -1),  // Top-right diagonal
-    ...calculateLine(-1, -1), // Top-left diagonal
-    ...calculateLine(1, 1),   // Bottom-right diagonal
-    ...calculateLine(-1, 1)   // Bottom-left diagonal
-  ].filter(square => square !== x + y * gridSize); // Exclude the current position
-
-  // Combine with existing restricted squares and remove duplicates
-  return [
-    ...new Set([
-      ...currentRestrictedSquares,
-      ...newRestrictedSquares.filter(sq => sq >= 0 && sq <= maxIndex)
-    ])
-  ];
-};
 
 type FetchBasePointsOptions = {
   user: () => any;

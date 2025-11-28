@@ -22,7 +22,6 @@ import {
   handleAddBasePoint,
   isBasePoint,
   gridToWorld,
-  calculateRestrictedSquares,
   updateBasePoint,
   indicesToPoints
 } from '../../utils/boardUtils';
@@ -192,13 +191,8 @@ const Board: Component = () => {
           }
         } catch (error) {
           console.error('Failed to fetch initial restricted squares:', error);
-          // Fallback to local calculation if API call fails
-          const restricted = calculateRestrictedSquares(
-            [0, 0],
-            [],
-            [0, 0]
-          );
-          setRestrictedSquares(restricted);
+          setError('Failed to load restricted squares. Please refresh the page.');
+          setRestrictedSquares([]);
           setRestrictedSquaresInfo([]);
         }
       }
@@ -481,16 +475,7 @@ const Board: Component = () => {
 
         console.log('Found base point to move:', pointToMove);
 
-        // 3. Update restricted squares optimistically
-        console.log('Updating restricted squares optimistically');
-        const newRestrictedSquares = calculateRestrictedSquares(
-          [targetX, targetY],
-          originalRestrictedSquares,
-          [startX, startY]
-        );
-        setRestrictedSquares(newRestrictedSquares);
-
-        // 4. Update the base point in the database
+        // 3. Update the base point in the database
         console.log('Updating base point in database...');
         const result = await updateBasePoint(pointToMove.id, targetX, targetY);
         
@@ -532,7 +517,7 @@ const Board: Component = () => {
               squares: result2.data?.squares,
               squaresWithOrigins: result2.data?.squaresWithOrigins
             });
-            setRestrictedSquares(result2.data?.squares || newRestrictedSquares);
+            setRestrictedSquares(result2.data?.squares || []);
             setRestrictedSquaresInfo(result2.data?.squaresWithOrigins || []);
           } else {
             console.warn('API call was not successful, using optimistic update');
@@ -759,10 +744,8 @@ const Board: Component = () => {
       });
       
       if (result.success) {
-        // We'll update the restricted squares through the context
-        const restricted = calculateRestrictedSquares([worldX, worldY], getRestrictedSquares(), pos);
-        setRestrictedSquares(restricted);
-        // Note: The detailed restrictedSquaresInfo will be updated on the next render
+        // The server will handle updating restricted squares
+        // We'll update them when we receive the next state update
       } else if (result.error) {
         setError(result.error);
       }
