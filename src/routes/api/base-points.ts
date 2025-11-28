@@ -45,12 +45,13 @@ const handleApiError = (error: unknown, requestId: string, endpoint: string) => 
   );
 };
 
-export const GET = withAuth(async () => {
+export const GET = withAuth(async ({ user }) => {
   const requestId = generateRequestId();
 
   try {
     const repository = await getBasePointRepository();
-    const basePoints = await repository.getAll();
+    // Only get base points for the current user
+    const basePoints = await repository.getByUser(user.userId);
     
     return createApiResponse({ basePoints }, { requestId });
   } catch (error) {
