@@ -56,7 +56,14 @@ export class BasePointRepository {
     return results || [];
   }
 
-  async add(userId: string, x: number, y: number, color: string = '#4CAF50'): Promise<BasePoint> {
+  async add(userId: string, x: number, y: number, color?: string): Promise<BasePoint> {
+    // If color is not provided, determine it based on position
+    if (color === undefined) {
+      color = '#4CAF50'; // Default to green (right)
+      if (x === 7 && y === 0) color = '#FFEB3B';    // Top - Yellow
+      else if (x === 6 && y === 13) color = '#F44336'; // Bottom - Red
+      else if (x === 0 && y === 6) color = '#2196F3';  // Left - Blue
+    }
     const now = Date.now();
     
     try {
@@ -98,7 +105,7 @@ export class BasePointRepository {
         
         // Fetch the complete base point to ensure all fields are included
         const insertedPoint = await this.db.get<BasePoint>(
-          'SELECT id, user_id as userId, x, y, game_created_at_ms as createdAtMs FROM base_points WHERE id = ?',
+          'SELECT id, user_id as userId, x, y, color, game_created_at_ms as createdAtMs FROM base_points WHERE id = ?',
           [result.lastID]
         );
 
@@ -221,11 +228,16 @@ export class BasePointRepository {
 
   async create(input: CreateBasePointInput): Promise<BasePoint> {
     const { userId, x, y, gameCreatedAtMs } = input;
-    const defaultColor = '#4CAF50';
+    
+    // Set color based on position
+    let color = '#4CAF50'; // Default to green (right)
+    if (x === 7 && y === 0) color = '#FFEB3B';    // Top - Yellow
+    else if (x === 6 && y === 13) color = '#F44336'; // Bottom - Red
+    else if (x === 0 && y === 6) color = '#2196F3';  // Left - Blue
     
     const result = await this.db.run(
       'INSERT INTO base_points (user_id, x, y, game_created_at_ms, color) VALUES (?, ?, ?, ?, ?)',
-      [userId, x, y, gameCreatedAtMs, defaultColor]
+      [userId, x, y, gameCreatedAtMs, color]
     );
 
     return {
@@ -233,7 +245,7 @@ export class BasePointRepository {
       userId,
       x,
       y,
-      color: defaultColor,
+      color,
       createdAtMs: gameCreatedAtMs
     };
   }
