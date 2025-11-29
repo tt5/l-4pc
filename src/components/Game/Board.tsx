@@ -739,8 +739,40 @@ const Board: Component = () => {
     }
   };
   
+  const handleResetBoard = async () => {
+    if (!currentUser || isSaving()) return;
+    
+    setIsSaving(true);
+    try {
+      const response = await fetch('/api/reset-board', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: currentUser.id })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to reset board');
+      }
+
+      // Refresh the base points
+      await fetchBasePoints();
+    } catch (error) {
+      console.error('Error resetting board:', error);
+      setError('Failed to reset board');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div class={styles.board}>
+      <div class={styles.boardControls}>
+        <button onClick={handleResetBoard} disabled={isSaving()}>
+          {isSaving() ? 'Resetting...' : 'Reset Board'}
+        </button>
+      </div>
       <div 
         class={styles.grid}
         style={{
