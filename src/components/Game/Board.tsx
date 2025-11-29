@@ -806,7 +806,8 @@ const Board: Component = () => {
         {Array.from({ length: BOARD_CONFIG.GRID_SIZE * BOARD_CONFIG.GRID_SIZE }).map((_, index) => {
           const [x, y] = [index % BOARD_CONFIG.GRID_SIZE, Math.floor(index / BOARD_CONFIG.GRID_SIZE)];
           const isBP = isBasePoint(x, y, basePoints());
-          const isSelected = getRestrictedSquares().includes(index);
+          // Only show restricted squares when dragging
+          const isSelected = isDragging() && getRestrictedSquares().includes(index);
           // Update the cell state to include the new hover state
           const cellState = {
             isBasePoint: isBP,
