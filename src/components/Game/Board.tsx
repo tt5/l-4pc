@@ -460,7 +460,8 @@ const Board: Component = () => {
           from: [startX, startY] as [number, number],
           to: [targetX, targetY] as [number, number],
           timestamp: Date.now(),
-          playerId: pointToMove.userId
+          playerId: pointToMove.userId,
+          color: pointToMove.color
         };
         setMoveHistory(prev => [...prev, newMove]);
 
@@ -903,10 +904,20 @@ const Board: Component = () => {
               {(move, index) => {
                 const [fromX, fromY] = move.from;
                 const [toX, toY] = move.to;
+                const moveNumber = moveHistory().length - index();
                 return (
                   <div class={styles.moveItem}>
-                    <span>Move {moveHistory().length - index()}: </span>
-                    <span>({fromX}, {fromY}) → ({toX}, {toY})</span>
+                    <div 
+                      class={styles.colorSwatch} 
+                      style={{ 'background-color': move.color }}
+                      title={`Color: ${move.color}`}
+                    />
+                    <div class={styles.moveDetails}>
+                      <div>Move {moveNumber}</div>
+                      <div class={styles.moveCoords}>
+                        ({fromX}, {fromY}) → ({toX}, {toY})
+                      </div>
+                    </div>
                   </div>
                 );
               }}

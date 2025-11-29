@@ -62,6 +62,7 @@ export interface Move {
   to: Point;
   playerId: string;
   timestamp: number;
+  color: string;
   // For backward compatibility, alias userId to playerId
   userId?: string;
 }
