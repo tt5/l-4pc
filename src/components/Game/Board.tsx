@@ -758,6 +758,29 @@ const Board: Component = () => {
 
       // Refresh the base points
       await fetchBasePoints();
+      
+      // Refresh the restricted squares by making a request to calculate-squares
+      const squaresResponse = await fetch('/api/calculate-squares', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          borderIndices: [],
+          currentPosition: createPoint(0, 0),
+          destination: createPoint(0, 0)
+        })
+      });
+
+      if (!squaresResponse.ok) {
+        throw new Error('Failed to update restricted squares');
+      }
+
+      const result = await squaresResponse.json();
+      if (result.success) {
+        setRestrictedSquares(result.data.squares || []);
+        setRestrictedSquaresInfo(result.data.squaresWithOrigins || []);
+      }
     } catch (error) {
       console.error('Error resetting board:', error);
       setError('Failed to reset board');
