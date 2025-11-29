@@ -57,17 +57,37 @@ export async function POST({ request }: APIEvent) {
       }
     }
 
-    // Create base point if it doesn't exist for this user
+    // Ensure all four base points exist for the user
     try {
       const basePointRepo = await getBasePointRepository();
       const userBasePoints = await basePointRepo.getByUser(user.id);
       
       if (userBasePoints.length === 0) {
-        await basePointRepo.add(user.id, 0, 0);
+        // Add all four base points if none exist
+        await basePointRepo.add(user.id, 7, 0);    // Center top
+        await basePointRepo.add(user.id, 13, 7);   // Center right
+        await basePointRepo.add(user.id, 6, 13);   // Center bottom
+        await basePointRepo.add(user.id, 0, 6);    // Center left
+      } else if (userBasePoints.length < 4) {
+        // If some base points exist but not all, add the missing ones
+        const existingPoints = new Set(userBasePoints.map(p => `${p.x},${p.y}`));
+        const requiredPoints = [
+          [7, 0],   // Center top
+          [13, 7],  // Center right
+          [6, 13],  // Center bottom
+          [0, 6]    // Center left
+        ];
+
+        for (const [x, y] of requiredPoints) {
+          const pointKey = `${x},${y}`;
+          if (!existingPoints.has(pointKey)) {
+            await basePointRepo.add(user.id, x, y);
+          }
+        }
       }
     } catch (error) {
       console.error('Error initializing base points:', error);
-      // Continue with login even if base point initialization fails
+      // Continue with login even if base points initialization fails
     }
 
     const token = generateToken({

@@ -70,14 +70,18 @@ async function ensureUserTable(userId: string): Promise<string> {
       )
     `);
     
-    // Add default base point for new users
+    // Add default base points for new users (center of each edge)
     try {
       const basePointRepo = await getBasePointRepository();
-      await basePointRepo.add(userId, 0, 0);
-      console.log(`Added default base point for user ${userId}`);
+      // Add four base points at the center of each edge of the board
+      await basePointRepo.add(userId, 7, 0);    // Center top
+      await basePointRepo.add(userId, 13, 7);   // Center right
+      await basePointRepo.add(userId, 6, 13);   // Center bottom
+      await basePointRepo.add(userId, 0, 6);    // Center left
+      console.log(`Added default base points for user ${userId}`);
     } catch (error) {
-      console.error('Error adding default base point:', error);
-      // Don't fail the whole operation if base point creation fails
+      console.error('Error adding default base points:', error);
+      // Don't fail the whole operation if base points creation fails
     }
     
     return tableName;

@@ -106,7 +106,7 @@ const Board: Component = () => {
   // State with explicit types
   const currentUser = user();
   
-  // Get position and restricted squares from context
+  // Get restricted squares from context
   const {
     restrictedSquares: getRestrictedSquares,
     setRestrictedSquares
