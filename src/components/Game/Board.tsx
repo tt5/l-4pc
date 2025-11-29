@@ -805,7 +805,10 @@ const Board: Component = () => {
       >
         {Array.from({ length: BOARD_CONFIG.GRID_SIZE * BOARD_CONFIG.GRID_SIZE }).map((_, index) => {
           const [x, y] = [index % BOARD_CONFIG.GRID_SIZE, Math.floor(index / BOARD_CONFIG.GRID_SIZE)];
-          const isBP = isBasePoint(x, y, basePoints());
+          // Find if there's a base point at these coordinates and get its color
+          const basePoint = basePoints().find(bp => bp.x === x && bp.y === y);
+          const isBP = !!basePoint;
+          
           // Only show restricted squares when dragging and they originate from the dragged base point
           const draggedBasePoint = pickedUpBasePoint();
           const isSelected = isDragging() && 
@@ -820,12 +823,14 @@ const Board: Component = () => {
                 )
               : true
             );
-          // Update the cell state to include the new hover state
+          
+          // Update the cell state to include the new hover state and base point color
           const cellState = {
             isBasePoint: isBP,
             isSelected,
             isHovered: !!(hoveredSquare() === index || (hoveredCell() && hoveredCell()![0] === x && hoveredCell()![1] === y)),
-            isSaving: isSaving()
+            isSaving: isSaving(),
+            color: basePoint?.color // Add the color from the base point if it exists
           };
 
           return (

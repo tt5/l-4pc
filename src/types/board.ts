@@ -18,6 +18,7 @@ export interface BasePoint {
   x: number;
   y: number;
   userId: string;
+  color: string; // CSS color value
   createdAtMs: number;
 }
 

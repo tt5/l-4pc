@@ -9,6 +9,7 @@ interface CellState {
   isSelected: boolean;
   isHovered: boolean;
   isSaving: boolean;
+  color?: string; // Optional color for the base point
 }
 
 interface GridCellProps {
@@ -73,9 +74,12 @@ export const GridCell: Component<GridCellProps> = (props) => {
       onClick={props.onClick}
       classList={classList}
     >
-      {isBasePoint && <div class={styles.basePoint} />}
+      {isBasePoint && <div class={styles.basePoint} style={{ 'background-color': state.color || '#4CAF50' }} />}
       {isBasePoint ? (
-        <div class={styles.basePointMarker} />
+        <div 
+          class={styles.basePointMarker}
+          style={{ 'background-color': state.color || '#4CAF50' }}
+        />
       ) : !isSelected ? (
         <div class={styles.emptyMarker}>×</div>
       ) : null}
