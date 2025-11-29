@@ -68,7 +68,8 @@ export const handleAddBasePoint = async ({
       y,
       userId: responseData.data?.userId || currentUser.id,
       createdAtMs: responseData.data?.createdAtMs || Date.now(),
-      id: responseData.data?.id || 0
+      id: responseData.data?.id || 0,
+      color: responseData.data?.color || '#4CAF50' // Default to green if not provided
     };
     
     setBasePoints(prev => [...prev, newBasePoint]);

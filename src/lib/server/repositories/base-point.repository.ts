@@ -20,7 +20,7 @@ export class BasePointRepository {
 
   async getByUser(userId: string): Promise<BasePoint[]> {
     const results = await this.db.all<BasePoint[]>(
-      'SELECT id, user_id as userId, x, y, game_created_at_ms as createdAtMs FROM base_points WHERE user_id = ?',
+      'SELECT id, user_id as userId, x, y, color, game_created_at_ms as createdAtMs FROM base_points WHERE user_id = ?',
       [userId]
     );
     return results || [];
@@ -48,7 +48,7 @@ export class BasePointRepository {
 
   async getPointsInBounds(minX: number, minY: number, maxX: number, maxY: number): Promise<BasePoint[]> {
     const results = await this.db.all<BasePoint[]>(
-      `SELECT id, user_id as userId, x, y, game_created_at_ms as createdAtMs 
+      `SELECT id, user_id as userId, x, y, color, game_created_at_ms as createdAtMs 
        FROM base_points 
        WHERE x BETWEEN ? AND ? AND y BETWEEN ? AND ?`,
       [minX, maxX, minY, maxY]
