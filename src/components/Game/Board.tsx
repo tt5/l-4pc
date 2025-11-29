@@ -813,41 +813,20 @@ const Board: Component = () => {
 
   return (
     <div class={styles.board}>
-      <div class={styles.boardControls}>
-        <button onClick={handleResetBoard} disabled={isSaving()}>
-          {isSaving() ? 'Resetting...' : 'Reset Board'}
-        </button>
-        
-        {/* Move History */}
-        <div class={styles.moveHistory}>
-          <h3>Move History</h3>
-          <div class={styles.moveList}>
-            <Show when={moveHistory().length > 0} fallback={<div>No moves yet</div>}>
-              <For each={[...moveHistory()].reverse()}>
-                {(move, index) => {
-                  const [fromX, fromY] = move.from;
-                  const [toX, toY] = move.to;
-                  return (
-                    <div class={styles.moveItem}>
-                      <span>Move {moveHistory().length - index()}: </span>
-                      <span>({fromX}, {fromY}) → ({toX}, {toY})</span>
-                    </div>
-                  );
-                }}
-              </For>
-            </Show>
-          </div>
+      <div class={styles.boardContent}>
+        <div class={styles.boardControls}>
+          <button onClick={handleResetBoard} disabled={isSaving()}>
+            {isSaving() ? 'Resetting...' : 'Reset Board'}
+          </button>
         </div>
-      </div>
-      
-      
-      <div 
-        class={styles.grid}
-        style={{
-          'grid-template-columns': `repeat(${BOARD_CONFIG.GRID_SIZE}, 1fr)`,
-          'grid-template-rows': `repeat(${BOARD_CONFIG.GRID_SIZE}, 1fr)`
-        }}
-      >
+        
+        <div 
+          class={styles.grid}
+          style={{
+            'grid-template-columns': `repeat(${BOARD_CONFIG.GRID_SIZE}, 1fr)`,
+            'grid-template-rows': `repeat(${BOARD_CONFIG.GRID_SIZE}, 1fr)`
+          }}
+        >
         {Array.from({ length: BOARD_CONFIG.GRID_SIZE * BOARD_CONFIG.GRID_SIZE }).map((_, index) => {
           const [x, y] = [index % BOARD_CONFIG.GRID_SIZE, Math.floor(index / BOARD_CONFIG.GRID_SIZE)];
           // Find if there's a base point at these coordinates and get its color
@@ -913,6 +892,28 @@ const Board: Component = () => {
           {error()}
         </div>
       )}
+      </div>
+      
+      {/* Move History Sidebar */}
+      <div class={styles.moveHistoryContainer}>
+        <h3>Move History</h3>
+        <div class={styles.moveHistory}>
+          <Show when={moveHistory().length > 0} fallback={<div>No moves yet</div>}>
+            <For each={[...moveHistory()].reverse()}>
+              {(move, index) => {
+                const [fromX, fromY] = move.from;
+                const [toX, toY] = move.to;
+                return (
+                  <div class={styles.moveItem}>
+                    <span>Move {moveHistory().length - index()}: </span>
+                    <span>({fromX}, {fromY}) → ({toX}, {toY})</span>
+                  </div>
+                );
+              }}
+            </For>
+          </Show>
+        </div>
+      </div>
     </div>
   );
 };
