@@ -24,7 +24,25 @@
   background-color: #f8f9fa;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
 }
+
+.turnIndicator {
+  padding: 10px;
+  border-radius: 6px;
+  font-weight: 500;
+  text-align: center;
+  text-transform: capitalize;
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.turnIndicator.red { background-color: #ef4444; }
+.turnIndicator.blue { background-color: #3b82f6; }
+.turnIndicator.yellow { background-color: #eab308; color: #000; }
+.turnIndicator.green { background-color: #10b981; }
 
 /* Loading States */
 .loadingContainer {

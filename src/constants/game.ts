@@ -1,5 +1,11 @@
 import { createPoint } from '../types/board';
 
+export const PLAYER_COLORS = ['red', 'blue', 'yellow', 'green'] as const;
+
+export type PlayerColor = typeof PLAYER_COLORS[number];
+
+export const TURN_ORDER = PLAYER_COLORS;
+
 export const BOARD_CONFIG = {
   GRID_SIZE: 14, // 14x14 grid
   WORLD_SIZE: 14, // World size matches grid size

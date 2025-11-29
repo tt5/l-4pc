@@ -9,6 +9,7 @@ import {
   batch,
   For
 } from 'solid-js';
+import { PLAYER_COLORS, type PlayerColor } from '~/constants/game';
 import { basePointEventService } from '~/lib/server/events/base-point-events';
 import { GridCell } from './GridCell';
 import { useAuth } from '../../contexts/AuthContext';
@@ -122,6 +123,8 @@ const Board: Component = () => {
   const [isDragging, setIsDragging] = createSignal(false);
   const [hoveredCell, setHoveredCell] = createSignal<[number, number] | null>(null);
   const [moveHistory, setMoveHistory] = createSignal<Move[]>([]);
+  const [currentTurnIndex, setCurrentTurnIndex] = createSignal(0);
+  const currentPlayerColor = () => PLAYER_COLORS[currentTurnIndex() % PLAYER_COLORS.length];
   const [hoveredSquare, setHoveredSquare] = createSignal<number | null>(null);
   
   // Track restricted squares with their origin information
@@ -385,7 +388,10 @@ const Board: Component = () => {
       isDragging: isDragging(),
       pickedUpBasePoint: pickedUpBasePoint(),
       targetPosition: targetPosition(),
-      eventTarget: mouseEvent?.target?.toString()
+      eventTarget: mouseEvent?.target?.toString(),
+      currentTurnIndex: currentTurnIndex(),
+      currentPlayerColor: currentPlayerColor(),
+      allBasePoints: basePoints()
     });
     
     if (!isDragging() || !pickedUpBasePoint()) {
@@ -453,6 +459,39 @@ const Board: Component = () => {
           throw new Error(`Base point not found at position (${startX}, ${startY})`);
         }
 
+        // Check if it's this color's turn
+        const currentColor = pointToMove.color.toLowerCase();
+        const currentTurn = currentPlayerColor().toLowerCase();
+        
+        // Create a mapping of color names to their hex values for comparison
+        const colorMap: Record<string, string> = {
+          'red': '#f44336',
+          'blue': '#2196f3',
+          'yellow': '#ffeb3b',
+          'green': '#4caf50'
+        };
+        
+        // Get the normalized colors for comparison
+        const normalizedCurrentColor = colorMap[currentColor] || currentColor;
+        const normalizedTurnColor = colorMap[currentTurn] || currentTurn;
+        
+        console.log('Move attempt:', {
+          movingColor: currentColor,
+          currentTurn: currentTurn,
+          normalizedMovingColor: normalizedCurrentColor,
+          normalizedTurnColor: normalizedTurnColor,
+          currentTurnIndex: currentTurnIndex(),
+          allColors: PLAYER_COLORS,
+          pointToMove
+        });
+
+        if (normalizedCurrentColor !== normalizedTurnColor) {
+          const errorMsg = `It's not ${currentColor}'s turn. Current turn: ${currentTurn}`;
+          console.error(errorMsg);
+          setError(errorMsg);
+          return;
+        }
+
         // 2. Add move to history before updating position
         const newMove: Move = {
           id: Date.now(),
@@ -461,8 +500,11 @@ const Board: Component = () => {
           to: [targetX, targetY] as [number, number],
           timestamp: Date.now(),
           playerId: pointToMove.userId,
-          color: pointToMove.color
+          color: currentColor
         };
+        
+        // Update turn to next player
+        setCurrentTurnIndex(prev => (prev + 1) % PLAYER_COLORS.length);
         setMoveHistory(prev => [...prev, newMove]);
 
         // 3. Update the base points in the UI
@@ -764,8 +806,9 @@ const Board: Component = () => {
     
     setIsSaving(true);
     try {
-      // Clear move history when resetting the board
+      // Reset game state
       setMoveHistory([]);
+      setCurrentTurnIndex(0);
       
       const response = await fetch('/api/reset-board', {
         method: 'POST',
@@ -897,6 +940,9 @@ const Board: Component = () => {
       
       {/* Move History Sidebar */}
       <div class={styles.moveHistoryContainer}>
+        <div class={`${styles.turnIndicator} ${styles[currentPlayerColor()]}`}>
+          {currentPlayerColor()}'s turn
+        </div>
         <h3>Move History</h3>
         <div class={styles.moveHistory}>
           <Show when={moveHistory().length > 0} fallback={<div>No moves yet</div>}>
