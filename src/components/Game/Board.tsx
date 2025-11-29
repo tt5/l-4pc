@@ -44,9 +44,8 @@ const Board: Component = () => {
 
   // Helper function to validate square placement
   const validateSquarePlacementLocal = (index: number) => {
-    
-    // Get the current base points
-    const currentBasePoints = basePoints();
+    // Get the current user's base points
+    const userBasePoints = basePoints();
     const pickedUp = pickedUpBasePoint();
     
     // Get the target position in world coordinates
@@ -54,13 +53,14 @@ const Board: Component = () => {
     
     // If we're moving a base point
     if (pickedUp) {
-      // Check if the target position is already occupied (excluding the picked up point)
-      if (currentBasePoints.some(bp => 
+      // Check if the user already has a base point at the target position
+      // (excluding the point being moved)
+      if (userBasePoints.some(bp => 
         bp.x === gridX && 
         bp.y === gridY && 
         !(bp.x === pickedUp[0] && bp.y === pickedUp[1])
       )) {
-        return { isValid: false, reason: 'Base point already exists here' };
+        return { isValid: false, reason: 'You already have a base point here' };
       }
       
       // Check if the target square is restricted by the picked up base point
@@ -81,10 +81,9 @@ const Board: Component = () => {
       return { isValid: true };
     }
     
-    // If we're not moving a base point, use default validation for new placements
-    // Check if the target position is already occupied
-    if (currentBasePoints.some(bp => bp.x === gridX && bp.y === gridY)) {
-      return { isValid: false, reason: 'Base point already exists here' };
+    // For new base points, check if the user already has a base point at the target position
+    if (userBasePoints.some(bp => bp.x === gridX && bp.y === gridY)) {
+      return { isValid: false, reason: 'You already have a base point here' };
     }
     
     // For new base points, they can only be placed on restricted squares
