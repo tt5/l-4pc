@@ -7,25 +7,111 @@ import { performanceTracker } from '~/utils/performance';
 
 type Point = [number, number];
 
-type CalculateSquaresRequest = {
-  currentPosition: Point;
-  destination: Point;
+// Team definitions
+const TEAM_1_COLORS = ['#F44336', '#FFEB3B']; // Red and Yellow
+const TEAM_2_COLORS = ['#2196F3', '#4CAF50']; // Blue and Green
+
+type BasePointWithTeam = {
+  id: string | number;
+  x: number;
+  y: number;
+  userId: string;
+  color: string;
+  team: 1 | 2;
 };
 
-// Calculate the distance vector from current position to destination
-// Returns [deltaX, deltaY] representing the actual distances
-function getDirectionVector(current: Point, destination: Point): Point {
-  // Calculate the actual distance between points
-  const dx = destination[0] - current[0];
-  const dy = destination[1] - current[1];
-  return [dx, dy];
+interface SquareWithOrigin {
+  index: number;
+  x: number;
+  y: number;
+  isRestricted: boolean;
+  restrictedBy: Array<{
+    basePointId: string | number;
+    basePointX: number;
+    basePointY: number;
+    canCapture: boolean;
+  }>;
+}
+
+interface CalculateSquaresRequest {
+  currentPosition: Point;
+  destination: Point;
+}
+
+// Determine team based on color
+function getTeamByColor(color: string): 1 | 2 {
+  return TEAM_1_COLORS.includes(color) ? 1 : 2;
+}
+
+// Check if a square is occupied by a base point
+function isSquareOccupied(x: number, y: number, basePoints: BasePointWithTeam[]): boolean {
+  return basePoints.some(bp => bp.x === x && bp.y === y);
+}
+
+// Check if a square is occupied by a teammate
+function isTeammate(x: number, y: number, team: number, basePoints: BasePointWithTeam[]): boolean {
+  const point = basePoints.find(bp => bp.x === x && bp.y === y);
+  return point ? point.team === team : false;
+}
+
+// Get all squares in a direction until an obstacle is hit
+function getSquaresInDirection(
+  startX: number,
+  startY: number,
+  dx: number,
+  dy: number,
+  basePoints: BasePointWithTeam[],
+  currentTeam: number
+): {x: number, y: number, canCapture: boolean}[] {
+  const result = [];
+  let x = startX + dx;
+  let y = startY + dy;
+  
+  while (x >= 0 && x < BOARD_CONFIG.GRID_SIZE && y >= 0 && y < BOARD_CONFIG.GRID_SIZE) {
+    const occupied = isSquareOccupied(x, y, basePoints);
+    const teammate = isTeammate(x, y, currentTeam, basePoints);
+    
+    if (occupied && !teammate) {
+      // Can capture opponent's piece
+      result.push({x, y, canCapture: true});
+      break;
+    } else if (occupied && teammate) {
+      // Blocked by teammate
+      break;
+    }
+    
+    // Add empty square
+    result.push({x, y, canCapture: false});
+    x += dx;
+    y += dy;
+  }
+  
+  return result;
+}
+
+// Get all legal moves for a base point
+function getLegalMoves(
+  basePoint: BasePointWithTeam,
+  allBasePoints: BasePointWithTeam[]
+): {x: number, y: number, canCapture: boolean}[] {
+  const directions = [
+    [0, 1],   // up
+    [1, 0],   // right
+    [0, -1],  // down
+    [-1, 0],  // left
+    [1, 1],   // up-right
+    [1, -1],  // down-right
+    [-1, -1], // down-left
+    [-1, 1]   // up-left
+  ];
+  
+  return directions.flatMap(([dx, dy]) => 
+    getSquaresInDirection(basePoint.x, basePoint.y, dx, dy, allBasePoints, basePoint.team)
+  );
 }
 
 export const POST = withAuth(async ({ request, user }) => {
   const requestId = generateRequestId();
-  
-  const startTime = performance.now();
-  
   try {
     let requestBody;
     try {
@@ -51,24 +137,18 @@ export const POST = withAuth(async ({ request, user }) => {
     validatePoint(currentPosition, 'currentPosition');
     validatePoint(destination, 'destination');
     
-    // Calculate direction vector
-    const [dx, dy] = getDirectionVector(currentPosition, destination);
-    
-    // Track request start
-    const dbStartTime = performance.now();
-    
     // Get database connection and initialize repository
     const db = await getDb();
     const basePointRepository = new BasePointRepository(db);
     
-    // Get only the current user's base points
-    const basePoints = await basePointRepository.getByUser(user.userId);
-    if (!Array.isArray(basePoints)) {
-      throw new Error(`Expected basePoints to be an array, got ${typeof basePoints}`);
-    }
+    // Get all base points (not just current user's)
+    const allBasePoints = (await basePointRepository.getAll()).map(point => ({
+      ...point,
+      team: getTeamByColor(point.color)
+    }));
 
     // If we're moving a base point, update its position in the array
-    const updatedBasePoints = basePoints.map(point => {
+    const updatedBasePoints = allBasePoints.map(point => {
       // If this is the point being moved (same as currentPosition), use destination
       if (point.x === currentPosition[0] && point.y === currentPosition[1]) {
         return { ...point, x: destination[0], y: destination[1] };
@@ -76,69 +156,72 @@ export const POST = withAuth(async ({ request, user }) => {
       return point;
     });
 
-    const uniqueBasePoints = updatedBasePoints.length > 0 
-      ? [...new Map(updatedBasePoints.map(p => [`${p.x},${p.y}`, p])).values()]
-      : [{ id: 'default', x: 0, y: 0, userId: 'default' }];
+    // Get current user's base points
+    const currentUserBasePoints = updatedBasePoints.filter(p => p.userId === user.userId);
     
-    // Track squares with their originating base points
-    const squaresWithOrigins = Array.from({length: 196}, (_, i) => {
-      const x = (i % BOARD_CONFIG.GRID_SIZE);
-      const y = Math.floor(i / BOARD_CONFIG.GRID_SIZE);
-      const index = x + y * BOARD_CONFIG.GRID_SIZE;
+    // For each of the current user's base points, calculate legal moves
+    const squaresWithOrigins: SquareWithOrigin[] = [];
+    
+    for (const basePoint of currentUserBasePoints) {
+      const legalMoves = getLegalMoves(basePoint, updatedBasePoints);
       
-      // For each square, find all base points that restrict it
-      const restrictedBy = uniqueBasePoints.flatMap(({ x: bx, y: by, id }) => {
-        if (bx === x && by === y) return [];
-        const xdiff = Math.abs(x - bx);
-        const ydiff = Math.abs(y - by);
+      for (const move of legalMoves) {
+        const index = move.x + move.y * BOARD_CONFIG.GRID_SIZE;
+        const existingSquare = squaresWithOrigins.find(sq => sq.index === index);
         
-        if (xdiff === 0 || ydiff === 0 || xdiff === ydiff) {
-          // Check if the square is within bounds
-          if (x >= 0 && x < BOARD_CONFIG.GRID_SIZE && y >= 0 && y < BOARD_CONFIG.GRID_SIZE) {
-            return [{
-              basePointId: id,
-              basePointX: bx,
-              basePointY: by
-            }];
-          }
+        const restriction = {
+          basePointId: basePoint.id,
+          basePointX: basePoint.x,
+          basePointY: basePoint.y,
+          canCapture: move.canCapture
+        };
+        
+        if (existingSquare) {
+          existingSquare.restrictedBy.push(restriction);
+        } else {
+          squaresWithOrigins.push({
+            index,
+            x: move.x,
+            y: move.y,
+            isRestricted: true,
+            restrictedBy: [{
+              ...restriction,
+              canCapture: move.canCapture
+            }]
+          });
         }
-        return [];
-      });
+      }
+    }
+    
+    // Add all squares (even unrestricted ones) for consistent response format
+    const allSquares = Array.from({length: 196}, (_, i) => {
+      const x = i % BOARD_CONFIG.GRID_SIZE;
+      const y = Math.floor(i / BOARD_CONFIG.GRID_SIZE);
+      const existingSquare = squaresWithOrigins.find(sq => sq.x === x && sq.y === y);
       
-      return {
-        index,
+      return existingSquare || {
+        index: i,
         x,
         y,
-        isRestricted: restrictedBy.length > 0,
-        restrictedBy
+        isRestricted: false,
+        restrictedBy: [],
+        canCapture: false
       };
     });
     
     const responseData = {
       success: true,
       data: {
-        squares: squaresWithOrigins.filter(sq => sq.isRestricted).map(sq => sq.index),
-        squaresWithOrigins: squaresWithOrigins.filter(sq => sq.isRestricted)
+        squares: allSquares.filter(sq => sq.isRestricted).map(sq => sq.index),
+        squaresWithOrigins: allSquares.filter(sq => sq.isRestricted)
       }
     };
-    
-    // Track performance
-    const dbTime = performance.now() - dbStartTime;
-    const totalTime = performance.now() - startTime;
-    
-    performanceTracker.track('calculate-squares', totalTime, {
-      basePointCount: uniqueBasePoints.length,
-      responseSize: JSON.stringify(responseData).length,
-      dbTime,
-      processingTime: totalTime - dbTime
-    });
     
     return new Response(JSON.stringify(responseData), {
       headers: { 'Content-Type': 'application/json' },
       status: 200
     });
   } catch (error) {
-    console.error(`[${requestId}] Error in calculate-squares:`, error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const statusCode = error instanceof Error && error.message.includes('must be') ? 400 : 500; // 400 for validation errors
     return createErrorResponse('Failed to calculate squares', statusCode, errorMessage, { requestId });
