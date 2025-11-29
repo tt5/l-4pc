@@ -63,25 +63,25 @@ export async function POST({ request }: APIEvent) {
       const userBasePoints = await basePointRepo.getByUser(user.id);
       
       if (userBasePoints.length === 0) {
-        // Add all four base points if none exist
-        await basePointRepo.add(user.id, 7, 0);    // Center top
-        await basePointRepo.add(user.id, 13, 7);   // Center right
-        await basePointRepo.add(user.id, 6, 13);   // Center bottom
-        await basePointRepo.add(user.id, 0, 6);    // Center left
+        // Add all four base points if none exist with specific colors
+        await basePointRepo.add(user.id, 7, 0, '#FFEB3B');    // Center top - Yellow
+        await basePointRepo.add(user.id, 13, 7, '#4CAF50');   // Center right - Green
+        await basePointRepo.add(user.id, 6, 13, '#F44336');   // Center bottom - Red
+        await basePointRepo.add(user.id, 0, 6, '#2196F3');    // Center left - Blue
       } else if (userBasePoints.length < 4) {
         // If some base points exist but not all, add the missing ones
         const existingPoints = new Set(userBasePoints.map(p => `${p.x},${p.y}`));
         const requiredPoints = [
-          [7, 0],   // Center top
-          [13, 7],  // Center right
-          [6, 13],  // Center bottom
-          [0, 6]    // Center left
+          { x: 7, y: 0, color: '#FFEB3B' },   // Center top - Yellow
+          { x: 13, y: 7, color: '#4CAF50' },  // Center right - Green
+          { x: 6, y: 13, color: '#F44336' },  // Center bottom - Red
+          { x: 0, y: 6, color: '#2196F3' }    // Center left - Blue
         ];
 
-        for (const [x, y] of requiredPoints) {
-          const pointKey = `${x},${y}`;
+        for (const point of requiredPoints) {
+          const pointKey = `${point.x},${point.y}`;
           if (!existingPoints.has(pointKey)) {
-            await basePointRepo.add(user.id, x, y);
+            await basePointRepo.add(user.id, point.x, point.y, point.color);
           }
         }
       }

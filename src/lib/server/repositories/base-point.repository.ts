@@ -56,7 +56,7 @@ export class BasePointRepository {
     return results || [];
   }
 
-  async add(userId: string, x: number, y: number): Promise<BasePoint> {
+  async add(userId: string, x: number, y: number, color: string = '#4CAF50'): Promise<BasePoint> {
     const now = Date.now();
     
     try {
@@ -88,8 +88,8 @@ export class BasePointRepository {
 
         // Insert the base point
         const result = await this.db.run(
-          'INSERT INTO base_points (user_id, x, y, game_created_at_ms) VALUES (?, ?, ?, ?)',
-          [userId, x, y, now]
+          'INSERT INTO base_points (user_id, x, y, game_created_at_ms, color) VALUES (?, ?, ?, ?, ?)',
+          [userId, x, y, now, color]
         );
 
         // Commit the transaction
@@ -221,10 +221,11 @@ export class BasePointRepository {
 
   async create(input: CreateBasePointInput): Promise<BasePoint> {
     const { userId, x, y, gameCreatedAtMs } = input;
+    const defaultColor = '#4CAF50';
     
     const result = await this.db.run(
-      'INSERT INTO base_points (user_id, x, y, game_created_at_ms) VALUES (?, ?, ?, ?)',
-      [userId, x, y, gameCreatedAtMs]
+      'INSERT INTO base_points (user_id, x, y, game_created_at_ms, color) VALUES (?, ?, ?, ?, ?)',
+      [userId, x, y, gameCreatedAtMs, defaultColor]
     );
 
     return {
@@ -232,6 +233,7 @@ export class BasePointRepository {
       userId,
       x,
       y,
+      color: defaultColor,
       createdAtMs: gameCreatedAtMs
     };
   }
