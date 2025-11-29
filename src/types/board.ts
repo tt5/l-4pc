@@ -55,6 +55,17 @@ export interface BoardConfig {
 export interface AddBasePointResponse extends ApiResponse<BasePoint> {}
 
 // Game state types
+export interface Move {
+  id: number;
+  basePointId: number;
+  from: Point;
+  to: Point;
+  playerId: string;
+  timestamp: number;
+  // For backward compatibility, alias userId to playerId
+  userId?: string;
+}
+
 export interface GameState {
   position: Point;
   direction: Direction | null;

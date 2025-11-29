@@ -228,6 +228,52 @@
   transform: scale(1.05);
 }
 
+/* Move History */
+.moveHistory {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.moveHistory h3 {
+  margin: 0 0 10px 0;
+  color: #333;
+  font-size: 1.1rem;
+}
+
+.moveList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.moveItem {
+  padding: 8px 12px;
+  background-color: white;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+}
+
+.moveItem:hover {
+  background-color: #f0f0f0;
+}
+
+.moveItem span:first-child {
+  font-weight: 500;
+  margin-right: 5px;
+}
+
+.moveItem span:last-child {
+  font-family: monospace;
+  color: #555;
+}
+
 .square.invalid-drop {
   background-color: rgba(244, 67, 54, 0.2);
   cursor: not-allowed;

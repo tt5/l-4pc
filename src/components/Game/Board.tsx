@@ -3,9 +3,11 @@ import {
   createEffect, 
   createSignal, 
   createMemo,
+  Show,
   onMount,
   on,
-  batch
+  batch,
+  For
 } from 'solid-js';
 import { basePointEventService } from '~/lib/server/events/base-point-events';
 import { GridCell } from './GridCell';
@@ -16,6 +18,7 @@ import { useSSE } from '../../hooks/useSSE';
 import { 
   type Point, 
   type BasePoint,
+  type Move,
   createPoint
 } from '../../types/board';
 import { 
@@ -118,6 +121,7 @@ const Board: Component = () => {
   const [pickedUpBasePoint, setPickedUpBasePoint] = createSignal<[number, number] | null>(null);
   const [isDragging, setIsDragging] = createSignal(false);
   const [hoveredCell, setHoveredCell] = createSignal<[number, number] | null>(null);
+  const [moveHistory, setMoveHistory] = createSignal<Move[]>([]);
   const [hoveredSquare, setHoveredSquare] = createSignal<number | null>(null);
   
   // Track restricted squares with their origin information
@@ -440,18 +444,34 @@ const Board: Component = () => {
       
       try {
         // 1. Optimistically update the base points in the UI
-        const updatedBasePoints = basePoints().map(bp => 
+        // 1. Find the base point being moved before updating
+        const pointToMove = originalBasePoints.find(bp => 
           bp.x === startX && bp.y === startY
+        );
+
+        if (!pointToMove) {
+          throw new Error(`Base point not found at position (${startX}, ${startY})`);
+        }
+
+        // 2. Add move to history before updating position
+        const newMove: Move = {
+          id: Date.now(),
+          basePointId: pointToMove.id,
+          from: [startX, startY] as [number, number],
+          to: [targetX, targetY] as [number, number],
+          timestamp: Date.now(),
+          playerId: pointToMove.userId
+        };
+        setMoveHistory(prev => [...prev, newMove]);
+
+        // 3. Update the base points in the UI
+        const updatedBasePoints = basePoints().map(bp => 
+          bp.id === pointToMove.id
             ? { ...bp, x: targetX, y: targetY }
             : bp
         );
         console.log('Updating base points in UI');
         setBasePoints(updatedBasePoints);
-
-        // 2. Find the base point being moved
-        const pointToMove = originalBasePoints.find(bp => 
-          bp.x === startX && bp.y === startY
-        );
 
         if (!pointToMove) {
           throw new Error(`Base point not found at position (${startX}, ${startY})`);
@@ -743,6 +763,9 @@ const Board: Component = () => {
     
     setIsSaving(true);
     try {
+      // Clear move history when resetting the board
+      setMoveHistory([]);
+      
       const response = await fetch('/api/reset-board', {
         method: 'POST',
         headers: {
@@ -794,7 +817,30 @@ const Board: Component = () => {
         <button onClick={handleResetBoard} disabled={isSaving()}>
           {isSaving() ? 'Resetting...' : 'Reset Board'}
         </button>
+        
+        {/* Move History */}
+        <div class={styles.moveHistory}>
+          <h3>Move History</h3>
+          <div class={styles.moveList}>
+            <Show when={moveHistory().length > 0} fallback={<div>No moves yet</div>}>
+              <For each={[...moveHistory()].reverse()}>
+                {(move, index) => {
+                  const [fromX, fromY] = move.from;
+                  const [toX, toY] = move.to;
+                  return (
+                    <div class={styles.moveItem}>
+                      <span>Move {moveHistory().length - index()}: </span>
+                      <span>({fromX}, {fromY}) → ({toX}, {toY})</span>
+                    </div>
+                  );
+                }}
+              </For>
+            </Show>
+          </div>
+        </div>
       </div>
+      
+      
       <div 
         class={styles.grid}
         style={{
