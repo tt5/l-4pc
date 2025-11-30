@@ -66,17 +66,27 @@ function getSquaresInDirection(
   const result = [];
   let x = startX + dx;
   let y = startY + dy;
+  const directionName = `${dx === 0 ? '' : dx > 0 ? 'right' : 'left'}${dy === 0 ? '' : dy > 0 ? 'down' : 'up'}`.replace('rightleft', 'left').replace('downup', 'up') || 'nowhere';
+  
+  console.log(`[${startX},${startY}] Scanning ${directionName} direction...`);
   
   while (x >= 0 && x < BOARD_CONFIG.GRID_SIZE && y >= 0 && y < BOARD_CONFIG.GRID_SIZE) {
     const occupied = isSquareOccupied(x, y, basePoints);
-    const teammate = isTeammate(x, y, currentTeam, basePoints);
+    const piece = basePoints.find(p => p.x === x && p.y === y);
+    const teammate = piece ? piece.team === currentTeam : false;
     
-    if (occupied && !teammate) {
-      // Can capture opponent's piece
-      result.push({x, y, canCapture: true});
-      break;
-    } else if (occupied && teammate) {
-      // Blocked by teammate
+    console.log(`  [${x},${y}]: ${occupied ? `Occupied by ${teammate ? 'TEAMMATE' : 'OPPONENT'}` : 'Empty'}`);
+    
+    if (occupied) {
+      if (!teammate) {
+        // Can capture opponent's piece
+        console.log(`  [${x},${y}] CAPTURE OPPORTUNITY: ${piece?.color} at [${x},${y}] (team ${piece?.team}) can be captured by team ${currentTeam}`);
+        console.log(`  - Piece details:`, piece);
+        result.push({x, y, canCapture: true});
+      } else {
+        console.log(`  [${x},${y}] BLOCKED by ${piece?.color} at [${x},${y}] (team ${piece?.team})`);
+        console.log(`  - Current team: ${currentTeam}, Piece team: ${piece?.team}, Same team: ${teammate}`);
+      }
       break;
     }
     
@@ -142,10 +152,19 @@ export const POST = withAuth(async ({ request, user }) => {
     const basePointRepository = new BasePointRepository(db);
     
     // Get all base points (not just current user's)
-    const allBasePoints = (await basePointRepository.getAll()).map(point => ({
-      ...point,
-      team: getTeamByColor(point.color)
-    }));
+    const allBasePoints = (await basePointRepository.getAll()).map(point => {
+      const team = getTeamByColor(point.color);
+      console.log(`[${point.x},${point.y}]: Color=${point.color}, Team=${team}, User=${point.userId}`);
+      return {
+        ...point,
+        team
+      };
+    });
+    
+    console.log('\n=== ALL BASE POINTS ===');
+    allBasePoints.forEach(bp => {
+      console.log(`- [${bp.x},${bp.y}]: Team ${bp.team} (${bp.color}) - User: ${bp.userId}`);
+    });
 
     // If we're moving a base point, update its position in the array
     const updatedBasePoints = allBasePoints.map(point => {
@@ -162,7 +181,9 @@ export const POST = withAuth(async ({ request, user }) => {
     // For each of the current user's base points, calculate legal moves
     const squaresWithOrigins: SquareWithOrigin[] = [];
     
+    console.log('\n=== PROCESSING BASE POINTS ===');
     for (const basePoint of currentUserBasePoints) {
+      console.log(`\nProcessing base point [${basePoint.x},${basePoint.y}] - Team ${basePoint.team} (${basePoint.color})`);
       const legalMoves = getLegalMoves(basePoint, updatedBasePoints);
       
       for (const move of legalMoves) {

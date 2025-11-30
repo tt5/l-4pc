@@ -326,6 +326,73 @@ const Board: Component = () => {
     setPickedUpBasePoint([x, y]);
     setDragStartPosition([x, y]);
     setIsDragging(true);
+    
+    // Get all restricted squares and base points
+    const restrictedSquares = getRestrictedSquares();
+    const restrictedInfo = restrictedSquaresInfo();
+    
+    // Get all base points that can be captured (enemy base points)
+    const currentColor = currentPlayerColor();
+    const enemyBasePoints = basePoints()
+      .filter(bp => bp.color !== currentColor)
+      .map(bp => ({
+        index: bp.y * BOARD_CONFIG.GRID_SIZE + bp.x,
+        x: bp.x,
+        y: bp.y,
+        isBasePoint: true,
+        restrictedBy: [{ basePointX: x, basePointY: y }]
+      }));
+    
+    // Get restricted squares that are visible (restricted by the picked up base point)
+    const visibleRestrictedSquares = [
+      ...restrictedInfo.filter(sq => 
+        sq.restrictedBy.some(r => r.basePointX === x && r.basePointY === y)
+      ),
+      ...enemyBasePoints.filter(bp => 
+        // Only include enemy base points that are in the restricted squares list
+        // or are being restricted by the current base point
+        restrictedSquares.includes(bp.index) ||
+        restrictedInfo.some(sq => 
+          sq.index === bp.index && 
+          sq.restrictedBy.some(r => r.basePointX === x && r.basePointY === y)
+        )
+      )
+    ];
+    
+    // Log visible restricted squares including capturable base points
+    const visibleSquaresStr = visibleRestrictedSquares.length > 0
+      ? visibleRestrictedSquares.map(sq => {
+          const row = Math.floor(sq.index / BOARD_CONFIG.GRID_SIZE);
+          const col = sq.index % BOARD_CONFIG.GRID_SIZE;
+          const isBasePoint = 'isBasePoint' in sq ? sq.isBasePoint : basePoints().some(bp => bp.x === col && bp.y === row);
+          return `(${col},${row})${isBasePoint ? ' (base point)' : ''}`;
+        }).join(', ')
+      : 'None';
+    
+    console.log(`Drag started from position: (${x},${y})`);
+    console.log(`Visible restricted squares (${visibleRestrictedSquares.length}): ${visibleSquaresStr}`);
+    
+    // Log detailed visible restricted squares info
+    if (visibleRestrictedSquares.length > 0) {
+      console.log('Visible restricted squares details:');
+      visibleRestrictedSquares.forEach(sq => {
+        const row = Math.floor(sq.index / BOARD_CONFIG.GRID_SIZE);
+        const col = sq.index % BOARD_CONFIG.GRID_SIZE;
+        const isBasePoint = 'isBasePoint' in sq ? sq.isBasePoint : basePoints().some(bp => bp.x === col && bp.y === row);
+        
+        if (isBasePoint) {
+          console.log(`- Base point (${col},${row}) - Can be captured`);
+        } else {
+          const sources = sq.restrictedBy
+            .filter(r => r.basePointX === x && r.basePointY === y)
+            .map(r => `(${r.basePointX},${r.basePointY})`)
+            .join(', ');
+          if (sources) {
+            console.log(`- Square (${col},${row}) - Restricted by: ${sources}`);
+          }
+        }
+      });
+    }
   };
 
   // Helper function to update base point UI during drag

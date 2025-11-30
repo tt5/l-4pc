@@ -13,7 +13,7 @@ export class BasePointRepository {
 
   async getAll(): Promise<BasePoint[]> {
     const results = await this.db.all<BasePoint[]>(
-      'SELECT id, user_id as userId, x, y, game_created_at_ms as createdAtMs FROM base_points'
+      'SELECT id, user_id as userId, x, y, color, game_created_at_ms as createdAtMs FROM base_points'
     );
     return results || [];
   }
