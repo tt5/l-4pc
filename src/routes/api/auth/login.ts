@@ -63,11 +63,22 @@ export async function POST({ request }: APIEvent) {
       const userBasePoints = await basePointRepo.getByUser(user.id);
       
       if (userBasePoints.length === 0) {
-        // Add all four base points if none exist with specific colors
-        await basePointRepo.add(user.id, 7, 0, '#FFEB3B');    // Center top - Yellow
-        await basePointRepo.add(user.id, 13, 7, '#4CAF50');   // Center right - Green
-        await basePointRepo.add(user.id, 6, 13, '#F44336');   // Center bottom - Red
-        await basePointRepo.add(user.id, 0, 6, '#2196F3');    // Center left - Blue
+        // Add all base points if none exist with specific colors and piece types
+        // Yellow pieces
+        await basePointRepo.add(user.id, 7, 0, '#FFEB3B', 'queen');  // Yellow Queen
+        await basePointRepo.add(user.id, 6, 0, '#FFEB3B', 'king');   // Yellow King
+        
+        // Red pieces
+        await basePointRepo.add(user.id, 6, 13, '#F44336', 'queen'); // Red Queen
+        await basePointRepo.add(user.id, 7, 13, '#F44336', 'king');  // Red King
+        
+        // Blue pieces
+        await basePointRepo.add(user.id, 0, 6, '#2196F3', 'queen');  // Blue Queen
+        await basePointRepo.add(user.id, 0, 7, '#2196F3', 'king');   // Blue King
+        
+        // Green pieces
+        await basePointRepo.add(user.id, 13, 7, '#4CAF50', 'queen'); // Green Queen
+        await basePointRepo.add(user.id, 13, 6, '#4CAF50', 'king');  // Green King
       } else if (userBasePoints.length < 4) {
         // If some base points exist but not all, add the missing ones
         const existingPoints = new Set(userBasePoints.map(p => `${p.x},${p.y}`));
