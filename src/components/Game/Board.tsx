@@ -1023,6 +1023,13 @@ const Board: Component = () => {
 
   return (
     <div class={styles.board}>
+      {/* Check indicator */}
+      {kingInCheck() && (
+        <div class={`${styles.checkIndicator} ${kingInCheck()?.team === 1 ? styles.checkRed : styles.checkBlue}`}>
+          {kingInCheck()?.team === 1 ? 'Red' : 'Blue'} King is in check!
+        </div>
+      )}
+      
       <div class={styles.boardContent}>
         <div class={styles.boardControls}>
           <button onClick={handleResetBoard} disabled={isSaving()}>
@@ -1030,8 +1037,8 @@ const Board: Component = () => {
           </button>
         </div>
         
-        <div 
-        {Array.from({ length: BOARD_CONFIG.GRID_SIZE * BOARD_CONFIG.GRID_SIZE }).map((_, index) => {
+        <div class={styles.grid}>
+          {Array.from({ length: BOARD_CONFIG.GRID_SIZE * BOARD_CONFIG.GRID_SIZE }).map((_, index) => {
           const [x, y] = [index % BOARD_CONFIG.GRID_SIZE, Math.floor(index / BOARD_CONFIG.GRID_SIZE)];
           // Find if there's a base point at these coordinates and get its color
           const basePoint = basePoints().find(bp => bp.x === x && bp.y === y);
@@ -1096,43 +1103,6 @@ const Board: Component = () => {
         <div class={styles.error} classList={{ [styles.visible]: !!error() }}>
           {error()}
         </div>
-        
-        <style>{
-          `.checkIndicator {
-            position: absolute;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: rgba(255, 0, 0, 0.15);
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-weight: bold;
-            font-size: 1.2em;
-            text-align: center;
-            z-index: 10;
-            transition: all 0.3s ease;
-            opacity: 0;
-            pointer-events: none;
-          }
-          
-          .checkIndicator.checkRed {
-            opacity: 1;
-            background-color: rgba(244, 67, 54, 0.2);
-            border: 2px solid rgba(244, 67, 54, 0.5);
-            color: #f44336;
-          }
-          
-          .checkIndicator.checkBlue {
-            opacity: 1;
-            background-color: rgba(33, 150, 243, 0.2);
-            border: 2px solid rgba(33, 150, 243, 0.5);
-            color: #2196F3;
-          }
-          
-          .checkText {
-            text-shadow: 0 0 5px rgba(255, 255, 255, 0.8);
-          }`
-        }</style>
       )}
       </div>
       

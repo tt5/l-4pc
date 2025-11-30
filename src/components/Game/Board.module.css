@@ -44,6 +44,39 @@
 .turnIndicator.yellow { background-color: #eab308; color: #000; }
 .turnIndicator.green { background-color: #10b981; }
 
+/* Check indicator */
+.checkIndicator {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-weight: bold;
+  font-size: 1.1em;
+  text-align: center;
+  z-index: 100;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(5px);
+}
+
+.checkRed {
+  background-color: rgba(244, 67, 54, 0.2);
+  border: 2px solid rgba(244, 67, 54, 0.5);
+  color: #f44336;
+}
+
+.checkBlue {
+  background-color: rgba(33, 150, 243, 0.2);
+  border: 2px solid rgba(33, 150, 243, 0.5);
+  color: #2196F3;
+}
+
+.checkIndicator .checkText {
+  text-shadow: 0 0 5px rgba(255, 255, 255, 0.8);
+}
+
 /* Loading States */
 .loadingContainer {
   display: flex;
