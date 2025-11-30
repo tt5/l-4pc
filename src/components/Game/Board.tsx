@@ -52,12 +52,13 @@ const Board: Component = () => {
 
   // Helper function to determine team based on color
   const getTeam = (color: string): 1 | 2 => {
-    const lowerColor = color.toLowerCase();
-    // Team 1: red (#F44336) or yellow (#FFEB3B)
-    if (lowerColor === '#f44336' || lowerColor === '#ffeb3b') {
+    // Normalize color to lowercase for case-insensitive comparison
+    const normalizedColor = color.toLowerCase();
+    // Team 1: red (#f44336) or yellow (#ffeb3b)
+    if (normalizedColor === '#f44336' || normalizedColor === '#ffeb3b') {
       return 1;
     }
-    // Team 2: blue (#2196F3) or green (#4CAF50)
+    // Team 2: blue (#2196f3) or green (#4caf50)
     return 2;
   };
   
@@ -73,20 +74,60 @@ const Board: Component = () => {
     
     console.group('=== Enhanced Check Detection Debug ===');
     console.log('Current player:', currentPlayer);
-    console.log('All base points:', JSON.parse(JSON.stringify(allBasePoints)));
+    console.log('All base points (raw):', allBasePoints);
+    console.log('All base points (stringified):', JSON.stringify(allBasePoints, null, 2));
     console.log('Restricted squares (indices):', restrictedSquares);
     
     // Reset king in check state
     setKingInCheck(null);
     
+    // Debug: Log all kings and their properties
+    const allKings = allBasePoints.filter(bp => bp.pieceType === 'king');
+    console.log('All kings on board:', allKings.map(k => ({
+      x: k.x,
+      y: k.y,
+      color: k.color,
+      pieceType: k.pieceType,
+      team: getTeam(k.color)
+    })));
+    
+    // Map color names to hex codes for comparison
+    const colorMap: Record<string, string> = {
+      'red': '#f44336',
+      'blue': '#2196f3',
+      'yellow': '#ffeb3b',
+      'green': '#4caf50'
+    };
+    
     // Find the current player's king
-    const currentPlayerKing = allBasePoints.find(bp => 
-      bp.pieceType === 'king' && 
-      bp.color.toLowerCase() === currentPlayer.toLowerCase()
-    );
+    const currentPlayerKing = allBasePoints.find(bp => {
+      const isKing = bp.pieceType === 'king';
+      const currentPlayerHex = colorMap[currentPlayer.toLowerCase()] || currentPlayer.toLowerCase();
+      const matchesColor = bp.color.toLowerCase() === currentPlayerHex;
+      
+      console.log(`Checking piece at [${bp.x},${bp.y}]:`, {
+        color: bp.color,
+        pieceType: bp.pieceType,
+        isKing,
+        matchesColor,
+        currentPlayer,
+        currentPlayerHex
+      });
+      
+      return isKing && matchesColor;
+    });
     
     if (!currentPlayerKing) {
-      console.log('No king found for current player');
+      console.error('No king found for current player:', {
+        currentPlayer,
+        allBasePoints: allBasePoints.map(bp => ({
+          x: bp.x,
+          y: bp.y,
+          color: bp.color,
+          pieceType: bp.pieceType,
+          team: getTeam(bp.color)
+        }))
+      });
       console.groupEnd();
       return;
     }
@@ -157,54 +198,127 @@ const Board: Component = () => {
     console.groupEnd();
   };
 
+  // Helper function to check if a square is under attack by any piece of the given team
+  const isSquareUnderAttack = (x: number, y: number, attackingTeam: number): boolean => {
+    return basePoints().some(attacker => {
+      if (getTeam(attacker.color) !== attackingTeam) return false;
+      return canPieceAttack(attacker, x, y);
+    });
+  };
+
+  // Helper function to check if a piece can attack a specific square
+  const canPieceAttack = (piece: BasePoint, targetX: number, targetY: number): boolean => {
+    const dx = Math.abs(piece.x - targetX);
+    const dy = Math.abs(piece.y - targetY);
+    
+    // King movement (1 square in any direction)
+    if (piece.pieceType === 'king') {
+      return dx <= 1 && dy <= 1;
+    }
+    
+    // Queen movement (any number of squares in any direction)
+    if (piece.pieceType === 'queen') {
+      // Check if on same row, column, or diagonal
+      if (piece.x === targetX || piece.y === targetY || dx === dy) {
+        // Check if path is clear
+        return isPathClear(piece.x, piece.y, targetX, targetY);
+      }
+      return false;
+    }
+    
+    // Add other piece types as needed (rooks, bishops, knights, pawns)
+    
+    return false;
+  };
+
+  // Helper function to check if the path between two squares is clear
+  const isPathClear = (x1: number, y1: number, x2: number, y2: number): boolean => {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const steps = Math.max(Math.abs(dx), Math.abs(dy));
+    
+    // For each square along the path (excluding start and end)
+    for (let i = 1; i < steps; i++) {
+      const x = x1 + Math.sign(dx) * i;
+      const y = y1 + Math.sign(dy) * i;
+      
+      // If we've reached the target square, the path is clear
+      if (x === x2 && y === y2) break;
+      
+      // If there's a piece in the way, the path is not clear
+      if (basePoints().some(p => p.x === x && p.y === y)) {
+        return false;
+      }
+    }
+    
+    return true;
+  };
+
+  // Helper function to check if a square is between two other squares in a straight line
+  const isSquareBetween = (from: BasePoint, to: BasePoint, x: number, y: number): boolean => {
+    // Check if all three points are in a straight line
+    const dx1 = to.x - from.x;
+    const dy1 = to.y - from.y;
+    const dx2 = x - from.x;
+    const dy2 = y - from.y;
+    
+    // If not in a straight line, return false
+    if (dx1 * dy2 !== dx2 * dy1) return false;
+    
+    // Check if (x,y) is between from and to
+    const isBetweenX = (from.x <= x && x <= to.x) || (from.x >= x && x >= to.x);
+    const isBetweenY = (from.y <= y && y <= to.y) || (from.y >= y && y >= to.y);
+    
+    return isBetweenX && isBetweenY && (x !== from.x || y !== from.y) && (x !== to.x || y !== to.y);
+  };
+
   // Helper function to check if a move would resolve a check
   const wouldResolveCheck = (from: Point, to: Point, color: string): boolean => {
-    // If the king is not in check, any legal move is allowed
     const currentCheck = kingInCheck();
     if (!currentCheck) return true;
     
     // Only enforce check resolution for the current player's team
     if (getTeam(color) !== currentCheck.team) return true;
     
-    // Simulate the move
-    const simulatedBasePoints = basePoints().map(bp => {
-      // Move the piece
-      if (bp.x === from[0] && bp.y === from[1]) {
-        return { ...bp, x: to[0], y: to[1] };
-      }
-      // Remove any piece at the target position (capture)
-      if (bp.x === to[0] && bp.y === to[1]) {
-        return null;
-      }
-      return bp;
-    }).filter((bp): bp is BasePoint => bp !== null);
+    const movingPiece = basePoints().find(bp => bp.x === from[0] && bp.y === from[1]);
+    if (!movingPiece) return false;
 
-    // Check if the king is still in check after the move
-    const king = simulatedBasePoints.find(bp => 
+    // If the piece being moved is the king, check if the new position is safe
+    if (movingPiece.pieceType === 'king') {
+      // For king moves, just check if the new position is under attack
+      return !isSquareUnderAttack(to[0], to[1], getTeam(color) === 1 ? 2 : 1);
+    }
+
+    // For other pieces, they must block or capture the attacking piece
+    const king = basePoints().find(bp => 
       bp.pieceType === 'king' && 
       getTeam(bp.color) === currentCheck.team
     );
+    if (!king) return false;
 
-    if (!king) return false; // King was captured (shouldn't happen with valid moves)
+    // Get all squares that are attacking the king
+    const attackers = basePoints().filter(attacker => 
+      getTeam(attacker.color) !== currentCheck.team &&
+      canPieceAttack(attacker, king.x, king.y)
+    );
 
-    // Check if any enemy piece can attack the king's position
-    const isStillInCheck = simulatedBasePoints.some(attacker => {
-      // Skip friendly pieces
-      if (getTeam(attacker.color) === currentCheck.team) return false;
-      
-      // Check if this piece can attack the king
-      const dx = Math.abs(attacker.x - king.x);
-      const dy = Math.abs(attacker.y - king.y);
-      
-      // Simple check for direct attacks (can be expanded for different piece types)
-      if (dx <= 1 && dy <= 1) {
-        return true; // King is adjacent to an enemy piece
-      }
-      
+    // If there are multiple attackers, only a king move can resolve check
+    if (attackers.length > 1) {
       return false;
-    });
-    
-    return !isStillInCheck;
+    }
+
+    const attacker = attackers[0];
+    // Check if the move captures the attacker
+    if (to[0] === attacker.x && to[1] === attacker.y) {
+      return true;
+    }
+
+    // Check if the move blocks the attack
+    if (isSquareBetween(attacker, king, to[0], to[1])) {
+      return true;
+    }
+
+    return false;
   };
 
   // Helper function to validate square placement
