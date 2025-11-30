@@ -49,13 +49,40 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
     
     // Check if there's already a base point at the target coordinates
     const existingAtTarget = await repository.findByCoordinates(data.x, data.y);
+    
+    // If there's a piece at the target and it's not the current piece
     if (existingAtTarget && existingAtTarget.id !== basePointId) {
-      return createErrorResponse(
-        'A base point already exists at these coordinates', 
-        409, 
-        undefined, 
-        { requestId }
-      );
+      console.log(`[API] Found existing base point at (${data.x}, ${data.y}):`, {
+        id: existingAtTarget.id,
+        userId: existingAtTarget.userId,
+        currentUserId: user.userId,
+        isSameUser: existingAtTarget.userId === user.userId,
+        color: existingAtTarget.color,
+        existingPointColor: existingPoint.color
+      });
+      
+      // Helper function to determine team based on color
+      const getTeam = (color: string): number => {
+        const TEAM_1_COLORS = ['#F44336', '#FFEB3B']; // Red and Yellow
+        return TEAM_1_COLORS.includes(color.toUpperCase()) ? 1 : 2;
+      };
+      
+      // Check if the pieces are on the same team using colors
+      if (existingAtTarget.color && existingPoint.color && 
+          getTeam(existingAtTarget.color) === getTeam(existingPoint.color)) {
+        console.log(`[API] Cannot capture pieces on the same team at (${data.x}, ${data.y})`);
+        return createErrorResponse(
+          'Cannot capture pieces on the same team', 
+          409, 
+          undefined, 
+          { requestId }
+        );
+      }
+      
+      // It's an opponent's piece - capture it by deleting it
+      console.log(`[API] Capturing base point ${existingAtTarget.id} at (${data.x}, ${data.y})`);
+      const deleteResult = await repository.delete(existingAtTarget.id);
+      console.log(`[API] Capture result for ${existingAtTarget.id}:`, deleteResult ? 'Success' : 'Failed');
     }
     
     // Update the base point

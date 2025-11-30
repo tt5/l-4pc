@@ -188,16 +188,23 @@ export class BasePointRepository {
   }
 
   /**
-   * Deletes a single base point by ID
-   * @param id - The ID of the base point to delete
-   * @returns The deleted base point or null if not found
+   * Deletes a base point by ID
+   * @param id The ID of the base point to delete
+   * @returns True if the base point was deleted, false otherwise
    */
-  /**
-   * Creates a new base point with a specific timestamp
-   */
+  async delete(id: number): Promise<boolean> {
+    try {
+      const result = await this.db.run('DELETE FROM base_points WHERE id = ?', [id]);
+      return (result.changes || 0) > 0;
+    } catch (error) {
+      console.error(`[BasePointRepository] Failed to delete base point ${id}:`, error);
+      throw error;
+    }
+  }
+
   async getById(id: number): Promise<BasePoint | null> {
     const result = await this.db.get<BasePoint>(
-      'SELECT id, user_id as userId, x, y, game_created_at_ms as createdAtMs FROM base_points WHERE id = ?',
+      'SELECT id, user_id as userId, x, y, color, game_created_at_ms as createdAtMs FROM base_points WHERE id = ?',
       [id]
     );
     return result ? result : null;
@@ -211,7 +218,7 @@ export class BasePointRepository {
    */
   async findByCoordinates(x: number, y: number): Promise<BasePoint | null> {
     const result = await this.db.get<BasePoint>(
-      'SELECT id, user_id as userId, x, y, game_created_at_ms as createdAtMs FROM base_points WHERE x = ? AND y = ?',
+      'SELECT id, user_id as userId, x, y, color, game_created_at_ms as createdAtMs FROM base_points WHERE x = ? AND y = ?',
       [x, y]
     );
     return result ? result : null;
@@ -263,13 +270,6 @@ export class BasePointRepository {
     return result || null;
   }
 
-  /**
-   * Deletes a base point by ID
-   */
-  async delete(id: number): Promise<boolean> {
-    const result = await this.db.run('DELETE FROM base_points WHERE id = ?', [id]);
-    return (result.changes || 0) > 0;
-  }
 
   async deleteBasePoint(id: number): Promise<BasePoint | null> {
     // First get the point to return it after deletion
