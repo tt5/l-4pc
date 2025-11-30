@@ -50,6 +50,20 @@ const Board: Component = () => {
     setError(null);
   };
 
+  // Helper function to determine team based on color
+  const getTeam = (color: string): 1 | 2 => {
+    const lowerColor = color.toLowerCase();
+    // Team 1: red (#F44336) or yellow (#FFEB3B)
+    if (lowerColor === '#f44336' || lowerColor === '#ffeb3b') {
+      return 1;
+    }
+    // Team 2: blue (#2196F3) or green (#4CAF50)
+    return 2;
+  };
+  
+  // Track which squares have kings in check
+  const [kingsInCheck, setKingsInCheck] = createSignal<{[key: string]: boolean}>({});
+  
   // Check if the king is in check based on restricted squares
   const checkKingInCheck = (): void => {
     const allBasePoints = basePoints();
@@ -60,17 +74,6 @@ const Board: Component = () => {
     console.log('All base points:', JSON.parse(JSON.stringify(allBasePoints)));
     console.log('Restricted squares (indices):', restrictedSquares);
     console.log('Restricted squares info:', JSON.parse(JSON.stringify(restrictedInfo)));
-    
-    // Helper function to determine team based on color
-    const getTeam = (color: string): 1 | 2 => {
-      const lowerColor = color.toLowerCase();
-      // Team 1: red (#F44336) or yellow (#FFEB3B)
-      if (lowerColor === '#f44336' || lowerColor === '#ffeb3b') {
-        return 1;
-      }
-      // Team 2: blue (#2196F3) or green (#4CAF50)
-      return 2;
-    };
     
     // Find all kings on the board with their teams
     const kings = allBasePoints
@@ -376,13 +379,41 @@ const Board: Component = () => {
     console.log('Restricted squares:', squares);
     console.log('Base points:', points);
     checkKingInCheck();
+    
+    // Clear previous check highlights
+    setKingsInCheck({});
+    
+    // Check each king
+    const allBasePoints = basePoints();
+    const restrictedSquares = getRestrictedSquares();
+    const restrictedInfo = restrictedSquaresInfo();
+    
+    allBasePoints
+      .filter(bp => bp.pieceType === 'king')
+      .forEach(king => {
+        const kingIndex = king.y * BOARD_CONFIG.GRID_SIZE + king.x;
+        if (restrictedSquares.includes(kingIndex)) {
+          // Check if any opponent pieces are threatening this king
+          const restrictions = restrictedInfo.filter(sq => sq.index === kingIndex);
+          const isInCheck = restrictions.some(restriction => 
+            restriction.restrictedBy.some(r => {
+              const attacker = allBasePoints.find(bp => 
+                bp.x === r.basePointX && bp.y === r.basePointY
+              );
+              return attacker && getTeam(attacker.color) !== getTeam(king.color);
+            })
+          );
+          
+          if (isInCheck) {
+            setKingsInCheck(prev => ({
+              ...prev,
+              [`${king.x},${king.y}`]: true
+            }));
+          }
+        }
+      });
   });
   
-  // Debug effect to log when kingInCheck changes
-  createEffect(() => {
-    const checkStatus = kingInCheck();
-    console.log('King check status changed:', checkStatus);
-  });
 
   // Effect to handle user changes and fetch base points
   createEffect(() => {
@@ -1111,18 +1142,10 @@ const Board: Component = () => {
     }
   };
 
-  console.log('Rendering Board. King in check:', kingInCheck());
+  console.log('Rendering Board. Kings in check:', Object.keys(kingsInCheck()));
   
   return (
     <div class={styles.board}>
-      {/* Check indicator */}
-      <Show when={kingInCheck()}>
-        <div class={`${styles.checkIndicator} ${kingInCheck()?.team === 1 ? styles.checkRed : styles.checkBlue}`}>
-          <span class={styles.checkText}>
-            {kingInCheck()?.team === 1 ? 'Red' : 'Blue'} King is in check!
-          </span>
-        </div>
-      </Show>
       
       <div class={styles.boardContent}>
         <div class={styles.boardControls}>
@@ -1153,12 +1176,16 @@ const Board: Component = () => {
               : true
             );
           
+          // Check if this cell has a king in check
+          const isKingInCheck = basePoint?.pieceType === 'king' && kingsInCheck()[`${x},${y}`];
+          
           // Update the cell state to include the new hover state and base point properties
           const cellState = {
             isBasePoint: isBP,
             isSelected,
             isHovered: !!(hoveredSquare() === index || (hoveredCell() && hoveredCell()![0] === x && hoveredCell()![1] === y)),
             isSaving: isSaving(),
+            isInCheck: isKingInCheck,  // Add check status
             color: basePoint?.color, // Add the color from the base point if it exists
             pieceType: basePoint?.pieceType // Add the piece type from the base point if it exists
           };
