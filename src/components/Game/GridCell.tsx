@@ -80,24 +80,24 @@ export const GridCell: Component<GridCellProps> = (props) => {
       onClick={props.onClick}
       classList={classList}
     >
-      {isBasePoint && <div class={styles.basePoint} style={{ 'background-color': state.color || '#4CAF50' }}>
+      {isBasePoint && <div class={styles.basePoint} style={{ '--piece-color': state.color || '#4CAF50', 'background-color': state.color || '#4CAF50' }}>
         {state.pieceType === 'queen' && (
-          <div class={styles.pieceIcon}>♕</div>
+          <div class={styles.pieceIcon} style={{ '--piece-color': state.color || '#4CAF50' }}>♕</div>
         )}
         {state.pieceType === 'king' && (
-          <div class={styles.pieceIcon}>♔</div>
+          <div class={styles.pieceIcon} style={{ '--piece-color': state.color || '#4CAF50' }}>♔</div>
         )}
       </div>}
       {isBasePoint ? (
         <div 
           class={styles.basePointMarker}
-          style={{ 'background-color': state.color || '#4CAF50' }}
+          style={{ '--piece-color': state.color || '#4CAF50', 'background-color': state.color || '#4CAF50' }}
         >
           {state.pieceType === 'queen' && (
-            <div class={styles.pieceIcon}>♕</div>
+            <div class={styles.pieceIcon} style={{ '--piece-color': state.color || '#4CAF50' }}>♕</div>
           )}
           {state.pieceType === 'king' && (
-            <div class={styles.pieceIcon}>♔</div>
+            <div class={styles.pieceIcon} style={{ '--piece-color': state.color || '#4CAF50' }}>♔</div>
           )}
         </div>
       ) : !isSelected ? (
