@@ -44,46 +44,6 @@
 .turnIndicator.yellow { background-color: #eab308; color: #000; }
 .turnIndicator.green { background-color: #10b981; }
 
-/* Check indicator */
-.checkIndicator {
-  position: fixed;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 10px 20px;
-  border-radius: 20px;
-  font-weight: bold;
-  font-size: 1.1em;
-  text-align: center;
-  z-index: 1000;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(5px);
-  pointer-events: none;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0% { transform: translateX(-50%) scale(1); }
-  50% { transform: translateX(-50%) scale(1.05); }
-  100% { transform: translateX(-50%) scale(1); }
-}
-
-.checkIndicator.checkRed {
-  background-color: rgba(244, 67, 54, 0.2);
-  border: 2px solid rgba(244, 67, 54, 0.5);
-  color: #f44336;
-}
-
-.checkIndicator.checkBlue {
-  background-color: rgba(33, 150, 243, 0.2);
-  border: 2px solid rgba(33, 150, 243, 0.5);
-  color: #2196F3;
-}
-
-.checkText {
-  text-shadow: 0 0 5px rgba(255, 255, 255, 0.8);
-  font-weight: 600;
-}
 
 /* Loading States */
 .loadingContainer {
@@ -270,7 +230,12 @@
   background-image: none;
   position: relative;
   z-index: 2;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.square.basePoint.inCheck {
+  box-shadow: 0 0 0 2px #f44336;
+  z-index: 4;
 }
 
 .square.basePoint:hover { 

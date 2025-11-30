@@ -9,6 +9,7 @@ interface CellState {
   isSelected: boolean;
   isHovered: boolean;
   isSaving: boolean;
+  isInCheck?: boolean;
   color?: string; // Optional color for the base point
   pieceType?: string; // Type of the piece (e.g., 'pawn', 'queen')
 }
@@ -48,6 +49,7 @@ export const GridCell: Component<GridCellProps> = (props) => {
 
   const squareClass = () => {
     const classes = [styles.square];
+    if (isBasePoint) classes.push(styles.basePoint);
     if (isSelected) classes.push(styles.selected);
     if (isSaving && isHovered) classes.push(styles.loading);
     else if (isHovered) {
@@ -55,6 +57,9 @@ export const GridCell: Component<GridCellProps> = (props) => {
     }
     if (isDraggingProp && pickedUpBasePoint && isBasePoint) {
       classes.push(styles.dragging);
+    }
+    if (isBasePoint && state.isInCheck) {
+      classes.push(styles.inCheck);
     }
     return classes.join(' ');
   };
