@@ -60,17 +60,29 @@ export class BasePointRepository {
   async add(userId: string, x: number, y: number, color?: string, pieceType: string = 'pawn'): Promise<BasePoint> {
     // Determine color and piece type based on position
     if (x === 7 && y === 0) {
-      color = '#FFEB3B';    // Top - Yellow
+      color = '#FFEB3B';    // Top - Yellow Queen
       pieceType = 'queen';
+    } else if (x === 6 && y === 0) {
+      color = '#FFEB3B';    // Top - Yellow King
+      pieceType = 'king';
     } else if (x === 6 && y === 13) {
-      color = '#F44336';    // Bottom - Red
+      color = '#F44336';    // Bottom - Red Queen
       pieceType = 'queen';
+    } else if (x === 7 && y === 13) {
+      color = '#F44336';    // Bottom - Red King
+      pieceType = 'king';
     } else if (x === 0 && y === 6) {
-      color = '#2196F3';    // Left - Blue
+      color = '#2196F3';    // Left - Blue Queen
       pieceType = 'queen';
+    } else if (x === 0 && y === 7) {
+      color = '#2196F3';    // Left - Blue King
+      pieceType = 'king';
     } else if (x === 13 && y === 7) {
-      color = '#4CAF50';    // Right - Green
+      color = '#4CAF50';    // Right - Green Queen
       pieceType = 'queen';
+    } else if (x === 13 && y === 6) {
+      color = '#4CAF50';    // Right - Green King
+      pieceType = 'king';
     } else if (color === undefined) {
       color = '#4CAF50';    // Default to green (right)
     }
@@ -249,14 +261,29 @@ export class BasePointRepository {
     // Set color and piece type based on position
     let color = '#4CAF50'; // Default to green (right)
     if (x === 7 && y === 0) {
-      color = '#FFEB3B';    // Top - Yellow
+      color = '#FFEB3B';    // Top - Yellow Queen
       pieceType = 'queen';
+    } else if (x === 6 && y === 0) {
+      color = '#FFEB3B';    // Top - Yellow King
+      pieceType = 'king';
     } else if (x === 6 && y === 13) {
-      color = '#F44336';    // Bottom - Red
+      color = '#F44336';    // Bottom - Red Queen
       pieceType = 'queen';
+    } else if (x === 7 && y === 13) {
+      color = '#F44336';    // Bottom - Red King
+      pieceType = 'king';
     } else if (x === 0 && y === 6) {
-      color = '#2196F3';    // Left - Blue
+      color = '#2196F3';    // Left - Blue Queen
       pieceType = 'queen';
+    } else if (x === 0 && y === 7) {
+      color = '#2196F3';    // Left - Blue King
+      pieceType = 'king';
+    } else if (x === 13 && y === 7) {
+      color = '#4CAF50';    // Right - Green Queen
+      pieceType = 'queen';
+    } else if (x === 13 && y === 6) {
+      color = '#4CAF50';    // Right - Green King
+      pieceType = 'king';
     }
     
     const result = await this.db.run(

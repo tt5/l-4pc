@@ -79,6 +79,9 @@ export const GridCell: Component<GridCellProps> = (props) => {
         {state.pieceType === 'queen' && (
           <div class={styles.pieceIcon}>♕</div>
         )}
+        {state.pieceType === 'king' && (
+          <div class={styles.pieceIcon}>♔</div>
+        )}
       </div>}
       {isBasePoint ? (
         <div 
@@ -87,6 +90,9 @@ export const GridCell: Component<GridCellProps> = (props) => {
         >
           {state.pieceType === 'queen' && (
             <div class={styles.pieceIcon}>♕</div>
+          )}
+          {state.pieceType === 'king' && (
+            <div class={styles.pieceIcon}>♔</div>
           )}
         </div>
       ) : !isSelected ? (
