@@ -81,17 +81,9 @@ export const GridCell: Component<GridCellProps> = (props) => {
       onClick={props.onClick}
       classList={classList}
     >
-      {isBasePoint && <div class={styles.basePoint} style={{ 'background-color': state.color || '#4CAF50', '--piece-color': state.color || '#4CAF50' }}>
-        {state.pieceType === 'queen' && (
-          <Queen class={styles.pieceIcon} />
-        )}
-        {state.pieceType === 'king' && (
-          <King class={styles.pieceIcon} />
-        )}
-      </div>}
       {isBasePoint ? (
         <div 
-          class={styles.basePointMarker}
+          class={`${styles.basePoint} ${styles.basePointMarker}`}
           style={{ 'background-color': state.color || '#4CAF50', '--piece-color': state.color || '#4CAF50' }}
         >
           {state.pieceType === 'queen' && (

@@ -306,8 +306,8 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 150%;
-  height: 150%;
+  width: 200%;
+  height: 200%;
   pointer-events: none;
   display: flex;
   align-items: center;
