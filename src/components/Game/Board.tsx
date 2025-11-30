@@ -7,7 +7,8 @@ import {
   onMount,
   on,
   batch,
-  For
+  For,
+  createSelector
 } from 'solid-js';
 import { PLAYER_COLORS, type PlayerColor } from '~/constants/game';
 import { basePointEventService } from '~/lib/server/events/base-point-events';
@@ -47,6 +48,42 @@ const Board: Component = () => {
     setDragStartPosition(null);
     setTargetPosition(null);
     setError(null);
+  };
+
+  // Check if the king is in check based on restricted squares
+  const checkKingInCheck = (): void => {
+    const allBasePoints = basePoints();
+    const restrictedSquares = getRestrictedSquares();
+    const restrictedInfo = restrictedSquaresInfo();
+    
+    // Find all kings on the board
+    const kings = allBasePoints.filter(bp => bp.pieceType === 'king');
+    
+    for (const king of kings) {
+      const kingIndex = king.y * BOARD_CONFIG.GRID_SIZE + king.x;
+      const isKingInCheck = restrictedSquares.includes(kingIndex) && 
+        restrictedInfo.some(sq => 
+          sq.index === kingIndex && 
+          sq.restrictedBy.some(r => 
+            // Check if the restriction comes from an opponent's piece
+            allBasePoints.some(bp => 
+              bp.x === r.basePointX && 
+              bp.y === r.basePointY && 
+              bp.team !== king.team
+            )
+          )
+        );
+      
+      if (isKingInCheck) {
+        setKingInCheck({
+          team: king.team as 1 | 2,
+          position: [king.x, king.y]
+        });
+        return;
+      }
+    }
+    
+    setKingInCheck(null);
   };
 
   // Helper function to validate square placement
@@ -132,6 +169,7 @@ const Board: Component = () => {
   const [currentTurnIndex, setCurrentTurnIndex] = createSignal(0);
   const currentPlayerColor = () => PLAYER_COLORS[currentTurnIndex() % PLAYER_COLORS.length];
   const [hoveredSquare, setHoveredSquare] = createSignal<number | null>(null);
+  const [kingInCheck, setKingInCheck] = createSignal<{team: 1 | 2, position: [number, number]} | null>(null);
   
   // Track restricted squares with their origin information
   const [restrictedSquaresInfo, setRestrictedSquaresInfo] = createSignal<Array<{
@@ -249,6 +287,13 @@ const Board: Component = () => {
     { defer: true }
   ));
 
+  // Check for king in check when restricted squares or base points change
+  createEffect(() => {
+    getRestrictedSquares();
+    basePoints();
+    checkKingInCheck();
+  });
+
   // Effect to handle user changes and fetch base points
   createEffect(() => {
     const currentUser = user();
@@ -256,6 +301,13 @@ const Board: Component = () => {
       handleFetchBasePoints();
     }
   });
+  // Effect to check king in check when base points change
+  createEffect(() => {
+    if (basePoints().length > 0) {
+      checkKingInCheck();
+    }
+  });
+
   // Set up SSE for real-time updates
   useSSE('/api/sse', (message) => {
     console.log('[SSE] Received message:', message);
@@ -979,12 +1031,6 @@ const Board: Component = () => {
         </div>
         
         <div 
-          class={styles.grid}
-          style={{
-            'grid-template-columns': `repeat(${BOARD_CONFIG.GRID_SIZE}, 1fr)`,
-            'grid-template-rows': `repeat(${BOARD_CONFIG.GRID_SIZE}, 1fr)`
-          }}
-        >
         {Array.from({ length: BOARD_CONFIG.GRID_SIZE * BOARD_CONFIG.GRID_SIZE }).map((_, index) => {
           const [x, y] = [index % BOARD_CONFIG.GRID_SIZE, Math.floor(index / BOARD_CONFIG.GRID_SIZE)];
           // Find if there's a base point at these coordinates and get its color
@@ -1047,9 +1093,46 @@ const Board: Component = () => {
         })}
       </div>
       {error() && (
-        <div class={styles.errorMessage}>
+        <div class={styles.error} classList={{ [styles.visible]: !!error() }}>
           {error()}
         </div>
+        
+        <style>{
+          `.checkIndicator {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(255, 0, 0, 0.15);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 1.2em;
+            text-align: center;
+            z-index: 10;
+            transition: all 0.3s ease;
+            opacity: 0;
+            pointer-events: none;
+          }
+          
+          .checkIndicator.checkRed {
+            opacity: 1;
+            background-color: rgba(244, 67, 54, 0.2);
+            border: 2px solid rgba(244, 67, 54, 0.5);
+            color: #f44336;
+          }
+          
+          .checkIndicator.checkBlue {
+            opacity: 1;
+            background-color: rgba(33, 150, 243, 0.2);
+            border: 2px solid rgba(33, 150, 243, 0.5);
+            color: #2196F3;
+          }
+          
+          .checkText {
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.8);
+          }`
+        }</style>
       )}
       </div>
       
