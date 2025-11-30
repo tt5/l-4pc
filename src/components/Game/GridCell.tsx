@@ -10,6 +10,7 @@ interface CellState {
   isHovered: boolean;
   isSaving: boolean;
   color?: string; // Optional color for the base point
+  pieceType?: string; // Type of the piece (e.g., 'pawn', 'queen')
 }
 
 interface GridCellProps {
@@ -74,12 +75,20 @@ export const GridCell: Component<GridCellProps> = (props) => {
       onClick={props.onClick}
       classList={classList}
     >
-      {isBasePoint && <div class={styles.basePoint} style={{ 'background-color': state.color || '#4CAF50' }} />}
+      {isBasePoint && <div class={styles.basePoint} style={{ 'background-color': state.color || '#4CAF50' }}>
+        {state.pieceType === 'queen' && (
+          <div class={styles.pieceIcon}>♕</div>
+        )}
+      </div>}
       {isBasePoint ? (
         <div 
           class={styles.basePointMarker}
           style={{ 'background-color': state.color || '#4CAF50' }}
-        />
+        >
+          {state.pieceType === 'queen' && (
+            <div class={styles.pieceIcon}>♕</div>
+          )}
+        </div>
       ) : !isSelected ? (
         <div class={styles.emptyMarker}>×</div>
       ) : null}

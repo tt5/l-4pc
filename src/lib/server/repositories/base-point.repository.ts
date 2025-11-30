@@ -58,12 +58,18 @@ export class BasePointRepository {
   }
 
   async add(userId: string, x: number, y: number, color?: string, pieceType: string = 'pawn'): Promise<BasePoint> {
-    // If color is not provided, determine it based on position
-    if (color === undefined) {
-      color = '#4CAF50'; // Default to green (right)
-      if (x === 7 && y === 0) color = '#FFEB3B';    // Top - Yellow
-      else if (x === 6 && y === 13) color = '#F44336'; // Bottom - Red
-      else if (x === 0 && y === 6) color = '#2196F3';  // Left - Blue
+    // Determine color and piece type based on position
+    if (x === 7 && y === 0) {
+      color = '#FFEB3B';    // Top - Yellow
+      pieceType = 'queen';
+    } else if (x === 6 && y === 13) {
+      color = '#F44336';    // Bottom - Red
+      pieceType = 'queen';
+    } else if (x === 0 && y === 6) {
+      color = '#2196F3';    // Left - Blue
+      pieceType = 'queen';
+    } else if (color === undefined) {
+      color = '#4CAF50';    // Default to green (right)
     }
     const now = Date.now();
     
@@ -96,8 +102,8 @@ export class BasePointRepository {
 
         // Insert the base point
         const result = await this.db.run(
-          'INSERT INTO base_points (user_id, x, y, game_created_at_ms, color) VALUES (?, ?, ?, ?, ?)',
-          [userId, x, y, now, color]
+          'INSERT INTO base_points (user_id, x, y, game_created_at_ms, color, piece_type) VALUES (?, ?, ?, ?, ?, ?)',
+          [userId, x, y, now, color, pieceType]
         );
 
         // Commit the transaction
@@ -106,7 +112,7 @@ export class BasePointRepository {
         
         // Fetch the complete base point to ensure all fields are included
         const insertedPoint = await this.db.get<BasePoint>(
-          'SELECT id, user_id as userId, x, y, color, game_created_at_ms as createdAtMs FROM base_points WHERE id = ?',
+          'SELECT id, user_id as userId, x, y, color, piece_type as pieceType, game_created_at_ms as createdAtMs FROM base_points WHERE id = ?',
           [result.lastID]
         );
 
@@ -235,13 +241,20 @@ export class BasePointRepository {
   }
 
   async create(input: CreateBasePointInput): Promise<BasePoint> {
-    const { userId, x, y, gameCreatedAtMs, pieceType = 'pawn' } = input;
+    let { userId, x, y, gameCreatedAtMs, pieceType = 'pawn' } = input;
     
-    // Set color based on position
+    // Set color and piece type based on position
     let color = '#4CAF50'; // Default to green (right)
-    if (x === 7 && y === 0) color = '#FFEB3B';    // Top - Yellow
-    else if (x === 6 && y === 13) color = '#F44336'; // Bottom - Red
-    else if (x === 0 && y === 6) color = '#2196F3';  // Left - Blue
+    if (x === 7 && y === 0) {
+      color = '#FFEB3B';    // Top - Yellow
+      pieceType = 'queen';
+    } else if (x === 6 && y === 13) {
+      color = '#F44336';    // Bottom - Red
+      pieceType = 'queen';
+    } else if (x === 0 && y === 6) {
+      color = '#2196F3';    // Left - Blue
+      pieceType = 'queen';
+    }
     
     const result = await this.db.run(
       'INSERT INTO base_points (user_id, x, y, game_created_at_ms, color, piece_type) VALUES (?, ?, ?, ?, ?, ?)',

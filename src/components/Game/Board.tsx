@@ -1006,13 +1006,14 @@ const Board: Component = () => {
               : true
             );
           
-          // Update the cell state to include the new hover state and base point color
+          // Update the cell state to include the new hover state and base point properties
           const cellState = {
             isBasePoint: isBP,
             isSelected,
             isHovered: !!(hoveredSquare() === index || (hoveredCell() && hoveredCell()![0] === x && hoveredCell()![1] === y)),
             isSaving: isSaving(),
-            color: basePoint?.color // Add the color from the base point if it exists
+            color: basePoint?.color, // Add the color from the base point if it exists
+            pieceType: basePoint?.pieceType // Add the piece type from the base point if it exists
           };
 
           return (
