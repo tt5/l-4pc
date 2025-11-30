@@ -56,34 +56,114 @@ const Board: Component = () => {
     const restrictedSquares = getRestrictedSquares();
     const restrictedInfo = restrictedSquaresInfo();
     
-    // Find all kings on the board
-    const kings = allBasePoints.filter(bp => bp.pieceType === 'king');
+    console.group('=== Enhanced Check Detection Debug ===');
+    console.log('All base points:', JSON.parse(JSON.stringify(allBasePoints)));
+    console.log('Restricted squares (indices):', restrictedSquares);
+    console.log('Restricted squares info:', JSON.parse(JSON.stringify(restrictedInfo)));
+    
+    // Helper function to determine team based on color
+    const getTeam = (color: string): 1 | 2 => {
+      const lowerColor = color.toLowerCase();
+      // Team 1: red (#F44336) or yellow (#FFEB3B)
+      if (lowerColor === '#f44336' || lowerColor === '#ffeb3b') {
+        return 1;
+      }
+      // Team 2: blue (#2196F3) or green (#4CAF50)
+      return 2;
+    };
+    
+    // Find all kings on the board with their teams
+    const kings = allBasePoints
+      .filter(bp => bp.pieceType === 'king')
+      .map(king => ({
+        ...king,
+        team: king.team || getTeam(king.color)
+      }));
+    
+    console.log('Found kings with teams:', JSON.parse(JSON.stringify(kings)));
+    
+    if (kings.length === 0) {
+      console.log('No kings found on the board!');
+      console.groupEnd();
+      return;
+    }
+    
+    let anyKingInCheck = false;
     
     for (const king of kings) {
       const kingIndex = king.y * BOARD_CONFIG.GRID_SIZE + king.x;
-      const isKingInCheck = restrictedSquares.includes(kingIndex) && 
-        restrictedInfo.some(sq => 
-          sq.index === kingIndex && 
-          sq.restrictedBy.some(r => 
-            // Check if the restriction comes from an opponent's piece
-            allBasePoints.some(bp => 
-              bp.x === r.basePointX && 
-              bp.y === r.basePointY && 
-              bp.team !== king.team
-            )
-          )
-        );
+      const kingTeam = getTeam(king.color);
+      console.group(`Checking ${king.color} king at [${king.x},${king.y}] (team ${kingTeam})`);
       
-      if (isKingInCheck) {
+      const isKingOnRestrictedSquare = restrictedSquares.includes(kingIndex);
+      console.log(`King is on restricted square: ${isKingOnRestrictedSquare}`);
+      
+      if (!isKingOnRestrictedSquare) {
+        console.log('King is not on a restricted square, skipping...');
+        console.groupEnd();
+        continue;
+      }
+      
+      // Get all restrictions on the king's square
+      const restrictions = restrictedInfo.filter(sq => sq.index === kingIndex);
+      console.log(`Restrictions on king's square:`, JSON.parse(JSON.stringify(restrictions)));
+      
+      // Find all pieces that are restricting this square
+      const threateningPieces = [];
+      
+      for (const restriction of restrictions) {
+        for (const r of restriction.restrictedBy) {
+          // Find the piece that's causing this restriction
+          const attacker = allBasePoints.find(bp => 
+            bp.x === r.basePointX && 
+            bp.y === r.basePointY
+          );
+          
+          if (attacker) {
+            const attackerTeam = getTeam(attacker.color);
+            const isOpponent = attackerTeam !== kingTeam;
+            
+            console.log(`Found potential attacker at [${attacker.x},${attacker.y}]:`, {
+              attackerType: attacker.pieceType,
+              attackerColor: attacker.color,
+              attackerTeam,
+              kingColor: king.color,
+              kingTeam,
+              isOpponent
+            });
+            
+            if (isOpponent) {
+              threateningPieces.push({
+                ...attacker,
+                team: attackerTeam
+              });
+            }
+          }
+        }
+      }
+      
+      if (threateningPieces.length > 0) {
+        console.log(`${king.color} king at [${king.x},${king.y}] is in check by:`, 
+          threateningPieces.map(p => `[${p.x},${p.y}] (${p.pieceType}, ${p.color}, team ${p.team})`));
+        
         setKingInCheck({
-          team: king.team as 1 | 2,
+          team: kingTeam,
           position: [king.x, king.y]
         });
-        return;
+        anyKingInCheck = true;
+      } else {
+        console.log(`${king.color} king at [${king.x},${king.y}] is on a restricted square but not in check (no opponent pieces threatening)`);
       }
+      
+      console.groupEnd();
     }
     
-    setKingInCheck(null);
+    if (!anyKingInCheck) {
+      console.log('No kings are in check');
+      setKingInCheck(null);
+    }
+    
+    console.groupEnd();
   };
 
   // Helper function to validate square placement
@@ -180,6 +260,7 @@ const Board: Component = () => {
       basePointId: string;
       basePointX: number;
       basePointY: number;
+      direction?: string;
     }>;
   }>>([]);
   const [lastHoveredCell, setLastHoveredCell] = createSignal<[number, number] | null>(null);
@@ -289,9 +370,18 @@ const Board: Component = () => {
 
   // Check for king in check when restricted squares or base points change
   createEffect(() => {
-    getRestrictedSquares();
-    basePoints();
+    console.log('Checking for king in check...');
+    const squares = getRestrictedSquares();
+    const points = basePoints();
+    console.log('Restricted squares:', squares);
+    console.log('Base points:', points);
     checkKingInCheck();
+  });
+  
+  // Debug effect to log when kingInCheck changes
+  createEffect(() => {
+    const checkStatus = kingInCheck();
+    console.log('King check status changed:', checkStatus);
   });
 
   // Effect to handle user changes and fetch base points
@@ -1021,14 +1111,18 @@ const Board: Component = () => {
     }
   };
 
+  console.log('Rendering Board. King in check:', kingInCheck());
+  
   return (
     <div class={styles.board}>
       {/* Check indicator */}
-      {kingInCheck() && (
+      <Show when={kingInCheck()}>
         <div class={`${styles.checkIndicator} ${kingInCheck()?.team === 1 ? styles.checkRed : styles.checkBlue}`}>
-          {kingInCheck()?.team === 1 ? 'Red' : 'Blue'} King is in check!
+          <span class={styles.checkText}>
+            {kingInCheck()?.team === 1 ? 'Red' : 'Blue'} King is in check!
+          </span>
         </div>
-      )}
+      </Show>
       
       <div class={styles.boardContent}>
         <div class={styles.boardControls}>
