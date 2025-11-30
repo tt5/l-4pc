@@ -1,6 +1,7 @@
 import { type Component, JSX } from 'solid-js';
 import styles from './Board.module.css';
 import type { BasePoint } from '../../types/board';
+import { King, Queen } from './ChessPieces';
 
 type Point = [number, number];
 
@@ -80,24 +81,24 @@ export const GridCell: Component<GridCellProps> = (props) => {
       onClick={props.onClick}
       classList={classList}
     >
-      {isBasePoint && <div class={styles.basePoint} style={{ '--piece-color': state.color || '#4CAF50', 'background-color': state.color || '#4CAF50' }}>
+      {isBasePoint && <div class={styles.basePoint} style={{ 'background-color': state.color || '#4CAF50', '--piece-color': state.color || '#4CAF50' }}>
         {state.pieceType === 'queen' && (
-          <div class={styles.pieceIcon} style={{ '--piece-color': state.color || '#4CAF50' }}>♕</div>
+          <Queen class={styles.pieceIcon} />
         )}
         {state.pieceType === 'king' && (
-          <div class={styles.pieceIcon} style={{ '--piece-color': state.color || '#4CAF50' }}>♔</div>
+          <King class={styles.pieceIcon} />
         )}
       </div>}
       {isBasePoint ? (
         <div 
           class={styles.basePointMarker}
-          style={{ '--piece-color': state.color || '#4CAF50', 'background-color': state.color || '#4CAF50' }}
+          style={{ 'background-color': state.color || '#4CAF50', '--piece-color': state.color || '#4CAF50' }}
         >
           {state.pieceType === 'queen' && (
-            <div class={styles.pieceIcon} style={{ '--piece-color': state.color || '#4CAF50' }}>♕</div>
+            <Queen class={styles.pieceIcon} />
           )}
           {state.pieceType === 'king' && (
-            <div class={styles.pieceIcon} style={{ '--piece-color': state.color || '#4CAF50' }}>♔</div>
+            <King class={styles.pieceIcon} />
           )}
         </div>
       ) : !isSelected ? (
