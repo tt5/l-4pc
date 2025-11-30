@@ -267,16 +267,46 @@ const Board: Component = () => {
       console.log('[SSE] Processing base point update for ID:', point.id, 'with data:', point);
       
       setBasePoints(prev => {
+        // Check if there's a base point at the target position that's different from the moving one
+        const capturedBasePoint = prev.find(bp => 
+          bp.x === point.x && 
+          bp.y === point.y && 
+          bp.id !== point.id
+        );
+        
+        // If we found a base point at the target position (a capture), remove it
+        if (capturedBasePoint) {
+          console.log('[SSE] Removing captured base point:', capturedBasePoint);
+          const filtered = prev.filter(bp => bp.id !== capturedBasePoint.id);
+          
+          // Now update the moving base point
+          const movingIndex = filtered.findIndex(bp => bp.id === point.id);
+          if (movingIndex !== -1) {
+            filtered[movingIndex] = {
+              ...filtered[movingIndex],
+              ...point
+            };
+            console.log('[SSE] Updated moving base point after capture:', filtered[movingIndex]);
+          } else {
+            // If the moving base point doesn't exist yet, add it
+            console.log('[SSE] Adding moving base point after capture:', point);
+            filtered.push(point);
+          }
+          
+          return filtered;
+        }
+        
+        // If it's not a capture, just update the base point normally
         const index = prev.findIndex(bp => bp.id === point.id);
         
         if (index !== -1) {
-          // Create a new array with the updated base point
+          // Update the existing base point
           const newBasePoints = [...prev];
           newBasePoints[index] = {
             ...newBasePoints[index],
             ...point
           };
-          console.log('[SSE] Updated base points array:', newBasePoints);
+          console.log('[SSE] Updated base point:', newBasePoints[index]);
           return newBasePoints;
         }
         
