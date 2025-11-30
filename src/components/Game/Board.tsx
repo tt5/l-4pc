@@ -40,6 +40,9 @@ const Board: Component = () => {
     setIsDragging(false);
     setPickedUpBasePoint(null);
     setHoveredCell(null);
+    setTargetPosition(null);
+    setDragStartPosition(null);
+    setIsProcessingMove(false);
     setLastHoveredCell(null);
     setDragStartPosition(null);
     setTargetPosition(null);
