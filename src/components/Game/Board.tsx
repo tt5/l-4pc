@@ -64,109 +64,147 @@ const Board: Component = () => {
   // Track which squares have kings in check
   const [kingsInCheck, setKingsInCheck] = createSignal<{[key: string]: boolean}>({});
   
-  // Check if the king is in check based on restricted squares
+  // Check if the current player's king is in check
   const checkKingInCheck = (): void => {
     const allBasePoints = basePoints();
     const restrictedSquares = getRestrictedSquares();
     const restrictedInfo = restrictedSquaresInfo();
+    const currentPlayer = currentPlayerColor();
     
     console.group('=== Enhanced Check Detection Debug ===');
+    console.log('Current player:', currentPlayer);
     console.log('All base points:', JSON.parse(JSON.stringify(allBasePoints)));
     console.log('Restricted squares (indices):', restrictedSquares);
-    console.log('Restricted squares info:', JSON.parse(JSON.stringify(restrictedInfo)));
     
-    // Find all kings on the board with their teams
-    const kings = allBasePoints
-      .filter(bp => bp.pieceType === 'king')
-      .map(king => ({
-        ...king,
-        team: king.team || getTeam(king.color)
-      }));
+    // Reset king in check state
+    setKingInCheck(null);
     
-    console.log('Found kings with teams:', JSON.parse(JSON.stringify(kings)));
+    // Find the current player's king
+    const currentPlayerKing = allBasePoints.find(bp => 
+      bp.pieceType === 'king' && 
+      bp.color.toLowerCase() === currentPlayer.toLowerCase()
+    );
     
-    if (kings.length === 0) {
-      console.log('No kings found on the board!');
+    if (!currentPlayerKing) {
+      console.log('No king found for current player');
       console.groupEnd();
       return;
     }
     
-    let anyKingInCheck = false;
+    const kingIndex = currentPlayerKing.y * BOARD_CONFIG.GRID_SIZE + currentPlayerKing.x;
+    const kingTeam = getTeam(currentPlayerKing.color);
+    console.group(`Checking ${currentPlayer} king at [${currentPlayerKing.x},${currentPlayerKing.y}] (team ${kingTeam})`);
     
-    for (const king of kings) {
-      const kingIndex = king.y * BOARD_CONFIG.GRID_SIZE + king.x;
-      const kingTeam = getTeam(king.color);
-      console.group(`Checking ${king.color} king at [${king.x},${king.y}] (team ${kingTeam})`);
-      
-      const isKingOnRestrictedSquare = restrictedSquares.includes(kingIndex);
-      console.log(`King is on restricted square: ${isKingOnRestrictedSquare}`);
-      
-      if (!isKingOnRestrictedSquare) {
-        console.log('King is not on a restricted square, skipping...');
-        console.groupEnd();
-        continue;
-      }
-      
-      // Get all restrictions on the king's square
-      const restrictions = restrictedInfo.filter(sq => sq.index === kingIndex);
-      console.log(`Restrictions on king's square:`, JSON.parse(JSON.stringify(restrictions)));
-      
-      // Find all pieces that are restricting this square
-      const threateningPieces = [];
-      
-      for (const restriction of restrictions) {
-        for (const r of restriction.restrictedBy) {
-          // Find the piece that's causing this restriction
-          const attacker = allBasePoints.find(bp => 
-            bp.x === r.basePointX && 
-            bp.y === r.basePointY
-          );
+    const isKingOnRestrictedSquare = restrictedSquares.includes(kingIndex);
+    console.log('King is on restricted square:', isKingOnRestrictedSquare);
+    
+    if (!isKingOnRestrictedSquare) {
+      console.log('King is not on a restricted square, not in check');
+      console.groupEnd();
+      return;
+    }
+    
+    // Get all restrictions on the king's square
+    const restrictions = restrictedInfo.filter(sq => sq.index === kingIndex);
+    console.log(`Restrictions on king's square:`, JSON.parse(JSON.stringify(restrictions)));
+    
+    // Find all pieces that are restricting this square
+    const threateningPieces = [];
+    
+    for (const restriction of restrictions) {
+      for (const r of restriction.restrictedBy) {
+        // Find the piece that's causing this restriction
+        const attacker = allBasePoints.find(bp => 
+          bp.x === r.basePointX && 
+          bp.y === r.basePointY
+        );
+        
+        if (attacker) {
+          const attackerTeam = getTeam(attacker.color);
+          const isOpponent = attackerTeam !== kingTeam;
           
-          if (attacker) {
-            const attackerTeam = getTeam(attacker.color);
-            const isOpponent = attackerTeam !== kingTeam;
-            
-            console.log(`Found potential attacker at [${attacker.x},${attacker.y}]:`, {
-              attackerType: attacker.pieceType,
-              attackerColor: attacker.color,
-              attackerTeam,
-              kingColor: king.color,
-              kingTeam,
-              isOpponent
+          console.log(`Found potential attacker at [${attacker.x},${attacker.y}]:`, {
+            attackerType: attacker.pieceType,
+            attackerColor: attacker.color,
+            attackerTeam,
+            kingColor: currentPlayerKing.color,
+            kingTeam,
+            isOpponent
+          });
+          
+          if (isOpponent) {
+            threateningPieces.push({
+              ...attacker,
+              team: attackerTeam
             });
-            
-            if (isOpponent) {
-              threateningPieces.push({
-                ...attacker,
-                team: attackerTeam
-              });
-            }
           }
         }
       }
-      
-      if (threateningPieces.length > 0) {
-        console.log(`${king.color} king at [${king.x},${king.y}] is in check by:`, 
-          threateningPieces.map(p => `[${p.x},${p.y}] (${p.pieceType}, ${p.color}, team ${p.team})`));
-        
-        setKingInCheck({
-          team: kingTeam,
-          position: [king.x, king.y]
-        });
-        anyKingInCheck = true;
-      } else {
-        console.log(`${king.color} king at [${king.x},${king.y}] is on a restricted square but not in check (no opponent pieces threatening)`);
-      }
-      
-      console.groupEnd();
     }
     
-    if (!anyKingInCheck) {
-      console.log('No kings are in check');
-      setKingInCheck(null);
+    if (threateningPieces.length > 0) {
+      console.log(`${currentPlayer} king at [${currentPlayerKing.x},${currentPlayerKing.y}] is in check by:`, 
+        threateningPieces.map(p => `[${p.x},${p.y}] (${p.pieceType}, ${p.color}, team ${p.team})`));
+      
+      setKingInCheck({
+        team: kingTeam,
+        position: [currentPlayerKing.x, currentPlayerKing.y]
+      });
+    } else {
+      console.log(`${currentPlayer} king is on a restricted square but not in check (no opponent pieces threatening)`);
     }
     
     console.groupEnd();
+  };
+
+  // Helper function to check if a move would resolve a check
+  const wouldResolveCheck = (from: Point, to: Point, color: string): boolean => {
+    // If the king is not in check, any legal move is allowed
+    const currentCheck = kingInCheck();
+    if (!currentCheck) return true;
+    
+    // Only enforce check resolution for the current player's team
+    if (getTeam(color) !== currentCheck.team) return true;
+    
+    // Simulate the move
+    const simulatedBasePoints = basePoints().map(bp => {
+      // Move the piece
+      if (bp.x === from[0] && bp.y === from[1]) {
+        return { ...bp, x: to[0], y: to[1] };
+      }
+      // Remove any piece at the target position (capture)
+      if (bp.x === to[0] && bp.y === to[1]) {
+        return null;
+      }
+      return bp;
+    }).filter((bp): bp is BasePoint => bp !== null);
+
+    // Check if the king is still in check after the move
+    const king = simulatedBasePoints.find(bp => 
+      bp.pieceType === 'king' && 
+      getTeam(bp.color) === currentCheck.team
+    );
+
+    if (!king) return false; // King was captured (shouldn't happen with valid moves)
+
+    // Check if any enemy piece can attack the king's position
+    const isStillInCheck = simulatedBasePoints.some(attacker => {
+      // Skip friendly pieces
+      if (getTeam(attacker.color) === currentCheck.team) return false;
+      
+      // Check if this piece can attack the king
+      const dx = Math.abs(attacker.x - king.x);
+      const dy = Math.abs(attacker.y - king.y);
+      
+      // Simple check for direct attacks (can be expanded for different piece types)
+      if (dx <= 1 && dy <= 1) {
+        return true; // King is adjacent to an enemy piece
+      }
+      
+      return false;
+    });
+    
+    return !isStillInCheck;
   };
 
   // Helper function to validate square placement
@@ -180,6 +218,13 @@ const Board: Component = () => {
     
     // If we're moving a base point
     if (pickedUp) {
+      const [startX, startY] = pickedUp;
+      const movingPiece = userBasePoints.find(bp => bp.x === startX && bp.y === startY);
+      
+      if (!movingPiece) {
+        return { isValid: false, reason: 'Piece not found' };
+      }
+
       // First check if this is a valid capture move based on server response
       const restrictionInfo = restrictedSquaresInfo().find(sq => sq.index === index);
       const isRestrictedByPickedUp = restrictionInfo?.restrictedBy.some(
@@ -188,8 +233,18 @@ const Board: Component = () => {
           restriction.basePointY === pickedUp[1]
       );
 
-      // If this is a restricted square (including captures), allow the move
+      // If this is a restricted square (including captures), check if it resolves check
       if (isRestrictedByPickedUp) {
+        // If the current player's king is in check, verify the move resolves it
+        const currentCheck = kingInCheck();
+        if (currentCheck && getTeam(movingPiece.color) === currentCheck.team) {
+          if (!wouldResolveCheck([startX, startY], [gridX, gridY], movingPiece.color)) {
+            return { 
+              isValid: false, 
+              reason: 'You must move your king out of check, block the check, or capture the threatening piece' 
+            };
+          }
+        }
         return { isValid: true };
       }
 
