@@ -80,7 +80,7 @@
   grid-template-rows: repeat(var(--grid-size), var(--grid-cell-size));
   grid-template-columns: repeat(var(--grid-size), var(--grid-cell-size));
   gap: var(--spacing-xs);
-  gap: 5px;
+  gap: 1px;
   width: fit-content;
   margin: var(--spacing-lg) auto;
   padding: var(--spacing-md);
@@ -107,6 +107,7 @@
 .square:nth-child(28n + 8),
 .square:nth-child(28n + 10),
 .square:nth-child(28n + 12),
+.square:nth-child(28n + 14),
 .square:nth-child(28n + 15),
 .square:nth-child(28n + 17),
 .square:nth-child(28n + 19),
@@ -114,7 +115,7 @@
 .square:nth-child(28n + 23),
 .square:nth-child(28n + 25),
 .square:nth-child(28n + 27) {
-  background-color: #222; /* Dark color for black squares */
+  background-color: rgba(0, 0, 0, 0.2); /* Dark color with transparency for black squares */
 }
 
 /* Hover States */
@@ -165,7 +166,10 @@
 }
 
 .square.selected { 
-  border: 5px solid gray;
+  border: 5px solid white;
+  box-shadow: 0 0 0 5px #4caf50;
+  transform: scale(0.9);
+
 }
 
 /* Base Points */
@@ -306,8 +310,8 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 200%;
-  height: 200%;
+  width: 210%;
+  height: 210%;
   pointer-events: none;
   display: flex;
   align-items: center;
@@ -354,9 +358,9 @@
 }
 
 .emptyMarker {
-  margin-top: -2px;
+  margin-top: -1px;
   color: rgb(0 0 0 / 30%);
-  font-size: 1.8rem;
+  font-size: 1.2rem;
   line-height: 1;
   opacity: 0.6;
   transition: all 0.2s ease;
