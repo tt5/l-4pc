@@ -68,6 +68,9 @@ export class BasePointRepository {
     } else if (x === 0 && y === 6) {
       color = '#2196F3';    // Left - Blue
       pieceType = 'queen';
+    } else if (x === 13 && y === 7) {
+      color = '#4CAF50';    // Right - Green
+      pieceType = 'queen';
     } else if (color === undefined) {
       color = '#4CAF50';    // Default to green (right)
     }
