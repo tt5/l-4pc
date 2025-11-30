@@ -124,37 +124,45 @@ function getLegalMoves(
       getSquaresInDirection(basePoint.x, basePoint.y, dx, dy, allBasePoints, basePoint.team)
     );
   } else if (pieceType === 'king') {
-    // King moves exactly one square in any direction
-    const kingMoves = [
+    // King moves one square in any direction, with proper blocking and capture rules
+    const directions = [
       [0, 1],   // up
-      [1, 1],   // up-right
       [1, 0],   // right
-      [1, -1],  // down-right
       [0, -1],  // down
-      [-1, -1], // down-left
       [-1, 0],  // left
+      [1, 1],   // up-right
+      [1, -1],  // down-right
+      [-1, -1], // down-left
       [-1, 1]   // up-left
     ];
     
-    return kingMoves
-      .map(([dx, dy]) => ({
-        x: basePoint.x + dx,
-        y: basePoint.y + dy,
-        dx,
-        dy
-      }))
-      .filter(({x, y}) => 
-        x >= 0 && x < BOARD_CONFIG.GRID_SIZE && 
-        y >= 0 && y < BOARD_CONFIG.GRID_SIZE
-      )
-      .map(({x, y}) => {
-        const targetPiece = allBasePoints.find(bp => bp.x === x && bp.y === y);
-        return {
-          x,
-          y,
-          canCapture: targetPiece ? targetPiece.team !== basePoint.team : false
-        };
-      });
+    return directions.flatMap(([dx, dy]) => {
+      // Get just the first square in each direction
+      const x = basePoint.x + dx;
+      const y = basePoint.y + dy;
+      
+      // Skip if out of bounds
+      if (x < 0 || x >= BOARD_CONFIG.GRID_SIZE || y < 0 || y >= BOARD_CONFIG.GRID_SIZE) {
+        return [];
+      }
+      
+      // Check if the square is occupied
+      const targetPiece = allBasePoints.find(bp => bp.x === x && bp.y === y);
+      
+      // If occupied by a teammate, can't move there
+      if (targetPiece && targetPiece.team === basePoint.team) {
+        return [];
+      }
+      
+      // If occupied by an enemy, can capture
+      const canCapture = targetPiece ? targetPiece.team !== basePoint.team : false;
+      
+      return [{
+        x,
+        y,
+        canCapture
+      }];
+    });
   } else {
     // Default movement (for pawns or any other piece type)
     const directions = [
