@@ -18,6 +18,7 @@ type BasePointWithTeam = {
   userId: string;
   color: string;
   team: 1 | 2;
+  pieceType: 'queen' | 'king' | 'pawn'; // Added pieceType
 };
 
 interface SquareWithOrigin {
@@ -99,25 +100,74 @@ function getSquaresInDirection(
   return result;
 }
 
-// Get all legal moves for a base point
+// Get all legal moves for a base point based on its type
 function getLegalMoves(
   basePoint: BasePointWithTeam,
   allBasePoints: BasePointWithTeam[]
 ): {x: number, y: number, canCapture: boolean}[] {
-  const directions = [
-    [0, 1],   // up
-    [1, 0],   // right
-    [0, -1],  // down
-    [-1, 0],  // left
-    [1, 1],   // up-right
-    [1, -1],  // down-right
-    [-1, -1], // down-left
-    [-1, 1]   // up-left
-  ];
+  const pieceType = basePoint.pieceType || 'pawn'; // Default to pawn if not specified
   
-  return directions.flatMap(([dx, dy]) => 
-    getSquaresInDirection(basePoint.x, basePoint.y, dx, dy, allBasePoints, basePoint.team)
-  );
+  if (pieceType === 'queen') {
+    // Queen moves any number of squares in any direction
+    const directions = [
+      [0, 1],   // up
+      [1, 0],   // right
+      [0, -1],  // down
+      [-1, 0],  // left
+      [1, 1],   // up-right
+      [1, -1],  // down-right
+      [-1, -1], // down-left
+      [-1, 1]   // up-left
+    ];
+    
+    return directions.flatMap(([dx, dy]) => 
+      getSquaresInDirection(basePoint.x, basePoint.y, dx, dy, allBasePoints, basePoint.team)
+    );
+  } else if (pieceType === 'king') {
+    // King moves exactly one square in any direction
+    const kingMoves = [
+      [0, 1],   // up
+      [1, 1],   // up-right
+      [1, 0],   // right
+      [1, -1],  // down-right
+      [0, -1],  // down
+      [-1, -1], // down-left
+      [-1, 0],  // left
+      [-1, 1]   // up-left
+    ];
+    
+    return kingMoves
+      .map(([dx, dy]) => ({
+        x: basePoint.x + dx,
+        y: basePoint.y + dy,
+        dx,
+        dy
+      }))
+      .filter(({x, y}) => 
+        x >= 0 && x < BOARD_CONFIG.GRID_SIZE && 
+        y >= 0 && y < BOARD_CONFIG.GRID_SIZE
+      )
+      .map(({x, y}) => {
+        const targetPiece = allBasePoints.find(bp => bp.x === x && bp.y === y);
+        return {
+          x,
+          y,
+          canCapture: targetPiece ? targetPiece.team !== basePoint.team : false
+        };
+      });
+  } else {
+    // Default movement (for pawns or any other piece type)
+    const directions = [
+      [0, 1],   // up
+      [1, 0],   // right
+      [0, -1],  // down
+      [-1, 0]   // left
+    ];
+    
+    return directions.flatMap(([dx, dy]) => 
+      getSquaresInDirection(basePoint.x, basePoint.y, dx, dy, allBasePoints, basePoint.team)
+    );
+  }
 }
 
 export const POST = withAuth(async ({ request, user }) => {
