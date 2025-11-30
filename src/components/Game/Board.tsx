@@ -122,6 +122,8 @@ const Board: Component = () => {
   const [dragStartPosition, setDragStartPosition] = createSignal<[number, number] | null>(null);
   const [pickedUpBasePoint, setPickedUpBasePoint] = createSignal<[number, number] | null>(null);
   const [isDragging, setIsDragging] = createSignal(false);
+  const [targetPosition, setTargetPosition] = createSignal<[number, number] | null>(null);
+  const [isProcessingMove, setIsProcessingMove] = createSignal(false);
   const [hoveredCell, setHoveredCell] = createSignal<[number, number] | null>(null);
   const [moveHistory, setMoveHistory] = createSignal<Move[]>([]);
   const [currentTurnIndex, setCurrentTurnIndex] = createSignal(0);
@@ -283,9 +285,6 @@ const Board: Component = () => {
       console.warn('[SSE] Received invalid point data in message:', message);
     }
   });
-
-  // Track the target position during drag
-  const [targetPosition, setTargetPosition] = createSignal<[number, number] | null>(null);
 
   // Handle mouse move for dragging
   const handleMouseMove = (e: MouseEvent) => {
@@ -449,6 +448,12 @@ const Board: Component = () => {
 
   // Handle mouse up anywhere on the document to complete dragging
   const handleGlobalMouseUp = async (e?: MouseEvent | Event) => {
+    // Prevent multiple simultaneous move processing
+    if (isProcessingMove()) {
+      console.log('Already processing a move, ignoring duplicate event');
+      return;
+    }
+
     // Convert to MouseEvent if it's a standard Event
     const mouseEvent = e && 'clientX' in e ? e : undefined;
     
@@ -459,13 +464,17 @@ const Board: Component = () => {
       eventTarget: mouseEvent?.target?.toString(),
       currentTurnIndex: currentTurnIndex(),
       currentPlayerColor: currentPlayerColor(),
-      allBasePoints: basePoints()
+      allBasePoints: basePoints(),
+      isAlreadyProcessing: isProcessingMove()
     });
     
     if (!isDragging() || !pickedUpBasePoint()) {
       console.log('Not dragging or no picked up base point, returning early');
       return;
     }
+
+    // Set processing flag
+    setIsProcessingMove(true);
 
     // If we don't have a target position, try to get it from the hovered cell
     let target = targetPosition();
@@ -643,18 +652,22 @@ const Board: Component = () => {
           console.log('Continuing with optimistic update after API error');
         }
       } catch (error) {
-        // Revert to original state on error
+        // Handle errors and revert to original state
         console.error('Error during base point placement:', error);
         setBasePoints(originalBasePoints);
         setRestrictedSquares(originalRestrictedSquares);
         setRestrictedSquaresInfo(originalRestrictedSquaresInfo);
         setError(error instanceof Error ? error.message : 'Failed to place base point');
+        throw error; // Re-throw to trigger the finally block
       } finally {
-        console.log('Cleaning up drag state');
+        // Always clean up and reset the processing flag
+        console.log('Cleaning up drag state and resetting processing flag');
+        setIsProcessingMove(false);
         cleanupDragState();
       }
     } else {
       console.log('No movement detected, cleaning up');
+      setIsProcessingMove(false);
       cleanupDragState();
     }
   };
