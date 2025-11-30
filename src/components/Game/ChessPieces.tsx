@@ -7,24 +7,36 @@ interface ChessPieceProps {
 
 export const King: Component<ChessPieceProps> = (props) => (
   <svg 
-    viewBox="0 0 100 100" 
+    xmlns="http://www.w3.org/2000/svg" 
+    width="45" 
+    height="45"
+    viewBox="0 0 45 45"
     class={props.class}
     style={`fill: ${props.color || 'currentColor'};`}
   >
-    <path d="M50,10 L60,30 L75,30 L65,45 L70,60 L50,50 L30,60 L35,45 L25,30 L40,30 Z" />
-    <path d="M35,65 L65,65 L65,75 C65,80 60,85 50,85 C40,85 35,80 35,75 Z" />
+    <g fill="none" fill-rule="evenodd" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5">
+      <path stroke-linejoin="miter" d="M22.5 11.63V6M20 8h5"/>
+      <path fill={props.color || '#fff'} stroke-linecap="butt" stroke-linejoin="miter" d="M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5"/>
+      <path fill={props.color || '#fff'} d="M12.5 37c5.5 3.5 14.5 3.5 20 0v-7s9-4.5 6-10.5c-4-6.5-13.5-3.5-16 4V27v-3.5c-2.5-7.5-12-10.5-16-4-3 6 6 10.5 6 10.5v7"/>
+      <path d="M12.5 30c5.5-3 14.5-3 20 0m-20 3.5c5.5-3 14.5-3 20 0m-20 3.5c5.5-3 14.5-3 20 0"/>
+    </g>
   </svg>
 );
 
 export const Queen: Component<ChessPieceProps> = (props) => (
   <svg 
-    viewBox="0 0 100 100" 
+    viewBox="0 0 45 45" 
     class={props.class}
-    style={`fill: ${props.color || 'currentColor'};`}
+    style={`fill: ${props.color || '#ffffff'}; stroke: #000000; stroke-width: 1.5; stroke-linejoin: round;`}
   >
-    <circle cx="50" cy="30" r="15" />
-    <path d="M30,40 L70,40 L65,80 L35,80 Z" />
-    <path d="M25,40 L30,40 L35,80 L25,80 Z" />
-    <path d="M70,40 L75,40 L75,80 L65,80 Z" />
+    <path d="M 9,26 C 17.5,24.5 30,24.5 36,26 L 38.5,13.5 L 31,25 L 30.7,10.9 L 25.5,24.5 L 22.5,10 L 19.5,24.5 L 14.3,10.9 L 14,25 L 6.5,13.5 L 9,26 z"/>
+    <path d="M 9,26 C 9,28 10.5,28 11.5,30 C 12.5,31.5 12.5,31 12,33.5 C 10.5,34.5 11,36 11,36 C 9.5,37.5 11,38.5 11,38.5 C 17.5,39.5 27.5,39.5 34,38.5 C 34,38.5 35.5,37.5 34,36 C 34,36 34.5,34.5 33,33.5 C 32.5,31 32.5,31.5 33.5,30 C 34.5,28 36,28 36,26 C 27.5,24.5 17.5,24.5 9,26 z"/>
+    <path d="M 11.5,30 C 15,29 30,29 33.5,30" style="fill:none"/>
+    <path d="M 12,33.5 C 18,32.5 27,32.5 33,33.5" style="fill:none"/>
+    <circle cx="6" cy="12" r="2" />
+    <circle cx="14" cy="9" r="2" />
+    <circle cx="22.5" cy="8" r="2" />
+    <circle cx="31" cy="9" r="2" />
+    <circle cx="39" cy="12" r="2" />
   </svg>
 );
