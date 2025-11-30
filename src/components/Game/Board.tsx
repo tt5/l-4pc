@@ -529,6 +529,29 @@ const Board: Component = () => {
   // Handle base point pickup
   const handleBasePointPickup = (point: Point) => {
     const [x, y] = point;
+    
+    // Find the base point being picked up
+    const basePoint = basePoints().find(bp => bp.x === x && bp.y === y);
+    if (!basePoint) return;
+    
+    // Map color names to hex codes for comparison
+    const colorMap: Record<string, string> = {
+      'red': '#f44336',
+      'blue': '#2196f3',
+      'yellow': '#ffeb3b',
+      'green': '#4caf50'
+    };
+    
+    const currentTurnColorName = currentPlayerColor();
+    const currentTurnHexColor = colorMap[currentTurnColorName] || currentTurnColorName;
+    const pieceColor = basePoint.color.toLowerCase();
+    
+    // Check if it's this player's turn to move (based on piece color)
+    if (pieceColor !== currentTurnHexColor) {
+      console.log(`Not your turn! Current turn: ${currentTurnColorName} (${currentTurnHexColor}), piece color: ${pieceColor}`);
+      return; // Don't allow picking up opponent's pieces or moving out of turn
+    }
+    
     setPickedUpBasePoint([x, y]);
     setDragStartPosition([x, y]);
     setIsDragging(true);
@@ -538,9 +561,8 @@ const Board: Component = () => {
     const restrictedInfo = restrictedSquaresInfo();
     
     // Get all base points that can be captured (enemy base points)
-    const currentColor = currentPlayerColor();
     const enemyBasePoints = basePoints()
-      .filter(bp => bp.color !== currentColor)
+      .filter(bp => bp.color.toLowerCase() !== currentTurnHexColor)
       .map(bp => ({
         index: bp.y * BOARD_CONFIG.GRID_SIZE + bp.x,
         x: bp.x,
