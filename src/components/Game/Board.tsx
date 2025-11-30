@@ -57,8 +57,20 @@ const Board: Component = () => {
     
     // If we're moving a base point
     if (pickedUp) {
-      // Check if the user already has a base point at the target position
-      // (excluding the point being moved)
+      // First check if this is a valid capture move based on server response
+      const restrictionInfo = restrictedSquaresInfo().find(sq => sq.index === index);
+      const isRestrictedByPickedUp = restrictionInfo?.restrictedBy.some(
+        restriction => 
+          restriction.basePointX === pickedUp[0] && 
+          restriction.basePointY === pickedUp[1]
+      );
+
+      // If this is a restricted square (including captures), allow the move
+      if (isRestrictedByPickedUp) {
+        return { isValid: true };
+      }
+
+      // If not a restricted square, check for friendly pieces
       if (userBasePoints.some(bp => 
         bp.x === gridX && 
         bp.y === gridY && 
@@ -67,22 +79,11 @@ const Board: Component = () => {
         return { isValid: false, reason: 'You already have a base point here' };
       }
       
-      // Check if the target square is restricted by the picked up base point
-      const restrictionInfo = restrictedSquaresInfo().find(sq => sq.index === index);
-      const isRestrictedByPickedUp = restrictionInfo?.restrictedBy.some(
-        restriction => 
-          restriction.basePointX === pickedUp[0] && 
-          restriction.basePointY === pickedUp[1]
-      );
-
-      if (!isRestrictedByPickedUp) {
-        return { 
-          isValid: false, 
-          reason: 'Base points can only be moved to squares they restrict' 
-        };
-      }
-      
-      return { isValid: true };
+      // If we get here, it's not a restricted square and not occupied by a friendly piece
+      return { 
+        isValid: false, 
+        reason: 'Base points can only be moved to squares they restrict' 
+      };
     }
     
     // For new base points, check if the user already has a base point at the target position
