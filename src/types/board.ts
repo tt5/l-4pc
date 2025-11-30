@@ -13,12 +13,15 @@ export function createPoint(x: number, y: number): Point {
 
 export type Direction = 'up' | 'down' | 'left' | 'right';
 
+export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king';
+
 export interface BasePoint {
   id: number;
   x: number;
   y: number;
   userId: string;
   color: string; // CSS color value
+  pieceType: PieceType;
   createdAtMs: number;
 }
 

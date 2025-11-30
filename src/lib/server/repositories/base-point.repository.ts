@@ -6,6 +6,7 @@ export interface CreateBasePointInput {
   x: number;
   y: number;
   gameCreatedAtMs: number;
+  pieceType?: string; // Optional with default value
 }
 
 export class BasePointRepository {
@@ -13,14 +14,14 @@ export class BasePointRepository {
 
   async getAll(): Promise<BasePoint[]> {
     const results = await this.db.all<BasePoint[]>(
-      'SELECT id, user_id as userId, x, y, color, game_created_at_ms as createdAtMs FROM base_points'
+      'SELECT id, user_id as userId, x, y, color, piece_type as pieceType, game_created_at_ms as createdAtMs FROM base_points'
     );
     return results || [];
   }
 
   async getByUser(userId: string): Promise<BasePoint[]> {
     const results = await this.db.all<BasePoint[]>(
-      'SELECT id, user_id as userId, x, y, color, game_created_at_ms as createdAtMs FROM base_points WHERE user_id = ?',
+      'SELECT id, user_id as userId, x, y, color, piece_type as pieceType, game_created_at_ms as createdAtMs FROM base_points WHERE user_id = ?',
       [userId]
     );
     return results || [];
@@ -48,15 +49,15 @@ export class BasePointRepository {
 
   async getPointsInBounds(minX: number, minY: number, maxX: number, maxY: number): Promise<BasePoint[]> {
     const results = await this.db.all<BasePoint[]>(
-      `SELECT id, user_id as userId, x, y, color, game_created_at_ms as createdAtMs 
-       FROM base_points 
-       WHERE x BETWEEN ? AND ? AND y BETWEEN ? AND ?`,
+      'SELECT id, user_id as userId, x, y, color, piece_type as pieceType, game_created_at_ms as createdAtMs ' +
+      'FROM base_points ' +
+      'WHERE x >= ? AND x <= ? AND y >= ? AND y <= ?',
       [minX, maxX, minY, maxY]
     );
     return results || [];
   }
 
-  async add(userId: string, x: number, y: number, color?: string): Promise<BasePoint> {
+  async add(userId: string, x: number, y: number, color?: string, pieceType: string = 'pawn'): Promise<BasePoint> {
     // If color is not provided, determine it based on position
     if (color === undefined) {
       color = '#4CAF50'; // Default to green (right)
@@ -204,10 +205,10 @@ export class BasePointRepository {
 
   async getById(id: number): Promise<BasePoint | null> {
     const result = await this.db.get<BasePoint>(
-      'SELECT id, user_id as userId, x, y, color, game_created_at_ms as createdAtMs FROM base_points WHERE id = ?',
+      'SELECT id, user_id as userId, x, y, color, piece_type as pieceType, game_created_at_ms as createdAtMs FROM base_points WHERE id = ?',
       [id]
     );
-    return result ? result : null;
+    return result || null;
   }
 
   /**
@@ -218,10 +219,10 @@ export class BasePointRepository {
    */
   async findByCoordinates(x: number, y: number): Promise<BasePoint | null> {
     const result = await this.db.get<BasePoint>(
-      'SELECT id, user_id as userId, x, y, color, game_created_at_ms as createdAtMs FROM base_points WHERE x = ? AND y = ?',
+      'SELECT id, user_id as userId, x, y, color, piece_type as pieceType, game_created_at_ms as createdAtMs FROM base_points WHERE x = ? AND y = ?',
       [x, y]
     );
-    return result ? result : null;
+    return result || null;
   }
 
   async update(id: number, x: number, y: number): Promise<BasePoint | null> {
@@ -234,7 +235,7 @@ export class BasePointRepository {
   }
 
   async create(input: CreateBasePointInput): Promise<BasePoint> {
-    const { userId, x, y, gameCreatedAtMs } = input;
+    const { userId, x, y, gameCreatedAtMs, pieceType = 'pawn' } = input;
     
     // Set color based on position
     let color = '#4CAF50'; // Default to green (right)
@@ -243,8 +244,8 @@ export class BasePointRepository {
     else if (x === 0 && y === 6) color = '#2196F3';  // Left - Blue
     
     const result = await this.db.run(
-      'INSERT INTO base_points (user_id, x, y, game_created_at_ms, color) VALUES (?, ?, ?, ?, ?)',
-      [userId, x, y, gameCreatedAtMs, color]
+      'INSERT INTO base_points (user_id, x, y, game_created_at_ms, color, piece_type) VALUES (?, ?, ?, ?, ?, ?)',
+      [userId, x, y, gameCreatedAtMs, color, pieceType]
     );
 
     return {
@@ -253,6 +254,7 @@ export class BasePointRepository {
       x,
       y,
       color,
+      pieceType: pieceType as any, // Cast to any to match the BasePoint interface
       createdAtMs: gameCreatedAtMs
     };
   }
