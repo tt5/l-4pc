@@ -72,59 +72,6 @@
   animation: spin 1s linear infinite;
 }
 
-/* Position Indicator */
-.positionIndicator {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 5;
-  padding: 4px 8px;
-  color: #333;
-  font-size: 0.8rem;
-  font-family: monospace;
-  background-color: rgb(255 255 255 / 90%);
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
-}
-
-/* Boundary Message */
-.boundaryMessage {
-  position: absolute;
-  top: 10px;
-  left: 50%;
-  z-index: 10;
-  padding: 8px 16px;
-  color: white;
-  font-size: 0.9rem;
-  background-color: var(--color-error);
-  border-radius: var(--border-radius-md);
-  transform: translateX(-50%);
-  opacity: 0;
-  animation: fade-in-out 2s ease-in-out forwards;
-}
-
-@keyframes fade-in-out {
-  0% { 
-    transform: translate(-50%, -10px);
-    opacity: 0; 
-  }
-
-  10% { 
-    transform: translate(-50%, 0);
-    opacity: 1; 
-  }
-
-  90% { 
-    transform: translate(-50%, 0);
-    opacity: 1; 
-  }
-
-  100% { 
-    transform: translate(-50%, -10px);
-    opacity: 0; 
-  }
-}
-
 /* Game Elements */
 .grid {
   --grid-cell-size: 45px;
@@ -133,41 +80,41 @@
   grid-template-rows: repeat(var(--grid-size), var(--grid-cell-size));
   grid-template-columns: repeat(var(--grid-size), var(--grid-cell-size));
   gap: var(--spacing-xs);
+  gap: 5px;
   width: fit-content;
   margin: var(--spacing-lg) auto;
   padding: var(--spacing-md);
-  background: #2e7d32; /* Lighter green background */
-  border-radius: var(--border-radius-md);
-  box-shadow: 0 2px 15px rgb(0 0 0 / 20%);
+  background: lightgray; /* Lighter green background */
 }
 
 .square {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #333; /* Ensure text is dark on light squares */
-  background: #f8f9fa;
-  border: 1px solid #e0e0e0;
-  border-radius: var(--border-radius-sm);
-  box-shadow: inset 0 1px 3px rgb(0 0 0 / 10%);
   cursor: pointer;
-  transition: all var(--transition-normal);
-  will-change: transform, box-shadow;
   aspect-ratio: 1;
 }
 
-/* Empty squares with pattern - larger size */
-.square:not(.basePoint, .selected, .restricted) {
-  position: relative;
-  z-index: 1;
-  background-image: 
-    linear-gradient(45deg, #f5f5f5 25%, transparent 25%),
-    linear-gradient(-45deg, #f5f5f5 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #f5f5f5 75%),
-    linear-gradient(-45deg, transparent 75%, #f5f5f5 75%);
-  background-position: 0 0, 0 4px, 4px -4px, -4px 0;
-  background-size: 8px 8px;
-  transform: scale(1.1);
+/* Chessboard pattern for empty squares */
+.square {
+  background-color: smoke; /* Default white */
+}
+
+/* Black squares - using nth-child to create the checkerboard pattern */
+.square:nth-child(28n + 2),
+.square:nth-child(28n + 4),
+.square:nth-child(28n + 6),
+.square:nth-child(28n + 8),
+.square:nth-child(28n + 10),
+.square:nth-child(28n + 12),
+.square:nth-child(28n + 15),
+.square:nth-child(28n + 17),
+.square:nth-child(28n + 19),
+.square:nth-child(28n + 21),
+.square:nth-child(28n + 23),
+.square:nth-child(28n + 25),
+.square:nth-child(28n + 27) {
+  background-color: #222; /* Dark color for black squares */
 }
 
 /* Hover States */
@@ -221,7 +168,7 @@
 
 .square.selected { 
   background-color: #e3f2fd;
-  border: 1px solid #1265a8;
+  border: 3px solid #1265a8;
 }
 
 /* Base Points */
@@ -234,7 +181,7 @@
 }
 
 .square.basePoint.inCheck {
-  box-shadow: 0 0 0 2px #f44336;
+  box-shadow: 0 0 0 3px #f44336;
   z-index: 4;
 }
 
@@ -351,7 +298,7 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 1.5rem;
+  font-size: 4rem;
   line-height: 1;
   color: rgba(0, 0, 0, 0.7);
   pointer-events: none;
