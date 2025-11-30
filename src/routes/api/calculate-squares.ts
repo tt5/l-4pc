@@ -11,6 +11,8 @@ type Point = [number, number];
 const TEAM_1_COLORS = ['#F44336', '#FFEB3B']; // Red and Yellow
 const TEAM_2_COLORS = ['#2196F3', '#4CAF50']; // Blue and Green
 
+import type { PieceType } from '~/types/board';
+
 type BasePointWithTeam = {
   id: string | number;
   x: number;
@@ -18,7 +20,7 @@ type BasePointWithTeam = {
   userId: string;
   color: string;
   team: 1 | 2;
-  pieceType: 'queen' | 'king' | 'pawn'; // Added pieceType
+  pieceType: PieceType;
 };
 
 interface SquareWithOrigin {
