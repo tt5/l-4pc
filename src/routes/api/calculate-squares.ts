@@ -277,6 +277,45 @@ function getLegalMoves(
     return directions.flatMap(([dx, dy]) => 
       getSquaresInDirection(basePoint.x, basePoint.y, dx, dy, allBasePoints, basePoint.team)
     );
+  } else if (pieceType === 'knight') {
+    // Knight moves in an L-shape: 2 squares in one direction and then 1 square perpendicular
+    const moves = [
+      [1, 2],   // right 1, up 2
+      [2, 1],   // right 2, up 1
+      [2, -1],  // right 2, down 1
+      [1, -2],  // right 1, down 2
+      [-1, -2], // left 1, down 2
+      [-2, -1], // left 2, down 1
+      [-2, 1],  // left 2, up 1
+      [-1, 2]   // left 1, up 2
+    ];
+
+    return moves.map(([dx, dy]) => {
+      const x = basePoint.x + dx;
+      const y = basePoint.y + dy;
+      
+      // Skip if out of bounds
+      if (x < 0 || x >= BOARD_CONFIG.GRID_SIZE || y < 0 || y >= BOARD_CONFIG.GRID_SIZE) {
+        return null;
+      }
+      
+      // Check if the square is occupied
+      const targetPiece = allBasePoints.find(bp => bp.x === x && bp.y === y);
+      
+      // If occupied by a teammate, can't move there
+      if (targetPiece && targetPiece.team === basePoint.team) {
+        return null;
+      }
+      
+      // If occupied by an enemy, can capture
+      const canCapture = targetPiece ? targetPiece.team !== basePoint.team : false;
+      
+      return {
+        x,
+        y,
+        canCapture
+      };
+    }).filter(Boolean) as {x: number, y: number, canCapture: boolean}[]; // Remove null values and assert type
   } else {
     // Default movement for any other piece type (like rook)
     const directions = [
