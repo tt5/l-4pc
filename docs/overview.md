@@ -1,41 +1,49 @@
 # 4PC - A Strategic Board Game
 
-## Project Purpose
-4PC is a turn-based strategic board game where players compete to control territories on a grid-based board. The game features real-time multiplayer functionality, user authentication, and an interactive game board with drag-and-drop mechanics.
-
-## Game Overview
-- **Board**: 14x14 grid with non-playable corner zones
-- **Players**: 2-4 players (Red, Blue, Yellow, Green)
-- **Objective**: Strategically place and move pieces to control the board
-- **Turn-based**: Players take turns to make their moves
+## Project Overview
+4PC is an advanced analysis and training tool designed for the strategic board game 4PC. It allows you to control all four colors (Red, Blue, Yellow, and Green) to study board positions, test strategies, and improve your understanding of the game. This tool provides deep insights into territory control, piece interactions, and strategic planning in a turn-based environment.
 
 ## Core Features
-- **User Authentication**: Secure login/registration system
-- **Interactive Game Board**: Drag-and-drop interface for moving pieces
-- **Real-time Updates**: Live game state synchronization between players
-- **Game Rules**: Enforced game mechanics and move validation
-- **Responsive Design**: Works on desktop and tablet devices
+- **Analysis Mode**: Study and analyze different board positions
+- **Training Tool**: Practice and refine strategies by controlling all four colors
+- **Turn Simulation**: Step through moves in any order to explore variations
+- **Position Evaluation**: Get insights into board control and piece values
 
-## Technical Highlights
-- **Frontend**: Built with SolidJS for reactive UI components
-- **State Management**: Context API for global state and game data
-- **Real-time**: Server-Sent Events (SSE) for live updates
-- **Type Safety**: Full TypeScript support
-- **Testing**: Comprehensive test suite with Vitest
+## Board & Interface
+- **Game Board**: 14x14 grid with non-playable corner zones
+- **Color Control**: Manage all four colors (Red, Blue, Yellow, Green)
+- **Move Tracking**: Review and analyze move sequences
+- **Position Setup**: Create custom starting positions for study
+
+## Key Features
+- **Strategic Analysis**: Study and understand complex board positions
+- **Training Focus**: Improve your skills through deliberate practice
+- **Interactive Interface**: Intuitive drag-and-drop controls
+- **User Accounts**: Track stats and game history
+- **Responsive Design**: Play on desktop or tablet devices
+
+## Technical Implementation
+- **Frontend**: Built with SolidJS for high-performance UI
+- **State Management**: Context API for efficient state handling
+- **Real-time Sync**: Server-Sent Events for live game updates
+- **Type Safety**: Full TypeScript support for reliable code
+- **Testing**: Comprehensive test suite using Vitest
 
 ## Project Structure
-- `/src`
-  - `/components` - Reusable UI components
-  - `/contexts` - State management
-  - `/routes` - Application pages and routing
-  - `/constants` - Game configuration and constants
-  - `/hooks` - Custom React hooks
-  - `/lib` - Server-side logic and utilities
-  - `/types` - TypeScript type definitions
-  - `/utils` - Helper functions and utilities
-- `/tests` - Unit and integration tests
-- `/migrations` - Database schema migrations
-- `/public` - Static assets and media files
+```
+/src
+  /components  # Reusable UI components
+  /contexts   # State management
+  /routes     # Application pages
+  /constants  # Game configuration
+  /hooks      # Custom React hooks
+  /lib        # Server-side logic
+  /types      # TypeScript definitions
+  /utils      # Helper functions
+/tests        # Test files
+/migrations   # Database migrations
+/public      # Static assets
+```
 
 ## Getting Started
 1. Clone the repository
