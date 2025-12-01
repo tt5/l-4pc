@@ -208,99 +208,27 @@ const Board: Component = () => {
 
   // Helper function to check if a piece can attack a specific square
   const canPieceAttack = (piece: BasePoint, targetX: number, targetY: number): boolean => {
-    const dx = targetX - piece.x;
-    const dy = targetY - piece.y;
-    const absDx = Math.abs(dx);
-    const absDy = Math.abs(dy);
+    const dx = Math.abs(piece.x - targetX);
+    const dy = Math.abs(piece.y - targetY);
     
     // King movement (1 square in any direction)
     if (piece.pieceType === 'king') {
-      return absDx <= 1 && absDy <= 1;
+      return dx <= 1 && dy <= 1;
     }
     
     // Queen movement (any number of squares in any direction)
     if (piece.pieceType === 'queen') {
       // Check if on same row, column, or diagonal
-      if (piece.x === targetX || piece.y === targetY || absDx === absDy) {
+      if (piece.x === targetX || piece.y === targetY || dx === dy) {
         // Check if path is clear
         return isPathClear(piece.x, piece.y, targetX, targetY);
       }
       return false;
     }
     
-    // Pawn movement and attacking
-    if (piece.pieceType === 'pawn') {
-      const direction = getPawnDirection(piece.color);
-      const isFirstMove = isPawnsFirstMove(piece);
-      const targetPiece = basePoints().find(p => p.x === targetX && p.y === targetY);
-      
-      // Check for capture (diagonal move)
-      if (absDx === 1 && absDy === 1) {
-        // Can capture if there's an opponent's piece on the target square
-        if (targetPiece && getTeam(targetPiece.color) !== getTeam(piece.color)) {
-          return true;
-        }
-        return false;
-      }
-      
-      // Check for standard move (forward)
-      if (absDx === 0) {
-        // Can move 1 square forward
-        if (dy === direction) {
-          return !targetPiece; // Can only move forward if the square is empty
-        }
-        
-        // Can move 2 squares forward on first move
-        if (isFirstMove && dy === 2 * direction && absDx === 0) {
-          // Check if the path is clear
-          const intermediateY = piece.y + direction;
-          const isPathClear = !basePoints().some(p => 
-            p.x === piece.x && p.y === intermediateY
-          ) && !targetPiece;
-          
-          return isPathClear;
-        }
-      }
-      
-      return false;
-    }
+    // Add other piece types as needed (rooks, bishops, knights, pawns)
     
     return false;
-  };
-
-  // Helper function to get the direction a pawn should move based on its color
-  const getPawnDirection = (color: string): number => {
-    // In this game, pawns move toward the center of the board
-    // Based on their starting position, we determine the direction
-    switch (color) {
-      case '#FFEB3B': // Yellow (top) - move down (increasing y)
-        return 1;
-      case '#F44336': // Red (bottom) - move up (decreasing y)
-        return -1;
-      case '#2196F3': // Blue (left) - move right (increasing x)
-        return 1;
-      case '#4CAF50': // Green (right) - move left (decreasing x)
-        return -1;
-      default:
-        return 1; // Default to moving down if color is unknown
-    }
-  };
-
-  // Helper function to check if it's the pawn's first move
-  const isPawnsFirstMove = (pawn: BasePoint): boolean => {
-    // Check if the pawn is in its starting position
-    switch (pawn.color) {
-      case '#FFEB3B': // Yellow (top)
-        return (pawn.x === 7 || pawn.x === 6) && pawn.y === 1;
-      case '#F44336': // Red (bottom)
-        return (pawn.x === 6 || pawn.x === 7) && pawn.y === 12;
-      case '#2196F3': // Blue (left)
-        return (pawn.y === 6 || pawn.y === 7) && pawn.x === 1;
-      case '#4CAF50': // Green (right)
-        return (pawn.y === 6 || pawn.y === 7) && pawn.x === 12;
-      default:
-        return false;
-    }
   };
 
   // Helper function to check if the path between two squares is clear
