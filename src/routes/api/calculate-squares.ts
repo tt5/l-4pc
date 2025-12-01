@@ -2,7 +2,7 @@ import { getDb } from '~/lib/server/db';
 import { BasePointRepository } from '~/lib/server/repositories/base-point.repository';
 import { withAuth } from '~/middleware/auth';
 import { createErrorResponse, generateRequestId } from '~/utils/api';
-import { BOARD_CONFIG } from '~/constants/game';
+import { BOARD_CONFIG, isInNonPlayableCorner } from '~/constants/game';
 import { performanceTracker } from '~/utils/performance';
 
 type Point = [number, number];
@@ -74,6 +74,11 @@ function getSquaresInDirection(
   console.log(`[${startX},${startY}] Scanning ${directionName} direction...`);
   
   while (x >= 0 && x < BOARD_CONFIG.GRID_SIZE && y >= 0 && y < BOARD_CONFIG.GRID_SIZE) {
+    // Skip non-playable corner squares
+    if (isInNonPlayableCorner(x, y)) {
+      console.log(`  [${x},${y}] BLOCKED by non-playable corner`);
+      break;
+    }
     const occupied = isSquareOccupied(x, y, basePoints);
     const piece = basePoints.find(p => p.x === x && p.y === y);
     const teammate = piece ? piece.team === currentTeam : false;
@@ -197,6 +202,12 @@ function getLegalMoves(
       y: basePoint.y + dy,
       canCapture: false
     };
+    
+    // Skip if the target square is in a non-playable corner
+    if (isInNonPlayableCorner(oneForward.x, oneForward.y)) {
+      console.log(`[${basePoint.x},${basePoint.y}] Cannot move to non-playable corner at [${oneForward.x},${oneForward.y}]`);
+      return [];
+    }
     
     // Check if one square forward is valid and not occupied
     if (oneForward.x >= 0 && oneForward.x < BOARD_CONFIG.GRID_SIZE &&
