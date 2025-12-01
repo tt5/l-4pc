@@ -165,8 +165,67 @@ function getLegalMoves(
         canCapture
       }];
     });
+  } else if (pieceType === 'pawn') {
+    const moves: {x: number, y: number, canCapture: boolean}[] = [];
+    const direction = basePoint.team === 1 ? 1 : -1; // Team 1 moves up (increasing y), Team 2 moves down (decreasing y)
+    const startRow = basePoint.team === 1 ? 1 : BOARD_CONFIG.GRID_SIZE - 2; // Starting row for each team
+    
+    // Check one square forward
+    const oneForward = {
+      x: basePoint.x,
+      y: basePoint.y + direction,
+      canCapture: false
+    };
+    
+    // Check if one square forward is valid and not occupied
+    if (oneForward.y >= 0 && oneForward.y < BOARD_CONFIG.GRID_SIZE && 
+        !isSquareOccupied(oneForward.x, oneForward.y, allBasePoints)) {
+      moves.push(oneForward);
+      
+      // Check two squares forward from starting position
+      if (basePoint.y === startRow) {
+        const twoForward = {
+          x: basePoint.x,
+          y: basePoint.y + (2 * direction),
+          canCapture: false
+        };
+        
+        if (twoForward.y >= 0 && twoForward.y < BOARD_CONFIG.GRID_SIZE && 
+            !isSquareOccupied(twoForward.x, twoForward.y, allBasePoints)) {
+          moves.push(twoForward);
+        }
+      }
+    }
+    
+    // Check diagonal captures
+    const captureOffsets = [
+      { dx: -1, dy: direction },  // Left diagonal
+      { dx: 1, dy: direction }    // Right diagonal
+    ];
+    
+    for (const offset of captureOffsets) {
+      const targetX = basePoint.x + offset.dx;
+      const targetY = basePoint.y + offset.dy;
+      
+      // Check if target square is within bounds
+      if (targetX >= 0 && targetX < BOARD_CONFIG.GRID_SIZE && 
+          targetY >= 0 && targetY < BOARD_CONFIG.GRID_SIZE) {
+        
+        // Check if there's an opponent's piece to capture
+        const targetPiece = allBasePoints.find(p => p.x === targetX && p.y === targetY);
+        if (targetPiece && targetPiece.team !== basePoint.team) {
+          moves.push({
+            x: targetX,
+            y: targetY,
+            canCapture: true
+          });
+        }
+      }
+    }
+    
+    return moves;
   } else {
-    // Default movement (for pawns or any other piece type)
+    // Default movement for any other piece type (like rook)
     const directions = [
       [0, 1],   // up
       [1, 0],   // right
