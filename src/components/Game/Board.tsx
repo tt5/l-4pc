@@ -310,6 +310,11 @@ const Board: Component = () => {
     const attacker = attackers[0];
     // Check if the move captures the attacker
     if (to[0] === attacker.x && to[1] === attacker.y) {
+      // If the attacker is a king, allow capturing it even if in check
+      if (attacker.pieceType === 'king') {
+        return true;
+      }
+      // For other pieces, check if this capture resolves the check
       return true;
     }
 
@@ -349,25 +354,32 @@ const Board: Component = () => {
 
       // If this is a restricted square (including captures), check if it's a valid move
       if (isRestrictedByPickedUp) {
-        // If the piece being moved is a king, check if the target square is under attack
-        if (movingPiece.pieceType === 'king') {
-          const opponentTeam = getTeam(movingPiece.color) === 1 ? 2 : 1;
-          if (isSquareUnderAttack(gridX, gridY, opponentTeam)) {
-            return {
-              isValid: false,
-              reason: 'Cannot move king into check'
-            };
-          }
-        }
+        // Check if the move captures an enemy king
+        const targetPiece = basePoints().find(bp => bp.x === gridX && bp.y === gridY);
+        const isCapturingEnemyKing = targetPiece?.pieceType === 'king' && getTeam(targetPiece.color) !== getTeam(movingPiece.color);
         
-        // If the current player's king is in check, verify the move resolves it
-        const currentCheck = kingInCheck();
-        if (currentCheck && getTeam(movingPiece.color) === currentCheck.team) {
-          if (!wouldResolveCheck([startX, startY], [gridX, gridY], movingPiece.color)) {
-            return { 
-              isValid: false, 
-              reason: 'You must move your king out of check, block the check, or capture the threatening piece' 
-            };
+        // If not capturing an enemy king, apply normal check rules
+        if (!isCapturingEnemyKing) {
+          // If the piece being moved is a king, check if the target square is under attack
+          if (movingPiece.pieceType === 'king') {
+            const opponentTeam = getTeam(movingPiece.color) === 1 ? 2 : 1;
+            if (isSquareUnderAttack(gridX, gridY, opponentTeam)) {
+              return {
+                isValid: false,
+                reason: 'Cannot move king into check'
+              };
+            }
+          }
+          
+          // If the current player's king is in check, verify the move resolves it
+          const currentCheck = kingInCheck();
+          if (currentCheck && getTeam(movingPiece.color) === currentCheck.team) {
+            if (!wouldResolveCheck([startX, startY], [gridX, gridY], movingPiece.color)) {
+              return { 
+                isValid: false, 
+                reason: 'You must move your king out of check, block the check, or capture the threatening piece' 
+              };
+            }
           }
         }
         
