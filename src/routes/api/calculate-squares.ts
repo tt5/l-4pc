@@ -235,23 +235,21 @@ function getLegalMoves(
       }
     }
     
-    // Capture diagonally in the direction of movement
-    let captureOffsets = [
-      { dx: dx !== 0 ? dx : -1, dy: dy !== 0 ? dy : -1 },  // Diagonal 1
-      { dx: dx !== 0 ? dx : 1, dy: dy !== 0 ? dy : 1 }     // Diagonal 2
-    ];
+    // Set up capture directions based on pawn movement
+    let captureOffsets;
     
-    // If moving vertically, allow horizontal captures
+    // For vertically moving pawns (Red and Yellow)
     if (isVertical) {
       captureOffsets = [
-        { dx: -1, dy: 0 },  // Left
-        { dx: 1, dy: 0 }    // Right
+        { dx: -1, dy: dy },  // Diagonal left
+        { dx: 1, dy: dy }    // Diagonal right
       ];
-    } else {
-      // If moving horizontally, allow vertical captures
+    } 
+    // For horizontally moving pawns (Blue and Green)
+    else {
       captureOffsets = [
-        { dx: 0, dy: -1 },  // Up
-        { dx: 0, dy: 1 }    // Down
+        { dx: dx, dy: -1 },  // Diagonal up
+        { dx: dx, dy: 1 }    // Diagonal down
       ];
     }
     

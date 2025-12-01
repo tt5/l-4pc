@@ -1,4 +1,6 @@
 # TODOS
 
-- [ ] king moves into check
-- [ ] add room-based subscription to SSE
+- pawn promotion
+- castling
+- pawn capture pieces
+
