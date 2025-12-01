@@ -24,7 +24,6 @@ import {
   createPoint
 } from '../../types/board';
 import { 
-  handleAddBasePoint,
   isBasePoint,
   gridToWorld,
   updateBasePoint,
@@ -1269,38 +1268,8 @@ const Board: Component = () => {
     // Prevent handling clicks during drag operations
     if (isSaving() || isDragging()) return;
     
-    const [worldX, worldY] = gridToWorld(index, [0, 0]);
-    
-    // Note: We no longer handle drag operations here - they're handled in handleGlobalMouseUp
-    
-    // Otherwise, handle adding a new base point
-    setIsSaving(true);
-    
-    try {
-      const result = await handleAddBasePoint({
-        x: worldX,
-        y: worldY,
-        currentUser,
-        setIsSaving,
-        setBasePoints: (value: BasePoint[] | ((prev: BasePoint[]) => BasePoint[])) => {
-          handleFetchBasePoints();
-          return value;
-        },
-        isBasePoint: (x: number, y: number) => isBasePoint(x, y, basePoints())
-      });
-      
-      if (result.success) {
-        // The server will handle updating restricted squares
-        // We'll update them when we receive the next state update
-      } else if (result.error) {
-        setError(result.error);
-      }
-    } catch (error) {
-      console.error('Error adding base point:', error);
-      setError('Failed to add base point');
-    } finally {
-      setIsSaving(false);
-    }
+    // Base point placement has been removed
+    console.log('Square clicked, but base point placement is disabled');
   };
   
   const handleResetBoard = async () => {
