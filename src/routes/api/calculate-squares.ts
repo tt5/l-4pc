@@ -265,6 +265,18 @@ function getLegalMoves(
     }
     
     return moves;
+  } else if (pieceType === 'bishop') {
+    // Bishop moves any number of squares diagonally
+    const directions = [
+      [1, 1],   // up-right
+      [1, -1],  // down-right
+      [-1, -1], // down-left
+      [-1, 1]   // up-left
+    ];
+    
+    return directions.flatMap(([dx, dy]) => 
+      getSquaresInDirection(basePoint.x, basePoint.y, dx, dy, allBasePoints, basePoint.team)
+    );
   } else {
     // Default movement for any other piece type (like rook)
     const directions = [

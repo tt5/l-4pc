@@ -66,32 +66,36 @@ export async function POST({ request }: APIEvent) {
         // Add all base points if none exist with specific colors and piece types
         // Yellow pieces (top)
         await basePointRepo.add(user.id, 7, 0, '#FFEB3B', 'queen');  // Yellow Queen
+        await basePointRepo.add(user.id, 8, 0, '#FFEB3B', 'bishop'); // Yellow Queen's Bishop
         await basePointRepo.add(user.id, 6, 0, '#FFEB3B', 'king');   // Yellow King
-        await basePointRepo.add(user.id, 5, 0, '#FFEB3B', 'bishop'); // Yellow Bishop
+        await basePointRepo.add(user.id, 5, 0, '#FFEB3B', 'bishop'); // Yellow King's Bishop
         await basePointRepo.add(user.id, 7, 1, '#FFEB3B', 'pawn');   // Yellow Queen's Pawn
         await basePointRepo.add(user.id, 6, 1, '#FFEB3B', 'pawn');   // Yellow King's Pawn
         await basePointRepo.add(user.id, 5, 1, '#FFEB3B', 'pawn');   // Yellow Bishop's Pawn
         
         // Red pieces (bottom)
         await basePointRepo.add(user.id, 6, 13, '#F44336', 'queen'); // Red Queen
+        await basePointRepo.add(user.id, 5, 13, '#F44336', 'bishop');// Red Queen's Bishop
         await basePointRepo.add(user.id, 7, 13, '#F44336', 'king');  // Red King
-        await basePointRepo.add(user.id, 8, 13, '#F44336', 'bishop');// Red Bishop
+        await basePointRepo.add(user.id, 8, 13, '#F44336', 'bishop');// Red King's Bishop
         await basePointRepo.add(user.id, 6, 12, '#F44336', 'pawn');  // Red Queen's Pawn
         await basePointRepo.add(user.id, 7, 12, '#F44336', 'pawn');  // Red King's Pawn
         await basePointRepo.add(user.id, 8, 12, '#F44336', 'pawn');  // Red Bishop's Pawn
         
         // Blue pieces (left)
         await basePointRepo.add(user.id, 0, 6, '#2196F3', 'queen');  // Blue Queen
+        await basePointRepo.add(user.id, 0, 5, '#2196F3', 'bishop'); // Blue Queen's Bishop
         await basePointRepo.add(user.id, 0, 7, '#2196F3', 'king');   // Blue King
-        await basePointRepo.add(user.id, 0, 8, '#2196F3', 'bishop'); // Blue Bishop
+        await basePointRepo.add(user.id, 0, 8, '#2196F3', 'bishop'); // Blue King's Bishop
         await basePointRepo.add(user.id, 1, 6, '#2196F3', 'pawn');   // Blue Queen's Pawn
         await basePointRepo.add(user.id, 1, 7, '#2196F3', 'pawn');   // Blue King's Pawn
         await basePointRepo.add(user.id, 1, 8, '#2196F3', 'pawn');   // Blue Bishop's Pawn
         
         // Green pieces (right)
         await basePointRepo.add(user.id, 13, 7, '#4CAF50', 'queen'); // Green Queen
+        await basePointRepo.add(user.id, 13, 8, '#4CAF50', 'bishop');// Green Queen's Bishop
         await basePointRepo.add(user.id, 13, 6, '#4CAF50', 'king');  // Green King
-        await basePointRepo.add(user.id, 13, 5, '#4CAF50', 'bishop');// Green Bishop
+        await basePointRepo.add(user.id, 13, 5, '#4CAF50', 'bishop');// Green King's Bishop
         await basePointRepo.add(user.id, 12, 7, '#4CAF50', 'pawn');  // Green Queen's Pawn
         await basePointRepo.add(user.id, 12, 6, '#4CAF50', 'pawn');  // Green King's Pawn
         await basePointRepo.add(user.id, 12, 5, '#4CAF50', 'pawn');  // Green Bishop's Pawn
@@ -99,10 +103,26 @@ export async function POST({ request }: APIEvent) {
         // If some base points exist but not all, add the missing ones
         const existingPoints = new Set(userBasePoints.map(p => `${p.x},${p.y}`));
         const requiredPoints = [
-          { x: 7, y: 0, color: '#FFEB3B' },   // Center top - Yellow
-          { x: 13, y: 7, color: '#4CAF50' },  // Center right - Green
-          { x: 6, y: 13, color: '#F44336' },  // Center bottom - Red
-          { x: 0, y: 6, color: '#2196F3' }    // Center left - Blue
+          // Yellow pieces (top)
+          { x: 7, y: 0, color: '#FFEB3B' },   // Yellow Queen
+          { x: 8, y: 0, color: '#FFEB3B' },   // Yellow Queen's Bishop
+          { x: 6, y: 0, color: '#FFEB3B' },   // Yellow King
+          { x: 5, y: 0, color: '#FFEB3B' },   // Yellow King's Bishop
+          // Red pieces (bottom)
+          { x: 6, y: 13, color: '#F44336' },  // Red Queen
+          { x: 5, y: 13, color: '#F44336' },  // Red Queen's Bishop
+          { x: 7, y: 13, color: '#F44336' },  // Red King
+          { x: 8, y: 13, color: '#F44336' },  // Red King's Bishop
+          // Blue pieces (left)
+          { x: 0, y: 6, color: '#2196F3' },   // Blue Queen
+          { x: 0, y: 5, color: '#2196F3' },   // Blue Queen's Bishop
+          { x: 0, y: 7, color: '#2196F3' },   // Blue King
+          { x: 0, y: 8, color: '#2196F3' },   // Blue King's Bishop
+          // Green pieces (right)
+          { x: 13, y: 7, color: '#4CAF50' },  // Green Queen
+          { x: 13, y: 8, color: '#4CAF50' },  // Green Queen's Bishop
+          { x: 13, y: 6, color: '#4CAF50' },  // Green King
+          { x: 13, y: 5, color: '#4CAF50' }   // Green King's Bishop
         ];
 
         for (const point of requiredPoints) {
