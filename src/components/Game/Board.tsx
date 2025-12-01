@@ -347,8 +347,19 @@ const Board: Component = () => {
           restriction.basePointY === pickedUp[1]
       );
 
-      // If this is a restricted square (including captures), check if it resolves check
+      // If this is a restricted square (including captures), check if it's a valid move
       if (isRestrictedByPickedUp) {
+        // If the piece being moved is a king, check if the target square is under attack
+        if (movingPiece.pieceType === 'king') {
+          const opponentTeam = getTeam(movingPiece.color) === 1 ? 2 : 1;
+          if (isSquareUnderAttack(gridX, gridY, opponentTeam)) {
+            return {
+              isValid: false,
+              reason: 'Cannot move king into check'
+            };
+          }
+        }
+        
         // If the current player's king is in check, verify the move resolves it
         const currentCheck = kingInCheck();
         if (currentCheck && getTeam(movingPiece.color) === currentCheck.team) {
@@ -359,6 +370,7 @@ const Board: Component = () => {
             };
           }
         }
+        
         return { isValid: true };
       }
 
