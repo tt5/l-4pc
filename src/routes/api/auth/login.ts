@@ -64,21 +64,37 @@ export async function POST({ request }: APIEvent) {
       
       if (userBasePoints.length === 0) {
         // Add all base points if none exist with specific colors and piece types
-        // Yellow pieces
+        // Yellow pieces (top)
         await basePointRepo.add(user.id, 7, 0, '#FFEB3B', 'queen');  // Yellow Queen
         await basePointRepo.add(user.id, 6, 0, '#FFEB3B', 'king');   // Yellow King
+        await basePointRepo.add(user.id, 5, 0, '#FFEB3B', 'bishop'); // Yellow Bishop
+        await basePointRepo.add(user.id, 7, 1, '#FFEB3B', 'pawn');   // Yellow Queen's Pawn
+        await basePointRepo.add(user.id, 6, 1, '#FFEB3B', 'pawn');   // Yellow King's Pawn
+        await basePointRepo.add(user.id, 5, 1, '#FFEB3B', 'pawn');   // Yellow Bishop's Pawn
         
-        // Red pieces
+        // Red pieces (bottom)
         await basePointRepo.add(user.id, 6, 13, '#F44336', 'queen'); // Red Queen
         await basePointRepo.add(user.id, 7, 13, '#F44336', 'king');  // Red King
+        await basePointRepo.add(user.id, 8, 13, '#F44336', 'bishop');// Red Bishop
+        await basePointRepo.add(user.id, 6, 12, '#F44336', 'pawn');  // Red Queen's Pawn
+        await basePointRepo.add(user.id, 7, 12, '#F44336', 'pawn');  // Red King's Pawn
+        await basePointRepo.add(user.id, 8, 12, '#F44336', 'pawn');  // Red Bishop's Pawn
         
-        // Blue pieces
+        // Blue pieces (left)
         await basePointRepo.add(user.id, 0, 6, '#2196F3', 'queen');  // Blue Queen
         await basePointRepo.add(user.id, 0, 7, '#2196F3', 'king');   // Blue King
+        await basePointRepo.add(user.id, 0, 8, '#2196F3', 'bishop'); // Blue Bishop
+        await basePointRepo.add(user.id, 1, 6, '#2196F3', 'pawn');   // Blue Queen's Pawn
+        await basePointRepo.add(user.id, 1, 7, '#2196F3', 'pawn');   // Blue King's Pawn
+        await basePointRepo.add(user.id, 1, 8, '#2196F3', 'pawn');   // Blue Bishop's Pawn
         
-        // Green pieces
+        // Green pieces (right)
         await basePointRepo.add(user.id, 13, 7, '#4CAF50', 'queen'); // Green Queen
         await basePointRepo.add(user.id, 13, 6, '#4CAF50', 'king');  // Green King
+        await basePointRepo.add(user.id, 13, 5, '#4CAF50', 'bishop');// Green Bishop
+        await basePointRepo.add(user.id, 12, 7, '#4CAF50', 'pawn');  // Green Queen's Pawn
+        await basePointRepo.add(user.id, 12, 6, '#4CAF50', 'pawn');  // Green King's Pawn
+        await basePointRepo.add(user.id, 12, 5, '#4CAF50', 'pawn');  // Green Bishop's Pawn
       } else if (userBasePoints.length < 4) {
         // If some base points exist but not all, add the missing ones
         const existingPoints = new Set(userBasePoints.map(p => `${p.x},${p.y}`));

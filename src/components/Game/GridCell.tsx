@@ -1,7 +1,7 @@
 import { type Component, JSX } from 'solid-js';
 import styles from './Board.module.css';
 import type { BasePoint } from '../../types/board';
-import { King, Queen, Pawn } from './ChessPieces';
+import { King, Queen, Pawn, Bishop } from './ChessPieces';
 
 type Point = [number, number];
 
@@ -94,6 +94,9 @@ export const GridCell: Component<GridCellProps> = (props) => {
           )}
           {state.pieceType === 'pawn' && (
             <Pawn class={styles.pieceIcon} color={state.color} />
+          )}
+          {state.pieceType === 'bishop' && (
+            <Bishop class={styles.pieceIcon} color={state.color} />
           )}
         </div>
       ) : !isSelected ? (
