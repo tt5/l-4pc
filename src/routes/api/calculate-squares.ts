@@ -167,41 +167,82 @@ function getLegalMoves(
     });
   } else if (pieceType === 'pawn') {
     const moves: {x: number, y: number, canCapture: boolean}[] = [];
-    const direction = basePoint.team === 1 ? 1 : -1; // Team 1 moves up (increasing y), Team 2 moves down (decreasing y)
-    const startRow = basePoint.team === 1 ? 1 : BOARD_CONFIG.GRID_SIZE - 2; // Starting row for each team
+    
+    // Determine movement direction based on color
+    let dx = 0;
+    let dy = 0;
+    let isVertical = true;
+    let startPosition = 0;
+    
+    // Determine direction toward center based on starting position
+    if (basePoint.color === '#F44336') { // Red - starts at bottom, moves up
+      dy = -1; // Move up (decreasing y)
+      startPosition = BOARD_CONFIG.GRID_SIZE - 2; // Start near bottom
+    } else if (basePoint.color === '#FFEB3B') { // Yellow - starts at top, moves down
+      dy = 1; // Move down (increasing y)
+      startPosition = 1; // Start near top
+    } else if (basePoint.color === '#2196F3') { // Blue - starts at left, moves right
+      dx = 1; // Move right (increasing x)
+      isVertical = false;
+      startPosition = 1; // Start near left
+    } else if (basePoint.color === '#4CAF50') { // Green - starts at right, moves left
+      dx = -1; // Move left (decreasing x)
+      isVertical = false;
+      startPosition = BOARD_CONFIG.GRID_SIZE - 2; // Start near right
+    }
     
     // Check one square forward
     const oneForward = {
-      x: basePoint.x,
-      y: basePoint.y + direction,
+      x: basePoint.x + dx,
+      y: basePoint.y + dy,
       canCapture: false
     };
     
     // Check if one square forward is valid and not occupied
-    if (oneForward.y >= 0 && oneForward.y < BOARD_CONFIG.GRID_SIZE && 
+    if (oneForward.x >= 0 && oneForward.x < BOARD_CONFIG.GRID_SIZE &&
+        oneForward.y >= 0 && oneForward.y < BOARD_CONFIG.GRID_SIZE &&
         !isSquareOccupied(oneForward.x, oneForward.y, allBasePoints)) {
       moves.push(oneForward);
       
       // Check two squares forward from starting position
-      if (basePoint.y === startRow) {
+      const isAtStartPosition = isVertical 
+        ? (basePoint.y === startPosition) 
+        : (basePoint.x === startPosition);
+        
+      if (isAtStartPosition) {
         const twoForward = {
-          x: basePoint.x,
-          y: basePoint.y + (2 * direction),
+          x: basePoint.x + (2 * dx),
+          y: basePoint.y + (2 * dy),
           canCapture: false
         };
         
-        if (twoForward.y >= 0 && twoForward.y < BOARD_CONFIG.GRID_SIZE && 
+        if (twoForward.x >= 0 && twoForward.x < BOARD_CONFIG.GRID_SIZE &&
+            twoForward.y >= 0 && twoForward.y < BOARD_CONFIG.GRID_SIZE &&
             !isSquareOccupied(twoForward.x, twoForward.y, allBasePoints)) {
           moves.push(twoForward);
         }
       }
     }
     
-    // Check diagonal captures
-    const captureOffsets = [
-      { dx: -1, dy: direction },  // Left diagonal
-      { dx: 1, dy: direction }    // Right diagonal
+    // Capture diagonally in the direction of movement
+    let captureOffsets = [
+      { dx: dx !== 0 ? dx : -1, dy: dy !== 0 ? dy : -1 },  // Diagonal 1
+      { dx: dx !== 0 ? dx : 1, dy: dy !== 0 ? dy : 1 }     // Diagonal 2
     ];
+    
+    // If moving vertically, allow horizontal captures
+    if (isVertical) {
+      captureOffsets = [
+        { dx: -1, dy: 0 },  // Left
+        { dx: 1, dy: 0 }    // Right
+      ];
+    } else {
+      // If moving horizontally, allow vertical captures
+      captureOffsets = [
+        { dx: 0, dy: -1 },  // Up
+        { dx: 0, dy: 1 }    // Down
+      ];
+    }
     
     for (const offset of captureOffsets) {
       const targetX = basePoint.x + offset.dx;
