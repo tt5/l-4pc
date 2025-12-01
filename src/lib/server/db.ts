@@ -4,6 +4,7 @@ import { promises as fs } from 'fs';
 import { dirname } from 'path';
 import { assertServer } from './utils';
 import { BasePointRepository } from './repositories/base-point.repository';
+import { MoveRepository } from './repositories/move.repository';
 
 export type SqliteDatabase = Database<sqlite3.Database, sqlite3.Statement>;
 
@@ -19,6 +20,7 @@ const dbPath = join(dbDir, 'app.db');
 // Initialize database
 let db: SqliteDatabase;
 let basePointRepo: BasePointRepository | null = null;
+let moveRepo: MoveRepository | null = null;
 
 async function getDb(): Promise<SqliteDatabase> {
   assertServer();
@@ -109,6 +111,14 @@ async function getBasePointRepository(): Promise<BasePointRepository> {
     basePointRepo = new BasePointRepository(db);
   }
   return basePointRepo;
+}
+
+async function getMoveRepository(): Promise<MoveRepository> {
+  if (!moveRepo) {
+    const db = await getDb();
+    moveRepo = new MoveRepository(db);
+  }
+  return moveRepo;
 }
 
 // Initialize repositories when the database is ready
@@ -275,6 +285,7 @@ export {
   getDb,
   ensureUserTable,
   getBasePointRepository,
+  getMoveRepository,
   initializeRepositories,
   runMigrations
 };

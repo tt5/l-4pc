@@ -1,5 +1,6 @@
-import { getDb } from '~/lib/server/db';
+import { getDb, getMoveRepository } from '~/lib/server/db';
 import { BasePointRepository } from '~/lib/server/repositories/base-point.repository';
+import type { MoveRepository } from '~/lib/server/repositories/move.repository';
 import { withAuth } from '~/middleware/auth';
 import { createErrorResponse, generateRequestId } from '~/utils/api';
 import { BOARD_CONFIG, isInNonPlayableCorner } from '~/constants/game';
@@ -354,7 +355,7 @@ export const POST = withAuth(async ({ request, user }) => {
       throw new Error('Request body must be a JSON object');
     }
     
-    const { currentPosition, destination } = requestBody as CalculateSquaresRequest;
+    const { currentPosition, destination, gameId = 'default' } = requestBody as CalculateSquaresRequest & { gameId?: string };
     
     const validatePoint = (point: unknown, name: string): point is Point => {
       if (!Array.isArray(point) || point.length !== 2 || 
@@ -367,9 +368,10 @@ export const POST = withAuth(async ({ request, user }) => {
     validatePoint(currentPosition, 'currentPosition');
     validatePoint(destination, 'destination');
     
-    // Get database connection and initialize repository
+    // Get database connection and initialize repositories
     const db = await getDb();
     const basePointRepository = new BasePointRepository(db);
+    const moveRepository = await getMoveRepository();
     
     // Get all base points (not just current user's)
     const allBasePoints = (await basePointRepository.getAll()).map(point => {
@@ -380,6 +382,32 @@ export const POST = withAuth(async ({ request, user }) => {
         team
       };
     });
+
+    // Find the moved piece (we can assume it exists)
+    const movedPiece = allBasePoints.find(p => 
+      p.x === currentPosition[0] && 
+      p.y === currentPosition[1]
+    );
+
+    // Only save the move if it's an actual move (not a click in place)
+    const isActualMove = currentPosition[0] !== destination[0] || currentPosition[1] !== destination[1];
+    if (isActualMove && movedPiece) {
+      try {
+        await moveRepository.create({
+          gameId,
+          userId: user.userId,
+          pieceType: movedPiece.pieceType,
+          fromX: currentPosition[0],
+          fromY: currentPosition[1],
+          toX: destination[0],
+          toY: destination[1]
+        });
+        console.log('Move saved to database');
+      } catch (error) {
+        console.error('Failed to save move:', error);
+        // Don't fail the request if move saving fails
+      }
+    }
     
     console.log('\n=== ALL BASE POINTS ===');
     allBasePoints.forEach(bp => {

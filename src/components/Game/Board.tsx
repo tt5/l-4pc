@@ -1303,9 +1303,8 @@ const Board: Component = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          borderIndices: [],
-          currentPosition: createPoint(0, 0),
-          destination: createPoint(0, 0)
+          currentPosition: [0, 0],
+          destination: [0, 0]
         })
       });
 
