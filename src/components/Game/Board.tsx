@@ -10,7 +10,7 @@ import {
   For,
   createSelector
 } from 'solid-js';
-import { PLAYER_COLORS, type PlayerColor } from '~/constants/game';
+import { PLAYER_COLORS, type PlayerColor, isInNonPlayableCorner } from '~/constants/game';
 import { basePointEventService } from '~/lib/server/events/base-point-events';
 import { GridCell } from './GridCell';
 import { useAuth } from '../../contexts/AuthContext';
@@ -1375,6 +1375,7 @@ const Board: Component = () => {
           // Find if there's a base point at these coordinates and get its color
           const basePoint = basePoints().find(bp => bp.x === x && bp.y === y);
           const isBP = !!basePoint;
+          const isNonPlayable = isInNonPlayableCorner(x, y);
           
           // Only show restricted squares when dragging and they originate from the dragged base point
           const draggedBasePoint = pickedUpBasePoint();
@@ -1400,9 +1401,10 @@ const Board: Component = () => {
             isSelected,
             isHovered: !!(hoveredSquare() === index || (hoveredCell() && hoveredCell()![0] === x && hoveredCell()![1] === y)),
             isSaving: isSaving(),
-            isInCheck: isKingInCheck,  // Add check status
-            color: basePoint?.color, // Add the color from the base point if it exists
-            pieceType: basePoint?.pieceType // Add the piece type from the base point if it exists
+            isInCheck: isKingInCheck,
+            isNonPlayable,
+            color: basePoint?.color,
+            pieceType: basePoint?.pieceType
           };
 
           return (

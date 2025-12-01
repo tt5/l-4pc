@@ -11,6 +11,7 @@ interface CellState {
   isHovered: boolean;
   isSaving: boolean;
   isInCheck?: boolean;
+  isNonPlayable?: boolean; // Indicates if the square is in a non-playable corner
   color?: string; // Optional color for the base point
   pieceType?: string; // Type of the piece (e.g., 'pawn', 'queen')
 }
@@ -53,7 +54,7 @@ export const GridCell: Component<GridCellProps> = (props) => {
     if (isBasePoint) classes.push(styles.basePoint);
     if (isSelected) classes.push(styles.selected);
     if (isSaving && isHovered) classes.push(styles.loading);
-    else if (isHovered) {
+    else if (isHovered && !state.isNonPlayable) {
       classes.push((!isSelected && !isBasePoint) ? styles['valid-hover'] : styles['invalid-hover']);
     }
     if (isDraggingProp && pickedUpBasePoint && isBasePoint) {
@@ -61,6 +62,9 @@ export const GridCell: Component<GridCellProps> = (props) => {
     }
     if (isBasePoint && state.isInCheck) {
       classes.push(styles.inCheck);
+    }
+    if (state.isNonPlayable) {
+      classes.push(styles.nonPlayable);
     }
     return classes.join(' ');
   };
