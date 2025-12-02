@@ -1327,6 +1327,7 @@ const Board: Component<BoardProps> = (props) => {
       
       <div class={styles.boardContent}>
         <BoardControls 
+          gameId={gameId()}
           onReset={async () => {
             // Reset move history and turn counter
             setMoveHistory([]);
