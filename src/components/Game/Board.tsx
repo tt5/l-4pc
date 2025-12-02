@@ -17,6 +17,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useRestrictedSquares } from '../../contexts/RestrictedSquaresContext';
 import { useFetchBasePoints } from '../../hooks/useFetchBasePoints';
 import { useSSE } from '../../hooks/useSSE';
+import BoardControls from './BoardControls';
 import { 
   type Point, 
   type BasePoint,
@@ -1280,58 +1281,7 @@ const Board: Component = () => {
     console.log('Square clicked, but base point placement is disabled');
   };
   
-  const handleResetBoard = async () => {
-    if (!currentUser || isSaving()) return;
-    
-    setIsSaving(true);
-    try {
-      // Reset game state
-      setMoveHistory([]);
-      setCurrentTurnIndex(0);
-      
-      const response = await fetch('/api/reset-board', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userId: currentUser.id })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to reset board');
-      }
-
-      // Refresh the base points
-      await fetchBasePoints();
-      
-      // Refresh the restricted squares by making a request to calculate-squares
-      const squaresResponse = await fetch('/api/calculate-squares', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          currentPosition: [0, 0],
-          destination: [0, 0]
-        })
-      });
-
-      if (!squaresResponse.ok) {
-        throw new Error('Failed to update restricted squares');
-      }
-
-      const result = await squaresResponse.json();
-      if (result.success) {
-        setRestrictedSquares(result.data.squares || []);
-        setRestrictedSquaresInfo(result.data.squaresWithOrigins || []);
-      }
-    } catch (error) {
-      console.error('Error resetting board:', error);
-      setError('Failed to reset board');
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  // Reset board functionality has been moved to BoardControls component
 
   console.log('Rendering Board. Kings in check:', Object.keys(kingsInCheck()));
   
@@ -1339,11 +1289,30 @@ const Board: Component = () => {
     <div class={styles.board}>
       
       <div class={styles.boardContent}>
-        <div class={styles.boardControls}>
-          <button onClick={handleResetBoard} disabled={isSaving()}>
-            {isSaving() ? 'Resetting...' : 'Reset Board'}
-          </button>
-        </div>
+        <BoardControls 
+          onReset={async () => {
+            // Refresh the base points
+            await fetchBasePoints();
+            
+            // Refresh the restricted squares
+            const squaresResponse = await fetch('/api/calculate-squares', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                currentPosition: [0, 0],
+                destination: [0, 0]
+              })
+            });
+
+            if (squaresResponse.ok) {
+              const result = await squaresResponse.json();
+              if (result.success) {
+                setRestrictedSquares(result.data.squares || []);
+                setRestrictedSquaresInfo(result.data.squaresWithOrigins || []);
+              }
+            }
+          }}
+        />
         
         <div class={styles.grid}>
           {Array.from({ length: BOARD_CONFIG.GRID_SIZE * BOARD_CONFIG.GRID_SIZE }).map((_, index) => {
