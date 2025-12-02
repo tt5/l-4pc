@@ -9,18 +9,35 @@ import { DEFAULT_GAME_ID } from '~/constants/game';
 import styles from './game.module.css';
 
 function GameContent() {
-  const { user, isInitialized, logout } = useAuth();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { user, isInitialized, logout, gameId: authGameId } = useAuth();
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = createSignal('info');
-  const [gameId, setGameId] = createSignal<string>(searchParams.gameId || DEFAULT_GAME_ID);
+  
+  // Initialize gameId with priority: auth context > URL param > default
+  const [gameId, setGameId] = createSignal<string>(
+    authGameId() || (Array.isArray(searchParams.gameId) ? searchParams.gameId[0] : searchParams.gameId) || DEFAULT_GAME_ID
+  );
+  
+  // Sync auth game ID with local state
+  createEffect(() => {
+    if (authGameId()) {
+      setGameId(authGameId()!);
+    }
+  });
   
   // Update URL when gameId changes
   createEffect(() => {
-    const newParams = new URLSearchParams();
-    if (gameId() !== DEFAULT_GAME_ID) {
-      newParams.set('gameId', gameId());
+    const currentGameId = gameId();
+    const newParams = new URLSearchParams(window.location.search);
+    
+    if (currentGameId !== DEFAULT_GAME_ID) {
+      newParams.set('gameId', currentGameId);
+    } else {
+      newParams.delete('gameId');
     }
-    window.history.replaceState({}, '', `${window.location.pathname}?${newParams.toString()}`);
+    
+    const newUrl = `${window.location.pathname}${newParams.toString() ? `?${newParams.toString()}` : ''}`;
+    window.history.replaceState({}, '', newUrl);
   });
   
   return (
