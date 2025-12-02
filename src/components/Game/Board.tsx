@@ -1000,6 +1000,10 @@ const Board: Component = () => {
           color: currentColor
         };
         
+        // Calculate move number before updating history
+        const moveNumber = moveHistory().length + 1;
+        console.log('Move number:', moveNumber, 'History length:', moveHistory().length);
+        
         // Update turn to next player
         setCurrentTurnIndex(prev => (prev + 1) % PLAYER_COLORS.length);
         setMoveHistory(prev => [...prev, newMove]);
@@ -1029,7 +1033,6 @@ const Board: Component = () => {
         console.log('Base point updated in database successfully');
 
         // 5. Calculate new restricted squares from the server
-        const moveNumber = moveHistory().length + 1; // Current move is the next in sequence
         console.log('Calling /api/calculate-squares with:', {
           currentPosition: [startX, startY],
           destination: [targetX, targetY],
