@@ -1032,6 +1032,7 @@ const Board: Component = () => {
         console.log('Calling /api/calculate-squares with:', {
           currentPosition: [startX, startY],
           destination: [targetX, targetY],
+          pieceType: pointToMove.pieceType
         });
 
         try {
@@ -1041,6 +1042,7 @@ const Board: Component = () => {
             body: JSON.stringify({
               currentPosition: [startX, startY],
               destination: [targetX, targetY],
+              pieceType: pointToMove.pieceType
             })
           });
 
