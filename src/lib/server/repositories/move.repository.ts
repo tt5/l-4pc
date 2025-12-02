@@ -113,4 +113,18 @@ export class MoveRepository {
       [gameId]
     );
   }
+
+  async deleteAllForGame(gameId: string): Promise<void> {
+    try {
+      await this.db.run(
+        `DELETE FROM moves WHERE game_id = ?`,
+        [gameId]
+      );
+      console.log(`[Move] Deleted all moves for game: ${gameId}`);
+    } catch (error) {
+      console.error(`[Move] ❌ Failed to delete moves for game ${gameId}:`, 
+        error instanceof Error ? error.message : 'Unknown error');
+      throw error;
+    }
+  }
 }

@@ -1,16 +1,28 @@
-import { getBasePointRepository } from '~/lib/server/db';
+import { getBasePointRepository, getMoveRepository } from '~/lib/server/db';
 import { withAuth } from '~/middleware/auth';
 import { createApiResponse, createErrorResponse, generateRequestId } from '~/utils/api';
+import { DEFAULT_GAME_ID } from '~/constants/game';
 
 export const POST = withAuth(async ({ user }) => {
   const requestId = generateRequestId();
   
   try {
     const repository = await getBasePointRepository();
+    const moveRepository = await getMoveRepository();
     
     // Delete all base points for the current user
     console.log(`[${requestId}] Resetting board for user:`, user.userId);
     await repository.deleteAllBasePointsForUser(user.userId);
+    
+    // Delete all moves for the default game
+    console.log(`[${requestId}] Deleting all moves for game:`, DEFAULT_GAME_ID);
+    try {
+      await moveRepository.deleteAllForGame(DEFAULT_GAME_ID);
+      console.log(`[${requestId}] Successfully deleted moves for game:`, DEFAULT_GAME_ID);
+    } catch (error) {
+      console.error(`[${requestId}] Error deleting moves:`, error);
+      throw error; // Re-throw to be caught by the outer try-catch
+    }
     
     // Add all base points with their correct types
     // Yellow pieces (top)
