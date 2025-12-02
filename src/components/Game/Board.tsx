@@ -1,5 +1,6 @@
 import { 
   type Component, 
+  type ParentProps,
   createEffect, 
   createSignal, 
   createMemo,
@@ -33,9 +34,15 @@ import {
 import styles from './Board.module.css';
 
 // Import shared board configuration
-import { BOARD_CONFIG } from '~/constants/game';
+import { BOARD_CONFIG, DEFAULT_GAME_ID } from '~/constants/game';
 
-const Board: Component = () => {
+interface BoardProps {
+  gameId?: string;
+}
+
+const Board: Component<BoardProps> = (props) => {
+  // Use provided gameId or fall back to default
+  const gameId = () => props.gameId || DEFAULT_GAME_ID;
   // Clean up drag state
   const cleanupDragState = () => {
     setIsDragging(false);
@@ -489,7 +496,8 @@ const Board: Component = () => {
           body: JSON.stringify({
             borderIndices: [],
             currentPosition: createPoint(0,0),
-            destination: createPoint(0,0)
+            destination: createPoint(0,0),
+            gameId: gameId()
           })
         });
 
@@ -1049,7 +1057,8 @@ const Board: Component = () => {
               currentPosition: [startX, startY],
               destination: [targetX, targetY],
               pieceType: pointToMove.pieceType,
-              moveNumber
+              moveNumber,
+              gameId: gameId()
             })
           });
 
@@ -1304,7 +1313,8 @@ const Board: Component = () => {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 currentPosition: [0, 0],
-                destination: [0, 0]
+                destination: [0, 0],
+                gameId: gameId()
               })
             });
 

@@ -1,14 +1,27 @@
 import { Title } from "@solidjs/meta";
-import { Show, createSignal } from 'solid-js';
+import { Show, createSignal, createEffect } from 'solid-js';
+import { useSearchParams } from '@solidjs/router';
 import { useAuth } from '~/contexts/AuthContext';
 import { RestrictedSquaresProvider } from '~/contexts/RestrictedSquaresContext';
 import Board from '~/components/Game/Board';
 import SidePanel from '~/components/Game/SidePanel';
+import { DEFAULT_GAME_ID } from '~/constants/game';
 import styles from './game.module.css';
 
 function GameContent() {
   const { user, isInitialized, logout } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = createSignal('info');
+  const [gameId, setGameId] = createSignal<string>(searchParams.gameId || DEFAULT_GAME_ID);
+  
+  // Update URL when gameId changes
+  createEffect(() => {
+    const newParams = new URLSearchParams();
+    if (gameId() !== DEFAULT_GAME_ID) {
+      newParams.set('gameId', gameId());
+    }
+    window.history.replaceState({}, '', `${window.location.pathname}?${newParams.toString()}`);
+  });
   
   return (
     <div class={styles.container}>
@@ -38,7 +51,7 @@ function GameContent() {
               
               <div class={styles.gameBoard}>
                 <Show when={activeTab() === 'info'}>
-                  <Board />
+                  <Board gameId={gameId()} />
                 </Show>
                 <Show when={activeTab() === 'settings'}>
                   <h2>Settings</h2>

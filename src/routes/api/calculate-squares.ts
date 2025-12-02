@@ -397,7 +397,8 @@ export const POST = withAuth(async ({ request, user }) => {
         fromX: currentPosition[0],
         fromY: currentPosition[1],
         toX: destination[0],
-        toY: destination[1]
+        toY: destination[1],
+        moveNumber: moveNumber  // Use the moveNumber from the request
       };
       
       console.log('[Move] Attempting to save move:', JSON.stringify(moveData, null, 2));
