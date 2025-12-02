@@ -6,11 +6,13 @@ import {
   createMemo,
   Show,
   onMount,
+  onCleanup,
   on,
   batch,
   For,
   createSelector
 } from 'solid-js';
+import { moveEventService } from '~/lib/server/events/move-events';
 import { PLAYER_COLORS, type PlayerColor, isInNonPlayableCorner } from '~/constants/game';
 import { basePointEventService } from '~/lib/server/events/base-point-events';
 import { GridCell } from './GridCell';
@@ -43,6 +45,32 @@ interface BoardProps {
 const Board: Component<BoardProps> = (props) => {
   // Use provided gameId or fall back to default
   const gameId = () => props.gameId || DEFAULT_GAME_ID;
+  // Listen for move events
+  createEffect(() => {
+    const handleMoveMade = (move: Move) => {
+      // Only add the move if it's not already in the history
+      setMoveHistory(prev => {
+        const exists = prev.some(m => 
+          m.id === move.id || 
+          (m.from[0] === move.from[0] && 
+           m.from[1] === move.from[1] && 
+           m.to[0] === move.to[0] && 
+           m.to[1] === move.to[1] &&
+           m.timestamp === move.timestamp)
+        );
+        return exists ? prev : [...prev, move];
+      });
+    };
+
+    // Subscribe to move events
+    moveEventService.onMoveMade(handleMoveMade);
+
+    // Cleanup on unmount
+    onCleanup(() => {
+      moveEventService.offMoveMade(handleMoveMade);
+    });
+  });
+
   // Clean up drag state
   const cleanupDragState = () => {
     setIsDragging(false);
@@ -1416,18 +1444,28 @@ const Board: Component<BoardProps> = (props) => {
                 const [fromX, fromY] = move.from;
                 const [toX, toY] = move.to;
                 const moveNumber = moveHistory().length - index();
+                const moveTime = new Date(move.timestamp).toLocaleTimeString();
+                
                 return (
                   <div class={styles.moveItem}>
                     <div 
                       class={styles.colorSwatch} 
                       style={{ 'background-color': move.color }}
-                      title={`Color: ${move.color}`}
+                      title={`Player: ${move.playerId || 'Unknown'}\nColor: ${move.color}`}
                     />
                     <div class={styles.moveDetails}>
-                      <div>Move {moveNumber}</div>
-                      <div class={styles.moveCoords}>
-                        ({fromX}, {fromY}) → ({toX}, {toY})
+                      <div class={styles.moveHeader}>
+                        <span class={styles.moveNumber}>Move {moveNumber}</span>
+                        <span class={styles.moveTime}>{moveTime}</span>
                       </div>
+                      <div class={styles.moveCoords}>
+                        {String.fromCharCode(97 + fromX)}{fromY + 1} → {String.fromCharCode(97 + toX)}{toY + 1}
+                      </div>
+                      {move.playerId && (
+                        <div class={styles.movePlayer} title={move.playerId}>
+                          Player: {move.playerId.substring(0, 6)}...
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
