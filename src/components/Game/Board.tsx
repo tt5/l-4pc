@@ -45,6 +45,27 @@ interface BoardProps {
 const Board: Component<BoardProps> = (props) => {
   // Use provided gameId or fall back to default
   const gameId = () => props.gameId || DEFAULT_GAME_ID;
+  
+  // Log game ID changes and load moves
+  createEffect(() => {
+    const currentGameId = gameId();
+    console.log('Current game ID:', currentGameId);
+    
+    // Load moves for the current game
+    const loadMoves = async () => {
+      try {
+        const response = await fetch(`/api/game/${currentGameId}/moves`);
+        if (response.ok) {
+          const { moves } = await response.json();
+          setMoveHistory(moves || []);
+        }
+      } catch (error) {
+        console.error('Failed to load moves:', error);
+      }
+    };
+    
+    loadMoves();
+  });
   // Listen for move events
   createEffect(() => {
     const handleMoveMade = (move: Move) => {
@@ -107,24 +128,11 @@ const Board: Component<BoardProps> = (props) => {
     const restrictedInfo = restrictedSquaresInfo();
     const currentPlayer = currentPlayerColor();
     
-    console.group('=== Enhanced Check Detection Debug ===');
-    console.log('Current player:', currentPlayer);
-    console.log('All base points (raw):', allBasePoints);
-    console.log('All base points (stringified):', JSON.stringify(allBasePoints, null, 2));
-    console.log('Restricted squares (indices):', restrictedSquares);
-    
     // Reset king in check state
     setKingInCheck(null);
     
-    // Debug: Log all kings and their properties
+    // Get all kings on the board
     const allKings = allBasePoints.filter(bp => bp.pieceType === 'king');
-    console.log('All kings on board:', allKings.map(k => ({
-      x: k.x,
-      y: k.y,
-      color: k.color,
-      pieceType: k.pieceType,
-      team: getTeam(k.color)
-    })));
     
     // Map color names to hex codes for comparison
     const colorMap: Record<string, string> = {
@@ -140,49 +148,23 @@ const Board: Component<BoardProps> = (props) => {
       const currentPlayerHex = colorMap[currentPlayer.toLowerCase()] || currentPlayer.toLowerCase();
       const matchesColor = bp.color.toLowerCase() === currentPlayerHex;
       
-      console.log(`Checking piece at [${bp.x},${bp.y}]:`, {
-        color: bp.color,
-        pieceType: bp.pieceType,
-        isKing,
-        matchesColor,
-        currentPlayer,
-        currentPlayerHex
-      });
-      
       return isKing && matchesColor;
     });
     
     if (!currentPlayerKing) {
-      console.error('No king found for current player:', {
-        currentPlayer,
-        allBasePoints: allBasePoints.map(bp => ({
-          x: bp.x,
-          y: bp.y,
-          color: bp.color,
-          pieceType: bp.pieceType,
-          team: getTeam(bp.color)
-        }))
-      });
-      console.groupEnd();
       return;
     }
     
     const kingIndex = currentPlayerKing.y * BOARD_CONFIG.GRID_SIZE + currentPlayerKing.x;
     const kingTeam = getTeam(currentPlayerKing.color);
-    console.group(`Checking ${currentPlayer} king at [${currentPlayerKing.x},${currentPlayerKing.y}] (team ${kingTeam})`);
-    
     const isKingOnRestrictedSquare = restrictedSquares.includes(kingIndex);
-    console.log('King is on restricted square:', isKingOnRestrictedSquare);
     
     if (!isKingOnRestrictedSquare) {
-      console.log('King is not on a restricted square, not in check');
-      console.groupEnd();
       return;
     }
     
     // Get all restrictions on the king's square
     const restrictions = restrictedInfo.filter(sq => sq.index === kingIndex);
-    console.log(`Restrictions on king's square:`, JSON.parse(JSON.stringify(restrictions)));
     
     // Find all pieces that are restricting this square
     const threateningPieces = [];
@@ -199,15 +181,6 @@ const Board: Component<BoardProps> = (props) => {
           const attackerTeam = getTeam(attacker.color);
           const isOpponent = attackerTeam !== kingTeam;
           
-          console.log(`Found potential attacker at [${attacker.x},${attacker.y}]:`, {
-            attackerType: attacker.pieceType,
-            attackerColor: attacker.color,
-            attackerTeam,
-            kingColor: currentPlayerKing.color,
-            kingTeam,
-            isOpponent
-          });
-          
           if (isOpponent) {
             threateningPieces.push({
               ...attacker,
@@ -219,18 +192,15 @@ const Board: Component<BoardProps> = (props) => {
     }
     
     if (threateningPieces.length > 0) {
-      console.log(`${currentPlayer} king at [${currentPlayerKing.x},${currentPlayerKing.y}] is in check by:`, 
-        threateningPieces.map(p => `[${p.x},${p.y}] (${p.pieceType}, ${p.color}, team ${p.team})`));
+      // King is in check
       
       setKingInCheck({
         team: kingTeam,
         position: [currentPlayerKing.x, currentPlayerKing.y]
       });
     } else {
-      console.log(`${currentPlayer} king is on a restricted square but not in check (no opponent pieces threatening)`);
+      // King is not in check
     }
-    
-    console.groupEnd();
   };
 
   // Helper function to check if a square is under attack by any piece of the given team
@@ -602,11 +572,8 @@ const Board: Component<BoardProps> = (props) => {
 
   // Check for king in check when restricted squares or base points change
   createEffect(() => {
-    console.log('Checking for king in check...');
     const squares = getRestrictedSquares();
     const points = basePoints();
-    console.log('Restricted squares:', squares);
-    console.log('Base points:', points);
     checkKingInCheck();
     
     // Clear previous check highlights
@@ -627,7 +594,8 @@ const Board: Component<BoardProps> = (props) => {
           const isInCheck = restrictions.some(restriction => 
             restriction.restrictedBy.some(r => {
               const attacker = allBasePoints.find(bp => 
-                bp.x === r.basePointX && bp.y === r.basePointY
+                bp.x === r.basePointX && 
+                bp.y === r.basePointY
               );
               return attacker && getTeam(attacker.color) !== getTeam(king.color);
             })
@@ -660,14 +628,10 @@ const Board: Component<BoardProps> = (props) => {
 
   // Set up SSE for real-time updates
   useSSE('/api/sse', (message) => {
-    console.log('[SSE] Received message:', message);
-    
     // The point data might be in message.point or message.basePoint or the message itself
     const point = message.point || message.basePoint || message;
     
     if (point && point.id) {
-      console.log('[SSE] Processing base point update for ID:', point.id, 'with data:', point);
-      
       setBasePoints(prev => {
         // Check if there's a base point at the target position that's different from the moving one
         const capturedBasePoint = prev.find(bp => 
@@ -678,7 +642,6 @@ const Board: Component<BoardProps> = (props) => {
         
         // If we found a base point at the target position (a capture), remove it
         if (capturedBasePoint) {
-          console.log('[SSE] Removing captured base point:', capturedBasePoint);
           const filtered = prev.filter(bp => bp.id !== capturedBasePoint.id);
           
           // Now update the moving base point
@@ -688,36 +651,27 @@ const Board: Component<BoardProps> = (props) => {
               ...filtered[movingIndex],
               ...point
             };
-            console.log('[SSE] Updated moving base point after capture:', filtered[movingIndex]);
           } else {
             // If the moving base point doesn't exist yet, add it
-            console.log('[SSE] Adding moving base point after capture:', point);
             filtered.push(point);
           }
           
           return filtered;
         }
         
-        // If it's not a capture, just update the base point normally
+        // If no capture, just update the base point normally
         const index = prev.findIndex(bp => bp.id === point.id);
-        
         if (index !== -1) {
-          // Update the existing base point
           const newBasePoints = [...prev];
           newBasePoints[index] = {
             ...newBasePoints[index],
             ...point
           };
-          console.log('[SSE] Updated base point:', newBasePoints[index]);
           return newBasePoints;
         }
         
-        // If the base point wasn't found, log a warning and return the previous state
-        console.warn('[SSE] Received update for unknown base point:', point);
         return prev;
       });
-    } else {
-      console.warn('[SSE] Received invalid point data in message:', message);
     }
   });
 
@@ -777,7 +731,6 @@ const Board: Component<BoardProps> = (props) => {
     
     // Check if it's this player's turn to move (based on piece color)
     if (pieceColor !== currentTurnHexColor) {
-      console.log(`Not your turn! Current turn: ${currentTurnColorName} (${currentTurnHexColor}), piece color: ${pieceColor}`);
       return; // Don't allow picking up opponent's pieces or moving out of turn
     }
     
