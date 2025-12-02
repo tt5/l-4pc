@@ -9,6 +9,7 @@ export interface Move {
   fromY: number;
   toX: number;
   toY: number;
+  moveNumber: number;
   capturedPieceId?: number | null;
   createdAtMs?: number;
 }
@@ -16,12 +17,19 @@ export interface Move {
 export class MoveRepository {
   constructor(private db: Database) {}
 
-  async create(move: Omit<Move, 'id' | 'createdAtMs'>): Promise<Move> {
+  async create(move: Omit<Move, 'id' | 'createdAtMs' | 'moveNumber'> & { moveNumber?: number }): Promise<Move> {
     try {
+      // If moveNumber is not provided, calculate it as the next number for this game
+      let moveNumber = move.moveNumber;
+      if (moveNumber === undefined) {
+        const lastMove = await this.getLastMove(move.gameId);
+        moveNumber = lastMove ? (lastMove.moveNumber || 0) + 1 : 1;
+      }
+
       const result = await this.db.run(
         `INSERT INTO moves 
-         (game_id, user_id, piece_type, from_x, from_y, to_x, to_y, captured_piece_id, created_at_ms)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (game_id, user_id, piece_type, from_x, from_y, to_x, to_y, move_number, captured_piece_id, created_at_ms)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           move.gameId,
           move.userId,
@@ -30,6 +38,7 @@ export class MoveRepository {
           move.fromY,
           move.toX,
           move.toY,
+          moveNumber,
           move.capturedPieceId || null,
           Date.now()
         ]
@@ -42,6 +51,7 @@ export class MoveRepository {
       const createdMove = {
         ...move,
         id: result.lastID,
+        moveNumber,
         createdAtMs: Date.now()
       };
       
@@ -64,6 +74,7 @@ export class MoveRepository {
         from_y as fromY,
         to_x as toX,
         to_y as toY,
+        move_number as moveNumber,
         captured_piece_id as capturedPieceId,
         created_at_ms as createdAtMs
        FROM moves 
@@ -84,6 +95,7 @@ export class MoveRepository {
         from_y as fromY,
         to_x as toX,
         to_y as toY,
+        move_number as moveNumber,
         captured_piece_id as capturedPieceId,
         created_at_ms as createdAtMs
        FROM moves 
@@ -104,6 +116,7 @@ export class MoveRepository {
         from_y as fromY,
         to_x as toX,
         to_y as toY,
+        move_number as moveNumber,
         captured_piece_id as capturedPieceId,
         created_at_ms as createdAtMs
        FROM moves 
