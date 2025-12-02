@@ -1431,10 +1431,18 @@ const Board: Component<BoardProps> = (props) => {
           <Show when={moveHistory().length > 0} fallback={<div>No moves yet</div>}>
             <For each={[...moveHistory()].reverse()}>
               {(move, index) => {
-                const [fromX, fromY] = move.from;
-                const [toX, toY] = move.to;
-                const moveNumber = moveHistory().length - index();
-                const moveTime = new Date(move.timestamp).toLocaleTimeString();
+                // Add null checks and default values
+                if (!move.from || !move.to) {
+                  console.warn('Invalid move data:', move);
+                  return null; // Skip rendering invalid moves
+                }
+                
+                const fromX = move.from?.[0] ?? 0;
+                const fromY = move.from?.[1] ?? 0;
+                const toX = move.to?.[0] ?? 0;
+                const toY = move.to?.[1] ?? 0;
+                const moveNumber = move.moveNumber ?? (moveHistory().length - index());
+                const moveTime = move.timestamp ? new Date(move.timestamp).toLocaleTimeString() : 'Unknown time';
                 
                 return (
                   <div class={styles.moveItem}>
