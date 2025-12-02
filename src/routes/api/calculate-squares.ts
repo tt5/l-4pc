@@ -5,6 +5,7 @@ import { withAuth } from '~/middleware/auth';
 import { createErrorResponse, generateRequestId } from '~/utils/api';
 import { BOARD_CONFIG, isInNonPlayableCorner } from '~/constants/game';
 import { performanceTracker } from '~/utils/performance';
+import { moveEventService } from '~/lib/server/events/move-events';
 
 type Point = [number, number];
 
@@ -405,7 +406,24 @@ export const POST = withAuth(async ({ request, user }) => {
       
       try {
         const savedMove = await moveRepository.create(moveData);
-        console.log(`[Move] ✅ Successfully saved move with ID: ${savedMove.id}`);
+        const moveId = typeof savedMove?.id === 'number' ? savedMove.id : Date.now();
+        console.log(`[Move] ✅ Successfully saved move with ID: ${moveId}`);
+        
+        // Emit move event
+        // Ensure moveNumber is a number, default to 0 if undefined
+        const moveNumber = typeof moveData.moveNumber === 'number' ? moveData.moveNumber : 0;
+        
+        moveEventService.emitMoveMade({
+id: moveId, // Using the validated move ID
+          basePointId: moveData.userId, // Using userId as basePointId since we don't have the actual base point ID
+          from: [moveData.fromX, moveData.fromY] as [number, number],
+          to: [moveData.toX, moveData.toY] as [number, number],
+          playerId: moveData.userId,
+          timestamp: Date.now(),
+          color: '#000000', // Default color, adjust as needed
+          gameId: moveData.gameId,
+          moveNumber: moveNumber // Now guaranteed to be a number
+        });
       } catch (error) {
         console.error('[Move] ❌ Failed to save move:', error instanceof Error ? error.message : 'Unknown error');
         console.error('[Move] Error details:', error);

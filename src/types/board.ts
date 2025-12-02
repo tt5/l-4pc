@@ -61,7 +61,7 @@ export interface AddBasePointResponse extends ApiResponse<BasePoint> {}
 // Game state types
 export interface Move {
   id: number;
-  basePointId: number;
+  basePointId: number | string;  // Allow string for userId
   from: Point;
   to: Point;
   playerId: string;
@@ -69,6 +69,9 @@ export interface Move {
   color: string;
   // For backward compatibility, alias userId to playerId
   userId?: string;
+  // New fields
+  gameId?: string;
+  moveNumber?: number;
 }
 
 export interface GameState {
