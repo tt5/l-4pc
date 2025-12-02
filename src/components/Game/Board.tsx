@@ -51,22 +51,35 @@ const Board: Component<BoardProps> = (props) => {
   // Log game ID changes and load moves
   createEffect(() => {
     const currentGameId = gameId();
-    console.log('Current game ID:', currentGameId);
+    const currentUser = auth.user();
+    
+    console.log('Current game ID:', currentGameId, 'User:', currentUser?.id);
     
     // Load moves for the current game
     const loadMoves = async () => {
       try {
+        console.log('Fetching moves for game:', currentGameId);
         const response = await fetch(`/api/game/${currentGameId}/moves`);
         if (response.ok) {
           const { moves } = await response.json();
+          console.log('Loaded moves:', moves?.length || 0);
           setMoveHistory(moves || []);
+        } else {
+          console.error('Failed to load moves:', await response.text());
+          setMoveHistory([]);
         }
       } catch (error) {
         console.error('Failed to load moves:', error);
+        setMoveHistory([]);
       }
     };
     
-    loadMoves();
+    // Only load moves if we have a valid game ID and user is logged in
+    if (currentGameId && currentUser) {
+      loadMoves();
+    } else {
+      setMoveHistory([]);
+    }
   });
   // Listen for move events
   createEffect(() => {

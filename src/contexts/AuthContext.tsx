@@ -148,8 +148,22 @@ const createAuthStore = (): AuthStore => {
 
   const login = async (username: string, password: string) => {
     try {
-      // Generate a new game ID for this session
-      const gameId = createRandomId('game');
+      // First, try to get the most recent game ID from the server
+      let gameId: string;
+      try {
+        const response = await fetch('/api/game/latest');
+        if (response.ok) {
+          const data = await response.json();
+          gameId = data.gameId;
+          console.log('Using existing game ID:', gameId);
+        } else {
+          throw new Error('No existing game found');
+        }
+      } catch (error) {
+        // If no existing game, generate a new game ID
+        gameId = createRandomId('game');
+        console.log('Created new game ID:', gameId);
+      }
       
       const response = await fetch('/api/auth/login', {
         method: 'POST',
