@@ -12,6 +12,7 @@ import {
   For,
   createSelector
 } from 'solid-js';
+import { useNavigate } from '@solidjs/router';
 import { moveEventService } from '~/lib/server/events/move-events';
 import { PLAYER_COLORS, type PlayerColor, isInNonPlayableCorner } from '~/constants/game';
 import { basePointEventService } from '~/lib/server/events/base-point-events';
@@ -44,9 +45,29 @@ interface BoardProps {
 
 const Board: Component<BoardProps> = (props) => {
   const auth = useAuth();
+  const navigate = useNavigate();
+  const [gameId, setGameId] = createSignal<string>(props.gameId || DEFAULT_GAME_ID);
   
-  // Use gameId from auth context, then from props, then fall back to default
-  const gameId = () => auth.gameId() || props.gameId || DEFAULT_GAME_ID;
+  // Fetch the latest game ID when the component mounts
+  onMount(async () => {
+    if (!props.gameId) {
+      try {
+        const response = await fetch('/api/game/latest');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.gameId) {
+            setGameId(data.gameId);
+            // Update the URL if we're not already on the game page
+            if (!window.location.pathname.includes(data.gameId)) {
+              navigate(`/game/${data.gameId}`, { replace: true });
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch latest game ID:', error);
+      }
+    }
+  });
   
   // Log game ID changes and load moves
   createEffect(() => {

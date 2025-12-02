@@ -7,7 +7,6 @@ interface AuthStore {
   login: (username: string, password: string) => Promise<NullableUser>;
   logout: () => Promise<void>;
   isInitialized: () => boolean;
-  gameId: () => string | null;
 }
 
 const AuthContext = createContext<AuthStore>();
@@ -29,23 +28,16 @@ const createRandomId = (prefix: string = 'id'): string => {
 };
 
 const createUserId = (): string => createRandomId('user');
-const createGameId = (): string => createRandomId('game');
 
 const createAuthStore = (): AuthStore => {
   const [user, setUser] = createSignal<User | null>(null);
   const [isInitialized, setIsInitialized] = createSignal(false);
-  const [gameId, setGameId] = createSignal<string | null>(null);
-  
   const updateUser = (userData: User | null) => {
     setUser(userData);
     if (typeof window !== 'undefined') {
       if (userData) {
-        // Generate a new game ID if one doesn't exist
-        const currentGameId = gameId() || createRandomId('game');
-        setGameId(currentGameId);
-        sessionStorage.setItem('user', JSON.stringify({ ...userData, gameId: currentGameId }));
+        sessionStorage.setItem('user', JSON.stringify(userData));
       } else {
-        setGameId(null);
         sessionStorage.removeItem('user');
       }
     }
@@ -123,10 +115,62 @@ const createAuthStore = (): AuthStore => {
       
       if (data.valid && data.user) {
         console.log('Session verified:', data.user);
-        updateUser({
-          ...data.user,
-          role: data.user.role || 'user'
-        } as User);
+        return {
+          user,
+          isInitialized,
+          login: async (username: string, password: string) => {
+            try {
+              const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ 
+                  username, 
+                  password
+                })
+              });
+
+              const data = await response.json();
+              
+              if (!response.ok) {
+                throw new Error(data?.error || 'Login failed');
+              }
+
+              if (!data.user) {
+                throw new Error('Invalid server response: missing user data');
+              }
+              
+              updateUser(data.user);
+              return data.user;
+            } catch (error) {
+              console.error('Login error:', error);
+              throw error;
+            }
+          },
+          logout: async () => {
+            try {
+              const response = await fetch('/api/auth/logout', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+              });
+              
+              if (!response.ok) {
+                throw new Error('Logout failed');
+              }
+              
+              // Clear the user from local storage and state
+              updateUser(null);
+              
+              // Force a full page reload to clear any application state
+              window.location.href = '/';
+            } catch (error) {
+              // Even if the API call fails, clear the user from state
+              updateUser(null);
+              window.location.href = '/';
+            }
+          }
+        };
       } else {
         console.log('No valid session found');
         updateUser(null);
@@ -145,34 +189,16 @@ const createAuthStore = (): AuthStore => {
       setIsInitialized(true);
     }
   };
-
+      
   const login = async (username: string, password: string) => {
     try {
-      // First, try to get the most recent game ID from the server
-      let gameId: string;
-      try {
-        const response = await fetch('/api/game/latest');
-        if (response.ok) {
-          const data = await response.json();
-          gameId = data.gameId;
-          console.log('Using existing game ID:', gameId);
-        } else {
-          throw new Error('No existing game found');
-        }
-      } catch (error) {
-        // If no existing game, generate a new game ID
-        gameId = createRandomId('game');
-        console.log('Created new game ID:', gameId);
-      }
-      
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ 
           username, 
-          password,
-          gameId // Send the game ID to the server
+          password
         })
       });
 
@@ -238,29 +264,11 @@ const createAuthStore = (): AuthStore => {
     }
   };
 
-  // Load game ID from session storage on initialization
-  createEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedUser = sessionStorage.getItem('user');
-      if (savedUser) {
-        try {
-          const parsed = JSON.parse(savedUser);
-          if (parsed?.gameId) {
-            setGameId(parsed.gameId);
-          }
-        } catch (e) {
-          console.error('Failed to parse user data from session storage', e);
-        }
-      }
-    }
-  });
-
   return {
     user,
     login,
     logout,
-    isInitialized,
-    gameId: () => gameId() || null
+    isInitialized
   };
 };
 

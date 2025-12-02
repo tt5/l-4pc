@@ -1,5 +1,5 @@
 import { Title } from "@solidjs/meta";
-import { Show, createSignal, createEffect } from 'solid-js';
+import { Show, createSignal, createEffect, onMount } from 'solid-js';
 import { useSearchParams } from '@solidjs/router';
 import { useAuth } from '~/contexts/AuthContext';
 import { RestrictedSquaresProvider } from '~/contexts/RestrictedSquaresContext';
@@ -9,19 +9,34 @@ import { DEFAULT_GAME_ID } from '~/constants/game';
 import styles from './game.module.css';
 
 function GameContent() {
-  const { user, isInitialized, logout, gameId: authGameId } = useAuth();
+  const { user, isInitialized, logout } = useAuth();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = createSignal('info');
   
-  // Initialize gameId with priority: auth context > URL param > default
+  // Initialize gameId with priority: URL param > default
   const [gameId, setGameId] = createSignal<string>(
-    authGameId() || (Array.isArray(searchParams.gameId) ? searchParams.gameId[0] : searchParams.gameId) || DEFAULT_GAME_ID
+    (Array.isArray(searchParams.gameId) ? searchParams.gameId[0] : searchParams.gameId) || DEFAULT_GAME_ID
   );
   
-  // Sync auth game ID with local state
-  createEffect(() => {
-    if (authGameId()) {
-      setGameId(authGameId()!);
+  // Fetch the latest game ID when the component mounts or user changes
+  onMount(async () => {
+    if (!user()) return;
+    
+    try {
+      const response = await fetch('/api/game/latest', {
+        headers: {
+          'Authorization': `Bearer ${user()?.id}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.gameId) {
+          setGameId(data.gameId);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch latest game ID:', error);
     }
   });
   
