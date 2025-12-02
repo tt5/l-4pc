@@ -1029,10 +1029,12 @@ const Board: Component = () => {
         console.log('Base point updated in database successfully');
 
         // 5. Calculate new restricted squares from the server
+        const moveNumber = moveHistory().length + 1; // Current move is the next in sequence
         console.log('Calling /api/calculate-squares with:', {
           currentPosition: [startX, startY],
           destination: [targetX, targetY],
-          pieceType: pointToMove.pieceType
+          pieceType: pointToMove.pieceType,
+          moveNumber
         });
 
         try {
@@ -1042,7 +1044,8 @@ const Board: Component = () => {
             body: JSON.stringify({
               currentPosition: [startX, startY],
               destination: [targetX, targetY],
-              pieceType: pointToMove.pieceType
+              pieceType: pointToMove.pieceType,
+              moveNumber
             })
           });
 

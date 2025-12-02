@@ -41,6 +41,7 @@ interface CalculateSquaresRequest {
   currentPosition: Point;
   destination: Point;
   pieceType?: PieceType;
+  moveNumber?: number;
 }
 
 // Determine team based on color
@@ -346,7 +347,9 @@ export const POST = withAuth(async ({ request, user }) => {
       throw new Error('Request body must be a JSON object');
     }
     
-    const { currentPosition, destination, pieceType, gameId = 'default' } = requestBody as CalculateSquaresRequest & { gameId?: string };
+    const { currentPosition, destination, pieceType, moveNumber, gameId = 'default' } = requestBody as CalculateSquaresRequest & { gameId?: string };
+    
+    console.log(`[Move #${moveNumber || 'N/A'}] Processing move from [${currentPosition[0]},${currentPosition[1]}] to [${destination[0]},${destination[1]}]`);
     
     const validatePoint = (point: unknown, name: string): point is Point => {
       if (!Array.isArray(point) || point.length !== 2 || 
