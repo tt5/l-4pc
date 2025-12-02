@@ -16,7 +16,6 @@ import { moveEventService } from '~/lib/server/events/move-events';
 import { PLAYER_COLORS, type PlayerColor, isInNonPlayableCorner } from '~/constants/game';
 import { basePointEventService } from '~/lib/server/events/base-point-events';
 import { GridCell } from './GridCell';
-import { useAuth } from '../../contexts/AuthContext';
 import { useRestrictedSquares } from '../../contexts/RestrictedSquaresContext';
 import { useFetchBasePoints } from '../../hooks/useFetchBasePoints';
 import { useSSE } from '../../hooks/useSSE';
@@ -37,14 +36,17 @@ import styles from './Board.module.css';
 
 // Import shared board configuration
 import { BOARD_CONFIG, DEFAULT_GAME_ID } from '~/constants/game';
+import { useAuth } from '~/contexts/AuthContext';
 
 interface BoardProps {
   gameId?: string;
 }
 
 const Board: Component<BoardProps> = (props) => {
-  // Use provided gameId or fall back to default
-  const gameId = () => props.gameId || DEFAULT_GAME_ID;
+  const auth = useAuth();
+  
+  // Use gameId from auth context, then from props, then fall back to default
+  const gameId = () => auth.gameId() || props.gameId || DEFAULT_GAME_ID;
   
   // Log game ID changes and load moves
   createEffect(() => {

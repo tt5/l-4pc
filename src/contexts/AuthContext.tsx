@@ -7,12 +7,13 @@ interface AuthStore {
   login: (username: string, password: string) => Promise<NullableUser>;
   logout: () => Promise<void>;
   isInitialized: () => boolean;
+  gameId: () => string | null;
 }
 
 const AuthContext = createContext<AuthStore>();
 // Generate a secure random user ID using crypto.getRandomValues
 // This matches the server-side implementation in the registration endpoint
-const createUserId = (): string => {
+const createRandomId = (prefix: string = 'id'): string => {
   // Generate 16 random bytes (32 hex characters)
   const randomBytes = new Uint8Array(16);
   if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
@@ -24,19 +25,29 @@ const createUserId = (): string => {
       randomBytes[i] = Math.floor(Math.random() * 256);
     }
   }
-  return 'user_' + Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  return `${prefix}_` + Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('');
 };
+
+const createUserId = (): string => createRandomId('user');
+const createGameId = (): string => createRandomId('game');
 
 const createAuthStore = (): AuthStore => {
   const [user, setUser] = createSignal<User | null>(null);
   const [isInitialized, setIsInitialized] = createSignal(false);
+  const [gameId, setGameId] = createSignal<string | null>(null);
   
   const updateUser = (userData: User | null) => {
     setUser(userData);
     if (typeof window !== 'undefined') {
-      userData 
-        ? sessionStorage.setItem('user', JSON.stringify(userData))
-        : sessionStorage.removeItem('user');
+      if (userData) {
+        // Generate a new game ID if one doesn't exist
+        const currentGameId = gameId() || createRandomId('game');
+        setGameId(currentGameId);
+        sessionStorage.setItem('user', JSON.stringify({ ...userData, gameId: currentGameId }));
+      } else {
+        setGameId(null);
+        sessionStorage.removeItem('user');
+      }
     }
   };
 
@@ -137,11 +148,18 @@ const createAuthStore = (): AuthStore => {
 
   const login = async (username: string, password: string) => {
     try {
+      // Generate a new game ID for this session
+      const gameId = createRandomId('game');
+      
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ 
+          username, 
+          password,
+          gameId // Send the game ID to the server
+        })
       });
 
       const data = await response.json();
@@ -206,11 +224,29 @@ const createAuthStore = (): AuthStore => {
     }
   };
 
+  // Load game ID from session storage on initialization
+  createEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedUser = sessionStorage.getItem('user');
+      if (savedUser) {
+        try {
+          const parsed = JSON.parse(savedUser);
+          if (parsed?.gameId) {
+            setGameId(parsed.gameId);
+          }
+        } catch (e) {
+          console.error('Failed to parse user data from session storage', e);
+        }
+      }
+    }
+  });
+
   return {
     user,
     login,
     logout,
     isInitialized,
+    gameId: () => gameId() || null
   };
 };
 
