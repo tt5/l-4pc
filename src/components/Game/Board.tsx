@@ -1291,6 +1291,10 @@ const Board: Component = () => {
       <div class={styles.boardContent}>
         <BoardControls 
           onReset={async () => {
+            // Reset move history and turn counter
+            setMoveHistory([]);
+            setCurrentTurnIndex(0);
+            
             // Refresh the base points
             await fetchBasePoints();
             
