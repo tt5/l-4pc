@@ -3,10 +3,11 @@ import { withAuth } from '~/middleware/auth';
 import { createApiResponse, createErrorResponse, generateRequestId } from '~/utils/api';
 import { DEFAULT_GAME_ID } from '~/constants/game';
 
-export const POST = withAuth(async ({ user }) => {
+export const POST = withAuth(async ({ request, user }) => {
   const requestId = generateRequestId();
   
   try {
+    const { gameId = DEFAULT_GAME_ID } = await request.json().catch(() => ({}));
     const repository = await getBasePointRepository();
     const moveRepository = await getMoveRepository();
     
@@ -14,11 +15,11 @@ export const POST = withAuth(async ({ user }) => {
     console.log(`[${requestId}] Resetting board for user:`, user.userId);
     await repository.deleteAllBasePointsForUser(user.userId);
     
-    // Delete all moves for the default game
-    console.log(`[${requestId}] Deleting all moves for game:`, DEFAULT_GAME_ID);
+    // Delete all moves for the specified game
+    console.log(`[${requestId}] Deleting all moves for game:`, gameId);
     try {
-      await moveRepository.deleteAllForGame(DEFAULT_GAME_ID);
-      console.log(`[${requestId}] Successfully deleted moves for game:`, DEFAULT_GAME_ID);
+      await moveRepository.deleteAllForGame(gameId);
+      console.log(`[${requestId}] Successfully deleted moves for game:`, gameId);
     } catch (error) {
       console.error(`[${requestId}] Error deleting moves:`, error);
       throw error; // Re-throw to be caught by the outer try-catch

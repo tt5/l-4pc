@@ -4,6 +4,7 @@ import styles from './BoardControls.module.css';
 
 type BoardControlsProps = {
   onReset?: () => Promise<void>;
+  gameId?: string;
 };
 
 const BoardControls: Component<BoardControlsProps> = (props) => {
@@ -21,7 +22,10 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ userId: currentUser.id })
+        body: JSON.stringify({ 
+          userId: currentUser.id,
+          gameId: props.gameId
+        })
       });
 
       if (!response.ok) {
