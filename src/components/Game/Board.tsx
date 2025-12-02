@@ -1431,18 +1431,18 @@ const Board: Component<BoardProps> = (props) => {
           <Show when={moveHistory().length > 0} fallback={<div>No moves yet</div>}>
             <For each={[...moveHistory()].reverse()}>
               {(move, index) => {
-                // Add null checks and default values
-                if (!move.from || !move.to) {
-                  console.warn('Invalid move data:', move);
-                  return null; // Skip rendering invalid moves
-                }
-                
-                const fromX = move.from?.[0] ?? 0;
-                const fromY = move.from?.[1] ?? 0;
-                const toX = move.to?.[0] ?? 0;
-                const toY = move.to?.[1] ?? 0;
+                // Handle both move formats: fromX/Y and from/to tuples
+                const fromX = move.fromX ?? move.from?.[0] ?? 0;
+                const fromY = move.fromY ?? move.from?.[1] ?? 0;
+                const toX = move.toX ?? move.to?.[0] ?? 0;
+                const toY = move.toY ?? move.to?.[1] ?? 0;
                 const moveNumber = move.moveNumber ?? (moveHistory().length - index());
                 const moveTime = move.timestamp ? new Date(move.timestamp).toLocaleTimeString() : 'Unknown time';
+                
+                // Log a warning if we're using fallback values
+                if ((!move.fromX && !move.from?.[0]) || (!move.toX && !move.to?.[0])) {
+                  console.warn('Move data format unexpected, using fallback values:', move);
+                }
                 
                 return (
                   <div class={styles.moveItem}>
