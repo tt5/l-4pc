@@ -378,29 +378,19 @@ export const POST = withAuth(async ({ request, user }) => {
       team: getTeamByColor(point.color)
     }));
 
-    // Get piece at current position or create a default one
-    const movedPiece = allBasePoints.find(p => 
-      p.x === currentPosition[0] && 
-      p.y === currentPosition[1]
-    ) || {
-      pieceType: pieceType || 'UNKNOWN',
-      id: 'auto-generated',
-      x: currentPosition[0],
-      y: currentPosition[1],
-      userId: user.userId,
-      color: '#CCCCCC',
-      team: 0
-    };
-    
     // Only save the move if it's an actual move (not a click in place)
     const isActualMove = currentPosition[0] !== destination[0] || currentPosition[1] !== destination[1];
     console.log(`[Move] Is actual move: ${isActualMove}`);
     
     if (isActualMove) {
+      if (!pieceType) {
+        throw new Error('pieceType is required for move validation');
+      }
+      
       const moveData = {
         gameId,
         userId: user.userId,
-        pieceType: movedPiece.pieceType,
+        pieceType: pieceType,
         fromX: currentPosition[0],
         fromY: currentPosition[1],
         toX: destination[0],
@@ -417,10 +407,7 @@ export const POST = withAuth(async ({ request, user }) => {
         console.error('[Move] Error details:', error);
       }
     } else {
-      console.log(`[Move] Not saving move - Reason: ${
-        !movedPiece ? 'No piece found at position' : 
-        !isActualMove ? 'Not an actual move (same position)' : 'Unknown reason'
-      }`);
+      console.log('[Move] Not saving move - Reason: Not an actual move (same position)');
     }
     
     // Base points loaded, no need to log them all
