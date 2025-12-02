@@ -40,6 +40,7 @@ interface SquareWithOrigin {
 interface CalculateSquaresRequest {
   currentPosition: Point;
   destination: Point;
+  pieceType?: PieceType;
 }
 
 // Determine team based on color
@@ -345,7 +346,7 @@ export const POST = withAuth(async ({ request, user }) => {
       throw new Error('Request body must be a JSON object');
     }
     
-    const { currentPosition, destination, gameId = 'default' } = requestBody as CalculateSquaresRequest & { gameId?: string };
+    const { currentPosition, destination, pieceType, gameId = 'default' } = requestBody as CalculateSquaresRequest & { gameId?: string };
     
     const validatePoint = (point: unknown, name: string): point is Point => {
       if (!Array.isArray(point) || point.length !== 2 || 
@@ -382,7 +383,7 @@ export const POST = withAuth(async ({ request, user }) => {
       p.x === currentPosition[0] && 
       p.y === currentPosition[1]
     ) || {
-      pieceType: 'UNKNOWN',
+      pieceType: pieceType || 'UNKNOWN',
       id: 'auto-generated',
       x: currentPosition[0],
       y: currentPosition[1],
