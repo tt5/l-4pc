@@ -70,31 +70,21 @@ function getSquaresInDirection(
   const result = [];
   let x = startX + dx;
   let y = startY + dy;
-  const directionName = `${dx === 0 ? '' : dx > 0 ? 'right' : 'left'}${dy === 0 ? '' : dy > 0 ? 'down' : 'up'}`.replace('rightleft', 'left').replace('downup', 'up') || 'nowhere';
-  
-  console.log(`[${startX},${startY}] Scanning ${directionName} direction...`);
   
   while (x >= 0 && x < BOARD_CONFIG.GRID_SIZE && y >= 0 && y < BOARD_CONFIG.GRID_SIZE) {
     // Skip non-playable corner squares
     if (isInNonPlayableCorner(x, y)) {
-      console.log(`  [${x},${y}] BLOCKED by non-playable corner`);
       break;
     }
+    
     const occupied = isSquareOccupied(x, y, basePoints);
     const piece = basePoints.find(p => p.x === x && p.y === y);
     const teammate = piece ? piece.team === currentTeam : false;
     
-    console.log(`  [${x},${y}]: ${occupied ? `Occupied by ${teammate ? 'TEAMMATE' : 'OPPONENT'}` : 'Empty'}`);
-    
     if (occupied) {
       if (!teammate) {
         // Can capture opponent's piece
-        console.log(`  [${x},${y}] CAPTURE OPPORTUNITY: ${piece?.color} at [${x},${y}] (team ${piece?.team}) can be captured by team ${currentTeam}`);
-        console.log(`  - Piece details:`, piece);
         result.push({x, y, canCapture: true});
-      } else {
-        console.log(`  [${x},${y}] BLOCKED by ${piece?.color} at [${x},${y}] (team ${piece?.team})`);
-        console.log(`  - Current team: ${currentTeam}, Piece team: ${piece?.team}, Same team: ${teammate}`);
       }
       break;
     }
@@ -365,8 +355,16 @@ export const POST = withAuth(async ({ request, user }) => {
       return true;
     };
     
+    // Validate gameId
+    if (!gameId || typeof gameId !== 'string') {
+      console.error('[Move] ❌ Missing or invalid gameId');
+      throw new Error('gameId is required and must be a string');
+    }
+    
     validatePoint(currentPosition, 'currentPosition');
     validatePoint(destination, 'destination');
+    
+    console.log(`[Move] Processing move for game: ${gameId}`);
     
     // Get database connection and initialize repositories
     const db = await getDb();
@@ -374,45 +372,57 @@ export const POST = withAuth(async ({ request, user }) => {
     const moveRepository = await getMoveRepository();
     
     // Get all base points (not just current user's)
-    const allBasePoints = (await basePointRepository.getAll()).map(point => {
-      const team = getTeamByColor(point.color);
-      console.log(`[${point.x},${point.y}]: Color=${point.color}, Team=${team}, User=${point.userId}`);
-      return {
-        ...point,
-        team
-      };
-    });
+    const allBasePoints = (await basePointRepository.getAll()).map(point => ({
+      ...point,
+      team: getTeamByColor(point.color)
+    }));
 
-    // Find the moved piece (we can assume it exists)
+    // Get piece at current position or create a default one
     const movedPiece = allBasePoints.find(p => 
       p.x === currentPosition[0] && 
       p.y === currentPosition[1]
-    );
-
+    ) || {
+      pieceType: 'UNKNOWN',
+      id: 'auto-generated',
+      x: currentPosition[0],
+      y: currentPosition[1],
+      userId: user.userId,
+      color: '#CCCCCC',
+      team: 0
+    };
+    
     // Only save the move if it's an actual move (not a click in place)
     const isActualMove = currentPosition[0] !== destination[0] || currentPosition[1] !== destination[1];
-    if (isActualMove && movedPiece) {
+    console.log(`[Move] Is actual move: ${isActualMove}`);
+    
+    if (isActualMove) {
+      const moveData = {
+        gameId,
+        userId: user.userId,
+        pieceType: movedPiece.pieceType,
+        fromX: currentPosition[0],
+        fromY: currentPosition[1],
+        toX: destination[0],
+        toY: destination[1]
+      };
+      
+      console.log('[Move] Attempting to save move:', JSON.stringify(moveData, null, 2));
+      
       try {
-        await moveRepository.create({
-          gameId,
-          userId: user.userId,
-          pieceType: movedPiece.pieceType,
-          fromX: currentPosition[0],
-          fromY: currentPosition[1],
-          toX: destination[0],
-          toY: destination[1]
-        });
-        console.log('Move saved to database');
+        const savedMove = await moveRepository.create(moveData);
+        console.log(`[Move] ✅ Successfully saved move with ID: ${savedMove.id}`);
       } catch (error) {
-        console.error('Failed to save move:', error);
-        // Don't fail the request if move saving fails
+        console.error('[Move] ❌ Failed to save move:', error instanceof Error ? error.message : 'Unknown error');
+        console.error('[Move] Error details:', error);
       }
+    } else {
+      console.log(`[Move] Not saving move - Reason: ${
+        !movedPiece ? 'No piece found at position' : 
+        !isActualMove ? 'Not an actual move (same position)' : 'Unknown reason'
+      }`);
     }
     
-    console.log('\n=== ALL BASE POINTS ===');
-    allBasePoints.forEach(bp => {
-      console.log(`- [${bp.x},${bp.y}]: Team ${bp.team} (${bp.color}) - User: ${bp.userId}`);
-    });
+    // Base points loaded, no need to log them all
 
     // If we're moving a base point, update its position in the array
     const updatedBasePoints = allBasePoints.map(point => {
@@ -429,9 +439,7 @@ export const POST = withAuth(async ({ request, user }) => {
     // For each of the current user's base points, calculate legal moves
     const squaresWithOrigins: SquareWithOrigin[] = [];
     
-    console.log('\n=== PROCESSING BASE POINTS ===');
     for (const basePoint of currentUserBasePoints) {
-      console.log(`\nProcessing base point [${basePoint.x},${basePoint.y}] - Team ${basePoint.team} (${basePoint.color})`);
       const legalMoves = getLegalMoves(basePoint, updatedBasePoints);
       
       for (const move of legalMoves) {

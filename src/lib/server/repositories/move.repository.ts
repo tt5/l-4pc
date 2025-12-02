@@ -17,27 +17,40 @@ export class MoveRepository {
   constructor(private db: Database) {}
 
   async create(move: Omit<Move, 'id' | 'createdAtMs'>): Promise<Move> {
-    const result = await this.db.run(
-      `INSERT INTO moves 
-       (game_id, user_id, piece_type, from_x, from_y, to_x, to_y, captured_piece_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        move.gameId,
-        move.userId,
-        move.pieceType,
-        move.fromX,
-        move.fromY,
-        move.toX,
-        move.toY,
-        move.capturedPieceId || null
-      ]
-    );
+    try {
+      const result = await this.db.run(
+        `INSERT INTO moves 
+         (game_id, user_id, piece_type, from_x, from_y, to_x, to_y, captured_piece_id, created_at_ms)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          move.gameId,
+          move.userId,
+          move.pieceType,
+          move.fromX,
+          move.fromY,
+          move.toX,
+          move.toY,
+          move.capturedPieceId || null,
+          Date.now()
+        ]
+      );
 
-    return {
-      ...move,
-      id: result.lastID,
-      createdAtMs: Date.now()
-    };
+      if (!result.lastID) {
+        console.warn('[Move] ⚠️ No lastID returned from insert');
+      }
+
+      const createdMove = {
+        ...move,
+        id: result.lastID,
+        createdAtMs: Date.now()
+      };
+      
+      return createdMove;
+      
+    } catch (error) {
+      console.error('[Move] ❌ Database error:', error instanceof Error ? error.message : 'Unknown error');
+      throw error;
+    }
   }
 
   async getByGameId(gameId: string): Promise<Move[]> {
