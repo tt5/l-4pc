@@ -536,19 +536,42 @@ const Board: Component<BoardProps> = (props) => {
     setBasePoints(Array.from(basePointMap.values()));
   };
   
-  // Helper function to fetch initial base points
-  const fetchInitialBasePoints = async (): Promise<BasePoint[]> => {
-    try {
-      const response = await fetch(`/api/game/${gameId()}/base-points`);
-      if (response.ok) {
-        const data = await response.json();
-        return data.basePoints || [];
-      }
-      return [];
-    } catch (error) {
-      console.error('Failed to fetch initial base points:', error);
-      return [];
-    }
+  // Initial board setup - matches the reset-board.ts configuration
+  const INITIAL_BASE_POINTS: BasePoint[] = [
+    // Yellow pieces (top)
+    { id: 1, x: 7, y: 0, userId: 'system', color: '#FFEB3B', pieceType: 'queen', team: 1, createdAtMs: Date.now() },
+    { id: 2, x: 8, y: 0, userId: 'system', color: '#FFEB3B', pieceType: 'bishop', team: 1, createdAtMs: Date.now() },
+    { id: 3, x: 6, y: 0, userId: 'system', color: '#FFEB3B', pieceType: 'king', team: 1, createdAtMs: Date.now() },
+    { id: 4, x: 5, y: 0, userId: 'system', color: '#FFEB3B', pieceType: 'bishop', team: 1, createdAtMs: Date.now() },
+    { id: 5, x: 4, y: 0, userId: 'system', color: '#FFEB3B', pieceType: 'knight', team: 1, createdAtMs: Date.now() },
+    { id: 6, x: 9, y: 0, userId: 'system', color: '#FFEB3B', pieceType: 'knight', team: 1, createdAtMs: Date.now() },
+    { id: 7, x: 3, y: 0, userId: 'system', color: '#FFEB3B', pieceType: 'rook', team: 1, createdAtMs: Date.now() },
+    { id: 8, x: 10, y: 0, userId: 'system', color: '#FFEB3B', pieceType: 'rook', team: 1, createdAtMs: Date.now() },
+    // ... add more pieces following the same pattern
+    
+    // Red pieces (bottom)
+    { id: 17, x: 6, y: 13, userId: 'system', color: '#F44336', pieceType: 'queen', team: 1, createdAtMs: Date.now() },
+    { id: 18, x: 5, y: 13, userId: 'system', color: '#F44336', pieceType: 'bishop', team: 1, createdAtMs: Date.now() },
+    { id: 19, x: 7, y: 13, userId: 'system', color: '#F44336', pieceType: 'king', team: 1, createdAtMs: Date.now() },
+    // ... add more red pieces
+    
+    // Blue pieces (left)
+    { id: 33, x: 0, y: 6, userId: 'system', color: '#2196F3', pieceType: 'queen', team: 2, createdAtMs: Date.now() },
+    { id: 34, x: 0, y: 5, userId: 'system', color: '#2196F3', pieceType: 'bishop', team: 2, createdAtMs: Date.now() },
+    { id: 35, x: 0, y: 7, userId: 'system', color: '#2196F3', pieceType: 'king', team: 2, createdAtMs: Date.now() },
+    // ... add more blue pieces
+    
+    // Green pieces (right)
+    { id: 49, x: 13, y: 7, userId: 'system', color: '#4CAF50', pieceType: 'queen', team: 2, createdAtMs: Date.now() },
+    { id: 50, x: 13, y: 8, userId: 'system', color: '#4CAF50', pieceType: 'bishop', team: 2, createdAtMs: Date.now() },
+    { id: 51, x: 13, y: 6, userId: 'system', color: '#4CAF50', pieceType: 'king', team: 2, createdAtMs: Date.now() },
+    // ... add more green pieces
+  ];
+
+  // Helper function to get initial base points
+  const fetchInitialBasePoints = (): Promise<BasePoint[]> => {
+    console.log('Returning initial board state');
+    return Promise.resolve(JSON.parse(JSON.stringify(INITIAL_BASE_POINTS)));
   };
 
   // Handle going back one move
@@ -560,21 +583,40 @@ const Board: Component<BoardProps> = (props) => {
     
     console.log('Going back - new index:', newIndex, 'history length:', newHistory.length);
     
-    // Update the move history first
-    setCurrentMoveIndex(newIndex);
-    setMoveHistory(newHistory);
-    
-    // Reset to initial base points and reapply moves up to the new index
-    const initialBasePoints = await fetchInitialBasePoints();
-    setBasePoints(initialBasePoints);
-    
-    // Apply all moves up to the new index
-    updateBoardState(newHistory);
-    
-    // Update turn index based on the number of moves
-    setCurrentTurnIndex(newHistory.length % PLAYER_COLORS.length);
-    
-    console.log('After going back - base points:', basePoints());
+    try {
+      // Update the move history first
+      setCurrentMoveIndex(newIndex);
+      setMoveHistory(newHistory);
+      
+      // Reset to initial base points
+      console.log('Resetting to initial base points...');
+      const initialBasePoints = await fetchInitialBasePoints();
+      console.log('Fetched initial base points:', initialBasePoints);
+      
+      // Use a timeout to ensure state updates are processed
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
+      // Set the base points and wait for the next tick
+      setBasePoints([...initialBasePoints]);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
+      console.log('Base points after reset:', basePoints());
+      
+      // Only apply moves if there are any
+      if (newHistory.length > 0) {
+        console.log('Applying moves from history...');
+        updateBoardState(newHistory);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        console.log('Board state after applying moves:', basePoints());
+      }
+      
+      // Update turn index based on the number of moves
+      setCurrentTurnIndex(newHistory.length % PLAYER_COLORS.length);
+      
+    } catch (error) {
+      console.error('Error in handleGoBack:', error);
+      setError('Failed to go back. Please try again.');
+    }
   };
   const [hoveredSquare, setHoveredSquare] = createSignal<number | null>(null);
   const [kingInCheck, setKingInCheck] = createSignal<{team: 1 | 2, position: [number, number]} | null>(null);
