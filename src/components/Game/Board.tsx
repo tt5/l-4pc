@@ -536,18 +536,45 @@ const Board: Component<BoardProps> = (props) => {
     setBasePoints(Array.from(basePointMap.values()));
   };
   
+  // Helper function to fetch initial base points
+  const fetchInitialBasePoints = async (): Promise<BasePoint[]> => {
+    try {
+      const response = await fetch(`/api/game/${gameId()}/base-points`);
+      if (response.ok) {
+        const data = await response.json();
+        return data.basePoints || [];
+      }
+      return [];
+    } catch (error) {
+      console.error('Failed to fetch initial base points:', error);
+      return [];
+    }
+  };
+
   // Handle going back one move
   const handleGoBack = async () => {
     if (currentMoveIndex() < 0) return;
     
     const newIndex = currentMoveIndex() - 1;
-    setCurrentMoveIndex(newIndex);
     const newHistory = fullMoveHistory().slice(0, newIndex + 1);
+    
+    console.log('Going back - new index:', newIndex, 'history length:', newHistory.length);
+    
+    // Update the move history first
+    setCurrentMoveIndex(newIndex);
     setMoveHistory(newHistory);
+    
+    // Reset to initial base points and reapply moves up to the new index
+    const initialBasePoints = await fetchInitialBasePoints();
+    setBasePoints(initialBasePoints);
+    
+    // Apply all moves up to the new index
     updateBoardState(newHistory);
     
     // Update turn index based on the number of moves
     setCurrentTurnIndex(newHistory.length % PLAYER_COLORS.length);
+    
+    console.log('After going back - base points:', basePoints());
   };
   const [hoveredSquare, setHoveredSquare] = createSignal<number | null>(null);
   const [kingInCheck, setKingInCheck] = createSignal<{team: 1 | 2, position: [number, number]} | null>(null);
