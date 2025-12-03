@@ -503,19 +503,37 @@ const Board: Component<BoardProps> = (props) => {
   
   // Update the base points based on the current move history
   const updateBoardState = (moves: Move[]) => {
-    // Reset to initial state
-    fetchBasePoints().then(() => {
-      // Apply each move in sequence
-      moves.forEach(move => {
-        setBasePoints(prev => 
-          prev.map(bp => 
-            bp.x === move.from[0] && bp.y === move.from[1]
-              ? { ...bp, x: move.to[0], y: move.to[1] }
-              : bp
-          )
-        );
-      });
+    // Get the current base points and create a deep copy with proper typing
+    const currentBasePoints: BasePoint[] = JSON.parse(JSON.stringify(basePoints()));
+    
+    // Create a map of base point positions for quick lookup
+    const basePointMap = new Map(
+      currentBasePoints.map((bp) => [`${bp.x},${bp.y}`, bp])
+    );
+    
+    // Apply each move in sequence
+    moves.forEach(move => {
+      const fromKey = `${move.from[0]},${move.from[1]}`;
+      const basePoint = basePointMap.get(fromKey);
+      
+      if (basePoint) {
+        // Remove the old position from the map
+        basePointMap.delete(fromKey);
+        
+        // Create a new base point object with updated position
+        const updatedBasePoint = {
+          ...basePoint,
+          x: move.to[0],
+          y: move.to[1]
+        };
+        
+        // Add the new position to the map
+        basePointMap.set(`${move.to[0]},${move.to[1]}`, updatedBasePoint);
+      }
     });
+    
+    // Update the base points state with a new array
+    setBasePoints(Array.from(basePointMap.values()));
   };
   
   // Handle going back one move
