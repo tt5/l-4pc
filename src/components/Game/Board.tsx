@@ -83,15 +83,21 @@ const Board: Component<BoardProps> = (props) => {
         const response = await fetch(`/api/game/${currentGameId}/moves`);
         if (response.ok) {
           const { moves } = await response.json();
-          console.log('Loaded moves:', moves?.length || 0);
-          setMoveHistory(moves || []);
+          const moveList = moves || [];
+          console.log('Loaded moves:', moveList.length);
+          setMoveHistory(moveList);
+          // Update the current turn index based on the number of moves
+          // This ensures the correct player's turn is shown after loading
+          setCurrentTurnIndex(moveList.length % PLAYER_COLORS.length);
         } else {
           console.error('Failed to load moves:', await response.text());
           setMoveHistory([]);
+          setCurrentTurnIndex(0); // Reset to first player if no moves
         }
       } catch (error) {
         console.error('Failed to load moves:', error);
         setMoveHistory([]);
+        setCurrentTurnIndex(0); // Reset to first player on error
       }
     };
     
