@@ -85,6 +85,8 @@ const Board: Component<BoardProps> = (props) => {
           const { moves } = await response.json();
           const moveList = moves || [];
           console.log('Loaded moves:', moveList.length);
+          setFullMoveHistory(moveList);
+          setCurrentMoveIndex(moveList.length - 1);
           setMoveHistory(moveList);
           // Update the current turn index based on the number of moves
           // This ensures the correct player's turn is shown after loading
@@ -488,9 +490,47 @@ const Board: Component<BoardProps> = (props) => {
   const [targetPosition, setTargetPosition] = createSignal<[number, number] | null>(null);
   const [isProcessingMove, setIsProcessingMove] = createSignal(false);
   const [hoveredCell, setHoveredCell] = createSignal<[number, number] | null>(null);
+  
+  // Full move history from the server
+  const [fullMoveHistory, setFullMoveHistory] = createSignal<Move[]>([]);
+  // Current position in the move history (for going back/forward)
+  const [currentMoveIndex, setCurrentMoveIndex] = createSignal(-1);
+  // Current move history up to the current position
   const [moveHistory, setMoveHistory] = createSignal<Move[]>([]);
+  
   const [currentTurnIndex, setCurrentTurnIndex] = createSignal(0);
   const currentPlayerColor = () => PLAYER_COLORS[currentTurnIndex() % PLAYER_COLORS.length];
+  
+  // Update the base points based on the current move history
+  const updateBoardState = (moves: Move[]) => {
+    // Reset to initial state
+    fetchBasePoints().then(() => {
+      // Apply each move in sequence
+      moves.forEach(move => {
+        setBasePoints(prev => 
+          prev.map(bp => 
+            bp.x === move.from[0] && bp.y === move.from[1]
+              ? { ...bp, x: move.to[0], y: move.to[1] }
+              : bp
+          )
+        );
+      });
+    });
+  };
+  
+  // Handle going back one move
+  const handleGoBack = async () => {
+    if (currentMoveIndex() < 0) return;
+    
+    const newIndex = currentMoveIndex() - 1;
+    setCurrentMoveIndex(newIndex);
+    const newHistory = fullMoveHistory().slice(0, newIndex + 1);
+    setMoveHistory(newHistory);
+    updateBoardState(newHistory);
+    
+    // Update turn index based on the number of moves
+    setCurrentTurnIndex(newHistory.length % PLAYER_COLORS.length);
+  };
   const [hoveredSquare, setHoveredSquare] = createSignal<number | null>(null);
   const [kingInCheck, setKingInCheck] = createSignal<{team: 1 | 2, position: [number, number]} | null>(null);
   
@@ -1036,9 +1076,14 @@ const Board: Component<BoardProps> = (props) => {
         const moveNumber = moveHistory().length + 1;
         console.log('Move number:', moveNumber, 'History length:', moveHistory().length);
         
+        // Add the new move to the history
+        const updatedHistory = [...fullMoveHistory().slice(0, currentMoveIndex() + 1), newMove];
+        setFullMoveHistory(updatedHistory);
+        setCurrentMoveIndex(updatedHistory.length - 1);
+        setMoveHistory(updatedHistory);
+        
         // Update turn to next player
         setCurrentTurnIndex(prev => (prev + 1) % PLAYER_COLORS.length);
-        setMoveHistory(prev => [...prev, newMove]);
 
         // 3. Update the base points in the UI
         const updatedBasePoints = basePoints().map(bp => 
@@ -1323,8 +1368,12 @@ const Board: Component<BoardProps> = (props) => {
       <div class={styles.boardContent}>
         <BoardControls 
           gameId={gameId()}
+          canGoBack={currentMoveIndex() >= 0}
+          onGoBack={handleGoBack}
           onReset={async () => {
             // Reset move history and turn counter
+            setFullMoveHistory([]);
+            setCurrentMoveIndex(-1);
             setMoveHistory([]);
             setCurrentTurnIndex(0);
             
