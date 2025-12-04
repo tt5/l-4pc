@@ -1041,9 +1041,10 @@ const Board: Component<BoardProps> = (props) => {
         x: number;
         y: number;
         restrictedBy: Array<{
-          basePointId: string | number;
+          basePointId: string;
           basePointX: number;
           basePointY: number;
+          direction?: string;
         }>;
       }> = [];
 
@@ -1067,7 +1068,7 @@ const Board: Component<BoardProps> = (props) => {
           
           if (existingInfo) {
             existingInfo.restrictedBy.push({
-              basePointId: piece.id,
+              basePointId: String(piece.id),
               basePointX: piece.x,
               basePointY: piece.y
             });
@@ -1077,7 +1078,7 @@ const Board: Component<BoardProps> = (props) => {
               x,
               y,
               restrictedBy: [{
-                basePointId: piece.id,
+                basePointId: String(piece.id),
                 basePointX: piece.x,
                 basePointY: piece.y
               }]
