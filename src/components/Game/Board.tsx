@@ -14,7 +14,7 @@ import {
 } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { moveEventService } from '~/lib/server/events/move-events';
-import { PLAYER_COLORS, type PlayerColor, isInNonPlayableCorner } from '~/constants/game';
+import { PLAYER_COLORS, type PlayerColor, isInNonPlayableCorner as isInNonPlayableCornerUtil } from '~/constants/game';
 import { basePointEventService } from '~/lib/server/events/base-point-events';
 import { GridCell } from './GridCell';
 import { useRestrictedSquares } from '../../contexts/RestrictedSquaresContext';
