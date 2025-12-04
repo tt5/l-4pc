@@ -850,7 +850,7 @@ const Board: Component<BoardProps> = (props) => {
   const currentPlayerColor = () => PLAYER_COLORS[currentTurnIndex() % PLAYER_COLORS.length];
   
   // Update the base points based on the current move history
-  const updateBoardState = (moves: Array<{from: [number, number], to: [number, number], pieceType: string}>) => {
+  const updateBoardState = (moves: Move[]) => {
     // Start with a fresh copy of the initial board state
     const newBasePoints = JSON.parse(JSON.stringify(INITIAL_BASE_POINTS));
     
