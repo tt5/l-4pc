@@ -503,16 +503,20 @@ const Board: Component<BoardProps> = (props) => {
   
   // Update the base points based on the current move history
   const updateBoardState = (moves: Move[]) => {
-    // Get the current base points and create a deep copy with proper typing
-    const currentBasePoints: BasePoint[] = JSON.parse(JSON.stringify(basePoints()));
+    // Start with the initial base points from the board setup
+    const initialBasePoints = [...INITIAL_BASE_POINTS];
     
     // Create a map of base point positions for quick lookup
     const basePointMap = new Map(
-      currentBasePoints.map((bp) => [`${bp.x},${bp.y}`, bp])
+      initialBasePoints.map(bp => [
+        `${bp.x},${bp.y}`, 
+        { ...bp } // Create a new object to avoid reference issues
+      ])
     );
     
-    // Apply each move in sequence
+    // Apply each move in sequence from the beginning
     moves.forEach(move => {
+      // Find the base point at the "from" position
       const fromKey = `${move.from[0]},${move.from[1]}`;
       const basePoint = basePointMap.get(fromKey);
       
@@ -528,11 +532,12 @@ const Board: Component<BoardProps> = (props) => {
         };
         
         // Add the new position to the map
-        basePointMap.set(`${move.to[0]},${move.to[1]}`, updatedBasePoint);
+        const toKey = `${move.to[0]},${move.to[1]}`;
+        basePointMap.set(toKey, updatedBasePoint);
       }
     });
     
-    // Update the base points state with a new array
+    // Update the base points state with the new positions
     setBasePoints(Array.from(basePointMap.values()));
   };
   
@@ -621,7 +626,7 @@ const Board: Component<BoardProps> = (props) => {
   const handleGoBack = async () => {
     if (currentMoveIndex() < 0) return;
     
-    const newIndex = currentMoveIndex() - 1;
+    const newIndex = Math.max(-1, currentMoveIndex() - 1);
     const newHistory = fullMoveHistory().slice(0, newIndex + 1);
     
     console.log('Going back - new index:', newIndex, 'history length:', newHistory.length);
@@ -632,29 +637,22 @@ const Board: Component<BoardProps> = (props) => {
       setMoveHistory(newHistory);
       
       // Reset to initial base points
-      console.log('Resetting to initial base points...');
-      const initialBasePoints = await fetchInitialBasePoints();
-      console.log('Fetched initial base points:', initialBasePoints);
+      console.log('Resetting to initial state...');
       
-      // Use a timeout to ensure state updates are processed
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      // Set the base points and wait for the next tick
-      setBasePoints([...initialBasePoints]);
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      console.log('Base points after reset:', basePoints());
-      
-      // Only apply moves if there are any
+      // Apply all moves up to the current index
       if (newHistory.length > 0) {
-        console.log('Applying moves from history...');
+        console.log('Replaying moves from history...');
         updateBoardState(newHistory);
-        await new Promise(resolve => setTimeout(resolve, 0));
-        console.log('Board state after applying moves:', basePoints());
+      } else {
+        // If no moves left, reset to initial state
+        setBasePoints([...INITIAL_BASE_POINTS]);
       }
       
       // Update turn index based on the number of moves
-      setCurrentTurnIndex(newHistory.length % PLAYER_COLORS.length);
+      const newTurnIndex = newHistory.length % PLAYER_COLORS.length;
+      setCurrentTurnIndex(newTurnIndex);
+      
+      console.log('Move history updated. Current turn index:', newTurnIndex);
       
     } catch (error) {
       console.error('Error in handleGoBack:', error);
