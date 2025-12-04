@@ -69,45 +69,98 @@ const Board: Component<BoardProps> = (props) => {
     }
   });
   
-  // Log game ID changes and load moves
+  // Track the last loaded game ID and user to prevent unnecessary reloads
+  const [lastLoadedState, setLastLoadedState] = createSignal<{
+    gameId: string | null;
+    userId: string | null;
+  }>({ gameId: null, userId: null });
+
+  // Load moves when game ID or user changes
   createEffect(() => {
     const currentGameId = gameId();
     const currentUser = auth.user();
+    const lastState = lastLoadedState();
     
-    console.log('Current game ID:', currentGameId, 'User:', currentUser?.id);
-    
-    // Load moves for the current game
-    const loadMoves = async () => {
-      try {
-        console.log('Fetching moves for game:', currentGameId);
-        const response = await fetch(`/api/game/${currentGameId}/moves`);
-        if (response.ok) {
-          const { moves } = await response.json();
-          const moveList = moves || [];
-          console.log('Loaded moves:', moveList.length);
-          setFullMoveHistory(moveList);
-          setCurrentMoveIndex(moveList.length - 1);
-          setMoveHistory(moveList);
-          // Update the current turn index based on the number of moves
-          // This ensures the correct player's turn is shown after loading
-          setCurrentTurnIndex(moveList.length % PLAYER_COLORS.length);
-        } else {
-          console.error('Failed to load moves:', await response.text());
-          setMoveHistory([]);
-          setCurrentTurnIndex(0); // Reset to first player if no moves
-        }
-      } catch (error) {
-        console.error('Failed to load moves:', error);
-        setMoveHistory([]);
-        setCurrentTurnIndex(0); // Reset to first player on error
-      }
-    };
+    console.log('Move history effect - Game ID:', currentGameId, 'User:', currentUser?.id);
     
     // Only load moves if we have a valid game ID and user is logged in
     if (currentGameId && currentUser) {
-      loadMoves();
+      if (currentGameId !== lastState.gameId || currentUser.id !== lastState.userId) {
+        console.log('Loading moves for game:', currentGameId, 'user:', currentUser.id);
+        
+        // Reset move history immediately to clear any stale data
+        setMoveHistory([]);
+        setFullMoveHistory([]);
+        setCurrentMoveIndex(-1);
+        setCurrentTurnIndex(0);
+        
+        // Load moves for the current game
+        const loadMoves = async () => {
+          try {
+            console.log('Fetching moves for game:', currentGameId);
+            const response = await fetch(`/api/game/${currentGameId}/moves`);
+            
+            if (response.ok) {
+              const { moves } = await response.json();
+              const moveList = Array.isArray(moves) ? moves : [];
+              console.log('Loaded moves:', moveList.length);
+              
+              // Transform the moves to match the expected format
+              const formattedMoves = moveList.map(move => ({
+                id: move.id,
+                from: [move.fromX, move.fromY],
+                to: [move.toX, move.toY],
+                pieceType: move.pieceType,
+                userId: move.userId,
+                gameId: move.gameId,
+                moveNumber: move.moveNumber,
+                capturedPieceId: move.capturedPieceId,
+                createdAtMs: move.createdAtMs
+              }));
+              
+              console.log('Formatted moves:', formattedMoves);
+              
+              // Update state in a single batch
+              setFullMoveHistory(formattedMoves);
+              setMoveHistory(formattedMoves);
+              setCurrentMoveIndex(formattedMoves.length - 1);
+              setCurrentTurnIndex(formattedMoves.length % PLAYER_COLORS.length);
+              
+              // Update last loaded state
+              setLastLoadedState({
+                gameId: currentGameId,
+                userId: currentUser.id
+              });
+              
+              // If we have moves, update the board state
+              if (formattedMoves.length > 0) {
+                console.log('Applying loaded moves to board...');
+                updateBoardState(formattedMoves);
+              } else {
+                // If no moves, reset to initial state
+                setBasePoints([...INITIAL_BASE_POINTS]);
+              }
+            } else {
+              console.error('Failed to load moves:', await response.text());
+              setMoveHistory([]);
+              setCurrentTurnIndex(0);
+            }
+          } catch (error) {
+            console.error('Failed to load moves:', error);
+            setMoveHistory([]);
+            setCurrentTurnIndex(0);
+          }
+        };
+        
+        loadMoves();
+      }
     } else {
+      // Clear state if no game ID or user
       setMoveHistory([]);
+      setFullMoveHistory([]);
+      setCurrentMoveIndex(-1);
+      setCurrentTurnIndex(0);
+      setLastLoadedState({ gameId: null, userId: null });
     }
   });
   // Listen for move events
@@ -502,43 +555,54 @@ const Board: Component<BoardProps> = (props) => {
   const currentPlayerColor = () => PLAYER_COLORS[currentTurnIndex() % PLAYER_COLORS.length];
   
   // Update the base points based on the current move history
-  const updateBoardState = (moves: Move[]) => {
-    // Start with the initial base points from the board setup
-    const initialBasePoints = [...INITIAL_BASE_POINTS];
+  const updateBoardState = (moves: Array<{from: [number, number], to: [number, number], pieceType: string}>) => {
+    // Start with a fresh copy of the initial board state
+    const newBasePoints = JSON.parse(JSON.stringify(INITIAL_BASE_POINTS));
     
-    // Create a map of base point positions for quick lookup
-    const basePointMap = new Map(
-      initialBasePoints.map(bp => [
-        `${bp.x},${bp.y}`, 
-        { ...bp } // Create a new object to avoid reference issues
-      ])
-    );
+    // Create a map for quick lookup of pieces by position
+    const positionMap = new Map<string, any>();
+    newBasePoints.forEach((point: any) => {
+      positionMap.set(`${point.x},${point.y}`, point);
+    });
     
-    // Apply each move in sequence from the beginning
-    moves.forEach(move => {
-      // Find the base point at the "from" position
-      const fromKey = `${move.from[0]},${move.from[1]}`;
-      const basePoint = basePointMap.get(fromKey);
+    console.log('Updating board state with moves:', moves);
+    
+    // Apply each move in sequence
+    moves.forEach((move, index) => {
+      const [fromX, fromY] = move.from;
+      const [toX, toY] = move.to;
+      const fromKey = `${fromX},${fromY}`;
+      const toKey = `${toX},${toY}`;
       
-      if (basePoint) {
-        // Remove the old position from the map
-        basePointMap.delete(fromKey);
+      console.log(`Move ${index + 1}: from ${fromKey} to ${toKey}`);
+      
+      // Find the piece being moved
+      const piece = positionMap.get(fromKey);
+      if (piece) {
+        console.log('Moving piece:', piece);
         
-        // Create a new base point object with updated position
-        const updatedBasePoint = {
-          ...basePoint,
-          x: move.to[0],
-          y: move.to[1]
-        };
+        // Remove from old position
+        positionMap.delete(fromKey);
         
-        // Add the new position to the map
-        const toKey = `${move.to[0]},${move.to[1]}`;
-        basePointMap.set(toKey, updatedBasePoint);
+        // If there's a piece at the target position, it's being captured
+        if (positionMap.has(toKey)) {
+          console.log('Capturing piece at:', toKey);
+          positionMap.delete(toKey);
+        }
+        
+        // Move the piece to the new position
+        piece.x = toX;
+        piece.y = toY;
+        positionMap.set(toKey, piece);
+      } else {
+        console.warn(`No piece found at ${fromKey} for move ${index + 1}`);
       }
     });
     
-    // Update the base points state with the new positions
-    setBasePoints(Array.from(basePointMap.values()));
+    // Update the base points with the new positions
+    const updatedBasePoints = Array.from(positionMap.values());
+    console.log('Updated base points:', updatedBasePoints);
+    setBasePoints(updatedBasePoints);
   };
   
   // Initial board setup - matches the reset-board.ts configuration
@@ -624,39 +688,53 @@ const Board: Component<BoardProps> = (props) => {
 
   // Handle going back one move
   const handleGoBack = async () => {
-    if (currentMoveIndex() < 0) return;
+    const currentIndex = currentMoveIndex();
+    if (currentIndex < 0) {
+      console.log('No moves to go back from');
+      return;
+    }
     
-    const newIndex = Math.max(-1, currentMoveIndex() - 1);
-    const newHistory = fullMoveHistory().slice(0, newIndex + 1);
+    const newIndex = Math.max(-1, currentIndex - 1);
+    const currentHistory = fullMoveHistory();
+    const newHistory = currentHistory.slice(0, newIndex + 1);
     
-    console.log('Going back - new index:', newIndex, 'history length:', newHistory.length);
+    console.log('Going back - current index:', currentIndex, 'new index:', newIndex, 
+                'history length:', currentHistory.length, 'new history length:', newHistory.length);
     
     try {
-      // Update the move history first
+      // First reset to the initial board state
+      console.log('Resetting to initial board state...');
+      setBasePoints([...INITIAL_BASE_POINTS]);
+      
+      // Wait for the next tick to ensure state is updated
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
+      // If there are moves to replay, apply them
+      if (newHistory.length > 0) {
+        console.log('Replaying', newHistory.length, 'moves from history...');
+        updateBoardState(newHistory);
+      }
+      
+      // Update the move history state
       setCurrentMoveIndex(newIndex);
       setMoveHistory(newHistory);
-      
-      // Reset to initial base points
-      console.log('Resetting to initial state...');
-      
-      // Apply all moves up to the current index
-      if (newHistory.length > 0) {
-        console.log('Replaying moves from history...');
-        updateBoardState(newHistory);
-      } else {
-        // If no moves left, reset to initial state
-        setBasePoints([...INITIAL_BASE_POINTS]);
-      }
       
       // Update turn index based on the number of moves
       const newTurnIndex = newHistory.length % PLAYER_COLORS.length;
       setCurrentTurnIndex(newTurnIndex);
       
-      console.log('Move history updated. Current turn index:', newTurnIndex);
+      console.log('Move history updated. Current turn index:', newTurnIndex, 
+                 'Current move index:', newIndex, 'of', currentHistory.length - 1);
       
     } catch (error) {
       console.error('Error in handleGoBack:', error);
       setError('Failed to go back. Please try again.');
+      
+      // Try to restore to a consistent state
+      setCurrentMoveIndex(-1);
+      setMoveHistory([]);
+      setBasePoints([...INITIAL_BASE_POINTS]);
+      setCurrentTurnIndex(0);
     }
   };
   const [hoveredSquare, setHoveredSquare] = createSignal<number | null>(null);
