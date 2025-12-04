@@ -412,26 +412,10 @@ const Board: Component<BoardProps> = (props) => {
             const response = await fetch(`/api/game/${currentGameId}/moves`);
             
             if (response.ok) {
-              const { moves } = await response.json();
-              const moveList = Array.isArray(moves) ? moves : [];
-              console.log('Loaded moves:', moveList.length);
+              const movesData = await response.json();
+              // Assuming the API returns an array of moves
+              const formattedMoves = Array.isArray(movesData) ? movesData : [];
               
-              // Transform the moves to match the expected format
-              const formattedMoves = moveList.map(move => ({
-                id: move.id,
-                from: [move.fromX, move.fromY],
-                to: [move.toX, move.toY],
-                pieceType: move.pieceType,
-                userId: move.userId,
-                gameId: move.gameId,
-                moveNumber: move.moveNumber,
-                capturedPieceId: move.capturedPieceId,
-                createdAtMs: move.createdAtMs
-              }));
-              
-              console.log('Formatted moves:', formattedMoves);
-              
-              // Update state in a single batch
               setFullMoveHistory(formattedMoves);
               setMoveHistory(formattedMoves);
               setCurrentMoveIndex(formattedMoves.length - 1);
