@@ -1003,7 +1003,7 @@ const Board: Component<BoardProps> = (props) => {
       setBasePoints(initialBasePoints);
       
       // Reset selection and hover states
-      setSelectedSquare(null);
+      setPickedUpBasePoint(null);
       setHoveredSquare(null);
       setHoveredCell(null);
       setPickedUpBasePoint(null);
