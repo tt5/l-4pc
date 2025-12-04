@@ -1042,11 +1042,38 @@ const Board: Component<BoardProps> = (props) => {
       const newTurnIndex = (currentTurnIndex() - 1 + PLAYER_COLORS.length) % PLAYER_COLORS.length;
       setCurrentTurnIndex(newTurnIndex);
       
-      // Recalculate restricted squares using the updated board state
-      const currentPlayerColor = PLAYER_COLORS[newTurnIndex];
-      const currentPlayerPieces = currentBasePoints.filter(p => 
-        p.color.toLowerCase() === currentPlayerColor.toLowerCase()
-      );
+      // Map of player colors to their hex codes
+      type TeamColor = 'blue' | 'red' | 'yellow' | 'green';
+      const COLOR_MAP: Record<TeamColor, string> = {
+        'blue': '#2196F3',
+        'red': '#F44336',
+        'yellow': '#FFEB3B',
+        'green': '#4CAF50'
+      };
+
+      // Get the current player's color, converting from color name to hex if needed
+      const playerColorName = PLAYER_COLORS[newTurnIndex].toLowerCase() as TeamColor;
+      const currentPlayerColor = COLOR_MAP[playerColorName] || playerColorName;
+      
+      // Log all unique colors in the game for debugging
+      const allColors = [...new Set(currentBasePoints.map(p => p.color))];
+      console.log('All colors in game:', allColors);
+      console.log('Looking for color:', currentPlayerColor, '(mapped from', playerColorName + ')');
+
+      // First try exact match with the mapped color
+      let currentPlayerPieces = currentBasePoints.filter(p => {
+        const colorMatch = p.color && p.color.toLowerCase() === currentPlayerColor.toLowerCase();
+        console.log(`Piece ${p.id} - color: "${p.color}", matches: ${colorMatch}`);
+        return colorMatch;
+      });
+
+      // Fallback: If no pieces found, try matching with the original color name
+      if (currentPlayerPieces.length === 0) {
+        console.warn('No pieces found with mapped color, trying with original color name...');
+        currentPlayerPieces = currentBasePoints.filter(p => 
+          p.color && p.color.toLowerCase() === playerColorName.toLowerCase()
+        );
+      }
       
       console.log('Current player pieces after move back:', {
         playerColor: currentPlayerColor,
