@@ -989,52 +989,81 @@ const Board: Component<BoardProps> = (props) => {
       return;
     }
     
-    const newIndex = Math.max(-1, currentIndex - 1);
     const currentHistory = fullMoveHistory();
+    const moveToUndo = currentHistory[currentIndex];
+    const newIndex = currentIndex - 1;
     const newHistory = currentHistory.slice(0, newIndex + 1);
     
-    console.log('Going back - current index:', currentIndex, 'new index:', newIndex, 
-                'history length:', currentHistory.length, 'new history length:', newHistory.length);
+    console.log('Going back - current index:', currentIndex, 'move to undo:', moveToUndo);
     
     try {
-      // First reset to the initial board state
-      console.log('Resetting to initial board state...');
-      const initialBasePoints = [...INITIAL_BASE_POINTS];
-      setBasePoints(initialBasePoints);
+      const currentBasePoints = [...basePoints()];
+      const [fromX, fromY] = moveToUndo.to; // The current position
+      const [toX, toY] = moveToUndo.from;   // The position to move back to
       
-      // Reset selection and hover states
-      setPickedUpBasePoint(null);
-      setHoveredSquare(null);
-      setHoveredCell(null);
-      setPickedUpBasePoint(null);
+      // Find the piece being moved back
+      let pieceIndex = currentBasePoints.findIndex(p => p.x === fromX && p.y === fromY);
       
-      // Wait for the next tick to ensure state is updated
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-      // If there are moves to replay, apply them
-      if (newHistory.length > 0) {
-        console.log('Replaying', newHistory.length, 'moves from history...');
-        updateBoardState(newHistory);
+      if (pieceIndex !== -1) {
+        const piece = { ...currentBasePoints[pieceIndex] };
         
-        // Wait for the board state to update
-        await new Promise(resolve => setTimeout(resolve, 0));
+        // Move the piece back to its original position
+        piece.x = toX;
+        piece.y = toY;
+        
+        // If this move captured a piece, we need to restore it
+        // Note: The original piece data isn't stored, so we'll just create a basic piece
+        if (moveToUndo.capturedPieceId) {
+          const capturedPiece: BasePoint = {
+            id: moveToUndo.capturedPieceId,
+            x: fromX,
+            y: fromY,
+            userId: '', // We don't have this info
+            color: '',  // We don't have this info
+            pieceType: 'pawn', // Default type since we don't know
+            team: piece.team === 1 ? 2 : 1, // Opposite team of the moving piece
+            createdAtMs: Date.now()
+          };
+          currentBasePoints.push(capturedPiece);
+        }
+        
+        // Update the piece in the array
+        currentBasePoints[pieceIndex] = piece;
+        
+        // Update the state
+        setBasePoints(currentBasePoints);
       }
       
-      // Update the move history state
+      // Update move history state
       setCurrentMoveIndex(newIndex);
       setMoveHistory(newHistory);
       
-      // Update turn index based on the number of moves
-      const newTurnIndex = newHistory.length % PLAYER_COLORS.length;
+      // Update turn index - go back to the previous player
+      const newTurnIndex = (currentTurnIndex() - 1 + PLAYER_COLORS.length) % PLAYER_COLORS.length;
       setCurrentTurnIndex(newTurnIndex);
       
-      // Get the current player's color
+      // Recalculate restricted squares using the updated board state
       const currentPlayerColor = PLAYER_COLORS[newTurnIndex];
+      const currentPlayerPieces = currentBasePoints.filter(p => 
+        p.color.toLowerCase() === currentPlayerColor.toLowerCase()
+      );
       
-      // Get all pieces belonging to the current player
-      const currentPlayerPieces = basePoints().filter(p => p.color === currentPlayerColor);
+      console.log('Current player pieces after move back:', {
+        playerColor: currentPlayerColor,
+        allPieces: currentBasePoints.map(p => ({
+          id: p.id,
+          color: p.color,
+          type: p.pieceType,
+          position: [p.x, p.y]
+        })),
+        filteredPieces: currentPlayerPieces.map(p => ({
+          id: p.id,
+          color: p.color,
+          type: p.pieceType,
+          position: [p.x, p.y]
+        }))
+      });
       
-      // Calculate restricted squares based on the current board state
       const newRestrictedSquares: number[] = [];
       const newRestrictedSquaresInfo: Array<{
         index: number;
@@ -1048,20 +1077,18 @@ const Board: Component<BoardProps> = (props) => {
         }>;
       }> = [];
 
-      // For each piece of the current player, calculate possible moves
+      // Calculate restricted squares for current player's pieces
       for (const piece of currentPlayerPieces) {
         const moves = getLegalMoves(piece, basePoints());
         
         for (const move of moves) {
-          const { x, y, canCapture } = move;
+          const { x, y } = move;
           const index = y * BOARD_CONFIG.GRID_SIZE + x;
           
-          // Add to restricted squares if not already present
           if (!newRestrictedSquares.includes(index)) {
             newRestrictedSquares.push(index);
           }
           
-          // Add to restricted squares info
           const existingInfo = newRestrictedSquaresInfo.find(info => 
             info.x === x && info.y === y
           );
@@ -1086,18 +1113,77 @@ const Board: Component<BoardProps> = (props) => {
           }
         }
       }
-      
+
       // Update the restricted squares state
       setRestrictedSquares(newRestrictedSquares);
       setRestrictedSquaresInfo(newRestrictedSquaresInfo);
-      
-      console.log('Updated restricted squares after move back:', {
+
+      // Log the calculated restricted squares
+      console.log('Restricted squares after move back:', {
         squares: newRestrictedSquares,
-        squaresWithOrigins: newRestrictedSquaresInfo
+        squaresInfo: newRestrictedSquaresInfo,
+        currentPlayerColor: PLAYER_COLORS[newTurnIndex],
+        currentPlayerPieces: currentPlayerPieces.map(p => ({
+          id: p.id,
+          type: p.pieceType,
+          position: [p.x, p.y],
+          color: p.color
+        }))
       });
+
+      // Force a re-render to ensure the UI updates with the new restricted squares
+      await new Promise(resolve => setTimeout(resolve, 0));
       
-      console.log('Move history updated. Current turn index:', newTurnIndex, 
-                 'Current move index:', newIndex, 'of', currentHistory.length - 1);
+      // Re-fetch the latest base points to ensure we have the most up-to-date state
+      const latestBasePoints = basePoints();
+      
+      // Recalculate restricted squares again to ensure they're in sync with the UI
+      const recalculatedRestrictedSquares: number[] = [];
+      const recalculatedRestrictedSquaresInfo: typeof newRestrictedSquaresInfo = [];
+      
+      for (const piece of currentPlayerPieces) {
+        const moves = getLegalMoves(piece, latestBasePoints);
+        
+        for (const move of moves) {
+          const { x, y } = move;
+          const index = y * BOARD_CONFIG.GRID_SIZE + x;
+          
+          if (!recalculatedRestrictedSquares.includes(index)) {
+            recalculatedRestrictedSquares.push(index);
+          }
+          
+          const existingInfo = recalculatedRestrictedSquaresInfo.find(info => 
+            info.x === x && info.y === y
+          );
+          
+          if (existingInfo) {
+            existingInfo.restrictedBy.push({
+              basePointId: String(piece.id),
+              basePointX: piece.x,
+              basePointY: piece.y
+            });
+          } else {
+            recalculatedRestrictedSquaresInfo.push({
+              index,
+              x,
+              y,
+              restrictedBy: [{
+                basePointId: String(piece.id),
+                basePointX: piece.x,
+                basePointY: piece.y
+              }]
+            });
+          }
+        }
+      }
+      
+      // Update with the final calculated restricted squares
+      setRestrictedSquares(recalculatedRestrictedSquares);
+      setRestrictedSquaresInfo(recalculatedRestrictedSquaresInfo);
+
+      console.log('Move back completed. Current turn index:', newTurnIndex, 
+                 'Player color:', currentPlayerColor,
+                 'Restricted squares:', recalculatedRestrictedSquares.length);
       
     } catch (error) {
       console.error('Error in handleGoBack:', error);
