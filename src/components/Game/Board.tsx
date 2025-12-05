@@ -1145,18 +1145,20 @@ const Board: Component<BoardProps> = (props) => {
   // Handle going back one move in history
   const handleGoBack = async () => {
     const currentIndex = currentMoveIndex();
-    if (currentIndex < 0) {
+    const totalMoves = fullMoveHistory().length;
+    
+    if (totalMoves === 0) {
       console.log('No moves to go back from');
       return;
     }
     
-    const newIndex = currentIndex - 1;
-    
-    // If we're going back before the first move, do nothing
-    if (newIndex < 0) {
+    // If we're already at the beginning, do nothing
+    if (currentIndex === -1) {
       console.log('Already at the first move');
       return;
     }
+    
+    const newIndex = currentIndex >= 0 ? currentIndex - 1 : -1;
     
     // Replay all moves up to the new index
     const movesToReplay = fullMoveHistory().slice(0, newIndex + 1);
