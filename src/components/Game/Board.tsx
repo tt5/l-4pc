@@ -1114,7 +1114,24 @@ const Board: Component<BoardProps> = (props) => {
       setCurrentMoveIndex(nextIndex);
       
       // Update turn after move
-      setCurrentTurnIndex(nextIndex % PLAYER_COLORS.length);
+      console.log('handleGoForward - nextMove:', nextMove);
+      console.log('handleGoForward - currentTurnIndex before:', currentTurnIndex());
+
+      // Determine the next player's turn based on the move's color
+      const nextPlayerColor = nextMove?.color?.toLowerCase();
+      console.log('handleGoForward - nextPlayerColor:', nextPlayerColor);
+
+      const nextPlayerIndex = PLAYER_COLORS.findIndex(c => c.toLowerCase() === nextPlayerColor);
+      console.log('handleGoForward - nextPlayerIndex:', nextPlayerIndex);
+
+      // Update the turn index
+      const newTurnIndex = nextPlayerIndex >= 0 ? nextPlayerIndex : (nextIndex) % PLAYER_COLORS.length;
+      console.log('handleGoForward - setting newTurnIndex:', newTurnIndex);
+      setCurrentTurnIndex(newTurnIndex);
+
+      // Log the current state after update
+      console.log('handleGoForward - currentTurnIndex after:', currentTurnIndex());
+      console.log('handleGoForward - currentPlayerColor after:', currentPlayerColor());
       
       // Clear any previous errors
       setError('');
