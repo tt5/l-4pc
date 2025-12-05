@@ -24,6 +24,7 @@ export interface BasePoint {
   pieceType: PieceType;
   team: 1 | 2; // 1 for team 1 (red/yellow), 2 for team 2 (blue/green)
   createdAtMs: number;
+  hasMoved?: boolean; // Tracks if the piece has moved from its starting position
 }
 
 export interface Item {

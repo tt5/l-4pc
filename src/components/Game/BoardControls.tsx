@@ -5,14 +5,17 @@ import styles from './BoardControls.module.css';
 type BoardControlsProps = {
   onReset?: () => Promise<void>;
   onGoBack?: () => Promise<void>;
+  onGoForward?: () => Promise<void>;
   gameId?: string;
   canGoBack?: boolean;
+  canGoForward?: boolean;
 };
 
 const BoardControls: Component<BoardControlsProps> = (props) => {
   const { user } = useAuth();
   const [isResetting, setIsResetting] = createSignal(false);
   const [isGoingBack, setIsGoingBack] = createSignal(false);
+  const [isGoingForward, setIsGoingForward] = createSignal(false);
 
   const handleResetBoard = async () => {
     const currentUser = user();
@@ -61,16 +64,41 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
     }
   };
 
+  const handleGoForward = async () => {
+    if (isGoingForward() || !props.canGoForward) return;
+    
+    setIsGoingForward(true);
+    try {
+      if (props.onGoForward) {
+        await props.onGoForward();
+      }
+    } catch (error) {
+      console.error('Error going forward:', error);
+    } finally {
+      setIsGoingForward(false);
+    }
+  };
+
   return (
     <div class={styles.boardControls}>
-      <button 
-        onClick={handleGoBack} 
-        disabled={!props.canGoBack || isGoingBack()}
-        class={`${styles.controlButton} ${styles.goBackButton}`}
-        title="Go back one move"
-      >
-        {isGoingBack() ? 'Going back...' : 'Go Back'}
-      </button>
+      <div class={styles.navButtons}>
+        <button 
+          onClick={handleGoBack} 
+          disabled={!props.canGoBack || isGoingBack()}
+          class={`${styles.controlButton} ${styles.navButton} ${styles.backButton}`}
+          title="Go back one move"
+        >
+          {isGoingBack() ? '...' : '⏪ Back'}
+        </button>
+        <button 
+          onClick={handleGoForward} 
+          disabled={!props.canGoForward || isGoingForward()}
+          class={`${styles.controlButton} ${styles.navButton} ${styles.forwardButton}`}
+          title="Go forward one move"
+        >
+          {isGoingForward() ? '...' : 'Forward ⏩'}
+        </button>
+      </div>
       <button 
         onClick={handleResetBoard} 
         disabled={isResetting()}

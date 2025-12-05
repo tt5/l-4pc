@@ -1070,6 +1070,47 @@ const Board: Component<BoardProps> = (props) => {
     return Promise.resolve(JSON.parse(JSON.stringify(INITIAL_BASE_POINTS)));
   };
 
+  // Handle going forward one move
+  const handleGoForward = async () => {
+    const currentIndex = currentMoveIndex();
+    const history = fullMoveHistory();
+    
+    if (currentIndex >= history.length - 1) {
+      console.log('No moves to go forward to');
+      return;
+    }
+
+    try {
+      const nextMove = history[currentIndex + 1];
+      setCurrentMoveIndex(currentIndex + 1);
+      
+      // Apply the next move to the current state
+      setBasePoints(prev => {
+        const newPoints = [...prev];
+        const pointIndex = newPoints.findIndex(p => p.id === nextMove.basePointId);
+        if (pointIndex !== -1) {
+          newPoints[pointIndex] = {
+            ...newPoints[pointIndex],
+            x: nextMove.to[0],
+            y: nextMove.to[1],
+            hasMoved: true
+          };
+        }
+        return newPoints;
+      });
+
+      // Update turn after move
+      setCurrentTurnIndex(prev => (prev + 1) % 2);
+      
+      // Clear any previous errors
+      setError('');
+      
+    } catch (error) {
+      console.error('Error in handleGoForward:', error);
+      setError('Failed to go forward. Please try again.');
+    }
+  };
+
   // Handle going back one move
   const handleGoBack = async () => {
     const currentIndex = currentMoveIndex();
@@ -2152,7 +2193,9 @@ const Board: Component<BoardProps> = (props) => {
         <BoardControls 
           gameId={gameId()}
           canGoBack={currentMoveIndex() >= 0}
+          canGoForward={currentMoveIndex() < fullMoveHistory().length - 1}
           onGoBack={handleGoBack}
+          onGoForward={handleGoForward}
           onReset={async () => {
             // Reset move history and turn counter
             setFullMoveHistory([]);
