@@ -1070,6 +1070,30 @@ const Board: Component<BoardProps> = (props) => {
     return Promise.resolve(JSON.parse(JSON.stringify(INITIAL_BASE_POINTS)));
   };
 
+  // Handle clicking on a move in the history
+  const handleMoveClick = (moveNumber: number) => {
+    const targetIndex = moveNumber - 1; // Convert to 0-based index
+    
+    if (targetIndex < 0 || targetIndex >= fullMoveHistory().length) {
+      console.warn('Invalid move number:', moveNumber);
+      return;
+    }
+    
+    const currentIdx = currentMoveIndex();
+    
+    if (targetIndex < currentIdx) {
+      // If clicking on a previous move, go back to that move
+      setCurrentMoveIndex(targetIndex - 1); // Will be incremented by handleGoBack
+      handleGoBack();
+    } else if (targetIndex > currentIdx) {
+      // If clicking on a future move, go forward to that move
+      const stepsForward = targetIndex - currentIdx;
+      for (let i = 0; i < stepsForward; i++) {
+        handleGoForward();
+      }
+    }
+  };
+
   // Handle going forward one move in history
   const handleGoForward = async () => {
     const currentIndex = currentMoveIndex();
@@ -2424,8 +2448,16 @@ const Board: Component<BoardProps> = (props) => {
                   console.warn('Move data format unexpected, using fallback values:', move);
                 }
                 
+                // Check if this is the current move
+                const isCurrentMove = move.moveNumber === currentMoveIndex() + 1 || 
+                                   (move.moveNumber === undefined && index() === moveHistory().length - 1 - currentMoveIndex());
+                
                 return (
-                  <div class={styles.moveItem}>
+                  <div 
+                    class={`${styles.moveItem} ${isCurrentMove ? styles.currentMove : ''}`}
+                    onClick={() => handleMoveClick(move.moveNumber || (moveHistory().length - index()))}
+                    style={{ cursor: 'pointer' }}
+                  >
                     <div 
                       class={styles.colorSwatch} 
                       style={{ 'background-color': move.color }}
