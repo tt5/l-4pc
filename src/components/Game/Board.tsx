@@ -1152,11 +1152,9 @@ const Board: Component<BoardProps> = (props) => {
     
     const newIndex = currentIndex - 1;
     
-    // If we're going back before the first move, reset to initial state
+    // If we're going back before the first move, do nothing
     if (newIndex < 0) {
-      setBasePoints([...INITIAL_BASE_POINTS]);
-      setCurrentMoveIndex(-1);
-      setCurrentTurnIndex(0);
+      console.log('Already at the first move');
       return;
     }
     
