@@ -1109,29 +1109,74 @@ const Board: Component<BoardProps> = (props) => {
         };
       }
       
-      // Update the board state
+      // Update the board state and move index
       setBasePoints(currentBasePoints);
       setCurrentMoveIndex(nextIndex);
       
-      // Update turn after move
-      console.log('handleGoForward - nextMove:', nextMove);
-      console.log('handleGoForward - currentTurnIndex before:', currentTurnIndex());
-
-      // Determine the next player's turn based on the move's color
-      const nextPlayerColor = nextMove?.color?.toLowerCase();
-      console.log('handleGoForward - nextPlayerColor:', nextPlayerColor);
-
-      const nextPlayerIndex = PLAYER_COLORS.findIndex(c => c.toLowerCase() === nextPlayerColor);
-      console.log('handleGoForward - nextPlayerIndex:', nextPlayerIndex);
-
-      // Update the turn index
-      const newTurnIndex = nextPlayerIndex >= 0 ? nextPlayerIndex : (nextIndex) % PLAYER_COLORS.length;
-      console.log('handleGoForward - setting newTurnIndex:', newTurnIndex);
+      // Update turn to the next player
+      const newTurnIndex = (nextIndex + 1) % PLAYER_COLORS.length;
       setCurrentTurnIndex(newTurnIndex);
-
-      // Log the current state after update
-      console.log('handleGoForward - currentTurnIndex after:', currentTurnIndex());
-      console.log('handleGoForward - currentPlayerColor after:', currentPlayerColor());
+      
+      // Recalculate legal moves for the current player
+      const currentPlayerPieces = currentBasePoints.filter(
+        p => p.color === PLAYER_COLORS[newTurnIndex]
+      );
+      
+      const newRestrictedSquares: number[] = [];
+      const newRestrictedSquaresInfo: Array<{
+        index: number;
+        x: number;
+        y: number;
+        restrictedBy: Array<{ 
+          basePointId: string; 
+          basePointX: number; 
+          basePointY: number; 
+          direction?: string;
+        }>;
+      }> = [];
+      
+      // Calculate restricted squares and their info
+      for (const piece of currentPlayerPieces) {
+        const moves = getLegalMoves(piece, currentBasePoints);
+        
+        for (const move of moves) {
+          const { x, y } = move;
+          const index = y * BOARD_CONFIG.GRID_SIZE + x;
+          
+          if (!newRestrictedSquares.includes(index)) {
+            newRestrictedSquares.push(index);
+          }
+          
+          // Find if we already have info for this square
+          const existingInfo = newRestrictedSquaresInfo.find(info => 
+            info.x === x && info.y === y
+          );
+          
+          if (existingInfo) {
+            existingInfo.restrictedBy.push({
+              basePointId: piece.id.toString(),
+              basePointX: piece.x,
+              basePointY: piece.y,
+              direction: undefined // Optional, so we can omit or set as undefined
+            });
+          } else {
+            newRestrictedSquaresInfo.push({
+              index,
+              x,
+              y,
+              restrictedBy: [{
+                basePointId: piece.id.toString(),
+                basePointX: piece.x,
+                basePointY: piece.y,
+                direction: undefined // Optional, so we can omit or set as undefined
+              }]
+            });
+          }
+        }
+      }
+      
+      setRestrictedSquares(newRestrictedSquares);
+      setRestrictedSquaresInfo(newRestrictedSquaresInfo);
       
       // Clear any previous errors
       setError('');
