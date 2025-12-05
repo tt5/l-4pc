@@ -359,6 +359,14 @@ const Board: Component<BoardProps> = (props) => {
   const navigate = useNavigate();
   const [gameId, setGameId] = createSignal<string>(props.gameId || DEFAULT_GAME_ID);
   
+  // Debug logging for initial render
+  console.log('[BOARD] Initial render', {
+    isAuthenticated: !!auth.user(),
+    userId: auth.user()?.id,
+    gameId: gameId(),
+    hasPropsGameId: !!props.gameId
+  });
+  
   // Fetch the latest game ID when the component mounts
   onMount(async () => {
     if (!props.gameId) {
@@ -385,6 +393,11 @@ const Board: Component<BoardProps> = (props) => {
     gameId: string | null;
     userId: string | null;
   }>({ gameId: null, userId: null });
+  
+  // Debug logging for last loaded state changes
+  createEffect(() => {
+    console.log('[BOARD] Last loaded state updated:', lastLoadedState());
+  });
 
   // Load moves when game ID or user changes
   createEffect(() => {
@@ -392,7 +405,20 @@ const Board: Component<BoardProps> = (props) => {
     const currentUser = auth.user();
     const lastState = lastLoadedState();
     
-    console.log('Move history effect - Game ID:', currentGameId, 'User:', currentUser?.id);
+    console.log('[BOARD] Move history effect triggered', {
+      currentGameId,
+      currentUserId: currentUser?.id,
+      lastState: JSON.parse(JSON.stringify(lastState)) // Create a deep copy to avoid Solid's proxy
+    });
+    
+    // Debug auth state
+    const authToken = auth.getToken();
+    console.log('[BOARD] Auth state:', {
+      hasUser: !!currentUser,
+      userId: currentUser?.id,
+      isAuthenticated: !!currentUser,
+      hasToken: !!authToken
+    });
     
     // Only load moves if we have a valid game ID and user is logged in
     if (currentGameId && currentUser) {
@@ -408,42 +434,115 @@ const Board: Component<BoardProps> = (props) => {
         // Load moves for the current game
         const loadMoves = async () => {
           try {
-            console.log('Fetching moves for game:', currentGameId);
-            const response = await fetch(`/api/game/${currentGameId}/moves`);
+            const url = `/api/game/${currentGameId}/moves`;
+            console.log(`[BOARD] Fetching moves from: ${url}`);
+            
+            const headers: HeadersInit = {
+              'Content-Type': 'application/json'
+            };
+            
+            // Add auth token if available
+            const userToken = auth.getToken();
+            if (userToken) {
+              headers['Authorization'] = `Bearer ${userToken}`;
+              console.log('[BOARD] Added auth token to request');
+            } else {
+              console.log('[BOARD] No auth token available');
+            }
+            
+            const startTime = performance.now();
+            const response = await fetch(url, {
+              headers,
+              credentials: 'include' // Include cookies for session-based auth
+            });
+            const endTime = performance.now();
+            
+            console.log(`[BOARD] Move fetch completed in ${(endTime - startTime).toFixed(2)}ms`, {
+              status: response.status,
+              statusText: response.statusText,
+              url: response.url
+            });
             
             if (response.ok) {
-              const movesData = await response.json();
-              // Assuming the API returns an array of moves
-              const formattedMoves = Array.isArray(movesData) ? movesData : [];
+              const data = await response.json();
+              console.log('[BOARD] Received API response:', data);
               
-              setFullMoveHistory(formattedMoves);
-              setMoveHistory(formattedMoves);
-              setCurrentMoveIndex(formattedMoves.length - 1);
-              setCurrentTurnIndex(formattedMoves.length % PLAYER_COLORS.length);
+              // Extract moves from the response object and transform them to the expected format
+              const rawMoves = Array.isArray(data?.moves) ? data.moves : [];
+              console.log(`[BOARD] Extracted ${rawMoves.length} moves from response`);
+              
+              // Define the type for the move object from the API
+              interface ApiMove {
+                id: number;
+                gameId: string;
+                userId: string;
+                pieceType: string;
+                fromX: number;
+                fromY: number;
+                toX: number;
+                toY: number;
+                moveNumber: number;
+                capturedPieceId: number | null;
+                createdAtMs: number;
+              }
+              
+              // Transform moves to the format expected by updateBoardState
+              const moves = rawMoves.map((move: ApiMove) => ({
+                from: [move.fromX, move.fromY] as [number, number],
+                to: [move.toX, move.toY] as [number, number],
+                pieceType: move.pieceType,
+                userId: move.userId,
+                id: move.id,
+                gameId: move.gameId,
+                moveNumber: move.moveNumber,
+                capturedPieceId: move.capturedPieceId,
+                createdAtMs: move.createdAtMs
+              }));
+              
+              if (moves.length > 0) {
+                console.log('[BOARD] First move sample:', moves[0]);
+              }
+              
+              setFullMoveHistory(moves);
+              setMoveHistory(moves);
+              setCurrentMoveIndex(moves.length - 1);
+              setCurrentTurnIndex(moves.length % PLAYER_COLORS.length);
               
               // Update last loaded state
-              setLastLoadedState({
+              const newState = {
                 gameId: currentGameId,
                 userId: currentUser.id
-              });
+              };
+              console.log('[BOARD] Updating last loaded state:', newState);
+              setLastLoadedState(newState);
               
               // If we have moves, update the board state
-              if (formattedMoves.length > 0) {
-                console.log('Applying loaded moves to board...');
-                updateBoardState(formattedMoves);
+              if (moves.length > 0) {
+                console.log('[BOARD] Applying loaded moves to board...');
+                updateBoardState(moves);
               } else {
-                // If no moves, reset to initial state
+                console.log('[BOARD] No moves found, resetting to initial state');
                 setBasePoints([...INITIAL_BASE_POINTS]);
               }
             } else {
-              console.error('Failed to load moves:', await response.text());
+              const errorText = await response.text();
+              console.error('[BOARD] Failed to load moves:', {
+                status: response.status,
+                statusText: response.statusText,
+                error: errorText
+              });
               setMoveHistory([]);
               setCurrentTurnIndex(0);
             }
           } catch (error) {
-            console.error('Failed to load moves:', error);
+            console.error('[BOARD] Error loading moves:', {
+              error: error instanceof Error ? error.message : String(error),
+              stack: error instanceof Error ? error.stack : undefined
+            });
             setMoveHistory([]);
             setCurrentTurnIndex(0);
+          } finally {
+            console.log('[BOARD] Move loading completed for game:', currentGameId);
           }
         };
         

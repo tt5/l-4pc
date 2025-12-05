@@ -7,6 +7,7 @@ interface AuthStore {
   login: (username: string, password: string) => Promise<NullableUser>;
   logout: () => Promise<void>;
   isInitialized: () => boolean;
+  getToken: () => string | null;
 }
 
 const AuthContext = createContext<AuthStore>();
@@ -264,11 +265,18 @@ const createAuthStore = (): AuthStore => {
     }
   };
 
+  // Add method to get the current auth token
+  const getToken = (): string | null => {
+    const currentUser = user();
+    return currentUser?.token || null;
+  };
+
   return {
     user,
     login,
     logout,
-    isInitialized
+    isInitialized,
+    getToken
   };
 };
 
