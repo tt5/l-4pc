@@ -338,17 +338,7 @@ const getLegalMoves = (
   }
 };
 
-const isInNonPlayableCorner = (x: number, y: number): boolean => {
-  const { GRID_SIZE } = BOARD_CONFIG;
-  const corners = [
-    [0, 0],                      // Top-left
-    [0, GRID_SIZE - 1],          // Top-right
-    [GRID_SIZE - 1, 0],          // Bottom-left
-    [GRID_SIZE - 1, GRID_SIZE - 1] // Bottom-right
-  ];
-  
-  return corners.some(([cx, cy]) => x === cx && y === cy);
-};
+const isInNonPlayableCorner = isInNonPlayableCornerUtil;
 
 interface BoardProps {
   gameId?: string;
