@@ -1070,37 +1070,51 @@ const Board: Component<BoardProps> = (props) => {
     return Promise.resolve(JSON.parse(JSON.stringify(INITIAL_BASE_POINTS)));
   };
 
-  // Handle going forward one move
+  // Handle going forward one move in history
   const handleGoForward = async () => {
     const currentIndex = currentMoveIndex();
     const history = fullMoveHistory();
     
     if (currentIndex >= history.length - 1) {
-      console.log('No moves to go forward to');
+      console.log('No more moves to go forward to');
       return;
     }
-
+    
+    const nextIndex = currentIndex + 1;
+    const nextMove = history[nextIndex];
+    
     try {
-      const nextMove = history[currentIndex + 1];
-      setCurrentMoveIndex(currentIndex + 1);
+      const currentBasePoints = [...basePoints()];
+      const [fromX, fromY] = nextMove.from;
+      const [toX, toY] = nextMove.to;
       
-      // Apply the next move to the current state
-      setBasePoints(prev => {
-        const newPoints = [...prev];
-        const pointIndex = newPoints.findIndex(p => p.id === nextMove.basePointId);
-        if (pointIndex !== -1) {
-          newPoints[pointIndex] = {
-            ...newPoints[pointIndex],
-            x: nextMove.to[0],
-            y: nextMove.to[1],
-            hasMoved: true
-          };
+      // Find and move the piece
+      const pieceIndex = currentBasePoints.findIndex(p => p.x === fromX && p.y === fromY);
+      
+      if (pieceIndex !== -1) {
+        // If this move captures a piece, remove it
+        if (nextMove.capturedPieceId) {
+          const capturedPieceIndex = currentBasePoints.findIndex(p => p.id === nextMove.capturedPieceId);
+          if (capturedPieceIndex !== -1) {
+            currentBasePoints.splice(capturedPieceIndex, 1);
+          }
         }
-        return newPoints;
-      });
-
+        
+        // Update the piece's position
+        currentBasePoints[pieceIndex] = {
+          ...currentBasePoints[pieceIndex],
+          x: toX,
+          y: toY,
+          hasMoved: true
+        };
+      }
+      
+      // Update the board state
+      setBasePoints(currentBasePoints);
+      setCurrentMoveIndex(nextIndex);
+      
       // Update turn after move
-      setCurrentTurnIndex(prev => (prev + 1) % 2);
+      setCurrentTurnIndex(nextIndex % PLAYER_COLORS.length);
       
       // Clear any previous errors
       setError('');
@@ -1111,7 +1125,7 @@ const Board: Component<BoardProps> = (props) => {
     }
   };
 
-  // Handle going back one move
+  // Handle going back one move in history
   const handleGoBack = async () => {
     const currentIndex = currentMoveIndex();
     if (currentIndex < 0) {
@@ -1119,57 +1133,53 @@ const Board: Component<BoardProps> = (props) => {
       return;
     }
     
-    const currentHistory = fullMoveHistory();
-    const moveToUndo = currentHistory[currentIndex];
     const newIndex = currentIndex - 1;
-    const newHistory = currentHistory.slice(0, newIndex + 1);
     
-    console.log('Going back - current index:', currentIndex, 'move to undo:', moveToUndo);
+    // If we're going back before the first move, reset to initial state
+    if (newIndex < 0) {
+      setBasePoints([...INITIAL_BASE_POINTS]);
+      setCurrentMoveIndex(-1);
+      setCurrentTurnIndex(0);
+      return;
+    }
+    
+    // Replay all moves up to the new index
+    const movesToReplay = fullMoveHistory().slice(0, newIndex + 1);
     
     try {
-      const currentBasePoints = [...basePoints()];
-      const [fromX, fromY] = moveToUndo.to; // The current position
-      const [toX, toY] = moveToUndo.from;   // The position to move back to
+      // Start with initial base points
+      let newBasePoints = [...INITIAL_BASE_POINTS];
       
-      // Find the piece being moved back
-      let pieceIndex = currentBasePoints.findIndex(p => p.x === fromX && p.y === fromY);
-      
-      if (pieceIndex !== -1) {
-        const piece = { ...currentBasePoints[pieceIndex] };
+      // Replay each move up to the new index
+      for (let i = 0; i <= newIndex; i++) {
+        const move = fullMoveHistory()[i];
+        const [fromX, fromY] = move.from;
+        const [toX, toY] = move.to;
         
-        // Move the piece back to its original position
-        piece.x = toX;
-        piece.y = toY;
-        
-        // If this move captured a piece, we need to restore it
-        // Note: The original piece data isn't stored, so we'll just create a basic piece
-        if (moveToUndo.capturedPieceId) {
-          const capturedPiece: BasePoint = {
-            id: moveToUndo.capturedPieceId,
-            x: fromX,
-            y: fromY,
-            userId: '', // We don't have this info
-            color: '',  // We don't have this info
-            pieceType: 'pawn', // Default type since we don't know
-            team: piece.team === 1 ? 2 : 1, // Opposite team of the moving piece
-            createdAtMs: Date.now()
+        // Find and move the piece
+        const pieceIndex = newBasePoints.findIndex(p => p.x === fromX && p.y === fromY);
+        if (pieceIndex !== -1) {
+          // If this move captured a piece, remove it
+          if (move.capturedPieceId) {
+            newBasePoints = newBasePoints.filter(p => p.id !== move.capturedPieceId);
+          }
+          
+          // Update the piece's position
+          newBasePoints[pieceIndex] = {
+            ...newBasePoints[pieceIndex],
+            x: toX,
+            y: toY,
+            hasMoved: true
           };
-          currentBasePoints.push(capturedPiece);
         }
-        
-        // Update the piece in the array
-        currentBasePoints[pieceIndex] = piece;
-        
-        // Update the state
-        setBasePoints(currentBasePoints);
       }
       
-      // Update move history state
+      // Update the board state
+      setBasePoints(newBasePoints);
       setCurrentMoveIndex(newIndex);
-      setMoveHistory(newHistory);
       
-      // Update turn index - go back to the previous player
-      const newTurnIndex = (currentTurnIndex() - 1 + PLAYER_COLORS.length) % PLAYER_COLORS.length;
+      // Update turn index - next player's turn (since the move at newIndex was just applied)
+      const newTurnIndex = (newIndex + 1) % PLAYER_COLORS.length;
       setCurrentTurnIndex(newTurnIndex);
       
       // Map of player colors to their hex codes
@@ -1185,29 +1195,25 @@ const Board: Component<BoardProps> = (props) => {
       const playerColorName = PLAYER_COLORS[newTurnIndex].toLowerCase() as TeamColor;
       const currentPlayerColor = COLOR_MAP[playerColorName] || playerColorName;
       
-      // Log all unique colors in the game for debugging
-      const allColors = [...new Set(currentBasePoints.map(p => p.color))];
-      console.log('All colors in game:', allColors);
-      console.log('Looking for color:', currentPlayerColor, '(mapped from', playerColorName + ')');
+      console.log('Current turn index:', newTurnIndex, 'Player color:', currentPlayerColor);
 
-      // First try exact match with the mapped color
-      let currentPlayerPieces = currentBasePoints.filter(p => {
-        const colorMatch = p.color && p.color.toLowerCase() === currentPlayerColor.toLowerCase();
-        console.log(`Piece ${p.id} - color: "${p.color}", matches: ${colorMatch}`);
-        return colorMatch;
-      });
+      // Get current player's pieces
+      let currentPlayerPieces = basePoints().filter((p: BasePoint) => 
+        p.color && (p.color.toLowerCase() === currentPlayerColor.toLowerCase() || 
+                   p.color.toLowerCase() === playerColorName.toLowerCase())
+      );
 
       // Fallback: If no pieces found, try matching with the original color name
       if (currentPlayerPieces.length === 0) {
         console.warn('No pieces found with mapped color, trying with original color name...');
-        currentPlayerPieces = currentBasePoints.filter(p => 
+        currentPlayerPieces = basePoints().filter((p: BasePoint) => 
           p.color && p.color.toLowerCase() === playerColorName.toLowerCase()
         );
       }
       
       console.log('Current player pieces after move back:', {
         playerColor: currentPlayerColor,
-        allPieces: currentBasePoints.map(p => ({
+        allPieces: basePoints().map((p: BasePoint) => ({
           id: p.id,
           color: p.color,
           type: p.pieceType,
@@ -1246,7 +1252,7 @@ const Board: Component<BoardProps> = (props) => {
             newRestrictedSquares.push(index);
           }
           
-          const existingInfo = newRestrictedSquaresInfo.find(info => 
+          const existingInfo = newRestrictedSquaresInfo.find((info: { x: number; y: number }) => 
             info.x === x && info.y === y
           );
           
