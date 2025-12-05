@@ -1118,9 +1118,32 @@ const Board: Component<BoardProps> = (props) => {
       setCurrentTurnIndex(newTurnIndex);
       
       // Recalculate legal moves for the current player
-      const currentPlayerPieces = currentBasePoints.filter(
-        p => p.color === PLAYER_COLORS[newTurnIndex]
-      );
+      const currentPlayerPieces = currentBasePoints.filter(p => {
+        // Get the expected color for the current turn
+        const expectedColor = PLAYER_COLORS[newTurnIndex];
+        // Get the mapped color if it exists
+        const mappedColor = {
+          'blue': '#2196F3',
+          'red': '#F44336',
+          'yellow': '#FFEB3B',
+          'green': '#4CAF50'
+        }[expectedColor.toLowerCase()] || expectedColor;
+        
+        // Compare with both the direct color and the mapped color
+        return p.color && (p.color === expectedColor || p.color === mappedColor);
+      });
+      
+      console.log('Current player pieces after forward move:', {
+        turnIndex: newTurnIndex,
+        expectedColor: PLAYER_COLORS[newTurnIndex],
+        pieceCount: currentPlayerPieces.length,
+        pieces: currentPlayerPieces.map(p => ({
+          id: p.id,
+          color: p.color,
+          type: p.pieceType,
+          position: [p.x, p.y]
+        }))
+      });
       
       const newRestrictedSquares: number[] = [];
       const newRestrictedSquaresInfo: Array<{
@@ -1259,19 +1282,27 @@ const Board: Component<BoardProps> = (props) => {
       
       console.log('Current turn index:', newTurnIndex, 'Player color:', currentPlayerColor);
 
-      // Get current player's pieces
-      let currentPlayerPieces = basePoints().filter((p: BasePoint) => 
-        p.color && (p.color.toLowerCase() === currentPlayerColor.toLowerCase() || 
-                   p.color.toLowerCase() === playerColorName.toLowerCase())
-      );
+      // Get current player's pieces - use the replayed base points (newBasePoints) instead of the current state
+      let currentPlayerPieces = newBasePoints.filter((p: BasePoint) => {
+        // Normalize both colors for comparison
+        const pieceColor = p.color?.toLowerCase();
+        const targetColor = currentPlayerColor.toLowerCase();
+        const colorName = playerColorName.toLowerCase();
+        
+        return pieceColor && (pieceColor === targetColor || pieceColor === colorName);
+      });
 
-      // Fallback: If no pieces found, try matching with the original color name
-      if (currentPlayerPieces.length === 0) {
-        console.warn('No pieces found with mapped color, trying with original color name...');
-        currentPlayerPieces = basePoints().filter((p: BasePoint) => 
-          p.color && p.color.toLowerCase() === playerColorName.toLowerCase()
-        );
-      }
+      console.log('Current player pieces after filtering:', {
+        playerColor: currentPlayerColor,
+        playerColorName,
+        pieceCount: currentPlayerPieces.length,
+        pieces: currentPlayerPieces.map(p => ({
+          id: p.id,
+          color: p.color,
+          type: p.pieceType,
+          position: [p.x, p.y]
+        }))
+      });
       
       console.log('Current player pieces after move back:', {
         playerColor: currentPlayerColor,
