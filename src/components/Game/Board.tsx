@@ -1009,7 +1009,21 @@ const Board: Component<BoardProps> = (props) => {
   const handleMoveClick = (moveNumber: number) => {
     const targetIndex = moveNumber - 1; // Convert to 0-based index
     
+    console.log('[Move History] Move clicked:', {
+      moveNumber,
+      targetIndex,
+      currentMoveIndex: currentMoveIndex(),
+      totalMoves: fullMoveHistory().length,
+      moveDetails: fullMoveHistory()[targetIndex] ? {
+        from: fullMoveHistory()[targetIndex].from,
+        to: fullMoveHistory()[targetIndex].to,
+        player: fullMoveHistory()[targetIndex].playerId,
+        color: fullMoveHistory()[targetIndex].color
+      } : 'No move at this index'
+    });
+    
     if (targetIndex < 0 || targetIndex >= fullMoveHistory().length) {
+      console.warn('[Move History] Invalid move number:', moveNumber, 'Target index:', targetIndex, 'Total moves:', fullMoveHistory().length);
       return;
     }
     
@@ -2301,6 +2315,28 @@ const Board: Component<BoardProps> = (props) => {
                 const isCurrentMove = move.moveNumber ? 
                     move.moveNumber - 1 === currentMoveIndex() : 
                     index() === (moveHistory().length - 1 - currentMoveIndex());
+                
+                // Log highlighting info for debugging
+                if (isCurrentMove) {
+                  console.log('[Move History] Highlighting move:', {
+                    moveNumber: move.moveNumber,
+                    moveIndex: move.moveNumber ? move.moveNumber - 1 : index(),
+                    currentMoveIndex: currentMoveIndex(),
+                    moveDetails: {
+                      from: [fromX, fromY],
+                      to: [toX, toY],
+                      player: move.playerId,
+                      color: move.color,
+                      timestamp: move.timestamp ? new Date(move.timestamp).toISOString() : 'No timestamp'
+                    },
+                    allMoves: moveHistory().map((m, i) => ({
+                      moveNumber: m.moveNumber,
+                      isCurrent: i === currentMoveIndex(),
+                      from: m.from,
+                      to: m.to
+                    }))
+                  });
+                }
                 
                 return (
                   <div 
