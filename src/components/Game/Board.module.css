@@ -60,8 +60,21 @@
   background: #ffffff;
   border-radius: 6px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  transition: all 0.2s ease;
   border-left: 3px solid transparent;
+  position: relative;
+  z-index: 1;
+}
+
+.moveItem.currentMove {
+  background-color: #e3f2fd;
+  border-left: 3px solid #1976d2;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(25, 118, 210, 0.2);
+}
+
+.moveItem.currentMove:hover {
+  background-color: #bbdefb;
 }
 
 .moveItem:hover {
