@@ -134,6 +134,26 @@
   margin-top: 2px;
 }
 
+/* Current move highlight */
+.moveItem.currentMove {
+  background-color: rgba(59, 130, 246, 0.1);
+  border-left: 3px solid #3b82f6;
+  padding-left: 12px;
+  margin-left: -15px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.moveItem.currentMove .moveNumber {
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.moveItem.currentMove .moveCoords {
+  color: #1e40af;
+  font-weight: 600;
+}
+
 /* Responsive adjustments */
 @media (max-width: 1024px) {
   .moveHistoryContainer {
