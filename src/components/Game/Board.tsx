@@ -2314,9 +2314,36 @@ const Board: Component<BoardProps> = (props) => {
                 // Check if this is the current move using moveNumber
                 const isCurrentMove = (move.moveNumber ?? 0) - 1 === currentMoveIndex();
                 
-                // Log highlighting info for debugging
+                // Log the current state of all moves and their highlight status
                 if (isCurrentMove) {
-                  console.log('[Move History] Highlighting move:', {
+                  const currentIndex = currentMoveIndex();
+                  const allMovesState = moveHistory().map((m, idx) => ({
+                    moveNumber: m.moveNumber,
+                    index: idx,
+                    isCurrent: (m.moveNumber ?? 0) - 1 === currentIndex,
+                    hasCurrentClass: idx === currentIndex,
+                    element: `[data-move-number="${m.moveNumber}"]`
+                  }));
+                  
+                  // Log each move's state on a separate line for better readability
+                  console.group('[Move History] Current move states:');
+                  allMovesState.forEach((moveState, idx) => {
+                    const status = moveState.hasCurrentClass ? 'CURRENT' : '       ';
+                    console.log(`[${status}] Move ${moveState.moveNumber} (idx: ${idx}):`, 
+                      `isCurrent: ${moveState.isCurrent}, `,
+                      `hasCurrentClass: ${moveState.hasCurrentClass}, `,
+                      `selector: ${moveState.element}`
+                    );
+                  });
+                  console.groupEnd();
+                  
+                  // Count how many moves have the current class
+                  const currentMoves = allMovesState.filter(m => m.hasCurrentClass);
+                  if (currentMoves.length !== 1) {
+                    console.warn(`[Move History] Expected 1 current move, found ${currentMoves.length}`, currentMoves);
+                  }
+                  
+                  console.log('[Move History] Applying highlight to move:', {
                     moveNumber: move.moveNumber ?? 'unknown',
                     moveIndex: (move.moveNumber ?? 0) - 1,
                     currentMoveIndex: currentMoveIndex(),
@@ -2336,11 +2363,26 @@ const Board: Component<BoardProps> = (props) => {
                   });
                 }
                 
+                // Log when a move item is rendered with currentMove class
+                if (isCurrentMove) {
+                  console.groupCollapsed(`[Move History] Rendering move ${move.moveNumber} with currentMove class`);
+                  console.log('Move details:', {
+                    moveNumber: move.moveNumber,
+                    index: index(),
+                    currentMoveIndex: currentMoveIndex(),
+                    element: `[data-move-number="${move.moveNumber}"]`
+                  });
+                  console.log('DOM Element:', document.querySelector(`[data-move-number="${move.moveNumber}"]`));
+                  console.groupEnd();
+                }
+                
                 return (
                   <div 
                     class={`${styles.moveItem} ${isCurrentMove ? styles.currentMove : ''}`}
                     onClick={() => handleMoveClick(move.moveNumber || (moveHistory().length - index()))}
                     style={{ cursor: 'pointer' }}
+                    data-move-number={move.moveNumber}
+                    data-is-current={isCurrentMove}
                   >
                     <div 
                       class={styles.colorSwatch} 
