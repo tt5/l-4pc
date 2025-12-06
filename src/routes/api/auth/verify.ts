@@ -21,7 +21,6 @@ export const GET = async ({ request }: { request: Request }) => {
       }
     });
   } catch (error) {
-    console.error('Error verifying session:', error);
     return jsonResponse({ 
       valid: false, 
       message: 'Error verifying session',

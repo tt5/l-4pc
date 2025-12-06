@@ -349,13 +349,7 @@ const Board: Component<BoardProps> = (props) => {
   const navigate = useNavigate();
   const [gameId, setGameId] = createSignal<string>(props.gameId || DEFAULT_GAME_ID);
   
-  // Debug logging for initial render
-  console.log('[BOARD] Initial render', {
-    isAuthenticated: !!auth.user(),
-    userId: auth.user()?.id,
-    gameId: gameId(),
-    hasPropsGameId: !!props.gameId
-  });
+  // Initial render setup
   
   // Fetch the latest game ID when the component mounts
   onMount(async () => {
@@ -384,10 +378,7 @@ const Board: Component<BoardProps> = (props) => {
     userId: string | null;
   }>({ gameId: null, userId: null });
   
-  // Debug logging for last loaded state changes
-  createEffect(() => {
-    console.log('[BOARD] Last loaded state updated:', lastLoadedState());
-  });
+  // Track last loaded state changes
 
   // Load moves when game ID or user changes
   createEffect(() => {
@@ -395,25 +386,9 @@ const Board: Component<BoardProps> = (props) => {
     const currentUser = auth.user();
     const lastState = lastLoadedState();
     
-    console.log('[BOARD] Move history effect triggered', {
-      currentGameId,
-      currentUserId: currentUser?.id,
-      lastState: JSON.parse(JSON.stringify(lastState)) // Create a deep copy to avoid Solid's proxy
-    });
-    
-    // Debug auth state
-    const authToken = auth.getToken();
-    console.log('[BOARD] Auth state:', {
-      hasUser: !!currentUser,
-      userId: currentUser?.id,
-      isAuthenticated: !!currentUser,
-      hasToken: !!authToken
-    });
-    
     // Only load moves if we have a valid game ID and user is logged in
     if (currentGameId && currentUser) {
       if (currentGameId !== lastState.gameId || currentUser.id !== lastState.userId) {
-        console.log('Loading moves for game:', currentGameId, 'user:', currentUser.id);
         
         // Reset move history immediately to clear any stale data
         setMoveHistory([]);
@@ -425,8 +400,6 @@ const Board: Component<BoardProps> = (props) => {
         const loadMoves = async () => {
           try {
             const url = `/api/game/${currentGameId}/moves`;
-            console.log(`[BOARD] Fetching moves from: ${url}`);
-            
             const headers: HeadersInit = {
               'Content-Type': 'application/json'
             };
@@ -435,31 +408,15 @@ const Board: Component<BoardProps> = (props) => {
             const userToken = auth.getToken();
             if (userToken) {
               headers['Authorization'] = `Bearer ${userToken}`;
-              console.log('[BOARD] Added auth token to request');
-            } else {
-              console.log('[BOARD] No auth token available');
             }
             
-            const startTime = performance.now();
             const response = await fetch(url, {
-              headers,
-              credentials: 'include' // Include cookies for session-based auth
-            });
-            const endTime = performance.now();
-            
-            console.log(`[BOARD] Move fetch completed in ${(endTime - startTime).toFixed(2)}ms`, {
-              status: response.status,
-              statusText: response.statusText,
-              url: response.url
+              headers
             });
             
             if (response.ok) {
               const data = await response.json();
-              console.log('[BOARD] Received API response:', data);
-              
-              // Extract moves from the response object and transform them to the expected format
               const rawMoves = Array.isArray(data?.moves) ? data.moves : [];
-              console.log(`[BOARD] Extracted ${rawMoves.length} moves from response`);
               
               // Define the type for the move object from the API
               interface ApiMove {
@@ -489,10 +446,6 @@ const Board: Component<BoardProps> = (props) => {
                 createdAtMs: move.createdAtMs
               }));
               
-              if (moves.length > 0) {
-                console.log('[BOARD] First move sample:', moves[0]);
-              }
-              
               setFullMoveHistory(moves);
               setMoveHistory(moves);
               setCurrentMoveIndex(moves.length - 1);
@@ -503,15 +456,12 @@ const Board: Component<BoardProps> = (props) => {
                 gameId: currentGameId,
                 userId: currentUser.id
               };
-              console.log('[BOARD] Updating last loaded state:', newState);
               setLastLoadedState(newState);
               
               // If we have moves, update the board state
               if (moves.length > 0) {
-                console.log('[BOARD] Applying loaded moves to board...');
                 updateBoardState(moves);
               } else {
-                console.log('[BOARD] No moves found, resetting to initial state');
                 setBasePoints([...INITIAL_BASE_POINTS]);
               }
             } else {
@@ -531,8 +481,6 @@ const Board: Component<BoardProps> = (props) => {
             });
             setMoveHistory([]);
             setCurrentTurnIndex(0);
-          } finally {
-            console.log('[BOARD] Move loading completed for game:', currentGameId);
           }
         };
         
@@ -949,28 +897,20 @@ const Board: Component<BoardProps> = (props) => {
       positionMap.set(`${point.x},${point.y}`, point);
     });
     
-    console.log('Updating board state with moves:', moves);
-    
     // Apply each move in sequence
-    moves.forEach((move, index) => {
-      const [fromX, fromY] = move.from;
-      const [toX, toY] = move.to;
+    moves.forEach((move) => {
+      const { fromX, fromY, toX, toY } = move;
       const fromKey = `${fromX},${fromY}`;
       const toKey = `${toX},${toY}`;
-      
-      console.log(`Move ${index + 1}: from ${fromKey} to ${toKey}`);
       
       // Find the piece being moved
       const piece = positionMap.get(fromKey);
       if (piece) {
-        console.log('Moving piece:', piece);
-        
         // Remove from old position
         positionMap.delete(fromKey);
         
         // If there's a piece at the target position, it's being captured
         if (positionMap.has(toKey)) {
-          console.log('Capturing piece at:', toKey);
           positionMap.delete(toKey);
         }
         
@@ -978,15 +918,11 @@ const Board: Component<BoardProps> = (props) => {
         piece.x = toX;
         piece.y = toY;
         positionMap.set(toKey, piece);
-      } else {
-        console.warn(`No piece found at ${fromKey} for move ${index + 1}`);
       }
     });
     
     // Update the base points with the new positions
-    const updatedBasePoints = Array.from(positionMap.values());
-    console.log('Updated base points:', updatedBasePoints);
-    setBasePoints(updatedBasePoints);
+    setBasePoints(Array.from(positionMap.values()));
   };
   
   // Initial board setup - matches the reset-board.ts configuration
@@ -1066,7 +1002,6 @@ const Board: Component<BoardProps> = (props) => {
 
   // Helper function to get initial base points
   const fetchInitialBasePoints = (): Promise<BasePoint[]> => {
-    console.log('Returning initial board state');
     return Promise.resolve(JSON.parse(JSON.stringify(INITIAL_BASE_POINTS)));
   };
 
@@ -1075,7 +1010,6 @@ const Board: Component<BoardProps> = (props) => {
     const targetIndex = moveNumber - 1; // Convert to 0-based index
     
     if (targetIndex < 0 || targetIndex >= fullMoveHistory().length) {
-      console.warn('Invalid move number:', moveNumber);
       return;
     }
     
@@ -1100,7 +1034,6 @@ const Board: Component<BoardProps> = (props) => {
     const history = fullMoveHistory();
     
     if (currentIndex >= history.length - 1) {
-      console.log('No more moves to go forward to');
       return;
     }
     
@@ -1240,13 +1173,11 @@ const Board: Component<BoardProps> = (props) => {
     const totalMoves = fullMoveHistory().length;
     
     if (totalMoves === 0) {
-      console.log('No moves to go back from');
       return;
     }
     
     // If we're already at the beginning, do nothing
     if (currentIndex === -1) {
-      console.log('Already at the first move');
       return;
     }
     
@@ -1304,7 +1235,6 @@ const Board: Component<BoardProps> = (props) => {
       const playerColorName = PLAYER_COLORS[newTurnIndex].toLowerCase() as TeamColor;
       const currentPlayerColor = COLOR_MAP[playerColorName] || playerColorName;
       
-      console.log('Current turn index:', newTurnIndex, 'Player color:', currentPlayerColor);
 
       // Get current player's pieces - use the replayed base points (newBasePoints) instead of the current state
       let currentPlayerPieces = newBasePoints.filter((p: BasePoint) => {
@@ -1316,33 +1246,7 @@ const Board: Component<BoardProps> = (props) => {
         return pieceColor && (pieceColor === targetColor || pieceColor === colorName);
       });
 
-      console.log('Current player pieces after filtering:', {
-        playerColor: currentPlayerColor,
-        playerColorName,
-        pieceCount: currentPlayerPieces.length,
-        pieces: currentPlayerPieces.map(p => ({
-          id: p.id,
-          color: p.color,
-          type: p.pieceType,
-          position: [p.x, p.y]
-        }))
-      });
       
-      console.log('Current player pieces after move back:', {
-        playerColor: currentPlayerColor,
-        allPieces: basePoints().map((p: BasePoint) => ({
-          id: p.id,
-          color: p.color,
-          type: p.pieceType,
-          position: [p.x, p.y]
-        })),
-        filteredPieces: currentPlayerPieces.map(p => ({
-          id: p.id,
-          color: p.color,
-          type: p.pieceType,
-          position: [p.x, p.y]
-        }))
-      });
       
       const newRestrictedSquares: number[] = [];
       const newRestrictedSquaresInfo: Array<{
@@ -1399,17 +1303,6 @@ const Board: Component<BoardProps> = (props) => {
       setRestrictedSquaresInfo(newRestrictedSquaresInfo);
 
       // Log the calculated restricted squares
-      console.log('Restricted squares after move back:', {
-        squares: newRestrictedSquares,
-        squaresInfo: newRestrictedSquaresInfo,
-        currentPlayerColor: PLAYER_COLORS[newTurnIndex],
-        currentPlayerPieces: currentPlayerPieces.map(p => ({
-          id: p.id,
-          type: p.pieceType,
-          position: [p.x, p.y],
-          color: p.color
-        }))
-      });
 
       // Force a re-render to ensure the UI updates with the new restricted squares
       await new Promise(resolve => setTimeout(resolve, 0));
@@ -1461,9 +1354,6 @@ const Board: Component<BoardProps> = (props) => {
       setRestrictedSquares(recalculatedRestrictedSquares);
       setRestrictedSquaresInfo(recalculatedRestrictedSquaresInfo);
 
-      console.log('Move back completed. Current turn index:', newTurnIndex, 
-                 'Player color:', currentPlayerColor,
-                 'Restricted squares:', recalculatedRestrictedSquares.length);
       
     } catch (error) {
       console.error('Error in handleGoBack:', error);
@@ -1808,30 +1698,6 @@ const Board: Component<BoardProps> = (props) => {
         }).join(', ')
       : 'None';
     
-    console.log(`Drag started from position: (${x},${y})`);
-    console.log(`Visible restricted squares (${visibleRestrictedSquares.length}): ${visibleSquaresStr}`);
-    
-    // Log detailed visible restricted squares info
-    if (visibleRestrictedSquares.length > 0) {
-      console.log('Visible restricted squares details:');
-      visibleRestrictedSquares.forEach(sq => {
-        const row = Math.floor(sq.index / BOARD_CONFIG.GRID_SIZE);
-        const col = sq.index % BOARD_CONFIG.GRID_SIZE;
-        const isBasePoint = 'isBasePoint' in sq ? sq.isBasePoint : basePoints().some(bp => bp.x === col && bp.y === row);
-        
-        if (isBasePoint) {
-          console.log(`- Base point (${col},${row}) - Can be captured`);
-        } else {
-          const sources = sq.restrictedBy
-            .filter(r => r.basePointX === x && r.basePointY === y)
-            .map(r => `(${r.basePointX},${r.basePointY})`)
-            .join(', ');
-          if (sources) {
-            console.log(`- Square (${col},${row}) - Restricted by: ${sources}`);
-          }
-        }
-      });
-    }
   };
 
   // Helper function to update base point UI during drag
@@ -1889,26 +1755,14 @@ const Board: Component<BoardProps> = (props) => {
   const handleGlobalMouseUp = async (e?: MouseEvent | Event) => {
     // Prevent multiple simultaneous move processing
     if (isProcessingMove()) {
-      console.log('Already processing a move, ignoring duplicate event');
       return;
     }
 
     // Convert to MouseEvent if it's a standard Event
     const mouseEvent = e && 'clientX' in e ? e : undefined;
     
-    console.log('handleGlobalMouseUp triggered', { 
-      isDragging: isDragging(),
-      pickedUpBasePoint: pickedUpBasePoint(),
-      targetPosition: targetPosition(),
-      eventTarget: mouseEvent?.target?.toString(),
-      currentTurnIndex: currentTurnIndex(),
-      currentPlayerColor: currentPlayerColor(),
-      allBasePoints: basePoints(),
-      isAlreadyProcessing: isProcessingMove()
-    });
     
     if (!isDragging() || !pickedUpBasePoint()) {
-      console.log('Not dragging or no picked up base point, returning early');
       return;
     }
 
@@ -1918,14 +1772,11 @@ const Board: Component<BoardProps> = (props) => {
     // If we don't have a target position, try to get it from the hovered cell
     let target = targetPosition();
     if (!target) {
-      console.log('No target position, trying to get from hovered cell');
       const hovered = hoveredCell();
       if (hovered) {
-        console.log('Using hovered cell as target position');
         target = [...hovered];
         setTargetPosition(target);
       } else {
-        console.log('No hovered cell available, cleaning up');
         cleanupDragState();
         return;
       }
@@ -2252,11 +2103,6 @@ const Board: Component<BoardProps> = (props) => {
     const handleMouseUp = (e: Event) => {
       // Only process if we're currently dragging
       if (isDragging() && pickedUpBasePoint()) {
-        console.log('Mouse up during drag', { 
-          target: e.target?.toString(),
-          isDragging: isDragging(),
-          pickedUpBasePoint: pickedUpBasePoint()
-        });
         handleGlobalMouseUp(e as MouseEvent);
       }
     };

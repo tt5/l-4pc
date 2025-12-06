@@ -59,7 +59,6 @@ export const useSSE = (url: string, onBasePointUpdated?: BasePointUpdateHandler)
   };
 
   const handleMessage = (message: SSEMessage) => {
-    console.log('[SSE] handleMessage called with:', message);
     try {
       switch (message.type) {
         case 'basePoint:created':
@@ -77,13 +76,10 @@ export const useSSE = (url: string, onBasePointUpdated?: BasePointUpdateHandler)
           break;
           
         case 'basePoint:updated':
-          console.log('[SSE] Processing basePoint:updated:', message);
           if (onBasePointUpdated) {
             // Use the point property if it exists, otherwise use the message itself
             const pointData = message.point || message.basePoint || message;
-            console.log('[SSE] Calling onBasePointUpdated with point:', pointData);
             onBasePointUpdated(pointData);
-          } else {
           }
           break;
           
@@ -94,7 +90,7 @@ export const useSSE = (url: string, onBasePointUpdated?: BasePointUpdateHandler)
           break;
           
         default:
-          console.warn('Unhandled message type:', message.type);
+          // Unhandled message type
       }
       
       // Add notification if message contains one
@@ -110,7 +106,7 @@ export const useSSE = (url: string, onBasePointUpdated?: BasePointUpdateHandler)
         setNotifications(prev => [notification, ...prev].slice(0, 50));
       }
     } catch (err) {
-      console.error('Error handling SSE message:', err);
+      // Error handling SSE message
     }
   };
 
@@ -118,7 +114,7 @@ export const useSSE = (url: string, onBasePointUpdated?: BasePointUpdateHandler)
     if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
       const delay = INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttemptsRef.current);
       reconnectAttemptsRef.current++;
-      console.log(`[SSE] Attempting to reconnect in ${delay}ms (attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})`);
+      // Attempting to reconnect
       
       reconnectTimeoutRef.current = setTimeout(() => {
         if (isMountedRef.current) {
@@ -126,7 +122,7 @@ export const useSSE = (url: string, onBasePointUpdated?: BasePointUpdateHandler)
         }
       }, delay);
     } else {
-      console.error('[SSE] Max reconnection attempts reached');
+      // Max reconnection attempts reached
     }
   };
 
@@ -138,14 +134,14 @@ export const useSSE = (url: string, onBasePointUpdated?: BasePointUpdateHandler)
     setError(null);
     
     try {
-      console.log(`[SSE] Attempting to connect to ${url}`);
+      // Attempting to connect to SSE endpoint
       eventSourceRef.current = new EventSource(url, { withCredentials: true });
       const eventSource = eventSourceRef.current;
 
       // Connection timeout
       connectionTimeoutRef.current = setTimeout(() => {
         if (!isConnected() && eventSourceRef.current) {
-          console.error('[SSE] Connection timeout');
+          // Connection timeout
           eventSourceRef.current.close();
           eventSourceRef.current = null;
           setError(new Error('Connection timeout'));
@@ -154,7 +150,7 @@ export const useSSE = (url: string, onBasePointUpdated?: BasePointUpdateHandler)
       }, CONNECTION_TIMEOUT);
 
       eventSource.onopen = () => {
-        console.log('[SSE] Connection opened');
+        // Connection opened
         if (connectionTimeoutRef.current) {
           clearTimeout(connectionTimeoutRef.current);
           connectionTimeoutRef.current = null;
@@ -165,7 +161,7 @@ export const useSSE = (url: string, onBasePointUpdated?: BasePointUpdateHandler)
       };
 
       eventSource.onerror = (event: Event) => {
-        console.error('[SSE] Connection error:', event);
+        // Connection error
         if (!isMountedRef.current) return;
         
         setIsConnected(false);
@@ -181,15 +177,13 @@ export const useSSE = (url: string, onBasePointUpdated?: BasePointUpdateHandler)
           const data = JSON.parse(e.data);
           handleMessage({ type: 'basePoint:created', ...data });
         } catch (err) {
-          console.error('Error handling basePoint:created event:', err);
+          // Error handling basePoint:created event
         }
       });
 
       eventSource.addEventListener('basePoint:updated', (e: MessageEvent) => {
         try {
-          console.log('[SSE] Received basePoint:updated raw event:', e);
           const data = JSON.parse(e.data);
-          console.log('[SSE] Parsed basePoint:updated data:', data);
           
           // Extract the point data from the basePoint property if it exists
           const pointData = data.basePoint || data;

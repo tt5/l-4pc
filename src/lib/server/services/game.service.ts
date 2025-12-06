@@ -37,7 +37,6 @@ export async function calculateRestrictedSquares(
       squares: []
     };
   } catch (error) {
-    console.error('Error calculating restricted squares:', error);
     return {
       success: false,
       squares: [],
