@@ -1031,6 +1031,7 @@ const Board: Component<BoardProps> = (props) => {
   // Handle going forward one move in history
   const handleGoForward = async () => {
     const currentIndex = currentMoveIndex();
+    console.log('[Move History] Going forward from index', currentIndex, 'to', currentIndex + 1);
     const history = fullMoveHistory();
     
     if (currentIndex >= history.length - 1) {
@@ -1170,6 +1171,7 @@ const Board: Component<BoardProps> = (props) => {
   // Handle going back one move in history
   const handleGoBack = async () => {
     const currentIndex = currentMoveIndex();
+    console.log('[Move History] Going back one move from index', currentIndex);
     const totalMoves = fullMoveHistory().length;
     
     if (totalMoves === 0) {
@@ -1864,10 +1866,39 @@ const Board: Component<BoardProps> = (props) => {
         
         // Add the new move to the full history
         const newFullHistory = [...fullMoveHistory().slice(0, currentMoveIndex() + 1), newMove];
+        
+        console.log('[Move History] Adding new move to history:', {
+          moveNumber: newMove.moveNumber,
+          pieceId: newMove.basePointId,
+          from: newMove.from,
+          to: newMove.to,
+          player: newMove.playerId,
+          color: newMove.color,
+          timestamp: new Date(newMove.timestamp).toISOString(),
+          totalMoves: newFullHistory.length,
+          currentMoveIndex: newFullHistory.length - 1
+        });
+        
         setFullMoveHistory(newFullHistory);
         setCurrentMoveIndex(newFullHistory.length - 1);
         // Update moveHistory to include all moves up to the current one
         setMoveHistory(newFullHistory);
+        
+        // Debug log the entire history after update
+        if (newFullHistory.length > 0) {
+          console.log('[Move History] Current history state:', {
+            totalMoves: newFullHistory.length,
+            currentMoveIndex: newFullHistory.length - 1,
+            lastMove: newFullHistory[newFullHistory.length - 1],
+            history: newFullHistory.map((m, i) => ({
+              move: i + 1,
+              pieceId: m.basePointId,
+              from: m.from,
+              to: m.to,
+              player: m.playerId
+            }))
+          });
+        }
         
         // Update turn to next player
         setCurrentTurnIndex(prev => (prev + 1) % PLAYER_COLORS.length);
