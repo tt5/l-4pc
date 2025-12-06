@@ -2311,16 +2311,14 @@ const Board: Component<BoardProps> = (props) => {
                   console.warn('Move data format unexpected, using fallback values:', move);
                 }
                 
-                // Check if this is the current move
-                const isCurrentMove = move.moveNumber ? 
-                    move.moveNumber - 1 === currentMoveIndex() : 
-                    index() === (moveHistory().length - 1 - currentMoveIndex());
+                // Check if this is the current move using moveNumber
+                const isCurrentMove = (move.moveNumber ?? 0) - 1 === currentMoveIndex();
                 
                 // Log highlighting info for debugging
                 if (isCurrentMove) {
                   console.log('[Move History] Highlighting move:', {
-                    moveNumber: move.moveNumber,
-                    moveIndex: move.moveNumber ? move.moveNumber - 1 : index(),
+                    moveNumber: move.moveNumber ?? 'unknown',
+                    moveIndex: (move.moveNumber ?? 0) - 1,
                     currentMoveIndex: currentMoveIndex(),
                     moveDetails: {
                       from: [fromX, fromY],
