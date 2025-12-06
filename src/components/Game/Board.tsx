@@ -883,11 +883,19 @@ const Board: Component<BoardProps> = (props) => {
   // Current move history up to the current position
   const [moveHistory, setMoveHistory] = createSignal<Move[]>([]);
   
+  // Track rendered moves to debug highlighting
+  const renderedMoves = new Set<number>();
+  
   const [currentTurnIndex, setCurrentTurnIndex] = createSignal(0);
   const currentPlayerColor = () => PLAYER_COLORS[currentTurnIndex() % PLAYER_COLORS.length];
   
   // Update the base points based on the current move history
   const updateBoardState = (moves: Move[]) => {
+    console.group('updateBoardState');
+    console.log('Current move index:', currentMoveIndex());
+    console.log('Move history length:', moveHistory().length);
+    console.log('New moves to apply:', moves.length);
+    
     // Start with a fresh copy of the initial board state
     const newBasePoints = JSON.parse(JSON.stringify(INITIAL_BASE_POINTS));
     
@@ -2312,9 +2320,41 @@ const Board: Component<BoardProps> = (props) => {
                 }
                 
                 // Check if this is the current move using moveNumber
-                const isCurrentMove = (move.moveNumber ?? 0) - 1 === currentMoveIndex();
+                const currentIndex = currentMoveIndex();
+                const moveNum = move.moveNumber ?? 0;
+                const isCurrentMove = moveNum - 1 === currentIndex;
+                
+                // Track if this move is being re-rendered
+                const isRerender = renderedMoves.has(moveNum);
+                if (!isRerender) {
+                  renderedMoves.add(moveNum);
+                  console.log(`[Move ${moveNum}] First render`);
+                } else {
+                  console.log(`[Move ${moveNum}] Re-rendering`);
+                }
                 
                 // Log the current state of all moves and their highlight status
+                console.group(`[Move ${moveNum}] Rendering check (currentIndex: ${currentIndex})`);
+                console.log('Move details:', {
+                  moveNumber: moveNum,
+                  index: index(),
+                  isCurrentMove,
+                  currentIndex,
+                  'moveNum - 1': moveNum - 1,
+                  'moveHistory length': moveHistory().length
+                });
+                
+                // Log all current move elements in the DOM
+                const currentMoveElements = document.querySelectorAll(`.${styles.currentMove}`);
+                console.log('Current move elements in DOM:', currentMoveElements.length);
+                currentMoveElements.forEach((el, i) => {
+                  console.log(`  [${i}]`, {
+                    moveNumber: el.getAttribute('data-move-number'),
+                    isCurrent: el.getAttribute('data-is-current'),
+                    classList: Array.from(el.classList)
+                  });
+                });
+                
                 if (isCurrentMove) {
                   const currentIndex = currentMoveIndex();
                   const allMovesState = moveHistory().map((m, idx) => ({
