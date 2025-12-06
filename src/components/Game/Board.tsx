@@ -886,18 +886,33 @@ const Board: Component<BoardProps> = (props) => {
   // Track rendered moves to debug highlighting
   const renderedMoves = new Set<number>();
   
+  // Clean up currentMove class when component unmounts or moves change
+  onCleanup(() => {
+    document.querySelectorAll(`.${styles.currentMove}`).forEach(el => {
+      el.classList.remove(styles.currentMove);
+      el.setAttribute('data-is-current', 'false');
+    });
+  });
+  
   const [currentTurnIndex, setCurrentTurnIndex] = createSignal(0);
   const currentPlayerColor = () => PLAYER_COLORS[currentTurnIndex() % PLAYER_COLORS.length];
   
   // Update the base points based on the current move history
   const updateBoardState = (moves: Move[]) => {
     console.group('updateBoardState');
-    console.log('Current move index:', currentMoveIndex());
+    const currentIndex = currentMoveIndex();
+    console.log('Current move index:', currentIndex);
     console.log('Move history length:', moveHistory().length);
     console.log('New moves to apply:', moves.length);
     
     // Start with a fresh copy of the initial board state
     const newBasePoints = JSON.parse(JSON.stringify(INITIAL_BASE_POINTS));
+    
+    // Clear any lingering currentMove classes
+    document.querySelectorAll(`.${styles.currentMove}`).forEach(el => {
+      el.classList.remove(styles.currentMove);
+      el.setAttribute('data-is-current', 'false');
+    });
     
     // Create a map for quick lookup of pieces by position
     const positionMap = new Map<string, any>();
@@ -2319,19 +2334,19 @@ const Board: Component<BoardProps> = (props) => {
                   console.warn('Move data format unexpected, using fallback values:', move);
                 }
                 
-                // Check if this is the current move using moveNumber
                 const currentIndex = currentMoveIndex();
                 const moveNum = move.moveNumber ?? 0;
-                const isCurrentMove = moveNum - 1 === currentIndex;
+                // Find the actual index of this move in the history
+                const moveIndex = moveHistory().findIndex(m => m.moveNumber === moveNum);
+                const isCurrentMove = moveIndex === currentIndex;
                 
-                // Track if this move is being re-rendered
-                const isRerender = renderedMoves.has(moveNum);
-                if (!isRerender) {
-                  renderedMoves.add(moveNum);
-                  console.log(`[Move ${moveNum}] First render`);
-                } else {
-                  console.log(`[Move ${moveNum}] Re-rendering`);
-                }
+                // Track rendering for debugging
+                console.log(`[Move ${moveNum}] Rendering (index: ${moveIndex}, currentIndex: ${currentIndex})`, {
+                  isCurrentMove,
+                  'moveNum - 1': moveNum - 1,
+                  'moveHistory length': moveHistory().length,
+                  'moveHistory moveNumbers': moveHistory().map(m => m.moveNumber)
+                });
                 
                 // Log the current state of all moves and their highlight status
                 console.group(`[Move ${moveNum}] Rendering check (currentIndex: ${currentIndex})`);
@@ -2344,16 +2359,29 @@ const Board: Component<BoardProps> = (props) => {
                   'moveHistory length': moveHistory().length
                 });
                 
-                // Log all current move elements in the DOM
-                const currentMoveElements = document.querySelectorAll(`.${styles.currentMove}`);
-                console.log('Current move elements in DOM:', currentMoveElements.length);
-                currentMoveElements.forEach((el, i) => {
-                  console.log(`  [${i}]`, {
-                    moveNumber: el.getAttribute('data-move-number'),
-                    isCurrent: el.getAttribute('data-is-current'),
-                    classList: Array.from(el.classList)
-                  });
+                // Log current move state for debugging
+                console.group(`[Move ${moveNum}] State`);
+                console.log('Move details:', {
+                  moveNumber: moveNum,
+                  index: index(),
+                  isCurrentMove,
+                  currentIndex,
+                  'moveNum - 1': moveNum - 1,
+                  'moveHistory length': moveHistory().length
                 });
+                
+                // Log all elements with currentMove class
+                const currentMoveElements = document.querySelectorAll(`.${styles.currentMove}`);
+                if (currentMoveElements.length > 0) {
+                  console.log('Elements with currentMove class:', currentMoveElements.length);
+                  currentMoveElements.forEach((el, i) => {
+                    console.log(`  [${i}]`, {
+                      moveNumber: el.getAttribute('data-move-number'),
+                      isCurrent: el.getAttribute('data-is-current'),
+                      classList: Array.from(el.classList)
+                    });
+                  });
+                }
                 
                 if (isCurrentMove) {
                   const currentIndex = currentMoveIndex();
@@ -2416,12 +2444,25 @@ const Board: Component<BoardProps> = (props) => {
                   console.groupEnd();
                 }
                 
+                // Calculate class based on current state
+                const moveItemClass = () => {
+                  const currentIdx = currentMoveIndex();
+                  const shouldHighlight = moveIndex === currentIdx;
+                  console.log(`[Move ${moveNum}] Class calculation:`, {
+                    moveIndex,
+                    currentIdx,
+                    shouldHighlight
+                  });
+                  return `${styles.moveItem} ${shouldHighlight ? styles.currentMove : ''}`;
+                };
+                
                 return (
                   <div 
-                    class={`${styles.moveItem} ${isCurrentMove ? styles.currentMove : ''}`}
-                    onClick={() => handleMoveClick(move.moveNumber || (moveHistory().length - index()))}
+                    class={moveItemClass()}
+                    onClick={() => handleMoveClick(moveNum)}
                     style={{ cursor: 'pointer' }}
-                    data-move-number={move.moveNumber}
+                    data-move-number={moveNum}
+                    data-move-index={moveIndex}
                     data-is-current={isCurrentMove}
                   >
                     <div 
