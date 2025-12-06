@@ -2338,11 +2338,12 @@ const Board: Component<BoardProps> = (props) => {
                 const moveNum = move.moveNumber ?? 0;
                 // Find the actual index of this move in the history
                 const moveIndex = moveHistory().findIndex(m => m.moveNumber === moveNum);
-                const isCurrentMove = moveIndex === currentIndex;
+                // Highlight the move that comes after the current move
+                const isNextMove = moveIndex === currentIndex + 1;
                 
                 // Track rendering for debugging
                 console.log(`[Move ${moveNum}] Rendering (index: ${moveIndex}, currentIndex: ${currentIndex})`, {
-                  isCurrentMove,
+                  isNextMove,
                   'moveNum - 1': moveNum - 1,
                   'moveHistory length': moveHistory().length,
                   'moveHistory moveNumbers': moveHistory().map(m => m.moveNumber)
@@ -2353,7 +2354,7 @@ const Board: Component<BoardProps> = (props) => {
                 console.log('Move details:', {
                   moveNumber: moveNum,
                   index: index(),
-                  isCurrentMove,
+                  isNextMove,
                   currentIndex,
                   'moveNum - 1': moveNum - 1,
                   'moveHistory length': moveHistory().length
@@ -2364,7 +2365,7 @@ const Board: Component<BoardProps> = (props) => {
                 console.log('Move details:', {
                   moveNumber: moveNum,
                   index: index(),
-                  isCurrentMove,
+                  isNextMove,
                   currentIndex,
                   'moveNum - 1': moveNum - 1,
                   'moveHistory length': moveHistory().length
@@ -2383,32 +2384,31 @@ const Board: Component<BoardProps> = (props) => {
                   });
                 }
                 
-                if (isCurrentMove) {
+                if (isNextMove) {
                   const currentIndex = currentMoveIndex();
                   const allMovesState = moveHistory().map((m, idx) => ({
                     moveNumber: m.moveNumber,
                     index: idx,
-                    isCurrent: (m.moveNumber ?? 0) - 1 === currentIndex,
-                    hasCurrentClass: idx === currentIndex,
+                    isNext: idx === currentIndex + 1,
+                    hasNextClass: idx === currentIndex + 1,
                     element: `[data-move-number="${m.moveNumber}"]`
                   }));
                   
                   // Log each move's state on a separate line for better readability
-                  console.group('[Move History] Current move states:');
+                  console.group('[Move History] Next move states:');
                   allMovesState.forEach((moveState, idx) => {
-                    const status = moveState.hasCurrentClass ? 'CURRENT' : '       ';
+                    const status = moveState.hasNextClass ? 'NEXT' : '    ';
                     console.log(`[${status}] Move ${moveState.moveNumber} (idx: ${idx}):`, 
-                      `isCurrent: ${moveState.isCurrent}, `,
-                      `hasCurrentClass: ${moveState.hasCurrentClass}, `,
-                      `selector: ${moveState.element}`
-                    );
+                      `isNext: ${moveState.isNext}, `,
+                      `hasNextClass: ${moveState.hasNextClass}, `,
+                      `selector: ${moveState.element}`);
                   });
                   console.groupEnd();
                   
-                  // Count how many moves have the current class
-                  const currentMoves = allMovesState.filter(m => m.hasCurrentClass);
-                  if (currentMoves.length !== 1) {
-                    console.warn(`[Move History] Expected 1 current move, found ${currentMoves.length}`, currentMoves);
+                  // Log a warning if there are multiple next moves
+                  const nextMoves = allMovesState.filter(m => m.hasNextClass);
+                  if (nextMoves.length !== 1) {
+                    console.warn(`[Move History] Expected 1 next move, found ${nextMoves.length}`, nextMoves);
                   }
                   
                   console.log('[Move History] Applying highlight to move:', {
@@ -2431,9 +2431,9 @@ const Board: Component<BoardProps> = (props) => {
                   });
                 }
                 
-                // Log when a move item is rendered with currentMove class
-                if (isCurrentMove) {
-                  console.groupCollapsed(`[Move History] Rendering move ${move.moveNumber} with currentMove class`);
+                // Log when a move item is rendered with nextMove class
+                if (isNextMove) {
+                  console.groupCollapsed(`[Move History] Rendering move ${move.moveNumber} with nextMove class`);
                   console.log('Move details:', {
                     moveNumber: move.moveNumber,
                     index: index(),
@@ -2447,13 +2447,14 @@ const Board: Component<BoardProps> = (props) => {
                 // Calculate class based on current state
                 const moveItemClass = () => {
                   const currentIdx = currentMoveIndex();
-                  const shouldHighlight = moveIndex === currentIdx;
+                  const shouldHighlight = moveIndex === currentIdx + 1;
                   console.log(`[Move ${moveNum}] Class calculation:`, {
                     moveIndex,
                     currentIdx,
-                    shouldHighlight
+                    shouldHighlight,
+                    'currentIdx + 1': currentIdx + 1
                   });
-                  return `${styles.moveItem} ${shouldHighlight ? styles.currentMove : ''}`;
+                  return `${styles.moveItem} ${shouldHighlight ? styles.nextMove : ''}`;
                 };
                 
                 return (
@@ -2463,7 +2464,7 @@ const Board: Component<BoardProps> = (props) => {
                     style={{ cursor: 'pointer' }}
                     data-move-number={moveNum}
                     data-move-index={moveIndex}
-                    data-is-current={isCurrentMove}
+                    data-is-next-move={isNextMove}
                   >
                     <div 
                       class={styles.colorSwatch} 
