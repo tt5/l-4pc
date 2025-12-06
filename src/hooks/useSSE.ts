@@ -177,7 +177,7 @@ export const useSSE = (url: string, onBasePointUpdated?: BasePointUpdateHandler)
           const data = JSON.parse(e.data);
           handleMessage({ type: 'basePoint:created', ...data });
         } catch (err) {
-          // Error handling basePoint:created event
+          console.error('SSE create error:', err instanceof Error ? err.message : 'Unknown error');
         }
       });
 
@@ -193,10 +193,9 @@ export const useSSE = (url: string, onBasePointUpdated?: BasePointUpdateHandler)
             ...data 
           };
           
-          console.log('[SSE] Dispatching to handleMessage:', message);
           handleMessage(message);
         } catch (err) {
-          console.error('Error handling basePoint:updated event:', err);
+          console.error('SSE update error:', err instanceof Error ? err.message : 'Unknown error');
         }
       });
 
@@ -205,7 +204,7 @@ export const useSSE = (url: string, onBasePointUpdated?: BasePointUpdateHandler)
           const data = JSON.parse(e.data);
           handleMessage({ type: 'basePoint:deleted', ...data });
         } catch (err) {
-          console.error('Error handling basePoint:deleted event:', err);
+          console.error('SSE delete error:', err instanceof Error ? err.message : 'Unknown error');
         }
       });
 

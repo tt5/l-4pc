@@ -1785,12 +1785,10 @@ const Board: Component<BoardProps> = (props) => {
     const [targetX, targetY] = target;
     const index = targetY * BOARD_CONFIG.GRID_SIZE + targetX;
     
-    console.log('Target position:', { targetX, targetY, index });
-    
     // Final validation - pass the index of the target position
     const validation = validateSquarePlacementLocal(index);
     if (!validation.isValid) {
-      console.log('Validation failed:', validation.reason);
+      console.warn('Invalid move:', validation.reason);
       setError(`Invalid placement: ${validation.reason || 'Unknown reason'}`);
       cleanupDragState();
       return;
@@ -1798,17 +1796,14 @@ const Board: Component<BoardProps> = (props) => {
 
     const startPos = dragStartPosition();
     if (!startPos) {
-      console.log('No start position, cleaning up');
       cleanupDragState();
       return;
     }
 
     const [startX, startY] = startPos;
-    console.log('Start position:', { startX, startY });
     
     // Only proceed if we actually moved to a new cell
     if (startX !== targetX || startY !== targetY) {
-      console.log('Processing move from', { startX, startY }, 'to', { targetX, targetY });
       
       // Save the current state for potential rollback
       const originalBasePoints = [...basePoints()];
@@ -1842,15 +1837,7 @@ const Board: Component<BoardProps> = (props) => {
         const normalizedCurrentColor = colorMap[currentColor] || currentColor;
         const normalizedTurnColor = colorMap[currentTurn] || currentTurn;
         
-        console.log('Move attempt:', {
-          movingColor: currentColor,
-          currentTurn: currentTurn,
-          normalizedMovingColor: normalizedCurrentColor,
-          normalizedTurnColor: normalizedTurnColor,
-          currentTurnIndex: currentTurnIndex(),
-          allColors: PLAYER_COLORS,
-          pointToMove
-        });
+        // Move attempt logging removed for cleaner output
 
         if (normalizedCurrentColor !== normalizedTurnColor) {
           const errorMsg = `It's not ${currentColor}'s turn. Current turn: ${currentTurn}`;
@@ -1867,18 +1854,20 @@ const Board: Component<BoardProps> = (props) => {
           to: [targetX, targetY] as [number, number],
           timestamp: Date.now(),
           playerId: pointToMove.userId,
-          color: currentColor
+          color: currentColor,
+          moveNumber: fullMoveHistory().length + 1
         };
         
         // Calculate move number before updating history
-        const moveNumber = moveHistory().length + 1;
-        console.log('Move number:', moveNumber, 'History length:', moveHistory().length);
+        const moveNumber = fullMoveHistory().length + 1;
+        // Move number logging removed for cleaner output
         
-        // Add the new move to the history
-        const updatedHistory = [...fullMoveHistory().slice(0, currentMoveIndex() + 1), newMove];
-        setFullMoveHistory(updatedHistory);
-        setCurrentMoveIndex(updatedHistory.length - 1);
-        setMoveHistory(updatedHistory);
+        // Add the new move to the full history
+        const newFullHistory = [...fullMoveHistory().slice(0, currentMoveIndex() + 1), newMove];
+        setFullMoveHistory(newFullHistory);
+        setCurrentMoveIndex(newFullHistory.length - 1);
+        // Update moveHistory to include all moves up to the current one
+        setMoveHistory(newFullHistory);
         
         // Update turn to next player
         setCurrentTurnIndex(prev => (prev + 1) % PLAYER_COLORS.length);
@@ -1889,31 +1878,22 @@ const Board: Component<BoardProps> = (props) => {
             ? { ...bp, x: targetX, y: targetY }
             : bp
         );
-        console.log('Updating base points in UI');
+        // Updating base points in UI
         setBasePoints(updatedBasePoints);
 
         if (!pointToMove) {
           throw new Error(`Base point not found at position (${startX}, ${startY})`);
         }
 
-        console.log('Found base point to move:', pointToMove);
-
-        // 3. Update the base point in the database
-        console.log('Updating base point in database...');
+        // Updating base point in database
         const result = await updateBasePoint(pointToMove.id, targetX, targetY);
         
         if (!result.success) {
           throw new Error(result.error || 'Failed to update base point');
         }
-        console.log('Base point updated in database successfully');
 
         // 5. Calculate new restricted squares from the server
-        console.log('Calling /api/calculate-squares with:', {
-          currentPosition: [startX, startY],
-          destination: [targetX, targetY],
-          pieceType: pointToMove.pieceType,
-          moveNumber
-        });
+        // Calling /api/calculate-squares
 
         try {
           const response = await fetch('/api/calculate-squares', {
@@ -1928,23 +1908,16 @@ const Board: Component<BoardProps> = (props) => {
             })
           });
 
-          console.log('API Response status:', response.status);
-          
           if (!response.ok) {
             const errorText = await response.text();
-            console.error('API Error:', errorText);
-            throw new Error(`API error: ${response.status} ${response.statusText}\n${errorText}`);
+            console.error('API Error:', response.status, response.statusText, errorText);
+            throw new Error(`API error: ${response.status} ${response.statusText}`);
           }
 
           const result2 = await response.json();
-          console.log('API Response:', result2);
           
           if (result2.success) {
             // Update with server-calculated values
-            console.log('Updating with server-calculated values:', {
-              squares: result2.data?.squares,
-              squaresWithOrigins: result2.data?.squaresWithOrigins
-            });
             setRestrictedSquares(result2.data?.squares || []);
             setRestrictedSquaresInfo(result2.data?.squaresWithOrigins || []);
           } else {
@@ -1957,7 +1930,7 @@ const Board: Component<BoardProps> = (props) => {
         }
       } catch (error) {
         // Handle errors and revert to original state
-        console.error('Error during base point placement:', error);
+        console.error('Error during move:', error);
         setBasePoints(originalBasePoints);
         setRestrictedSquares(originalRestrictedSquares);
         setRestrictedSquaresInfo(originalRestrictedSquaresInfo);
@@ -1965,7 +1938,6 @@ const Board: Component<BoardProps> = (props) => {
         throw error; // Re-throw to trigger the finally block
       } finally {
         // Always clean up and reset the processing flag
-        console.log('Cleaning up drag state and resetting processing flag');
         setIsProcessingMove(false);
         cleanupDragState();
       }
@@ -2295,8 +2267,9 @@ const Board: Component<BoardProps> = (props) => {
                 }
                 
                 // Check if this is the current move
-                const isCurrentMove = move.moveNumber === currentMoveIndex() + 1 || 
-                                   (move.moveNumber === undefined && index() === moveHistory().length - 1 - currentMoveIndex());
+                const isCurrentMove = move.moveNumber ? 
+                    move.moveNumber - 1 === currentMoveIndex() : 
+                    index() === (moveHistory().length - 1 - currentMoveIndex());
                 
                 return (
                   <div 

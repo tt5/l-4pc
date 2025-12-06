@@ -81,8 +81,6 @@ type ValidateSquarePlacementOptions = {
  */
 export const updateBasePoint = async (id: number, x: number, y: number): Promise<ApiResponse<BasePoint>> => {
   try {
-    console.log(`[updateBasePoint] Updating base point ${id} to (${x}, ${y})`);
-    
     // Validate input
     if (typeof x !== 'number' || typeof y !== 'number' || isNaN(x) || isNaN(y)) {
       throw new Error('Invalid coordinates provided');
@@ -105,7 +103,7 @@ export const updateBasePoint = async (id: number, x: number, y: number): Promise
     try {
       responseData = responseText ? JSON.parse(responseText) : {};
     } catch (e) {
-      console.error('[updateBasePoint] Failed to parse response:', responseText);
+      console.error('Failed to parse server response');
       return {
         success: false,
         error: `Invalid server response: ${response.status} ${response.statusText}`,
@@ -115,11 +113,7 @@ export const updateBasePoint = async (id: number, x: number, y: number): Promise
 
     // Handle non-OK responses
     if (!response.ok) {
-      console.error(`[updateBasePoint] Update failed:`, {
-        status: response.status,
-        statusText: response.statusText,
-        error: responseData.error
-      });
+      console.error(`Update failed: ${response.status} ${response.statusText}`, responseData.error || '');
       
       return {
         success: false,
@@ -128,12 +122,9 @@ export const updateBasePoint = async (id: number, x: number, y: number): Promise
       };
     }
 
-    // Log the full response for debugging
-    console.log('[updateBasePoint] Full response:', JSON.stringify(responseData, null, 2));
-    
     // Check if the response has the expected structure
     if (!responseData.success || !responseData.data) {
-      console.error('[updateBasePoint] Invalid response format:', responseData);
+      console.error('Invalid response format from server');
       return {
         success: false,
         error: 'Invalid response format from server',
@@ -156,8 +147,7 @@ export const updateBasePoint = async (id: number, x: number, y: number): Promise
     }
     
     if (!basePoint || typeof basePoint.x !== 'number' || typeof basePoint.y !== 'number') {
-      console.error('[updateBasePoint] Invalid base point data:', basePoint);
-      console.error('[updateBasePoint] Response data structure:', responseDataObj);
+      console.error('Invalid base point data in response');
       return {
         success: false,
         error: 'Invalid base point data in response',
@@ -165,15 +155,13 @@ export const updateBasePoint = async (id: number, x: number, y: number): Promise
       };
     }
     
-    console.log(`[updateBasePoint] Successfully updated base point ${id} to (${basePoint.x}, ${basePoint.y})`);
-    
     return {
       success: true,
       data: basePoint,
       timestamp: Date.now()
     };
   } catch (error) {
-    console.error('[updateBasePoint] Error updating base point:', error);
+    console.error('Error updating base point:', error instanceof Error ? error.message : 'Unknown error');
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to update base point',
