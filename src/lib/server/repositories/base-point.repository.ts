@@ -309,11 +309,10 @@ export class BasePointRepository {
       [userId, x, y, gameCreatedAtMs, color, pieceType]
     );
 
-    // Determine team based on position
-    let team: 1 | 2 = 1; // Default to team 1
-    if ((x === 0) || (x === 13)) {
-      team = 2; // Left (Blue) and Right (Green) are team 2
-    } // else Top (Yellow) and Bottom (Red) are team 1
+    // Determine team based on color
+    // Yellow (#FFEB3B) and Red (#F44336) are team 1
+    // Blue (#2196F3) and Green (#4CAF50) are team 2
+    const team: 1 | 2 = (color === '#FFEB3B' || color === '#F44336') ? 1 : 2;
 
     return {
       id: result.lastID!,
