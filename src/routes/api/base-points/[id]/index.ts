@@ -16,9 +16,12 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
   const requestId = generateRequestId();
   const basePointId = parseInt(params.id);
   
+  console.log(`[${requestId}] ====== BASE POINT UPDATE REQUEST ======`);
   console.log(`[${requestId}] [PATCH /api/base-points/${basePointId}] Starting request processing`, {
     userId: user.userId,
-    requestData: { ...request, body: '[REDACTED]' } // Don't log full request body
+    requestMethod: request.method,
+    requestUrl: request.url,
+    requestHeaders: Object.fromEntries(request.headers.entries())
   });
   
   if (isNaN(basePointId)) {
@@ -26,6 +29,9 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
     console.error(`[${requestId}] ${errorMsg}`);
     return createErrorResponse(errorMsg, 400, undefined, { requestId });
   }
+  
+  console.log(`[${requestId}] Base point ID:`, basePointId);
+  console.log(`[${requestId}] Request URL:`, request.url);
 
   try {
     const data = await request.json() as UpdateBasePointRequest;
@@ -64,10 +70,30 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
     const repository = await getBasePointRepository();
     const moveRepository = await getMoveRepository();
     
+    // Log all base points before lookup
+    console.log(`[${requestId}] Fetching all base points...`);
+    const allBasePoints = await repository.getAll();
+    console.log(`[${requestId}] Found ${allBasePoints.length} base points in database:`);
+    allBasePoints.forEach((bp, index) => {
+      console.log(`  [${index}] ID: ${bp.id}, Type: ${bp.pieceType}, Pos: (${bp.x},${bp.y}), User: ${bp.userId}`);
+    });
+    
     // First, verify the base point exists and belongs to the user
+    console.log(`[${requestId}] Looking up base point with ID:`, basePointId);
     const existingPoint = await repository.getById(basePointId);
+    console.log(`[${requestId}] Base point lookup result:`, existingPoint ? 'Found' : 'Not found');
+    
     if (!existingPoint) {
-      return createErrorResponse('Base point not found', 404, undefined, { requestId });
+      console.error(`[${requestId}] Base point ${basePointId} not found in database`);
+      return createErrorResponse(
+        'Base point not found', 
+        404, 
+        { 
+          basePointId,
+          availableIds: allBasePoints.map(bp => bp.id).sort((a, b) => a - b) 
+        },
+        { requestId }
+      );
     }
     
     if (existingPoint.userId !== user.userId) {
@@ -76,22 +102,25 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
 
     // If this is a new branch, update all base points to their positions at the branch point
     if (data.isNewBranch && data.branchName && data.gameId && data.moveNumber !== undefined) {
-      console.log(`[${requestId}] Processing new branch creation`, {
-        branchName: data.branchName,
-        gameId: data.gameId,
-        moveNumber: data.moveNumber,
-        basePointId,
-        currentPosition: { x: existingPoint.x, y: existingPoint.y },
-        targetPosition: { x: data.x, y: data.y },
-        allBasePoints: await repository.getAll()
+      // Log detailed information about the branch creation
+      const allBasePoints = await repository.getAll();
+      console.log(`[${requestId}] === BRANCH CREATION DEBUG ===`);
+      console.log(`[${requestId}] Requested to move base point ${basePointId} to (${data.x},${data.y})`);
+      console.log(`[${requestId}] Existing point details:`, {
+        id: existingPoint.id,
+        x: existingPoint.x,
+        y: existingPoint.y,
+        pieceType: existingPoint.pieceType,
+        color: existingPoint.color,
+        userId: existingPoint.userId
       });
+      console.log(`[${requestId}] All base points (${allBasePoints.length} total):`);
+      allBasePoints.forEach(bp => {
+        console.log(`  - ID: ${bp.id}, Type: ${bp.pieceType}, Pos: (${bp.x},${bp.y}), Color: ${bp.color}`);
+      });
+      console.log(`[${requestId}] ============================`);
       
-      // Verify the base point exists and is valid for branching
-      if (!existingPoint) {
-        const errorMsg = `Base point ${basePointId} not found for branch creation`;
-        console.error(`[${requestId}] ${errorMsg}`);
-        return createErrorResponse(errorMsg, 404, undefined, { requestId });
-      }
+      // Note: existingPoint is already verified at the start of the route handler
       
       try {
         // Get all moves up to the current move in the main branch
