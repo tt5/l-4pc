@@ -366,6 +366,7 @@ export class BasePointRepository {
    */
   async resetBoardToInitialState(db?: Database): Promise<void> {
     // Define initial positions for all pieces by color and type
+    // Note: Color codes are in uppercase to ensure consistent matching
     const initialPositions: InitialPositions = {
       // Blue pieces (left side)
       '#2196F3': {
@@ -449,8 +450,8 @@ export class BasePointRepository {
       
       // First pass: Reset all pieces to their initial positions
       for (const point of allPoints) {
-        // Use the color as-is from the database to match the initialPositions keys
-        const color = point.color as keyof typeof initialPositions;
+        // Normalize color to uppercase to match initialPositions keys
+        const color = point.color.toUpperCase() as keyof typeof initialPositions;
         const pieceType = point.pieceType as keyof PiecePositions;
         
         // Skip if we don't have initial positions for this color/type
