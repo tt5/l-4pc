@@ -210,17 +210,14 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
             console.log(`[${requestId}] Successfully updated ${updatedCount} base points for new branch`);
             
             // After updating base points, create a special branch creation move
-            // Find the base point at the target position
+            // For branch creation, we don't need a base point at the target position
+            // since we're moving a piece to an empty square
             const targetBasePoint = await repository.findByCoordinates(data.x, data.y);
-            if (!targetBasePoint) {
-              const errorMsg = `No base point found at target position (${data.x}, ${data.y}) for branch creation`;
-              console.error(`[${requestId}] ${errorMsg}`);
-              return createErrorResponse(errorMsg, 404, undefined, { requestId });
-            }
+            const isCapture = !!targetBasePoint;
 
             const moveData = {
               gameId: data.gameId!,
-              basePointId: targetBasePoint.id, // Use the ID of the piece at the target position
+              basePointId: existingPoint.id, // Use the ID of the piece being moved
               fromX: existingPoint.x,
               fromY: existingPoint.y,
               toX: data.x,
@@ -229,7 +226,8 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
               pieceType: existingPoint.pieceType,
               moveNumber: data.moveNumber,
               isBranch: true,
-              branchName: data.branchName || null
+              branchName: data.branchName || null,
+              capturedPieceId: isCapture ? targetBasePoint.id : undefined
             };
             
             const move = await moveRepository.create(moveData);
