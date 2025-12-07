@@ -79,8 +79,18 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
       console.log(`[${requestId}] Processing new branch creation`, {
         branchName: data.branchName,
         gameId: data.gameId,
-        moveNumber: data.moveNumber
+        moveNumber: data.moveNumber,
+        basePointId,
+        currentPosition: { x: existingPoint.x, y: existingPoint.y },
+        targetPosition: { x: data.x, y: data.y }
       });
+      
+      // Verify the base point exists and is valid for branching
+      if (!existingPoint) {
+        const errorMsg = `Base point ${basePointId} not found for branch creation`;
+        console.error(`[${requestId}] ${errorMsg}`);
+        return createErrorResponse(errorMsg, 404, undefined, { requestId });
+      }
       
       try {
         // Get all moves up to the current move in the main branch
