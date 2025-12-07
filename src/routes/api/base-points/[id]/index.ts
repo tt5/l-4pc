@@ -78,26 +78,59 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
       console.log(`  [${index}] ID: ${bp.id}, Type: ${bp.pieceType}, Pos: (${bp.x},${bp.y}), User: ${bp.userId}`);
     });
     
-    // First, verify the base point exists and belongs to the user
-    console.log(`[${requestId}] Looking up base point with ID:`, basePointId);
-    const existingPoint = await repository.getById(basePointId);
-    console.log(`[${requestId}] Base point lookup result:`, existingPoint ? 'Found' : 'Not found');
+    // For branch creation, we need to find the piece by coordinates instead of ID
+    // since we might be working with a historical position
+    let existingPoint;
     
-    if (!existingPoint) {
-      console.error(`[${requestId}] Base point ${basePointId} not found in database`);
-      return createErrorResponse(
-        'Base point not found', 
-        404, 
-        { 
-          basePointId,
-          availableIds: allBasePoints.map(bp => bp.id).sort((a, b) => a - b) 
-        },
-        { requestId }
+    if (data.isNewBranch) {
+      // When creating a new branch, find the piece at the source coordinates
+      if (data.moveNumber === undefined) {
+        console.error(`[${requestId}] moveNumber is required for branch creation`);
+        return createErrorResponse('moveNumber is required for branch creation', 400, undefined, { requestId });
+      }
+      
+      const fromX = data.x - (data.moveNumber % 2 === 0 ? 1 : 0); // Adjust based on move number for direction
+      const fromY = data.y - (data.moveNumber % 2 === 0 ? 0 : 1);
+      
+      console.log(`[${requestId}] Looking for piece at coordinates (${fromX},${fromY}) for branch move (moveNumber: ${data.moveNumber})`);
+      const piecesAtPosition = allBasePoints.filter(
+        bp => bp.x === fromX && bp.y === fromY
       );
-    }
-    
-    if (existingPoint.userId !== user.userId) {
-      return createErrorResponse('Unauthorized', 403, undefined, { requestId });
+      
+      if (piecesAtPosition.length === 0) {
+        const errorMsg = `No piece found at source position (${fromX},${fromY}) for branch move`;
+        console.error(`[${requestId}] ${errorMsg}`);
+        return createErrorResponse(errorMsg, 404, undefined, { requestId });
+      }
+      
+      existingPoint = piecesAtPosition[0];
+      console.log(`[${requestId}] Found piece for branch move:`, {
+        id: existingPoint.id,
+        type: existingPoint.pieceType,
+        color: existingPoint.color
+      });
+    } else {
+      // For regular moves, use the ID-based lookup
+      console.log(`[${requestId}] Looking up base point with ID:`, basePointId);
+      existingPoint = await repository.getById(basePointId);
+      console.log(`[${requestId}] Base point lookup result:`, existingPoint ? 'Found' : 'Not found');
+      
+      if (!existingPoint) {
+        console.error(`[${requestId}] Base point ${basePointId} not found in database`);
+        return createErrorResponse(
+          'Base point not found', 
+          404, 
+          { 
+            basePointId,
+            availableIds: allBasePoints.map(bp => bp.id).sort((a, b) => a - b) 
+          },
+          { requestId }
+        );
+      }
+      
+      if (existingPoint.userId !== user.userId) {
+        return createErrorResponse('Unauthorized', 403, undefined, { requestId });
+      }
     }
 
     // If this is a new branch, update all base points to their positions at the branch point
