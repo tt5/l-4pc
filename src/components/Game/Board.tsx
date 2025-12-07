@@ -1917,9 +1917,7 @@ const Board: Component<BoardProps> = (props) => {
           branchName: branchName || undefined
         };
         
-        // Calculate move number before updating history
-        const moveNumber = fullMoveHistory().length + 1;
-        // Move number logging removed for cleaner output
+        // Move number is already calculated and stored in newMove object
         
         // Add the new move to the full history
         let newFullHistory;
@@ -1987,7 +1985,8 @@ const Board: Component<BoardProps> = (props) => {
         }
 
         // Updating base point in database
-        const result = await updateBasePoint(pointToMove.id, targetX, targetY);
+        const moveNumber = fullMoveHistory().length + 1;
+        const result = await updateBasePoint(pointToMove.id, targetX, targetY, moveNumber);
         
         if (!result.success) {
           throw new Error(result.error || 'Failed to update base point');
@@ -2142,7 +2141,8 @@ const Board: Component<BoardProps> = (props) => {
       // to only trigger once after drag ends
 
       // Update the base point in the database
-      const result = await updateBasePoint(pointToMove.id, targetX, targetY);
+      const moveNumber = fullMoveHistory().length + 1;
+      const result = await updateBasePoint(pointToMove.id, targetX, targetY, moveNumber);
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to update base point');
