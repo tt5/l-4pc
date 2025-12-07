@@ -8,7 +8,11 @@ export async function up(db: Database): Promise<void> {
   // Add position tracking to games table
   await db.exec(`
     ALTER TABLE games
-    ADD COLUMN current_position_id TEXT,
+    ADD COLUMN current_position_id TEXT;
+  `);
+  
+  await db.exec(`
+    ALTER TABLE games
     ADD COLUMN initial_position_id TEXT;
   `);
 
