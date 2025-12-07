@@ -449,13 +449,25 @@ export class BasePointRepository {
       }
       
       // First pass: Reset all pieces to their initial positions
+      console.log('[resetBoardToInitialState] Starting to process', allPoints.length, 'pieces');
+      
       for (const point of allPoints) {
         // Normalize color to uppercase to match initialPositions keys
         const color = point.color.toUpperCase() as keyof typeof initialPositions;
         const pieceType = point.pieceType as keyof PiecePositions;
         
+        console.log(`[resetBoardToInitialState] Processing point ${point.id}:`, 
+          `color=${color} (original: ${point.color}),`, 
+          `pieceType=${pieceType},`, 
+          `current position=(${point.x},${point.y})`);
+        
         // Skip if we don't have initial positions for this color/type
-        if (!initialPositions[color] || !initialPositions[color][pieceType]) {
+        if (!initialPositions[color]) {
+          console.warn(`[resetBoardToInitialState] No initial positions defined for color: ${color}`);
+          continue;
+        }
+        
+        if (!initialPositions[color][pieceType]) {
           console.warn(`[resetBoardToInitialState] No initial positions defined for ${color} ${pieceType}`);
           continue;
         }
@@ -464,8 +476,10 @@ export class BasePointRepository {
         const positions = initialPositions[color][pieceType];
         const count = colorCounts[color][pieceType as string];
         
+        console.log(`[resetBoardToInitialState] Found ${positions.length} positions for ${color} ${pieceType}, using index ${count}`);
+        
         if (count >= positions.length) {
-          console.warn(`[resetBoardToInitialState] No more initial positions for ${color} ${pieceType}`);
+          console.warn(`[resetBoardToInitialState] No more initial positions for ${color} ${pieceType} (count=${count}, positions=${positions.length})`);
           continue;
         }
         
@@ -473,13 +487,19 @@ export class BasePointRepository {
         colorCounts[color][pieceType as string]++;
         
         // Update the piece's position
-        await db.run(
-          'UPDATE base_points SET x = ?, y = ? WHERE id = ?',
-          [newPos.x, newPos.y, point.id]
-        );
+        console.log(`[resetBoardToInitialState] Moving ${color} ${pieceType} from (${point.x},${point.y}) to (${newPos.x},${newPos.y})`);
         
-        processedPieces.add(point.id);
-        console.log(`[resetBoardToInitialState] Moved ${color} ${pieceType} to (${newPos.x}, ${newPos.y})`);
+        try {
+          await db.run(
+            'UPDATE base_points SET x = ?, y = ? WHERE id = ?',
+            [newPos.x, newPos.y, point.id]
+          );
+          
+          processedPieces.add(point.id);
+          console.log(`[resetBoardToInitialState] Successfully moved ${color} ${pieceType} to (${newPos.x}, ${newPos.y})`);
+        } catch (error) {
+          console.error(`[resetBoardToInitialState] Error moving piece ${point.id}:`, error);
+        }
       }
       
       // Log any unprocessed pieces
