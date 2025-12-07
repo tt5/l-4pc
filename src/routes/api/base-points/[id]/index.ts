@@ -234,14 +234,23 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
             console.log(`[${requestId}] Created branch creation move:`, move.id);
             
             // Return early after branch creation is complete
-            return createApiResponse({
+            // Update the existing point's position in memory for the response
+            const updatedPoint = {
               ...existingPoint,
               x: data.x,
-              y: data.y,
+              y: data.y
+            };
+            
+            // Update the base point's position in the database
+            await repository.update(existingPoint.id, data.x, data.y);
+            
+            return createApiResponse({
+              ...updatedPoint,
               _event: {
                 type: 'branch_created',
                 moveId: move.id,
-                branchName: data.branchName || null
+                branchName: data.branchName || null,
+                basePointId: existingPoint.id
               }
             });
           });
