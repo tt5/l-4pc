@@ -2017,7 +2017,8 @@ const Board: Component<BoardProps> = (props) => {
           targetX, 
           targetY, 
           moveNumber, 
-          newMove.branchName
+          newMove.branchName,
+          newMove.isBranch  // Pass isNewBranch flag
         );
         
         if (!result.success) {
