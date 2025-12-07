@@ -165,7 +165,7 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
         const result = await repository.executeTransaction(async (db) => {
           // First, reset all pieces to their initial positions
           console.log(`[${requestId}] Resetting board to initial state`);
-          await repository.resetBoardToInitialState();
+          await repository.resetBoardToInitialState(db);
 
           // Replay all moves up to the branch point
           console.log(`[${requestId}] Replaying ${mainBranchMoves.length} moves to reach branch point`);

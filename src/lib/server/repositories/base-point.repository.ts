@@ -348,8 +348,9 @@ export class BasePointRepository {
   /**
    * Resets all pieces to their initial positions
    * This is used when setting up a new branch to ensure a clean starting state
+   * @param db Optional database connection to use for the transaction
    */
-  async resetBoardToInitialState(): Promise<void> {
+  async resetBoardToInitialState(db?: Database): Promise<void> {
     // Define initial positions for all pieces
     const initialPositions: Record<number, {x: number, y: number}> = {
       // Blue pieces (left side)
@@ -379,28 +380,40 @@ export class BasePointRepository {
       2281: {x: 1, y: 6}  // Ensure this matches the expected initial position
     };
 
-    await this.db.run('BEGIN TRANSACTION');
-    try {
+    const executeReset = async (db: Database) => {
       // Get all current base points
-      const allPoints = await this.getAll();
+      const allPoints = await db.all<BasePoint[]>(
+        'SELECT id, user_id as userId, x, y, color, piece_type as pieceType, game_created_at_ms as createdAtMs FROM base_points'
+      );
       
       // Update each piece to its initial position
       for (const point of allPoints) {
         const initialPos = initialPositions[point.id];
         if (initialPos) {
-          await this.db.run(
+          await db.run(
             'UPDATE base_points SET x = ?, y = ? WHERE id = ?',
             [initialPos.x, initialPos.y, point.id]
           );
         }
       }
       
-      await this.db.run('COMMIT');
       console.log('[BasePointRepository] Reset board to initial state');
-    } catch (error) {
-      await this.db.run('ROLLBACK');
-      console.error('[BasePointRepository] Failed to reset board state:', error);
-      throw error;
+    };
+
+    if (db) {
+      // Use the provided database connection (assumed to be in a transaction)
+      await executeReset(db);
+    } else {
+      // No database connection provided, manage our own transaction
+      await this.db.run('BEGIN TRANSACTION');
+      try {
+        await executeReset(this.db);
+        await this.db.run('COMMIT');
+      } catch (error) {
+        await this.db.run('ROLLBACK');
+        console.error('[BasePointRepository] Failed to reset board state:', error);
+        throw error;
+      }
     }
   }
 
