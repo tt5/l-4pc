@@ -382,7 +382,7 @@ export const POST = withAuth(async ({ request, user }) => {
       team: getTeamByColor(point.color)
     }));
 
-    // Only save the move if it's an actual move (not a click in place)
+    // Check if this is an actual move (not a click in place)
     const isActualMove = currentPosition[0] !== destination[0] || currentPosition[1] !== destination[1];
     console.log(`[Move] Is actual move: ${isActualMove}`);
     
@@ -391,45 +391,26 @@ export const POST = withAuth(async ({ request, user }) => {
         throw new Error('pieceType is required for move validation');
       }
       
-      const moveData = {
-        gameId,
-        userId: user.userId,
-        pieceType: pieceType,
-        fromX: currentPosition[0],
-        fromY: currentPosition[1],
-        toX: destination[0],
-        toY: destination[1],
-        moveNumber: moveNumber  // Use the moveNumber from the request
-      };
+      // Just log the move validation - actual move saving happens in the base-points endpoint
+      console.log('[Move] Validating move:', {
+        from: { x: currentPosition[0], y: currentPosition[1] },
+        to: { x: destination[0], y: destination[1] },
+        pieceType,
+        moveNumber
+      });
       
-      console.log('[Move] Attempting to save move:', JSON.stringify(moveData, null, 2));
-      
-      try {
-        const savedMove = await moveRepository.create(moveData);
-        const moveId = typeof savedMove?.id === 'number' ? savedMove.id : Date.now();
-        console.log(`[Move] ✅ Successfully saved move with ID: ${moveId}`);
-        
-        // Emit move event
-        // Ensure moveNumber is a number, default to 0 if undefined
-        const moveNumber = typeof moveData.moveNumber === 'number' ? moveData.moveNumber : 0;
-        
-        moveEventService.emitMoveMade({
-id: moveId, // Using the validated move ID
-          basePointId: moveData.userId, // Using userId as basePointId since we don't have the actual base point ID
-          from: [moveData.fromX, moveData.fromY] as [number, number],
-          to: [moveData.toX, moveData.toY] as [number, number],
-          playerId: moveData.userId,
-          timestamp: Date.now(),
-          color: '#000000', // Default color, adjust as needed
-          gameId: moveData.gameId,
-          moveNumber: moveNumber // Now guaranteed to be a number
-        });
-      } catch (error) {
-        console.error('[Move] ❌ Failed to save move:', error instanceof Error ? error.message : 'Unknown error');
-        console.error('[Move] Error details:', error);
-      }
-    } else {
-      console.log('[Move] Not saving move - Reason: Not an actual move (same position)');
+      // Emit move event for UI updates
+      moveEventService.emitMoveMade({
+        id: Date.now(), // Temporary ID - will be replaced by the actual move ID from base-points
+        basePointId: user.userId, // Using userId as basePointId
+        from: [currentPosition[0], currentPosition[1]] as [number, number],
+        to: [destination[0], destination[1]] as [number, number],
+        playerId: user.userId,
+        timestamp: Date.now(),
+        color: '#000000',
+        gameId: gameId,
+        moveNumber: moveNumber || 0
+      });
     }
     
     // Base points loaded, no need to log them all

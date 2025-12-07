@@ -213,4 +213,40 @@ export class MoveRepository {
     
     return this.db.all<Move[]>(query, params);
   }
+
+  async findExistingMove(criteria: {
+    gameId: string;
+    fromX: number;
+    fromY: number;
+    toX: number;
+    toY: number;
+    moveNumber: number;
+  }): Promise<Move | null> {
+    const result = await this.db.get<Move | undefined>(
+      `SELECT 
+        id, 
+        game_id as gameId, 
+        user_id as userId, 
+        piece_type as pieceType,
+        from_x as fromX,
+        from_y as fromY,
+        to_x as toX,
+        to_y as toY,
+        move_number as moveNumber,
+        captured_piece_id as capturedPieceId,
+        created_at_ms as createdAtMs,
+        is_branch as isBranch,
+        branch_name as branchName
+       FROM moves 
+       WHERE game_id = ? 
+       AND from_x = ? 
+       AND from_y = ? 
+       AND to_x = ? 
+       AND to_y = ? 
+       AND move_number = ?`,
+      [criteria.gameId, criteria.fromX, criteria.fromY, criteria.toX, criteria.toY, criteria.moveNumber]
+    );
+    
+    return result || null;
+  }
 }

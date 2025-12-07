@@ -337,13 +337,30 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
       branchName: data.branchName || null
     };
     
-    console.log(`[${requestId}] Creating move record:`, {
-      ...moveData,
-      pieceType: existingPoint.pieceType // Log the actual piece type
+    // Check if this move already exists
+    const existingMove = await moveRepository.findExistingMove({
+      gameId: data.gameId,
+      fromX: existingPoint.x,
+      fromY: existingPoint.y,
+      toX: data.x,
+      toY: data.y,
+      moveNumber: data.moveNumber || 0
     });
-    
-    const move = await moveRepository.create(moveData);
-    console.log(`[${requestId}] Successfully created move ${move.id}`);
+
+    let moveId;
+    if (existingMove) {
+      console.log(`[${requestId}] Move already exists with ID:`, existingMove.id);
+      moveId = existingMove.id;
+    } else {
+      console.log(`[${requestId}] Creating move record:`, {
+        ...moveData,
+        pieceType: existingPoint.pieceType // Log the actual piece type
+      });
+      
+      const move = await moveRepository.create(moveData);
+      console.log(`[${requestId}] Successfully created move ${move.id}`);
+      moveId = move.id;
+    }
     
     // Emit the update event
     basePointEventService.emitUpdated(updatedPoint);
@@ -353,7 +370,7 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
       // Include the move ID and other metadata in the response
       _event: {
         type: 'update',
-        moveId: move.id,
+        moveId: moveId,
         isBranch: data.isNewBranch || false,
         branchName: data.branchName || null
       }
