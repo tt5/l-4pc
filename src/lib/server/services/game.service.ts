@@ -1,9 +1,25 @@
 import { Database } from 'sqlite';
-import { BasePointRepository, CreateBasePointInput } from '../repositories/base-point.repository';
+import { BasePointRepository } from '../repositories/base-point.repository';
+import { MoveRepository } from '../repositories/move.repository';
+import { GamePositionRepository } from '../repositories/game-position.repository';
 import { UserRepository } from '../repositories/user.repository';
-import { getDb, SqliteDatabase } from '../db';
+import { BasePoint, BasePointEventType } from '../events/base-point.events';
+import { MoveEventType, MoveEvent } from '../events/move-events';
+import { isPositionInNonPlayableCorner } from '../utils/coordinate-utils';
+import { GameStateService } from './game-state.service';
 
-export interface GameStatusResult {
+interface MoveResult {
+  success: boolean;
+  message: string;
+  moveId?: number;
+  capturedPieceId?: number | null;
+  isCheck?: boolean;
+  isCheckmate?: boolean;
+  isStalemate?: boolean;
+  positionId?: string;
+}
+
+interface GameStatusResult {
   success: boolean;
   gameJoined: boolean;
   homeX: number;
@@ -12,25 +28,19 @@ export interface GameStatusResult {
   error?: string;
 }
 
-export interface RestrictedSquaresResult {
+interface RestrictedSquaresResult {
   success: boolean;
   squares: number[];
   message?: string;
   error?: string;
 }
 
-export interface CalculateRestrictedSquaresInput {
+interface CalculateRestrictedSquaresInput {
   borderIndices: number[];
   currentPosition: [number, number];
   direction: 'up' | 'down' | 'left' | 'right';
 }
 
-export async function calculateRestrictedSquares(
-  input: CalculateRestrictedSquaresInput
-): Promise<RestrictedSquaresResult> {
-  try {
-    // This is a simplified version. You'll need to implement the actual logic
-    // based on your game's rules for restricted squares.
     // For now, we'll return an empty array as a placeholder.
     return {
       success: true,
