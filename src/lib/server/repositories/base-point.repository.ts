@@ -449,7 +449,8 @@ export class BasePointRepository {
       
       // First pass: Reset all pieces to their initial positions
       for (const point of allPoints) {
-        const color = point.color.toUpperCase() as keyof typeof initialPositions;
+        // Use the color as-is from the database to match the initialPositions keys
+        const color = point.color as keyof typeof initialPositions;
         const pieceType = point.pieceType as keyof PiecePositions;
         
         // Skip if we don't have initial positions for this color/type
