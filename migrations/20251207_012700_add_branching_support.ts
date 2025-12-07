@@ -37,9 +37,21 @@ export async function up(db: Database): Promise<void> {
   // Update moves table to reference positions
   await db.exec(`
     ALTER TABLE moves
-    ADD COLUMN position_before_id TEXT,
-    ADD COLUMN position_after_id TEXT,
-    ADD COLUMN is_branch BOOLEAN NOT NULL DEFAULT 0,
+    ADD COLUMN position_before_id TEXT;
+  `);
+  
+  await db.exec(`
+    ALTER TABLE moves
+    ADD COLUMN position_after_id TEXT;
+  `);
+  
+  await db.exec(`
+    ALTER TABLE moves
+    ADD COLUMN is_branch BOOLEAN NOT NULL DEFAULT 0;
+  `);
+  
+  await db.exec(`
+    ALTER TABLE moves
     ADD COLUMN branch_name TEXT;
   `);
 
