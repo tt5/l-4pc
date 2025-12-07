@@ -12,6 +12,24 @@ export interface CreateBasePointInput {
 export class BasePointRepository {
   constructor(private db: Database) {}
 
+  /**
+   * Executes a database transaction
+   * @param callback A function that performs database operations within the transaction
+   * @returns A promise that resolves with the result of the callback
+   * @throws If an error occurs during the transaction, it will be rethrown after rollback
+   */
+  async executeTransaction<T>(callback: (db: Database) => Promise<T>): Promise<T> {
+    await this.db.run('BEGIN TRANSACTION');
+    try {
+      const result = await callback(this.db);
+      await this.db.run('COMMIT');
+      return result;
+    } catch (error) {
+      await this.db.run('ROLLBACK');
+      throw error;
+    }
+  }
+
   async getAll(): Promise<BasePoint[]> {
     const results = await this.db.all<BasePoint[]>(
       'SELECT id, user_id as userId, x, y, color, piece_type as pieceType, game_created_at_ms as createdAtMs FROM base_points'
@@ -291,6 +309,12 @@ export class BasePointRepository {
       [userId, x, y, gameCreatedAtMs, color, pieceType]
     );
 
+    // Determine team based on position
+    let team: 1 | 2 = 1; // Default to team 1
+    if ((x === 0) || (x === 13)) {
+      team = 2; // Left (Blue) and Right (Green) are team 2
+    } // else Top (Yellow) and Bottom (Red) are team 1
+
     return {
       id: result.lastID!,
       userId,
@@ -298,6 +322,7 @@ export class BasePointRepository {
       y,
       color,
       pieceType: pieceType as any, // Cast to any to match the BasePoint interface
+      team,
       createdAtMs: gameCreatedAtMs
     };
   }

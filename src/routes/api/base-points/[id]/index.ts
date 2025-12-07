@@ -74,10 +74,9 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
       }
       
       // Update all base points to their positions at the branch point
-      const allBasePoints = await repository.getAll();
-      await repository.db.run('BEGIN TRANSACTION');
-      
-      try {
+      await repository.executeTransaction(async (db) => {
+        const allBasePoints = await repository.getAll();
+        
         // Update base points based on the final positions of pieces
         for (const [pieceKey, position] of positionsByPiece.entries()) {
           const [x, y] = pieceKey.split(',').map(Number);
@@ -88,15 +87,10 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
           
           if (basePoint) {
             // Update the base point to the piece's new position
-            await repository.update(basePoint.id, { x: position.x, y: position.y });
+            await repository.update(basePoint.id, position.x, position.y);
           }
         }
-        await repository.db.run('COMMIT');
-      } catch (error) {
-        await repository.db.run('ROLLBACK');
-        console.error('Failed to update base points for new branch:', error);
-        throw error;
-      }
+      });
     }
     
     // Check if there's already a base point at the target coordinates
