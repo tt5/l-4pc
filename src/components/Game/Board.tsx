@@ -1908,10 +1908,18 @@ const Board: Component<BoardProps> = (props) => {
             nextMoveInMainLine.to[1] === targetY;
           
           if (isSameAsMainLine) {
-            // If the move is the same as in the main line, continue the main line
-            isBranching = false;
-            console.log(`[Branch] Continuing main line with move from (${startX},${startY}) to (${targetX},${targetY})`);
-            setCurrentBranchName(null);
+            // If the move is the same as in the main line, just move forward in the main line
+            console.log(`[Branch] Moving forward in main line to move ${currentMoveIndex() + 2}`);
+            setCurrentMoveIndex(currentMoveIndex() + 1);
+            // Update the base points to reflect the move in the main line
+            const updatedBasePoints = basePoints().map(bp => 
+              bp.id === pointToMove.id
+                ? { ...bp, x: targetX, y: targetY }
+                : bp
+            );
+            setBasePoints(updatedBasePoints);
+            cleanupDragState();
+            return;
           } else {
             // If the move is different, create a new branch
             isBranching = true;
