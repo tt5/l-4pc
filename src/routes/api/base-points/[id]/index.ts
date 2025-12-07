@@ -132,6 +132,36 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
               }
             }
             console.log(`[${requestId}] Successfully updated ${updatedCount} base points for new branch`);
+            
+            // After updating base points, create a special branch creation move
+            const moveData = {
+              gameId: data.gameId!,
+              basePointId,
+              fromX: existingPoint.x,
+              fromY: existingPoint.y,
+              toX: data.x,
+              toY: data.y,
+              userId: user.userId,
+              pieceType: existingPoint.pieceType,
+              moveNumber: data.moveNumber,
+              isBranch: true,
+              branchName: data.branchName || null
+            };
+            
+            const move = await moveRepository.create(moveData);
+            console.log(`[${requestId}] Created branch creation move:`, move.id);
+            
+            // Return early after branch creation is complete
+            return createApiResponse({
+              ...existingPoint,
+              x: data.x,
+              y: data.y,
+              _event: {
+                type: 'branch_created',
+                moveId: move.id,
+                branchName: data.branchName || null
+              }
+            });
           });
         } catch (error) {
           console.error(`[${requestId}] Error in branch creation transaction:`, error);

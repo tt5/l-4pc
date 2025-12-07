@@ -194,12 +194,20 @@ export class MoveRepository {
         base_point_id as basePointId
       FROM moves 
       WHERE game_id = ? 
-        AND (branch_name = ? OR (? IS NULL AND branch_name IS NULL))
+        AND (
+          -- Include moves from the main branch (branch_name IS NULL)
+          branch_name IS NULL 
+          -- OR include moves from the specified branch
+          ${branchName ? 'OR branch_name = ?' : ''}
+        )
         ${maxMoveNumber !== undefined ? 'AND move_number <= ?' : ''}
       ORDER BY created_at_ms ASC
     `;
     
-    const params: any[] = [gameId, branchName, branchName];
+    const params: any[] = [gameId];
+    if (branchName) {
+      params.push(branchName);
+    }
     if (maxMoveNumber !== undefined) {
       params.push(maxMoveNumber);
     }
