@@ -882,7 +882,15 @@ const Board: Component<BoardProps> = (props) => {
   const [currentMoveIndex, setCurrentMoveIndex] = createSignal(-1);
   // Current move history up to the current position
   const [moveHistory, setMoveHistory] = createSignal<Move[]>([]);
-  
+  // Branch name for the current move (if any)
+  const [currentBranchName, setCurrentBranchName] = createSignal<string | null>(null);
+
+  // Generate a simple branch name based on move number and timestamp
+  const generateBranchName = (moveNumber: number): string => {
+    const timestamp = Date.now().toString(36).slice(-4);
+    return `Branch-${moveNumber}-${timestamp}`;
+  };
+
   // Track rendered moves to debug highlighting
   const renderedMoves = new Set<number>();
   
@@ -1885,6 +1893,16 @@ const Board: Component<BoardProps> = (props) => {
           return;
         }
 
+        // Check if we're making a move from a historical position (not the latest move)
+        const isBranching = currentMoveIndex() < fullMoveHistory().length - 1;
+        let branchName: string | null = null;
+        
+        if (isBranching) {
+          branchName = generateBranchName(currentMoveIndex() + 1);
+          console.log(`[Branch] Creating new branch: ${branchName} from move ${currentMoveIndex() + 1}`);
+          setCurrentBranchName(branchName);
+        }
+        
         // 2. Add move to history before updating position
         const newMove: Move = {
           id: Date.now(),
@@ -1894,7 +1912,9 @@ const Board: Component<BoardProps> = (props) => {
           timestamp: Date.now(),
           playerId: pointToMove.userId,
           color: currentColor,
-          moveNumber: fullMoveHistory().length + 1
+          moveNumber: fullMoveHistory().length + 1,
+          isBranch: isBranching,
+          branchName: branchName || undefined
         };
         
         // Calculate move number before updating history
@@ -1902,7 +1922,18 @@ const Board: Component<BoardProps> = (props) => {
         // Move number logging removed for cleaner output
         
         // Add the new move to the full history
-        const newFullHistory = [...fullMoveHistory().slice(0, currentMoveIndex() + 1), newMove];
+        let newFullHistory;
+        if (isBranching) {
+          // If branching, keep the history up to the current move and add the new branch move
+          newFullHistory = [
+            ...fullMoveHistory().slice(0, currentMoveIndex() + 1),
+            newMove
+          ];
+          console.log(`[Branch] Created branch '${branchName}' at move ${currentMoveIndex() + 1}`);
+        } else {
+          // Normal case - just append to the end
+          newFullHistory = [...fullMoveHistory(), newMove];
+        }
         
         console.log('[Move History] Adding new move to history:', {
           moveNumber: newMove.moveNumber,
@@ -1911,6 +1942,8 @@ const Board: Component<BoardProps> = (props) => {
           to: newMove.to,
           player: newMove.playerId,
           color: newMove.color,
+          isBranch: newMove.isBranch,
+          branchName: newMove.branchName,
           timestamp: new Date(newMove.timestamp).toISOString(),
           totalMoves: newFullHistory.length,
           currentMoveIndex: newFullHistory.length - 1

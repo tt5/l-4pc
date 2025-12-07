@@ -80,10 +80,11 @@ export interface Move {
   // New fields
   gameId?: string;
   moveNumber?: number;
-  // Add other optional fields that might be present in the API response
   pieceType?: string;
   capturedPieceId?: number | null;
   createdAtMs?: number;
+  isBranch?: boolean;
+  branchName?: string;
 }
 
 export interface GameState {
