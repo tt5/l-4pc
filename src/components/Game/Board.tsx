@@ -2019,7 +2019,9 @@ const Board: Component<BoardProps> = (props) => {
           moveNumber, 
           newMove.branchName,
           newMove.isBranch,  // Pass isNewBranch flag
-          gameId()          // Pass the current game ID
+          gameId(),         // Pass the current game ID
+          startX,           // fromX (source X coordinate)
+          startY            // fromY (source Y coordinate)
         );
         
         if (!result.success) {
@@ -2183,7 +2185,11 @@ const Board: Component<BoardProps> = (props) => {
         targetX, 
         targetY, 
         moveNumber, 
-        currentBranchName
+        currentBranchName,
+        false,            // isNewBranch (default to false)
+        gameId(),         // gameId
+        pointToMove.x,    // fromX (current position before move)
+        pointToMove.y     // fromY (current position before move)
       );
       
       if (!result.success) {

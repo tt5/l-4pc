@@ -10,6 +10,8 @@ interface UpdateBasePointRequest {
   branchName?: string | null;
   isNewBranch?: boolean;
   gameId?: string;
+  fromX?: number;  // Source X coordinate for branch moves
+  fromY?: number;  // Source Y coordinate for branch moves
 }
 
 export const PATCH = withAuth(async ({ request, params, user }) => {
@@ -89,8 +91,9 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
         return createErrorResponse('moveNumber is required for branch creation', 400, undefined, { requestId });
       }
       
-      const fromX = data.x - (data.moveNumber % 2 === 0 ? 1 : 0); // Adjust based on move number for direction
-      const fromY = data.y - (data.moveNumber % 2 === 0 ? 0 : 1);
+      // Use provided fromX/fromY if available, otherwise calculate based on move number
+      const fromX = data.fromX ?? (data.x - (data.moveNumber % 2 === 0 ? 1 : 0));
+      const fromY = data.fromY ?? (data.y - (data.moveNumber % 2 === 0 ? 0 : 1));
       
       console.log(`[${requestId}] Looking for piece at coordinates (${fromX},${fromY}) for branch move (moveNumber: ${data.moveNumber})`);
       const piecesAtPosition = allBasePoints.filter(

@@ -190,8 +190,7 @@ export class MoveRepository {
         captured_piece_id as capturedPieceId,
         created_at_ms as createdAtMs,
         is_branch as isBranch,
-        branch_name as branchName,
-        base_point_id as basePointId
+        branch_name as branchName
       FROM moves 
       WHERE game_id = ? 
         AND (

@@ -98,7 +98,9 @@ export const updateBasePoint = async (
   moveNumber?: number, 
   branchName?: string | null, 
   isNewBranch?: boolean,
-  gameId?: string
+  gameId?: string,
+  fromX?: number,  // Source X coordinate
+  fromY?: number   // Source Y coordinate
 ): Promise<ApiResponse<BasePoint>> => {
   try {
     // Validate input
@@ -119,7 +121,9 @@ export const updateBasePoint = async (
         ...(moveNumber !== undefined && { moveNumber }),
         ...(branchName !== undefined && { branchName }),
         ...(isNewBranch !== undefined && { isNewBranch }),
-        ...(gameId !== undefined && { gameId })
+        ...(gameId !== undefined && { gameId }),
+        fromX,  // Always include fromX
+        fromY   // Always include fromY
       })
     });
 
