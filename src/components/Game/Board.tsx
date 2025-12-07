@@ -1894,13 +1894,31 @@ const Board: Component<BoardProps> = (props) => {
         }
 
         // Check if we're making a move from a historical position (not the latest move)
-        const isBranching = currentMoveIndex() < fullMoveHistory().length - 1;
+        const isAtHistoricalPosition = currentMoveIndex() < fullMoveHistory().length - 1;
+        let isBranching = false;
         let branchName: string | null = null;
         
-        if (isBranching) {
-          branchName = generateBranchName(currentMoveIndex() + 1);
-          console.log(`[Branch] Creating new branch: ${branchName} from move ${currentMoveIndex() + 1}`);
-          setCurrentBranchName(branchName);
+        if (isAtHistoricalPosition) {
+          // Check if the move is the same as the next move in the main line
+          const nextMoveInMainLine = fullMoveHistory()[currentMoveIndex() + 1];
+          const isSameAsMainLine = nextMoveInMainLine && 
+            nextMoveInMainLine.from[0] === startX &&
+            nextMoveInMainLine.from[1] === startY &&
+            nextMoveInMainLine.to[0] === targetX &&
+            nextMoveInMainLine.to[1] === targetY;
+          
+          if (isSameAsMainLine) {
+            // If the move is the same as in the main line, continue the main line
+            isBranching = false;
+            console.log(`[Branch] Continuing main line with move from (${startX},${startY}) to (${targetX},${targetY})`);
+            setCurrentBranchName(null);
+          } else {
+            // If the move is different, create a new branch
+            isBranching = true;
+            branchName = generateBranchName(currentMoveIndex() + 1);
+            console.log(`[Branch] Creating new branch '${branchName}' from move ${currentMoveIndex() + 1} with different move`);
+            setCurrentBranchName(branchName);
+          }
         }
         
         // 2. Add move to history before updating position
