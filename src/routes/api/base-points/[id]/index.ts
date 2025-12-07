@@ -1,7 +1,16 @@
-import { getBasePointRepository } from '~/lib/server/db';
+import { getBasePointRepository, getMoveRepository } from '~/lib/server/db';
 import { withAuth } from '~/middleware/auth';
 import { createApiResponse, createErrorResponse, generateRequestId } from '~/utils/api';
 import { basePointEventService } from '~/lib/server/events/base-point-events';
+
+interface UpdateBasePointRequest {
+  x: number;
+  y: number;
+  moveNumber?: number;
+  branchName?: string | null;
+  isNewBranch?: boolean;
+  gameId?: string;
+}
 
 export const PATCH = withAuth(async ({ request, params, user }) => {
   const requestId = generateRequestId();
@@ -12,7 +21,7 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
   }
 
   try {
-    const data = await request.json() as { x: number; y: number };
+    const data = await request.json() as UpdateBasePointRequest;
     
     // Type checking
     if (typeof data.x !== 'number' || typeof data.y !== 'number' || isNaN(data.x) || isNaN(data.y)) {
@@ -36,6 +45,7 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
     }
     
     const repository = await getBasePointRepository();
+    const moveRepository = await getMoveRepository();
     
     // First, verify the base point exists and belongs to the user
     const existingPoint = await repository.getById(basePointId);
@@ -45,6 +55,40 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
     
     if (existingPoint.userId !== user.userId) {
       return createErrorResponse('Unauthorized', 403, undefined, { requestId });
+    }
+
+    // If this is a new branch, update all base points to their positions at the branch point
+    if (data.isNewBranch && data.branchName && data.gameId && data.moveNumber !== undefined) {
+      // Get all moves up to the current move in the main branch
+      const mainBranchMoves = await moveRepository.getMovesForGame(data.gameId, null, data.moveNumber);
+      
+      // Group moves by base point ID to find the last position of each piece
+      const positionsByBasePoint = new Map<number, {x: number, y: number}>();
+      
+      // Process moves in order to build up the board state
+      for (const move of mainBranchMoves) {
+        if (move.basePointId) { // Ensure basePointId exists
+          positionsByBasePoint.set(move.basePointId, { x: move.toX, y: move.toY });
+        }
+      }
+      
+      // Update all base points to their positions at the branch point
+      const allBasePoints = await repository.getAll();
+      await repository.db.run('BEGIN TRANSACTION');
+      
+      try {
+        for (const basePoint of allBasePoints) {
+          const position = positionsByBasePoint.get(basePoint.id);
+          if (position) {
+            await repository.update(basePoint.id, position.x, position.y);
+          }
+        }
+        await repository.db.run('COMMIT');
+      } catch (error) {
+        await repository.db.run('ROLLBACK');
+        console.error('Failed to update base points for new branch:', error);
+        throw error;
+      }
     }
     
     // Check if there's already a base point at the target coordinates

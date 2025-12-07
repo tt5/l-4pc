@@ -174,4 +174,36 @@ export class MoveRepository {
       throw error;
     }
   }
+
+  async getMovesForGame(gameId: string, branchName: string | null, maxMoveNumber?: number): Promise<Move[]> {
+    const query = `
+      SELECT 
+        id, 
+        game_id as gameId, 
+        user_id as userId, 
+        piece_type as pieceType,
+        from_x as fromX,
+        from_y as fromY,
+        to_x as toX,
+        to_y as toY,
+        move_number as moveNumber,
+        captured_piece_id as capturedPieceId,
+        created_at_ms as createdAtMs,
+        is_branch as isBranch,
+        branch_name as branchName,
+        base_point_id as basePointId
+      FROM moves 
+      WHERE game_id = ? 
+        AND (branch_name = ? OR (? IS NULL AND branch_name IS NULL))
+        ${maxMoveNumber !== undefined ? 'AND move_number <= ?' : ''}
+      ORDER BY created_at_ms ASC
+    `;
+    
+    const params: any[] = [gameId, branchName, branchName];
+    if (maxMoveNumber !== undefined) {
+      params.push(maxMoveNumber);
+    }
+    
+    return this.db.all<Move[]>(query, params);
+  }
 }
