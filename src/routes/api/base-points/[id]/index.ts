@@ -161,8 +161,8 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
         const mainBranchMoves = await moveRepository.getMovesForGame(data.gameId, null, data.moveNumber - 1);
         console.log(`[${requestId}] Found ${mainBranchMoves.length} moves in main branch`);
 
-        // Start a transaction for the branch creation
-        return await repository.executeTransaction(async (db) => {
+        // Create a transaction for the branch creation
+        const executeBranchCreation = async () => {
           // First, reset all pieces to their initial positions
           console.log(`[${requestId}] Resetting board to initial state`);
           await repository.resetBoardToInitialState();
@@ -227,7 +227,7 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
           const move = await moveRepository.create(moveData);
           console.log(`[${requestId}] Created branch move:`, move.id);
 
-          return createApiResponse({
+          return {
             ...existingPoint,
             x: data.x,
             y: data.y,
@@ -237,8 +237,15 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
               branchName: data.branchName,
               basePointId: existingPoint.id
             }
-          });
+          };
+        };
+
+        // Execute the branch creation within a transaction
+        const result = await repository.executeTransaction(async () => {
+          return await executeBranchCreation();
         });
+
+        return createApiResponse(result);
       } catch (error) {
         console.error(`[${requestId}] Error creating branch:`, error);
         return createErrorResponse(
