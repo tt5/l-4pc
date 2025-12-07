@@ -1,4 +1,5 @@
-import { MoveRepository, GamePositionRepository } from '../repositories';
+import { MoveRepository } from '../repositories/move.repository';
+import { GamePositionRepository } from '../repositories/game-position.repository';
 import { GamePosition, Move } from '../repositories/move.repository';
 
 export class GameStateService {
@@ -94,9 +95,9 @@ export class GameStateService {
     }
 
     // In a real implementation, we would fetch the actual moves
-    // For now, we'll return an empty array
-    const moves = [];
-    const branches = [];
+    // For now, we'll return an empty array with proper typing
+    const moves: Move[] = [];
+    const branches: Array<{ id: string; name: string }> = [];
 
     return { position, moves, branches };
   }
@@ -113,9 +114,9 @@ export class GameStateService {
     if (!position) return null;
 
     // In a real implementation, we would fetch the actual moves and branches
-    // For now, we'll return empty arrays
-    const moves = [];
-    const branches = [];
+    // For now, we'll return empty arrays with proper typing
+    const moves: Move[] = [];
+    const branches: Array<{ id: string; name: string }> = [];
 
     return { position, moves, branches };
   }
