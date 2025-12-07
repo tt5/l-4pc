@@ -2018,7 +2018,8 @@ const Board: Component<BoardProps> = (props) => {
           targetY, 
           moveNumber, 
           newMove.branchName,
-          newMove.isBranch  // Pass isNewBranch flag
+          newMove.isBranch,  // Pass isNewBranch flag
+          gameId()          // Pass the current game ID
         );
         
         if (!result.success) {

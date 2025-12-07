@@ -88,6 +88,7 @@ type ValidateSquarePlacementOptions = {
  * @param moveNumber The current move number (optional)
  * @param branchName The name of the branch (optional)
  * @param isNewBranch Whether this is a new branch (optional)
+ * @param gameId The ID of the game (required for branching)
  * @returns A promise that resolves to the API response with the updated base point
  */
 export const updateBasePoint = async (
@@ -96,7 +97,8 @@ export const updateBasePoint = async (
   y: number, 
   moveNumber?: number, 
   branchName?: string | null, 
-  isNewBranch?: boolean
+  isNewBranch?: boolean,
+  gameId?: string
 ): Promise<ApiResponse<BasePoint>> => {
   try {
     // Validate input
@@ -116,7 +118,8 @@ export const updateBasePoint = async (
         y, 
         ...(moveNumber !== undefined && { moveNumber }),
         ...(branchName !== undefined && { branchName }),
-        ...(isNewBranch !== undefined && { isNewBranch })
+        ...(isNewBranch !== undefined && { isNewBranch }),
+        ...(gameId !== undefined && { gameId })
       })
     });
 
