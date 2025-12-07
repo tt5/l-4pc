@@ -106,33 +106,41 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
           }
         }
       
-      try {
-        // Update all base points to their positions at the branch point
-        console.log(`[${requestId}] Starting transaction to update base points for new branch`);
-        await repository.executeTransaction(async (db) => {
-          const allBasePoints = await repository.getAll();
-          console.log(`[${requestId}] Found ${allBasePoints.length} base points to potentially update`);
-          
-          let updatedCount = 0;
-          // Update base points based on the final positions of pieces
-          for (const [pieceKey, position] of positionsByPiece.entries()) {
-            const [x, y] = pieceKey.split(',').map(Number);
-            // Find the base point at the piece's final position
-            const basePoint = allBasePoints.find(
-              bp => bp.x === x && bp.y === y
-            );
+        try {
+          // Update all base points to their positions at the branch point
+          console.log(`[${requestId}] Starting transaction to update base points for new branch`);
+          await repository.executeTransaction(async (db) => {
+            const allBasePoints = await repository.getAll();
+            console.log(`[${requestId}] Found ${allBasePoints.length} base points to potentially update`);
             
-            if (basePoint) {
-              console.log(`[${requestId}] Moving piece from (${x},${y}) to (${position.x},${position.y})`);
-              // Update the base point to the piece's new position
-              await repository.update(basePoint.id, position.x, position.y);
-              updatedCount++;
-            } else {
-              console.warn(`[${requestId}] No base point found at position (${x},${y})`);
+            let updatedCount = 0;
+            // Update base points based on the final positions of pieces
+            for (const [pieceKey, position] of positionsByPiece.entries()) {
+              const [x, y] = pieceKey.split(',').map(Number);
+              // Find the base point at the piece's final position
+              const basePoint = allBasePoints.find(
+                bp => bp.x === x && bp.y === y
+              );
+              
+              if (basePoint) {
+                console.log(`[${requestId}] Moving piece from (${x},${y}) to (${position.x},${position.y})`);
+                // Update the base point to the piece's new position
+                await repository.update(basePoint.id, position.x, position.y);
+                updatedCount++;
+              } else {
+                console.warn(`[${requestId}] No base point found at position (${x},${y})`);
+              }
             }
-          }
-          console.log(`[${requestId}] Successfully updated ${updatedCount} base points for new branch`);
-      });
+            console.log(`[${requestId}] Successfully updated ${updatedCount} base points for new branch`);
+          });
+        } catch (error) {
+          console.error(`[${requestId}] Error in branch creation transaction:`, error);
+          return createErrorResponse('Failed to create branch', 500, undefined, { requestId });
+        }
+      } catch (error) {
+        console.error(`[${requestId}] Error creating branch:`, error);
+        return createErrorResponse('Failed to create branch', 500, undefined, { requestId });
+      }
     }
     
     // Check if there's already a base point at the target coordinates
@@ -184,8 +192,18 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
     console.log(`[${requestId}] Updating base point ${basePointId} from (${existingPoint.x},${existingPoint.y}) to (${data.x},${data.y})`);
     const updatedPoint = await repository.update(basePointId, data.x, data.y);
     
+    if (!updatedPoint) {
+      return createErrorResponse('Failed to update base point', 500, undefined, { requestId });
+    }
+    
     // Create a move record
+    // Add validation for gameId
+    if (!data.gameId) {
+      return createErrorResponse('gameId is required', 400, requestId);
+    }
+
     const moveData = {
+      gameId: data.gameId,
       basePointId,
       fromX: existingPoint.x,
       fromY: existingPoint.y,
@@ -206,40 +224,31 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
     const move = await moveRepository.create(moveData);
     console.log(`[${requestId}] Successfully created move ${move.id}`);
     
+    // Emit the update event
+    basePointEventService.emitUpdated(updatedPoint);
+    
     const responseData = {
       ...updatedPoint,
-      // Emit an event for real-time updates
-      _event: basePointEventService.createEvent('update', updatedPoint, {
-        userId: user.userId,
+      // Include the move ID and other metadata in the response
+      _event: {
+        type: 'update',
         moveId: move.id,
         isBranch: data.isNewBranch || false,
         branchName: data.branchName || null
-      })
+      }
     };
     
     console.log(`[${requestId}] Successfully processed move. Sending response.`);
     return createApiResponse(responseData);
-    
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-    console.error(`[${requestId}] Error updating base point:`, {
-      error: errorMessage,
-      stack: error instanceof Error ? error.stack : undefined,
-      basePointId,
-      userId: user.userId
-    });
-    
+    console.error(`[${requestId}] Error in PATCH /api/base-points/${basePointId}:`, error);
     return createErrorResponse(
-      errorMessage,
+      'An error occurred while processing your request',
       500,
-      undefined,
       { 
-        requestId,
-        error: errorMessage,
-        ...(error instanceof Error ? { stack: error.stack } : {})
+        requestId, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
       }
     );
-  } finally {
-    console.log(`[${requestId}] Completed PATCH /api/base-points/${basePointId}`);
   }
 });
