@@ -62,14 +62,15 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
       // Get all moves up to the current move in the main branch
       const mainBranchMoves = await moveRepository.getMovesForGame(data.gameId, null, data.moveNumber);
       
-      // Group moves by base point ID to find the last position of each piece
-      const positionsByBasePoint = new Map<number, {x: number, y: number}>();
+      // Track the latest position of each piece by their starting position
+      const positionsByPiece = new Map<string, {x: number, y: number}>();
       
       // Process moves in order to build up the board state
       for (const move of mainBranchMoves) {
-        if (move.basePointId) { // Ensure basePointId exists
-          positionsByBasePoint.set(move.basePointId, { x: move.toX, y: move.toY });
-        }
+        // Use the from coordinates as the key to track each piece
+        const pieceKey = `${move.fromX},${move.fromY}`;
+        // Update the piece's position to the move's destination
+        positionsByPiece.set(pieceKey, { x: move.toX, y: move.toY });
       }
       
       // Update all base points to their positions at the branch point
@@ -77,10 +78,17 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
       await repository.db.run('BEGIN TRANSACTION');
       
       try {
-        for (const basePoint of allBasePoints) {
-          const position = positionsByBasePoint.get(basePoint.id);
-          if (position) {
-            await repository.update(basePoint.id, position.x, position.y);
+        // Update base points based on the final positions of pieces
+        for (const [pieceKey, position] of positionsByPiece.entries()) {
+          const [x, y] = pieceKey.split(',').map(Number);
+          // Find the base point at the piece's final position
+          const basePoint = allBasePoints.find(
+            bp => bp.x === x && bp.y === y
+          );
+          
+          if (basePoint) {
+            // Update the base point to the piece's new position
+            await repository.update(basePoint.id, { x: position.x, y: position.y });
           }
         }
         await repository.db.run('COMMIT');
