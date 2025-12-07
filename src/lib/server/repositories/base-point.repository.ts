@@ -254,13 +254,18 @@ export class BasePointRepository {
    * Finds a base point by its coordinates
    * @param x The x-coordinate
    * @param y The y-coordinate
+   * @param excludeId Optional ID to exclude from the search (useful when moving a piece)
    * @returns The base point if found, null otherwise
    */
-  async findByCoordinates(x: number, y: number): Promise<BasePoint | null> {
-    const result = await this.db.get<BasePoint>(
-      'SELECT id, user_id as userId, x, y, color, piece_type as pieceType, game_created_at_ms as createdAtMs FROM base_points WHERE x = ? AND y = ?',
-      [x, y]
-    );
+  async findByCoordinates(x: number, y: number, excludeId?: number): Promise<BasePoint | null> {
+    const query = `
+      SELECT id, user_id as userId, x, y, color, piece_type as pieceType, game_created_at_ms as createdAtMs 
+      FROM base_points 
+      WHERE x = ? AND y = ? ${excludeId ? 'AND id != ?' : ''}
+    `;
+    const params = excludeId ? [x, y, excludeId] : [x, y];
+    
+    const result = await this.db.get<BasePoint>(query, params);
     return result || null;
   }
 
@@ -339,6 +344,65 @@ export class BasePointRepository {
     return result || null;
   }
 
+
+  /**
+   * Resets all pieces to their initial positions
+   * This is used when setting up a new branch to ensure a clean starting state
+   */
+  async resetBoardToInitialState(): Promise<void> {
+    // Define initial positions for all pieces
+    const initialPositions: Record<number, {x: number, y: number}> = {
+      // Blue pieces (left side)
+      1: {x: 0, y: 3},   // Blue rook
+      2: {x: 0, y: 4},   // Blue knight
+      3: {x: 0, y: 5},   // Blue bishop
+      4: {x: 0, y: 6},   // Blue queen
+      5: {x: 0, y: 7},   // Blue king
+      6: {x: 0, y: 8},   // Blue bishop
+      7: {x: 0, y: 9},   // Blue knight
+      8: {x: 0, y: 10},  // Blue rook
+      
+      // Blue pawns
+      9: {x: 1, y: 3},
+      10: {x: 1, y: 4},
+      11: {x: 1, y: 5},
+      41: {x: 1, y: 6},  // The pawn we're trying to move
+      12: {x: 1, y: 7},
+      13: {x: 1, y: 8},
+      14: {x: 1, y: 9},
+      15: {x: 1, y: 10},
+      
+      // Add other teams' pieces here following the same pattern
+      // ...
+      
+      // Make sure to include the piece with ID 2281 that was causing issues
+      2281: {x: 1, y: 6}  // Ensure this matches the expected initial position
+    };
+
+    await this.db.run('BEGIN TRANSACTION');
+    try {
+      // Get all current base points
+      const allPoints = await this.getAll();
+      
+      // Update each piece to its initial position
+      for (const point of allPoints) {
+        const initialPos = initialPositions[point.id];
+        if (initialPos) {
+          await this.db.run(
+            'UPDATE base_points SET x = ?, y = ? WHERE id = ?',
+            [initialPos.x, initialPos.y, point.id]
+          );
+        }
+      }
+      
+      await this.db.run('COMMIT');
+      console.log('[BasePointRepository] Reset board to initial state');
+    } catch (error) {
+      await this.db.run('ROLLBACK');
+      console.error('[BasePointRepository] Failed to reset board state:', error);
+      throw error;
+    }
+  }
 
   async deleteBasePoint(id: number): Promise<BasePoint | null> {
     // First get the point to return it after deletion

@@ -908,13 +908,11 @@ const Board: Component<BoardProps> = (props) => {
   // Update the base points based on the current move history
   const updateBoardState = (moves: Move[]) => {
     console.group('updateBoardState');
-    const currentIndex = currentMoveIndex();
-    console.log('Current move index:', currentIndex);
-    console.log('Move history length:', moveHistory().length);
-    console.log('New moves to apply:', moves.length);
+    console.log('Starting board state update with moves:', moves);
     
     // Start with a fresh copy of the initial board state
     const newBasePoints = JSON.parse(JSON.stringify(INITIAL_BASE_POINTS));
+    console.log('Initial base points:', JSON.parse(JSON.stringify(newBasePoints)));
     
     // Clear any lingering currentMove classes
     document.querySelectorAll(`.${styles.currentMove}`).forEach(el => {
@@ -928,32 +926,63 @@ const Board: Component<BoardProps> = (props) => {
       positionMap.set(`${point.x},${point.y}`, point);
     });
     
+    console.log('Initial position map:', Array.from(positionMap.entries()));
+    
     // Apply each move in sequence
-    moves.forEach((move) => {
-      const { fromX, fromY, toX, toY } = move;
+    moves.forEach((move, index) => {
+      const { fromX, fromY, toX, toY, pieceType } = move;
       const fromKey = `${fromX},${fromY}`;
       const toKey = `${toX},${toY}`;
       
+      console.log(`\nMove ${index + 1}/${moves.length}:`, {
+        from: { x: fromX, y: fromY },
+        to: { x: toX, y: toY },
+        pieceType,
+        fromKey,
+        toKey
+      });
+      
       // Find the piece being moved
       const piece = positionMap.get(fromKey);
-      if (piece) {
-        // Remove from old position
-        positionMap.delete(fromKey);
-        
-        // If there's a piece at the target position, it's being captured
-        if (positionMap.has(toKey)) {
-          positionMap.delete(toKey);
-        }
-        
-        // Move the piece to the new position
-        piece.x = toX;
-        piece.y = toY;
-        positionMap.set(toKey, piece);
+      if (!piece) {
+        console.error(`No piece found at source position (${fromX},${fromY})`);
+        return; // Skip this move if source piece not found
       }
+      
+      console.log('Moving piece:', {
+        id: piece.id,
+        type: piece.pieceType,
+        color: piece.color,
+        team: getTeamByColor(piece.color)
+      });
+      
+      // Check for capture
+      if (positionMap.has(toKey)) {
+        const capturedPiece = positionMap.get(toKey);
+        console.log('Capturing piece at target:', {
+          id: capturedPiece.id,
+          type: capturedPiece.pieceType,
+          color: capturedPiece.color,
+          team: getTeamByColor(capturedPiece.color)
+        });
+        positionMap.delete(toKey);
+      }
+      
+      // Move the piece to the new position
+      positionMap.delete(fromKey);
+      piece.x = toX;
+      piece.y = toY;
+      positionMap.set(toKey, piece);
+      
+      console.log('Position map after move:', Array.from(positionMap.entries()));
     });
     
     // Update the base points with the new positions
-    setBasePoints(Array.from(positionMap.values()));
+    const updatedBasePoints = Array.from(positionMap.values());
+    console.log('Final base points:', JSON.parse(JSON.stringify(updatedBasePoints)));
+    setBasePoints(updatedBasePoints);
+    
+    console.groupEnd();
   };
   
   // Initial board setup - matches the reset-board.ts configuration
