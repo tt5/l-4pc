@@ -1,6 +1,20 @@
 import { Database } from 'sqlite';
 import { BasePoint } from '../../../types/board';
 
+type Position = { x: number; y: number };
+type PiecePositions = {
+  rook: Position[];
+  knight: Position[];
+  bishop: Position[];
+  queen: Position[];
+  king: Position[];
+  pawn: Position[];
+};
+
+type InitialPositions = {
+  [color: string]: PiecePositions;
+};
+
 export interface CreateBasePointInput {
   userId: string;
   x: number;
@@ -351,51 +365,129 @@ export class BasePointRepository {
    * @param db Optional database connection to use for the transaction
    */
   async resetBoardToInitialState(db?: Database): Promise<void> {
-    // Define initial positions for all pieces
-    const initialPositions: Record<number, {x: number, y: number}> = {
+    // Define initial positions for all pieces by color and type
+    const initialPositions: InitialPositions = {
       // Blue pieces (left side)
-      1: {x: 0, y: 3},   // Blue rook
-      2: {x: 0, y: 4},   // Blue knight
-      3: {x: 0, y: 5},   // Blue bishop
-      4: {x: 0, y: 6},   // Blue queen
-      5: {x: 0, y: 7},   // Blue king
-      6: {x: 0, y: 8},   // Blue bishop
-      7: {x: 0, y: 9},   // Blue knight
-      8: {x: 0, y: 10},  // Blue rook
-      
-      // Blue pawns
-      9: {x: 1, y: 3},
-      10: {x: 1, y: 4},
-      11: {x: 1, y: 5},
-      41: {x: 1, y: 6},  // The pawn we're trying to move
-      12: {x: 1, y: 7},
-      13: {x: 1, y: 8},
-      14: {x: 1, y: 9},
-      15: {x: 1, y: 10},
-      
-      // Add other teams' pieces here following the same pattern
-      // ...
-      
-      // Make sure to include the piece with ID 2281 that was causing issues
-      2281: {x: 1, y: 6}  // Ensure this matches the expected initial position
+      '#2196F3': {
+        // Back row
+        rook: [{x: 0, y: 3}, {x: 0, y: 10}],
+        knight: [{x: 0, y: 4}, {x: 0, y: 9}],
+        bishop: [{x: 0, y: 5}, {x: 0, y: 8}],
+        queen: [{x: 0, y: 6}],
+        king: [{x: 0, y: 7}],
+        // Pawns
+        pawn: [
+          {x: 1, y: 3}, {x: 1, y: 4}, {x: 1, y: 5}, {x: 1, y: 6},
+          {x: 1, y: 7}, {x: 1, y: 8}, {x: 1, y: 9}, {x: 1, y: 10}
+        ]
+      },
+      // Red pieces (bottom)
+      '#F44336': {
+        // Back row
+        rook: [{x: 3, y: 13}, {x: 10, y: 13}],
+        knight: [{x: 4, y: 13}, {x: 9, y: 13}],
+        bishop: [{x: 5, y: 13}, {x: 8, y: 13}],
+        queen: [{x: 6, y: 13}],
+        king: [{x: 7, y: 13}],
+        // Pawns
+        pawn: [
+          {x: 3, y: 12}, {x: 4, y: 12}, {x: 5, y: 12}, {x: 6, y: 12},
+          {x: 7, y: 12}, {x: 8, y: 12}, {x: 9, y: 12}, {x: 10, y: 12}
+        ]
+      },
+      // Yellow pieces (top)
+      '#FFEB3B': {
+        // Back row
+        rook: [{x: 3, y: 0}, {x: 10, y: 0}],
+        knight: [{x: 4, y: 0}, {x: 9, y: 0}],
+        bishop: [{x: 5, y: 0}, {x: 8, y: 0}],
+        queen: [{x: 7, y: 0}],
+        king: [{x: 6, y: 0}],
+        // Pawns
+        pawn: [
+          {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}, {x: 7, y: 1},
+          {x: 6, y: 1}, {x: 8, y: 1}, {x: 9, y: 1}, {x: 10, y: 1}
+        ]
+      },
+      // Green pieces (right side)
+      '#4CAF50': {
+        // Back row
+        rook: [{x: 13, y: 3}, {x: 13, y: 10}],
+        knight: [{x: 13, y: 4}, {x: 13, y: 9}],
+        bishop: [{x: 13, y: 5}, {x: 13, y: 8}],
+        queen: [{x: 13, y: 7}],
+        king: [{x: 13, y: 6}],
+        // Pawns
+        pawn: [
+          {x: 12, y: 3}, {x: 12, y: 4}, {x: 12, y: 5}, {x: 12, y: 7},
+          {x: 12, y: 6}, {x: 12, y: 8}, {x: 12, y: 9}, {x: 12, y: 10}
+        ]
+      }
     };
 
     const executeReset = async (db: Database) => {
+      console.log('[resetBoardToInitialState] Starting board reset...');
+      
       // Get all current base points
       const allPoints = await db.all<BasePoint[]>(
-        'SELECT id, user_id as userId, x, y, color, piece_type as pieceType, game_created_at_ms as createdAtMs FROM base_points'
+        'SELECT id, user_id as userId, x, y, color, piece_type as pieceType FROM base_points'
       );
       
-      // Update each piece to its initial position
-      for (const point of allPoints) {
-        const initialPos = initialPositions[point.id];
-        if (initialPos) {
-          await db.run(
-            'UPDATE base_points SET x = ?, y = ? WHERE id = ?',
-            [initialPos.x, initialPos.y, point.id]
-          );
+      console.log(`[resetBoardToInitialState] Found ${allPoints.length} pieces to reset`);
+      
+      // Track which pieces we've processed
+      const processedPieces = new Set<number>();
+      const colorCounts: Record<string, Record<string, number>> = {};
+      
+      // Initialize color counts
+      for (const color of Object.keys(initialPositions) as Array<keyof typeof initialPositions>) {
+        colorCounts[color] = {};
+        for (const pieceType of Object.keys(initialPositions[color]) as Array<keyof PiecePositions>) {
+          colorCounts[color][pieceType] = 0;
         }
       }
+      
+      // First pass: Reset all pieces to their initial positions
+      for (const point of allPoints) {
+        const color = point.color.toUpperCase() as keyof typeof initialPositions;
+        const pieceType = point.pieceType as keyof PiecePositions;
+        
+        // Skip if we don't have initial positions for this color/type
+        if (!initialPositions[color] || !initialPositions[color][pieceType]) {
+          console.warn(`[resetBoardToInitialState] No initial positions defined for ${color} ${pieceType}`);
+          continue;
+        }
+        
+        // Get the next available position for this color and piece type
+        const positions = initialPositions[color][pieceType];
+        const count = colorCounts[color][pieceType as string];
+        
+        if (count >= positions.length) {
+          console.warn(`[resetBoardToInitialState] No more initial positions for ${color} ${pieceType}`);
+          continue;
+        }
+        
+        const newPos = positions[count];
+        colorCounts[color][pieceType as string]++;
+        
+        // Update the piece's position
+        await db.run(
+          'UPDATE base_points SET x = ?, y = ? WHERE id = ?',
+          [newPos.x, newPos.y, point.id]
+        );
+        
+        processedPieces.add(point.id);
+        console.log(`[resetBoardToInitialState] Moved ${color} ${pieceType} to (${newPos.x}, ${newPos.y})`);
+      }
+      
+      // Log any unprocessed pieces
+      const unprocessed = allPoints.filter(p => !processedPieces.has(p.id));
+      if (unprocessed.length > 0) {
+        console.warn(`[resetBoardToInitialState] Could not reset ${unprocessed.length} pieces:`, 
+          unprocessed.map(p => `${p.color} ${p.pieceType} (ID: ${p.id})`).join(', '));
+      }
+      
+      console.log('[resetBoardToInitialState] Board reset complete');
       
       console.log('[BasePointRepository] Reset board to initial state');
     };
