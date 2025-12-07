@@ -1986,7 +1986,13 @@ const Board: Component<BoardProps> = (props) => {
 
         // Updating base point in database
         const moveNumber = fullMoveHistory().length + 1;
-        const result = await updateBasePoint(pointToMove.id, targetX, targetY, moveNumber);
+        const result = await updateBasePoint(
+          pointToMove.id, 
+          targetX, 
+          targetY, 
+          moveNumber, 
+          newMove.branchName
+        );
         
         if (!result.success) {
           throw new Error(result.error || 'Failed to update base point');
@@ -2004,7 +2010,8 @@ const Board: Component<BoardProps> = (props) => {
               destination: [targetX, targetY],
               pieceType: pointToMove.pieceType,
               moveNumber,
-              gameId: gameId()
+              gameId: gameId(),
+              branchName: newMove.branchName || null
             })
           });
 
@@ -2142,7 +2149,14 @@ const Board: Component<BoardProps> = (props) => {
 
       // Update the base point in the database
       const moveNumber = fullMoveHistory().length + 1;
-      const result = await updateBasePoint(pointToMove.id, targetX, targetY, moveNumber);
+      const currentBranchName = fullMoveHistory()[currentMoveIndex()]?.branchName || null;
+      const result = await updateBasePoint(
+        pointToMove.id, 
+        targetX, 
+        targetY, 
+        moveNumber, 
+        currentBranchName
+      );
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to update base point');

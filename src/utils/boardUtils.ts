@@ -80,7 +80,7 @@ type ValidateSquarePlacementOptions = {
  * @param moveNumber The current move number (optional)
  * @returns A promise that resolves to the API response with the updated base point
  */
-export const updateBasePoint = async (id: number, x: number, y: number, moveNumber?: number): Promise<ApiResponse<BasePoint>> => {
+export const updateBasePoint = async (id: number, x: number, y: number, moveNumber?: number, branchName?: string | null): Promise<ApiResponse<BasePoint>> => {
   try {
     // Validate input
     if (typeof x !== 'number' || typeof y !== 'number' || isNaN(x) || isNaN(y)) {
@@ -94,7 +94,12 @@ export const updateBasePoint = async (id: number, x: number, y: number, moveNumb
         'Accept': 'application/json'
       },
       credentials: 'include',
-      body: JSON.stringify({ x, y, ...(moveNumber !== undefined && { moveNumber }) })
+      body: JSON.stringify({ 
+        x, 
+        y, 
+        ...(moveNumber !== undefined && { moveNumber }),
+        ...(branchName !== undefined && { branchName })
+      })
     });
 
     // Handle non-JSON responses
