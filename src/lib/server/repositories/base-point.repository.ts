@@ -429,108 +429,168 @@ export class BasePointRepository {
     const executeReset = async (db: Database) => {
       console.log('[resetBoardToInitialState] Starting board reset...');
       
-      // First, reset all positions to (-1, -1) to avoid unique constraint violations
-      await db.run('UPDATE base_points SET x = -1, y = -1');
-      console.log('[resetBoardToInitialState] Reset all pieces to (-1, -1) to prevent conflicts');
+      // Check if we're already in a transaction
+      const isInTransaction = await db.get('SELECT 1 FROM sqlite_master WHERE type = "table" AND name = "sqlite_sequence"');
       
-      // Get all current base points
-      const allPoints = await db.all<BasePoint[]>(
-        'SELECT id, user_id as userId, x, y, color, piece_type as pieceType FROM base_points'
-      );
-      
-      console.log(`[resetBoardToInitialState] Found ${allPoints.length} pieces to reset`);
-      
-      // Track used positions to prevent collisions
-      const usedPositions = new Set<string>();
-      
-      // First, process non-pawn pieces to ensure they get their exact positions
-      const nonPawnPieces = allPoints.filter(p => p.pieceType !== 'pawn');
-      console.log(`[resetBoardToInitialState] Processing ${nonPawnPieces.length} non-pawn pieces first`);
-      
-      for (const point of nonPawnPieces) {
-        const color = point.color.toUpperCase() as keyof typeof initialPositions;
-        const pieceType = point.pieceType as keyof PiecePositions;
-        
-        if (!initialPositions[color]?.[pieceType]?.[0]) {
-          console.warn(`[resetBoardToInitialState] No initial position for ${color} ${pieceType}`);
-          continue;
-        }
-        
-        const position = initialPositions[color][pieceType][0]; // Get first position for this piece type
-        const posKey = `${position.x},${position.y}`;
-        
-        if (usedPositions.has(posKey)) {
-          console.error(`[resetBoardToInitialState] Position (${position.x},${position.y}) already in use for ${color} ${pieceType}`);
-          continue;
-        }
-        
-        await db.run(
-          'UPDATE base_points SET x = ?, y = ? WHERE id = ?',
-          [position.x, position.y, point.id]
-        );
-        
-        usedPositions.add(posKey);
-        console.log(`[resetBoardToInitialState] Placed ${color} ${pieceType} at (${position.x}, ${position.y})`);
+      // Only start a new transaction if we're not already in one
+      if (!isInTransaction) {
+        await db.run('BEGIN TRANSACTION');
       }
       
-      // Then process pawns
-      const pawns = allPoints.filter(p => p.pieceType === 'pawn');
-      console.log(`[resetBoardToInitialState] Processing ${pawns.length} pawns`);
-      
-      for (const point of pawns) {
-        const color = point.color.toUpperCase() as keyof typeof initialPositions;
-        const pieceType = point.pieceType as keyof PiecePositions;
+      try {
+        // First, get all current base points
+        const allPoints = await db.all<BasePoint[]>(
+          'SELECT id, user_id as userId, x, y, color, piece_type as pieceType FROM base_points'
+        );
         
-        if (!initialPositions[color]?.[pieceType]?.length) {
-          console.warn(`[resetBoardToInitialState] No initial positions for ${color} pawns`);
-          continue;
+        console.log(`[resetBoardToInitialState] Found ${allPoints.length} pieces to reset`);
+        
+        // Track used positions to prevent collisions
+        const usedPositions = new Set<string>();
+        
+        // First, update all pieces to unique temporary positions to avoid unique constraints
+        // We'll use negative IDs to ensure uniqueness
+        for (let i = 0; i < allPoints.length; i++) {
+          const point = allPoints[i];
+          // Use negative ID to ensure uniqueness and avoid conflicts with actual positions
+          await db.run(
+            'UPDATE base_points SET x = ?, y = ? WHERE id = ?',
+            [-(i + 1), -(i + 1), point.id]
+          );
         }
+        console.log(`[resetBoardToInitialState] Reset all ${allPoints.length} pieces to temporary positions`);
         
-        // Find first available position for this pawn
-        const positions = [...initialPositions[color][pieceType]]; // Create a copy
-        let position;
+        // Process non-pawn pieces first
+        const nonPawnPieces = allPoints.filter(p => p.pieceType !== 'pawn');
+        console.log(`[resetBoardToInitialState] Processing ${nonPawnPieces.length} non-pawn pieces first`);
         
-        while (positions.length > 0) {
-          position = positions.shift()!;
-          const posKey = `${position.x},${position.y}`;
-          if (!usedPositions.has(posKey)) {
-            usedPositions.add(posKey);
-            break;
+        // Group non-pawn pieces by color and type to handle multiple pieces of same type
+        const piecesByType: Record<string, BasePoint[]> = {};
+        
+        for (const point of nonPawnPieces) {
+          const color = point.color.toUpperCase() as keyof typeof initialPositions;
+          const pieceType = point.pieceType as keyof PiecePositions;
+          const key = `${color}_${pieceType}`;
+          
+          if (!piecesByType[key]) {
+            piecesByType[key] = [];
           }
-          position = null;
+          piecesByType[key].push(point);
         }
         
-        if (!position) {
-          console.error(`[resetBoardToInitialState] No available positions for ${color} pawn`);
-          continue;
+        // Process each piece type
+        for (const [key, pieces] of Object.entries(piecesByType)) {
+          const [color, pieceType] = key.split('_') as [keyof typeof initialPositions, keyof PiecePositions];
+          const positions = [...(initialPositions[color]?.[pieceType] || [])];
+          
+          if (positions.length === 0) {
+            console.warn(`[resetBoardToInitialState] No initial positions for ${color} ${pieceType}`);
+            continue;
+          }
+          
+          // For each piece of this type, assign the next available position
+          for (let i = 0; i < pieces.length; i++) {
+            const point = pieces[i];
+            const position = positions[i % positions.length]; // Cycle through positions if needed
+            const posKey = `${position.x},${position.y}`;
+            
+            if (usedPositions.has(posKey)) {
+              console.error(`[resetBoardToInitialState] Position (${position.x},${position.y}) already in use for ${color} ${pieceType}`);
+              throw new Error(`Position (${position.x},${position.y}) already in use`);
+            }
+            
+            await db.run(
+              'UPDATE base_points SET x = ?, y = ? WHERE id = ?',
+              [position.x, position.y, point.id]
+            );
+            
+            usedPositions.add(posKey);
+            console.log(`[resetBoardToInitialState] Placed ${color} ${pieceType} at (${position.x}, ${position.y})`);
+          }
         }
         
-        await db.run(
-          'UPDATE base_points SET x = ?, y = ? WHERE id = ?',
-          [position.x, position.y, point.id]
-        );
-        console.log(`[resetBoardToInitialState] Placed ${color} pawn at (${position.x}, ${position.y})`);
+        // Then process pawns
+        const pawns = allPoints.filter(p => p.pieceType === 'pawn');
+        console.log(`[resetBoardToInitialState] Processing ${pawns.length} pawns`);
+        
+        // Group pawns by color for better position assignment
+        const pawnsByColor = pawns.reduce((acc, pawn) => {
+          const color = pawn.color.toUpperCase();
+          if (!acc[color]) acc[color] = [];
+          acc[color].push(pawn);
+          return acc;
+        }, {} as Record<string, BasePoint[]>);
+        
+        for (const [color, colorPawns] of Object.entries(pawnsByColor)) {
+          const pieceType = 'pawn' as const;
+          const positions = [...(initialPositions[color as keyof typeof initialPositions]?.[pieceType] || [])];
+          
+          if (positions.length === 0) {
+            console.warn(`[resetBoardToInitialState] No initial positions for ${color} pawns`);
+            continue;
+          }
+          
+          // Assign each pawn to a unique position, cycling through positions if needed
+          for (let i = 0; i < colorPawns.length; i++) {
+            const pawn = colorPawns[i];
+            const position = positions[i % positions.length];
+            const posKey = `${position.x},${position.y}`;
+            
+            if (usedPositions.has(posKey)) {
+              // If position is already used, find the next available position
+              let j = 0;
+              let nextPos = position;
+              while (j < positions.length) {
+                nextPos = positions[(i + j) % positions.length];
+                const nextPosKey = `${nextPos.x},${nextPos.y}`;
+                if (!usedPositions.has(nextPosKey)) {
+                  break;
+                }
+                j++;
+              }
+              
+              if (j >= positions.length) {
+                console.error(`[resetBoardToInitialState] No available positions for ${color} pawn`);
+                throw new Error(`No available positions for ${color} pawn`);
+              }
+              
+              position.x = nextPos.x;
+              position.y = nextPos.y;
+              usedPositions.add(`${position.x},${position.y}`);
+            } else {
+              usedPositions.add(posKey);
+            }
+            
+            await db.run(
+              'UPDATE base_points SET x = ?, y = ? WHERE id = ?',
+              [position.x, position.y, pawn.id]
+            );
+            
+            console.log(`[resetBoardToInitialState] Placed ${color} pawn at (${position.x}, ${position.y})`);
+          }
+        }
+        
+        if (!isInTransaction) {
+          await db.run('COMMIT');
+        }
+        console.log('[resetBoardToInitialState] Board reset complete');
+      } catch (error) {
+        if (!isInTransaction) {
+          await db.run('ROLLBACK');
+        }
+        console.error('[resetBoardToInitialState] Error during board reset:', error);
+        throw error;
       }
-      
-      console.log('[resetBoardToInitialState] Board reset complete');
-      
-      console.log('[BasePointRepository] Reset board to initial state');
     };
 
     if (db) {
-      // Use the provided database connection (assumed to be in a transaction)
+      // Use the provided database connection (may be in a transaction)
       await executeReset(db);
     } else {
       // No database connection provided, manage our own transaction
-      await this.db.run('BEGIN TRANSACTION');
-      try {
-        await executeReset(this.db);
-        await this.db.run('COMMIT');
-      } catch (error) {
-        await this.db.run('ROLLBACK');
-        console.error('[BasePointRepository] Failed to reset board state:', error);
-        throw error;
-      }
+      await this.executeTransaction(async (db) => {
+        await executeReset(db);
+      });
     }
   }
 
