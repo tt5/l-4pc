@@ -108,6 +108,20 @@ export const updateBasePoint = async (
       throw new Error('Invalid coordinates provided');
     }
 
+    // Debug: Log the values being sent
+    const requestBody = { 
+      x, 
+      y, 
+      ...(moveNumber !== undefined && { moveNumber }),
+      branchName: branchName ?? 'main',  // Default to 'main' if null or undefined
+      ...(isNewBranch !== undefined && { isNewBranch }),
+      ...(gameId !== undefined && { gameId }),
+      fromX,
+      fromY
+    };
+    
+    console.log('Sending updateBasePoint request with:', JSON.stringify(requestBody, null, 2));
+
     const response = await fetch(`/api/base-points/${id}`, {
       method: 'PATCH',
       headers: {
@@ -119,7 +133,7 @@ export const updateBasePoint = async (
         x, 
         y, 
         ...(moveNumber !== undefined && { moveNumber }),
-        ...(branchName !== undefined && { branchName }),
+        branchName: branchName ?? 'main',  // Default to 'main' if null or undefined
         ...(isNewBranch !== undefined && { isNewBranch }),
         ...(gameId !== undefined && { gameId }),
         fromX,  // Always include fromX

@@ -345,6 +345,8 @@ interface BoardProps {
 }
 
 const Board: Component<BoardProps> = (props) => {
+  console.log('Board component mounted');
+  const { gameId: initialGameId = 'default' } = props;
   const auth = useAuth();
   const navigate = useNavigate();
   const [gameId, setGameId] = createSignal<string>(props.gameId || DEFAULT_GAME_ID);
@@ -2208,20 +2210,38 @@ const Board: Component<BoardProps> = (props) => {
 
       // Update the base point in the database
       const moveNumber = fullMoveHistory().length + 1;
-      // Always get the current branch name, default to null if not in a branch
+      // Debug: Log current branch name sources
+      console.log('Current branch name sources:', {
+        currentBranchName: currentBranchName(),
+        historyBranchName: fullMoveHistory()[currentMoveIndex()]?.branchName,
+        default: 'main'
+      });
+      
+      // Always get the current branch name, ensure it's never null/undefined
       const branchName = currentBranchName() || 
                        fullMoveHistory()[currentMoveIndex()]?.branchName || 
-                       null;
+                       'main';
+      
+      console.log('Final branch name before updateBasePoint:', branchName);
+      
+      // Debug log
+      console.log('=== DEBUG: Before updateBasePoint ===');
+      console.log('Current branch name:', branchName);
+      console.log('Move number:', moveNumber);
+      console.log('Point to move ID:', pointToMove.id);
+      console.log('Target position:', { x: targetX, y: targetY });
+      
+      // Ensure we always pass a non-null branch name, defaulting to 'main' if falsy
       const result = await updateBasePoint(
         pointToMove.id, 
         targetX, 
         targetY, 
         moveNumber, 
-        branchName,
-        false,            // isNewBranch (default to false)
-        gameId(),         // gameId
-        pointToMove.x,    // fromX (current position before move)
-        pointToMove.y     // fromY (current position before move)
+        branchName || 'main',  // Ensure we always pass a non-null branch name
+        false,                 // isNewBranch (default to false)
+        gameId(),              // gameId
+        pointToMove.x,         // fromX (current position before move)
+        pointToMove.y          // fromY (current position before move)
       );
       
       if (!result.success) {
