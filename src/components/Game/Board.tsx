@@ -1067,42 +1067,6 @@ const Board: Component<BoardProps> = (props) => {
     return Promise.resolve(JSON.parse(JSON.stringify(INITIAL_BASE_POINTS)));
   };
 
-  // Handle clicking on a move in the history
-  const handleMoveClick = (moveNumber: number) => {
-    const targetIndex = moveNumber - 1; // Convert to 0-based index
-    
-    console.log('[Move History] Move clicked:', {
-      moveNumber,
-      targetIndex,
-      currentMoveIndex: currentMoveIndex(),
-      totalMoves: fullMoveHistory().length,
-      moveDetails: fullMoveHistory()[targetIndex] ? {
-        from: fullMoveHistory()[targetIndex].from,
-        to: fullMoveHistory()[targetIndex].to,
-        player: fullMoveHistory()[targetIndex].playerId,
-        color: fullMoveHistory()[targetIndex].color
-      } : 'No move at this index'
-    });
-    
-    if (targetIndex < 0 || targetIndex >= fullMoveHistory().length) {
-      console.warn('[Move History] Invalid move number:', moveNumber, 'Target index:', targetIndex, 'Total moves:', fullMoveHistory().length);
-      return;
-    }
-    
-    const currentIdx = currentMoveIndex();
-    
-    if (targetIndex < currentIdx) {
-      // If clicking on a previous move, go back to that move
-      setCurrentMoveIndex(targetIndex - 1); // Will be incremented by handleGoBack
-      handleGoBack();
-    } else if (targetIndex > currentIdx) {
-      // If clicking on a future move, go forward to that move
-      const stepsForward = targetIndex - currentIdx;
-      for (let i = 0; i < stepsForward; i++) {
-        handleGoForward();
-      }
-    }
-  };
 
   // Handle going forward one move in history
   const handleGoForward = async () => {
@@ -2608,8 +2572,6 @@ const Board: Component<BoardProps> = (props) => {
                 return (
                   <div 
                     class={moveItemClass()}
-                    onClick={() => handleMoveClick(moveNum)}
-                    style={{ cursor: 'pointer' }}
                     data-move-number={moveNum}
                     data-move-index={moveIndex}
                     data-is-next-move={isNextMove}
