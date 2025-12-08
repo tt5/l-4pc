@@ -433,6 +433,8 @@ const Board: Component<BoardProps> = (props) => {
                 moveNumber: number;
                 capturedPieceId: number | null;
                 createdAtMs: number;
+                isBranch?: boolean;
+                branchName?: string | null;
               }
               
               // Transform moves to the format expected by updateBoardState
@@ -445,7 +447,9 @@ const Board: Component<BoardProps> = (props) => {
                 gameId: move.gameId,
                 moveNumber: move.moveNumber,
                 capturedPieceId: move.capturedPieceId,
-                createdAtMs: move.createdAtMs
+                createdAtMs: move.createdAtMs,
+                isBranch: move.isBranch || false,
+                branchName: move.branchName || null
               }));
               
               // Set the full move history (all moves)
@@ -1510,8 +1514,7 @@ const Board: Component<BoardProps> = (props) => {
         setRestrictedSquaresInfo([]);
       }
       
-      // Fetch base points
-      await fetchBasePoints();
+      // Base points fetch removed
     } catch (error) {
       if (error instanceof Error) {
         console.error(`Failed to initialize game: ${error.message}`);
@@ -1546,7 +1549,7 @@ const Board: Component<BoardProps> = (props) => {
     }
   };
 
-  // Effect to handle user changes and fetch base points
+  // Effect to handle user changes
   createEffect(on(
     () => user(),
     (currentUser) => {
@@ -1556,11 +1559,8 @@ const Board: Component<BoardProps> = (props) => {
       if (!currentUser) {
         setRestrictedSquares([]);
         setRestrictedSquaresInfo([]);
-        return;
       }
-      
-      // Only fetch base points on login
-      handleFetchBasePoints();
+      // Base points are not automatically fetched on login
     },
     { defer: true }
   ));
