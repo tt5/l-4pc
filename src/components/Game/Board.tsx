@@ -464,18 +464,19 @@ const Board: Component<BoardProps> = (props) => {
                 let movesToApply: Move[] = [];
                 
                 // If we're on the main line, just show all main line moves
-                if (!latestMove.branchName) {
-                  movesToApply = moves.filter((m: Move) => !m.branchName)
+                if (!latestMove.branchName || latestMove.branchName === 'main') {
+                  movesToApply = moves.filter((m: Move) => !m.branchName || m.branchName === 'main')
                     .sort((a: Move, b: Move) => a.moveNumber - b.moveNumber);
                 } else {
                   // If we're on a branch, find all main line moves up to the branch point
                   const branchName = latestMove.branchName;
+                  // Include all moves with this branchName, regardless of isBranch flag
                   const branchMoves = moves.filter((m: Move) => m.branchName === branchName);
                   const branchStartMoveNumber = Math.min(...branchMoves.map((m: Move) => m.moveNumber));
                   
                   // Get all main line moves before the branch starts
                   const mainLineMoves = moves
-                    .filter((m: Move) => !m.branchName && m.moveNumber < branchStartMoveNumber)
+                    .filter((m: Move) => (!m.branchName || m.branchName === 'main') && m.moveNumber < branchStartMoveNumber)
                     .sort((a: Move, b: Move) => a.moveNumber - b.moveNumber);
                   
                   // Combine main line moves with the branch moves
@@ -483,7 +484,7 @@ const Board: Component<BoardProps> = (props) => {
                     .sort((a, b) => {
                       // Sort by moveNumber first, then put main line moves before branch moves
                       if (a.moveNumber !== b.moveNumber) return a.moveNumber - b.moveNumber;
-                      return a.branchName ? 1 : -1; // Main line first, then branch
+                      return a.branchName && a.branchName !== 'main' ? 1 : -1; // Main line first, then branch
                     });
                 }
                 
