@@ -2504,141 +2504,19 @@ const Board: Component<BoardProps> = (props) => {
                 const toY = move.toY ?? move.to?.[1] ?? 0;
                 const moveNumber = move.moveNumber ?? (moveHistory().length - index());
                 const moveTime = move.timestamp ? new Date(move.timestamp).toLocaleTimeString() : 'Unknown time';
+                const currentIndex = currentMoveIndex();
+                const isNextMove = moveNumber === currentIndex + 1;
                 
                 // Log a warning if we're using fallback values
                 if ((!move.fromX && !move.from?.[0]) || (!move.toX && !move.to?.[0])) {
-                  console.warn('Move data format unexpected, using fallback values:', move);
+                  console.warn('Move data format unexpected, using fallback values');
                 }
-                
-                const currentIndex = currentMoveIndex();
-                const moveNum = move.moveNumber ?? 0;
-                // Get the current move number from the history
-                const currentMoveNum = moveHistory()[currentIndex]?.moveNumber ?? 0;
-                // Highlight the move that comes after the current move based on move numbers
-                const isNextMove = moveNum === currentMoveNum + 1;
-                
-                // Track rendering for debugging
-                console.log(`[Move ${moveNum}] Rendering (index: ${currentIndex}, currentIndex: ${currentIndex})`, {
-                  isNextMove,
-                  'moveNum - 1': moveNum - 1,
-                  'moveHistory length': moveHistory().length,
-                  'moveHistory moveNumbers': moveHistory().map(m => m.moveNumber)
-                });
-                
-                // Log the current state of all moves and their highlight status
-                console.group(`[Move ${moveNum}] Rendering check (currentIndex: ${currentIndex})`);
-                console.log('Move details:', {
-                  moveNumber: moveNum,
-                  index: index(),
-                  isNextMove,
-                  currentIndex,
-                  'moveNum - 1': moveNum - 1,
-                  'moveHistory length': moveHistory().length
-                });
-                
-                // Log current move state for debugging
-                console.group(`[Move ${moveNum}] State`);
-                console.log('Move details:', {
-                  moveNumber: moveNum,
-                  index: index(),
-                  isNextMove,
-                  currentIndex,
-                  'moveNum - 1': moveNum - 1,
-                  'moveHistory length': moveHistory().length
-                });
-                
-                // Log all elements with currentMove class
-                const currentMoveElements = document.querySelectorAll(`.${styles.currentMove}`);
-                if (currentMoveElements.length > 0) {
-                  console.log('Elements with currentMove class:', currentMoveElements.length);
-                  currentMoveElements.forEach((el, i) => {
-                    console.log(`  [${i}]`, {
-                      moveNumber: el.getAttribute('data-move-number'),
-                      isCurrent: el.getAttribute('data-is-current'),
-                      classList: Array.from(el.classList)
-                    });
-                  });
-                }
-                
-                if (isNextMove) {
-                  const currentIndex = currentMoveIndex();
-                  const allMovesState = moveHistory().map((m, idx) => ({
-                    moveNumber: m.moveNumber,
-                    index: idx,
-                    isNext: idx === currentIndex + 1,
-                    hasNextClass: idx === currentIndex + 1,
-                    element: `[data-move-number="${m.moveNumber}"]`
-                  }));
-                  
-                  // Log each move's state on a separate line for better readability
-                  console.group('[Move History] Next move states:');
-                  allMovesState.forEach((moveState, idx) => {
-                    const status = moveState.hasNextClass ? 'NEXT' : '    ';
-                    console.log(`[${status}] Move ${moveState.moveNumber} (idx: ${idx}):`, 
-                      `isNext: ${moveState.isNext}, `,
-                      `hasNextClass: ${moveState.hasNextClass}, `,
-                      `selector: ${moveState.element}`);
-                  });
-                  console.groupEnd();
-                  
-                  // Log a warning if there are multiple next moves
-                  const nextMoves = allMovesState.filter(m => m.hasNextClass);
-                  if (nextMoves.length !== 1) {
-                    console.warn(`[Move History] Expected 1 next move, found ${nextMoves.length}`, nextMoves);
-                  }
-                  
-                  console.log('[Move History] Applying highlight to move:', {
-                    moveNumber: move.moveNumber ?? 'unknown',
-                    moveIndex: (move.moveNumber ?? 0) - 1,
-                    currentMoveIndex: currentMoveIndex(),
-                    moveDetails: {
-                      from: [fromX, fromY],
-                      to: [toX, toY],
-                      player: move.playerId,
-                      color: move.color,
-                      timestamp: move.timestamp ? new Date(move.timestamp).toISOString() : 'No timestamp'
-                    },
-                    allMoves: moveHistory().map((m, i) => ({
-                      moveNumber: m.moveNumber,
-                      isCurrent: i === currentMoveIndex(),
-                      from: m.from,
-                      to: m.to
-                    }))
-                  });
-                }
-                
-                // Log when a move item is rendered with nextMove class
-                if (isNextMove) {
-                  console.groupCollapsed(`[Move History] Rendering move ${move.moveNumber} with nextMove class`);
-                  console.log('Move details:', {
-                    moveNumber: move.moveNumber,
-                    index: index(),
-                    currentMoveIndex: currentMoveIndex(),
-                    element: `[data-move-number="${move.moveNumber}"]`
-                  });
-                  console.log('DOM Element:', document.querySelector(`[data-move-number="${move.moveNumber}"]`));
-                  console.groupEnd();
-                }
-                
-                // Calculate class based on current state
-                const moveItemClass = () => {
-                  const currentIdx = currentMoveIndex();
-                  // Highlight the move that comes after the current position
-                  const shouldHighlight = move.moveNumber === currentIdx + 2;
-                  console.log(`[Move ${moveNum}] Class calculation:`, {
-                    moveNumber: move.moveNumber,
-                    currentIdx,
-                    shouldHighlight,
-                    'currentIndex + 2': currentIdx + 2
-                  });
-                  return `${styles.moveItem} ${shouldHighlight ? styles.nextMove : ''}`;
-                };
                 
                 return (
                   <div 
-                    class={moveItemClass()}
-                    data-move-number={moveNum}
-                    data-move-index={currentIndex}
+                    class={`${styles.moveItem} ${isNextMove ? styles.nextMove : ''}`}
+                    data-move-number={moveNumber}
+                    data-move-index={index()}
                     data-is-next-move={isNextMove}
                   >
                     <div 
