@@ -2622,12 +2622,13 @@ const Board: Component<BoardProps> = (props) => {
                 // Calculate class based on current state
                 const moveItemClass = () => {
                   const currentIdx = currentMoveIndex();
-                  const shouldHighlight = move.moveNumber === currentIdx + 1;
+                  // Highlight the move that comes after the current position
+                  const shouldHighlight = move.moveNumber === currentIdx + 2;
                   console.log(`[Move ${moveNum}] Class calculation:`, {
                     moveNumber: move.moveNumber,
                     currentIdx,
                     shouldHighlight,
-                    'currentIndex + 1': currentIndex + 1
+                    'currentIndex + 2': currentIdx + 2
                   });
                   return `${styles.moveItem} ${shouldHighlight ? styles.nextMove : ''}`;
                 };
