@@ -79,11 +79,11 @@ export interface Move {
   userId?: string;
   // New fields
   gameId?: string;
-  moveNumber?: number;
+  moveNumber: number;
   pieceType?: string;
   capturedPieceId?: number | null;
   createdAtMs?: number;
-  isBranch?: boolean;
+  isBranch?: boolean | number;  // Can be boolean or number (0/1) from API
   branchName?: string;
 }
 

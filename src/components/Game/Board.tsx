@@ -448,10 +448,35 @@ const Board: Component<BoardProps> = (props) => {
                 createdAtMs: move.createdAtMs
               }));
               
+              // Set the full move history (all moves)
               setFullMoveHistory(moves);
-              setMoveHistory(moves);
-              setCurrentMoveIndex(moves.length - 1);
-              setCurrentTurnIndex(moves.length % PLAYER_COLORS.length);
+
+              if (moves.length > 0) {
+                // Find the move with the highest ID (most recently saved)
+                const lastSavedMove = moves.reduce((latest: Move, current: Move) => 
+                  current.id > latest.id ? current : latest
+                );
+
+                // Find all moves that lead to this position
+                // (all moves with same or earlier moveNumber, and same branch)
+                const movesToApply = moves.filter((m: Move) => 
+                  m.moveNumber < lastSavedMove.moveNumber || 
+                  (m.moveNumber === lastSavedMove.moveNumber && 
+                   m.branchName === lastSavedMove.branchName)
+                );
+
+                // Update the board state
+                setMoveHistory(movesToApply);
+                setCurrentMoveIndex(movesToApply.length - 1);
+                setCurrentTurnIndex(movesToApply.length % PLAYER_COLORS.length);
+                updateBoardState(movesToApply);
+              } else {
+                // No moves, reset to initial position
+                setMoveHistory([]);
+                setCurrentMoveIndex(-1);
+                setCurrentTurnIndex(0);
+                setBasePoints([...INITIAL_BASE_POINTS]);
+              }
               
               // Update last loaded state
               const newState = {
@@ -459,13 +484,6 @@ const Board: Component<BoardProps> = (props) => {
                 userId: currentUser.id
               };
               setLastLoadedState(newState);
-              
-              // If we have moves, update the board state
-              if (moves.length > 0) {
-                updateBoardState(moves);
-              } else {
-                setBasePoints([...INITIAL_BASE_POINTS]);
-              }
             } else {
               const errorText = await response.text();
               console.error('[BOARD] Failed to load moves:', {
@@ -2023,7 +2041,7 @@ const Board: Component<BoardProps> = (props) => {
           targetY, 
           moveNumber, 
           newMove.branchName,
-          newMove.isBranch,  // Pass isNewBranch flag
+          Boolean(newMove.isBranch),  // Explicitly convert to boolean
           gameId(),         // Pass the current game ID
           startX,           // fromX (source X coordinate)
           startY            // fromY (source Y coordinate)
@@ -2217,7 +2235,7 @@ const Board: Component<BoardProps> = (props) => {
         targetY, 
         moveNumber, 
         branchName,
-        isBranchMove,  // isNewBranch flag - true if this is a branch move
+        Boolean(isBranchMove),  // Explicitly convert to boolean for isNewBranch flag
         gameId(),
         pointToMove.x,
         pointToMove.y
