@@ -1355,9 +1355,19 @@ const Board: Component<BoardProps> = (props) => {
       // Replay each move up to the new index
       for (let i = 0; i <= newIndex; i++) {
         const move = fullMoveHistory()[i];
-        const [fromX, fromY] = move.from;
-        const [toX, toY] = move.to;
+        
+        // Use the flat coordinate format (API format)
+        const fromX = move.fromX ?? move.from?.[0];
+        const fromY = move.fromY ?? move.from?.[1];
+        const toX = move.toX ?? move.to?.[0];
+        const toY = move.toY ?? move.to?.[1];
         const pieceType = move.pieceType;
+        
+        // Skip if we don't have valid coordinates
+        if (fromX === undefined || fromY === undefined || toX === undefined || toY === undefined) {
+          console.error('Invalid move coordinates in handleGoBack:', { move });
+          continue;
+        }
         
         const fromKey = `${fromX},${fromY}`;
         const toKey = `${toX},${toY}`;
@@ -1365,7 +1375,7 @@ const Board: Component<BoardProps> = (props) => {
         // Find the piece being moved
         const piece = positionMap.get(fromKey);
         if (!piece) {
-          console.error(`No piece found at source position (${fromX},${fromY})`);
+          console.error(`No piece found at source position (${fromX},${fromY}) in move:`, move);
           continue;
         }
         
