@@ -2511,13 +2511,13 @@ const Board: Component<BoardProps> = (props) => {
                 
                 const currentIndex = currentMoveIndex();
                 const moveNum = move.moveNumber ?? 0;
-                // Use the current index from the map function (index()) to determine the move position
-                const moveIndex = index();
-                // Highlight the move that comes after the current move
-                const isNextMove = moveIndex === currentIndex + 1;
+                // Get the current move number from the history
+                const currentMoveNum = moveHistory()[currentIndex]?.moveNumber ?? 0;
+                // Highlight the move that comes after the current move based on move numbers
+                const isNextMove = moveNum === currentMoveNum + 1;
                 
                 // Track rendering for debugging
-                console.log(`[Move ${moveNum}] Rendering (index: ${moveIndex}, currentIndex: ${currentIndex})`, {
+                console.log(`[Move ${moveNum}] Rendering (index: ${currentIndex}, currentIndex: ${currentIndex})`, {
                   isNextMove,
                   'moveNum - 1': moveNum - 1,
                   'moveHistory length': moveHistory().length,
@@ -2622,12 +2622,12 @@ const Board: Component<BoardProps> = (props) => {
                 // Calculate class based on current state
                 const moveItemClass = () => {
                   const currentIdx = currentMoveIndex();
-                  const shouldHighlight = moveIndex === currentIdx + 1;
+                  const shouldHighlight = move.moveNumber === currentIdx + 1;
                   console.log(`[Move ${moveNum}] Class calculation:`, {
-                    moveIndex,
+                    moveNumber: move.moveNumber,
                     currentIdx,
                     shouldHighlight,
-                    'currentIdx + 1': currentIdx + 1
+                    'currentIndex + 1': currentIndex + 1
                   });
                   return `${styles.moveItem} ${shouldHighlight ? styles.nextMove : ''}`;
                 };
@@ -2636,7 +2636,7 @@ const Board: Component<BoardProps> = (props) => {
                   <div 
                     class={moveItemClass()}
                     data-move-number={moveNum}
-                    data-move-index={moveIndex}
+                    data-move-index={currentIndex}
                     data-is-next-move={isNextMove}
                   >
                     <div 
