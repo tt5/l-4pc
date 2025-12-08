@@ -1097,7 +1097,46 @@ const Board: Component<BoardProps> = (props) => {
     
     // Update the base points with the new positions
     const updatedBasePoints = Array.from(positionMap.values());
-    console.log('Final base points:', JSON.parse(JSON.stringify(updatedBasePoints)));
+    
+    // Create a visual representation of the board
+    const boardSize = 14;
+    const board = Array(boardSize).fill(undefined).map(() => Array(boardSize).fill('.'));
+    
+    // Mark non-playable corners
+    const nonPlayableCorners = [
+      [0,0], [0,1], [1,0], [1,1],                         // Top-left
+      [0,12], [0,13], [1,12], [1,13],                     // Top-right
+      [12,0], [12,1], [13,0], [13,1],                     // Bottom-left
+      [12,12], [12,13], [13,12], [13,13]                  // Bottom-right
+    ];
+    
+    nonPlayableCorners.forEach(([x, y]) => {
+      board[y][x] = 'X';
+    });
+    
+    // Place pieces on the board
+    updatedBasePoints.forEach(piece => {
+      const { x, y, pieceType, color } = piece;
+      let symbol = pieceType.charAt(0).toUpperCase();
+      if (color === '#F44336') symbol = symbol.toLowerCase(); // Red (lowercase)
+      if (color === '#FFEB3B') symbol = symbol.toUpperCase() + 'Y'; // Yellow
+      if (color === '#2196F3') symbol = symbol.toUpperCase() + 'B'; // Blue
+      if (color === '#4CAF50') symbol = symbol.toUpperCase() + 'G'; // Green
+      board[y][x] = symbol;
+    });
+    
+    // Log the board
+    console.log('\nCurrent Board State:');
+    console.log('  ' + Array(boardSize).fill(undefined).map((_, i) => i.toString().padStart(2, ' ')).join(' '));
+    board.forEach((row, y) => {
+      console.log(y.toString().padStart(2, ' ') + ' ' + row.join('  '));
+    });
+    console.log('\nLegend:');
+    console.log('Uppercase: Yellow (Y), Blue (B), Green (G)');
+    console.log('Lowercase: Red (r)');
+    console.log('X: Non-playable corner');
+    console.log('.: Empty square');
+    
     setBasePoints(updatedBasePoints);
     
     console.groupEnd();
@@ -1356,11 +1395,11 @@ const Board: Component<BoardProps> = (props) => {
       for (let i = 0; i <= newIndex; i++) {
         const move = fullMoveHistory()[i];
         
-        // Use the flat coordinate format (API format)
-        const fromX = move.fromX ?? move.from?.[0];
-        const fromY = move.fromY ?? move.from?.[1];
-        const toX = move.toX ?? move.to?.[0];
-        const toY = move.toY ?? move.to?.[1];
+        // Match the format handling in updateBoardState
+        const fromX = 'fromX' in move ? move.fromX : move.from?.[0];
+        const fromY = 'fromY' in move ? move.fromY : move.from?.[1];
+        const toX = 'toX' in move ? move.toX : move.to?.[0];
+        const toY = 'toY' in move ? move.toY : move.to?.[1];
         const pieceType = move.pieceType;
         
         // Skip if we don't have valid coordinates
