@@ -939,6 +939,23 @@ const Board: Component<BoardProps> = (props) => {
   // Branch name for the current move (if any)
   const [currentBranchName, setCurrentBranchName] = createSignal<string | null>(null);
 
+  // Log board state after replay when user logs in
+  createEffect(() => {
+    const points = basePoints();
+    const currentUser = auth.user();
+    
+    if (currentUser && points.length > 0) {
+      console.log('Board state after replay:');
+      console.table(points.map(p => ({
+        id: p.id,
+        type: p.pieceType,
+        color: p.color,
+        position: `(${p.x},${p.y})`,
+        player: p.userId
+      })));
+    }
+  });
+
   // Generate a simple branch name based on move number and timestamp
   const generateBranchName = (moveNumber: number): string => {
     const timestamp = Date.now().toString(36).slice(-4);
@@ -1139,7 +1156,6 @@ const Board: Component<BoardProps> = (props) => {
   // Handle going forward one move in history
   const handleGoForward = async () => {
     const currentIndex = currentMoveIndex();
-    console.log('[Move History] Going forward from index', currentIndex, 'to', currentIndex + 1);
     const history = fullMoveHistory();
     
     if (currentIndex >= history.length - 1) {
@@ -1279,7 +1295,6 @@ const Board: Component<BoardProps> = (props) => {
   // Handle going back one move in history
   const handleGoBack = async () => {
     const currentIndex = currentMoveIndex();
-    console.log('[Move History] Going back one move from index', currentIndex);
     const totalMoves = fullMoveHistory().length;
     
     if (totalMoves === 0) {
@@ -2028,40 +2043,13 @@ const Board: Component<BoardProps> = (props) => {
           newFullHistory = [...fullMoveHistory(), newMove];
         }
         
-        console.log('[Move History] Adding new move to history:', {
-          moveNumber: newMove.moveNumber,
-          pieceId: newMove.basePointId,
-          from: newMove.from,
-          to: newMove.to,
-          player: newMove.playerId,
-          color: newMove.color,
-          isBranch: newMove.isBranch,
-          branchName: newMove.branchName,
-          timestamp: new Date(newMove.timestamp).toISOString(),
-          totalMoves: newFullHistory.length,
-          currentMoveIndex: newFullHistory.length - 1
-        });
         
         setFullMoveHistory(newFullHistory);
         setCurrentMoveIndex(newFullHistory.length - 1);
         // Update moveHistory to include all moves up to the current one
         setMoveHistory(newFullHistory);
         
-        // Debug log the entire history after update
-        if (newFullHistory.length > 0) {
-          console.log('[Move History] Current history state:', {
-            totalMoves: newFullHistory.length,
-            currentMoveIndex: newFullHistory.length - 1,
-            lastMove: newFullHistory[newFullHistory.length - 1],
-            history: newFullHistory.map((m, i) => ({
-              move: i + 1,
-              pieceId: m.basePointId,
-              from: m.from,
-              to: m.to,
-              player: m.playerId
-            }))
-          });
-        }
+        // History update complete
         
         // Update turn to next player
         setCurrentTurnIndex(prev => (prev + 1) % PLAYER_COLORS.length);
@@ -2502,10 +2490,10 @@ const Board: Component<BoardProps> = (props) => {
                 const fromY = move.fromY ?? move.from?.[1] ?? 0;
                 const toX = move.toX ?? move.to?.[0] ?? 0;
                 const toY = move.toY ?? move.to?.[1] ?? 0;
-                const moveNumber = move.moveNumber ?? (moveHistory().length - index());
+                const moveNumber = move.moveNumber ?? (index() + 1);
                 const moveTime = move.timestamp ? new Date(move.timestamp).toLocaleTimeString() : 'Unknown time';
-                const currentIndex = currentMoveIndex();
-                const isNextMove = moveNumber === currentIndex + 1;
+                const currentMove = moveHistory()[currentMoveIndex()];
+                const isNextMove = move.moveNumber === ((currentMove?.moveNumber ?? -1) + 1);
                 
                 // Log a warning if we're using fallback values
                 if ((!move.fromX && !move.from?.[0]) || (!move.toX && !move.to?.[0])) {
