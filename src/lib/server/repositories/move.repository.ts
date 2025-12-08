@@ -98,11 +98,8 @@ export class MoveRepository {
   }
 
   async getByGameId(gameId: string): Promise<Move[]> {
-    return this.db.all<Move[]>(
-      `SELECT 
-        id, 
-        game_id as gameId, 
-        user_id as userId, 
+    return this.db.all<Move[]>(`
+      SELECT 
         piece_type as pieceType,
         from_x as fromX,
         from_y as fromY,
@@ -110,12 +107,15 @@ export class MoveRepository {
         to_y as toY,
         move_number as moveNumber,
         captured_piece_id as capturedPieceId,
-        created_at_ms as createdAtMs
-       FROM moves 
-       WHERE game_id = ? 
-       ORDER BY created_at_ms ASC`,
-      [gameId]
-    );
+        created_at_ms as createdAtMs,
+        position_before_id as positionBeforeId,
+        position_after_id as positionAfterId,
+        is_branch as isBranch,
+        branch_name as branchName
+      FROM moves
+      WHERE game_id = ?
+      ORDER BY move_number ASC
+    `, [gameId]);
   }
 
   async getByUserId(userId: string): Promise<Move[]> {
