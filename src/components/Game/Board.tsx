@@ -2208,13 +2208,16 @@ const Board: Component<BoardProps> = (props) => {
 
       // Update the base point in the database
       const moveNumber = fullMoveHistory().length + 1;
-      const currentBranchName = fullMoveHistory()[currentMoveIndex()]?.branchName || null;
+      // Always get the current branch name, default to null if not in a branch
+      const branchName = currentBranchName() || 
+                       fullMoveHistory()[currentMoveIndex()]?.branchName || 
+                       null;
       const result = await updateBasePoint(
         pointToMove.id, 
         targetX, 
         targetY, 
         moveNumber, 
-        currentBranchName,
+        branchName,
         false,            // isNewBranch (default to false)
         gameId(),         // gameId
         pointToMove.x,    // fromX (current position before move)
