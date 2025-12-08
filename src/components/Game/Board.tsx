@@ -989,9 +989,13 @@ const Board: Component<BoardProps> = (props) => {
     console.group('updateBoardState');
     console.log('Starting board state update with moves:', moves);
     
-    // Start with a fresh copy of the initial board state
-    const newBasePoints = JSON.parse(JSON.stringify(INITIAL_BASE_POINTS));
-    console.log('Initial base points:', JSON.parse(JSON.stringify(newBasePoints)));
+    // If we have existing base points, use them as the starting point
+    // Otherwise, start with a fresh copy of the initial board state
+    const currentBasePoints = basePoints().length > 0 
+      ? JSON.parse(JSON.stringify(basePoints())) 
+      : JSON.parse(JSON.stringify(INITIAL_BASE_POINTS));
+      
+    console.log('Current base points:', JSON.parse(JSON.stringify(currentBasePoints)));
     
     // Clear any lingering currentMove classes
     document.querySelectorAll(`.${styles.currentMove}`).forEach(el => {
@@ -999,9 +1003,9 @@ const Board: Component<BoardProps> = (props) => {
       el.setAttribute('data-is-current', 'false');
     });
     
-    // Create a deep copy of the initial state for the position map
+    // Create a map of positions to pieces
     const positionMap = new Map<string, BasePoint>();
-    newBasePoints.forEach((point: BasePoint) => {
+    currentBasePoints.forEach((point: BasePoint) => {
       positionMap.set(`${point.x},${point.y}`, { ...point });
     });
     
@@ -1072,12 +1076,20 @@ const Board: Component<BoardProps> = (props) => {
         ...piece,
         x: toX,
         y: toY,
+        // Use the pieceType from the move if valid, otherwise keep the existing one
         pieceType: (pieceType && isValidPieceType(pieceType)) ? pieceType : piece.pieceType,
         hasMoved: true
       };
       
-      // Remove the piece from its old position and place it in the new position
+      // Remove the piece from its old position
       positionMap.delete(fromKey);
+      
+      // If there's a piece at the target position, remove it first (capture)
+      if (positionMap.has(toKey)) {
+        positionMap.delete(toKey);
+      }
+      
+      // Place the moved piece in the new position
       positionMap.set(toKey, movedPiece);
       
       console.log('Position map after move:', Array.from(positionMap.entries()));
