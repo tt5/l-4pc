@@ -465,18 +465,18 @@ const Board: Component<BoardProps> = (props) => {
                 
                 // If we're on the main line, just show all main line moves
                 if (!latestMove.branchName) {
-                  movesToApply = moves.filter(m => !m.branchName)
-                    .sort((a, b) => a.moveNumber - b.moveNumber);
+                  movesToApply = moves.filter((m: Move) => !m.branchName)
+                    .sort((a: Move, b: Move) => a.moveNumber - b.moveNumber);
                 } else {
                   // If we're on a branch, find all main line moves up to the branch point
                   const branchName = latestMove.branchName;
-                  const branchMoves = moves.filter(m => m.branchName === branchName);
-                  const branchStartMoveNumber = Math.min(...branchMoves.map(m => m.moveNumber));
+                  const branchMoves = moves.filter((m: Move) => m.branchName === branchName);
+                  const branchStartMoveNumber = Math.min(...branchMoves.map((m: Move) => m.moveNumber));
                   
                   // Get all main line moves before the branch starts
                   const mainLineMoves = moves
-                    .filter(m => !m.branchName && m.moveNumber < branchStartMoveNumber)
-                    .sort((a, b) => a.moveNumber - b.moveNumber);
+                    .filter((m: Move) => !m.branchName && m.moveNumber < branchStartMoveNumber)
+                    .sort((a: Move, b: Move) => a.moveNumber - b.moveNumber);
                   
                   // Combine main line moves with the branch moves
                   movesToApply = [...mainLineMoves, ...branchMoves]
