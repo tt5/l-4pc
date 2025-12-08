@@ -456,20 +456,38 @@ const Board: Component<BoardProps> = (props) => {
               setFullMoveHistory(moves);
 
               if (moves.length > 0) {
-                // Find the move with the highest ID (most recently saved)
-                const lastSavedMove = moves.reduce((latest: Move, current: Move) => 
+                // Find the latest move to determine which branch we're on
+                const latestMove = moves.reduce((latest: Move, current: Move) => 
                   current.id > latest.id ? current : latest
                 );
-
-                // Find all moves that lead to this position
-                // (all moves with same or earlier moveNumber, and same branch)
-                const movesToApply = moves.filter((m: Move) => 
-                  m.moveNumber < lastSavedMove.moveNumber || 
-                  (m.moveNumber === lastSavedMove.moveNumber && 
-                   m.branchName === lastSavedMove.branchName)
-                );
-
-                // Update the board state
+                
+                let movesToApply: Move[] = [];
+                
+                // If we're on the main line, just show all main line moves
+                if (!latestMove.branchName) {
+                  movesToApply = moves.filter(m => !m.branchName)
+                    .sort((a, b) => a.moveNumber - b.moveNumber);
+                } else {
+                  // If we're on a branch, find all main line moves up to the branch point
+                  const branchName = latestMove.branchName;
+                  const branchMoves = moves.filter(m => m.branchName === branchName);
+                  const branchStartMoveNumber = Math.min(...branchMoves.map(m => m.moveNumber));
+                  
+                  // Get all main line moves before the branch starts
+                  const mainLineMoves = moves
+                    .filter(m => !m.branchName && m.moveNumber < branchStartMoveNumber)
+                    .sort((a, b) => a.moveNumber - b.moveNumber);
+                  
+                  // Combine main line moves with the branch moves
+                  movesToApply = [...mainLineMoves, ...branchMoves]
+                    .sort((a, b) => {
+                      // Sort by moveNumber first, then put main line moves before branch moves
+                      if (a.moveNumber !== b.moveNumber) return a.moveNumber - b.moveNumber;
+                      return a.branchName ? 1 : -1; // Main line first, then branch
+                    });
+                }
+                
+                // Update the board state with the calculated moves
                 setMoveHistory(movesToApply);
                 setCurrentMoveIndex(movesToApply.length - 1);
                 setCurrentTurnIndex(movesToApply.length % PLAYER_COLORS.length);
