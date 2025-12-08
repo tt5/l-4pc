@@ -950,17 +950,32 @@ const Board: Component<BoardProps> = (props) => {
     
     // Apply each move in sequence
     moves.forEach((move, index) => {
-      const { fromX, fromY, toX, toY, pieceType } = move;
+      // Handle both move formats:
+      // 1. { fromX, fromY, toX, toY } (from API)
+      // 2. { from: [x, y], to: [x, y] } (transformed format)
+      const fromX = 'fromX' in move ? move.fromX : move.from[0];
+      const fromY = 'fromY' in move ? move.fromY : move.from[1];
+      const toX = 'toX' in move ? move.toX : move.to[0];
+      const toY = 'toY' in move ? move.toY : move.to[1];
+      const pieceType = move.pieceType;
+      
       const fromKey = `${fromX},${fromY}`;
       const toKey = `${toX},${toY}`;
       
       console.log(`\nMove ${index + 1}/${moves.length}:`, {
+        move,  // Log the full move object
         from: { x: fromX, y: fromY },
         to: { x: toX, y: toY },
         pieceType,
         fromKey,
         toKey
       });
+      
+      // Skip if we don't have valid coordinates
+      if (fromX === undefined || fromY === undefined || toX === undefined || toY === undefined) {
+        console.error('Invalid move coordinates:', { fromX, fromY, toX, toY, move });
+        return;
+      }
       
       // Find the piece being moved
       const piece = positionMap.get(fromKey);
@@ -992,6 +1007,7 @@ const Board: Component<BoardProps> = (props) => {
       positionMap.delete(fromKey);
       piece.x = toX;
       piece.y = toY;
+      piece.pieceType = pieceType; // Update piece type in case of promotion
       positionMap.set(toKey, piece);
       
       console.log('Position map after move:', Array.from(positionMap.entries()));

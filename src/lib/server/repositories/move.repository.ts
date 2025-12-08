@@ -34,6 +34,14 @@ export interface GamePosition {
 
 export class MoveRepository {
   constructor(private db: Database) {}
+  
+  // Helper method to convert database row to Move
+  private mapDbRowToMove(row: any): Move {
+    return {
+      ...row,
+      isBranch: Boolean(row.isBranch)
+    };
+  }
 
   async create(move: Omit<Move, 'id' | 'createdAtMs' | 'moveNumber' | 'positionBeforeId' | 'positionAfterId' | 'isBranch' | 'branchName'> & { 
     moveNumber?: number;
@@ -98,8 +106,11 @@ export class MoveRepository {
   }
 
   async getByGameId(gameId: string): Promise<Move[]> {
-    return this.db.all<Move[]>(`
+    const rows = await this.db.all<any[]>(`
       SELECT 
+        id,
+        game_id as gameId,
+        user_id as userId, 
         piece_type as pieceType,
         from_x as fromX,
         from_y as fromY,
@@ -116,10 +127,12 @@ export class MoveRepository {
       WHERE game_id = ?
       ORDER BY move_number ASC
     `, [gameId]);
+
+    return rows.map(row => this.mapDbRowToMove(row));
   }
 
   async getByUserId(userId: string): Promise<Move[]> {
-    return this.db.all<Move[]>(
+    const rows = await this.db.all<any[]>(
       `SELECT 
         id, 
         game_id as gameId, 
@@ -131,16 +144,20 @@ export class MoveRepository {
         to_y as toY,
         move_number as moveNumber,
         captured_piece_id as capturedPieceId,
-        created_at_ms as createdAtMs
+        created_at_ms as createdAtMs,
+        is_branch as isBranch,
+        branch_name as branchName
        FROM moves 
        WHERE user_id = ? 
        ORDER BY created_at_ms DESC`,
       [userId]
     );
+    
+    return rows.map(row => this.mapDbRowToMove(row));
   }
 
   async getLastMove(gameId: string): Promise<Move | undefined> {
-    return this.db.get<Move>(
+    const row = await this.db.get<any>(
       `SELECT 
         id, 
         game_id as gameId, 
@@ -152,13 +169,17 @@ export class MoveRepository {
         to_y as toY,
         move_number as moveNumber,
         captured_piece_id as capturedPieceId,
-        created_at_ms as createdAtMs
+        created_at_ms as createdAtMs,
+        is_branch as isBranch,
+        branch_name as branchName
        FROM moves 
        WHERE game_id = ? 
        ORDER BY created_at_ms DESC 
        LIMIT 1`,
       [gameId]
     );
+    
+    return row ? this.mapDbRowToMove(row) : undefined;
   }
 
   async deleteAllForGame(gameId: string): Promise<void> {
@@ -194,9 +215,7 @@ export class MoveRepository {
       FROM moves 
       WHERE game_id = ? 
         AND (
-          -- Include moves from the main branch (branch_name IS NULL)
           branch_name IS NULL 
-          -- OR include moves from the specified branch
           ${branchName ? 'OR branch_name = ?' : ''}
         )
         ${maxMoveNumber !== undefined ? 'AND move_number <= ?' : ''}
@@ -211,7 +230,8 @@ export class MoveRepository {
       params.push(maxMoveNumber);
     }
     
-    return this.db.all<Move[]>(query, params);
+    const rows = await this.db.all<any[]>(query, params);
+    return rows.map(row => this.mapDbRowToMove(row));
   }
 
   async findExistingMove(criteria: {
@@ -222,7 +242,7 @@ export class MoveRepository {
     toY: number;
     moveNumber: number;
   }): Promise<Move | null> {
-    const result = await this.db.get<Move | undefined>(
+    const row = await this.db.get<any>(
       `SELECT 
         id, 
         game_id as gameId, 
@@ -247,6 +267,6 @@ export class MoveRepository {
       [criteria.gameId, criteria.fromX, criteria.fromY, criteria.toX, criteria.toY, criteria.moveNumber]
     );
     
-    return result || null;
+    return row ? this.mapDbRowToMove(row) : null;
   }
 }
