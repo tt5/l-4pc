@@ -1961,6 +1961,11 @@ const Board: Component<BoardProps> = (props) => {
         }
         
         // 2. Add move to history before updating position
+        // Get the current branch name from context or previous move
+        const currentBranch = branchName || currentBranchName() || 
+                            (fullMoveHistory()[currentMoveIndex()]?.branchName) ||
+                            undefined;
+                            
         const newMove: Move = {
           id: Date.now(),
           basePointId: pointToMove.id,
@@ -1971,8 +1976,13 @@ const Board: Component<BoardProps> = (props) => {
           color: currentColor,
           moveNumber: fullMoveHistory().length + 1,
           isBranch: isBranching,
-          branchName: branchName || undefined
+          branchName: currentBranch
         };
+        
+        // If this is a branching move, update the current branch name
+        if (isBranching && branchName) {
+          setCurrentBranchName(branchName);
+        }
         
         // Move number is already calculated and stored in newMove object
         
@@ -2217,31 +2227,36 @@ const Board: Component<BoardProps> = (props) => {
         default: 'main'
       });
       
-      // Always get the current branch name, ensure it's never null/undefined
-      const branchName = currentBranchName() || 
-                       fullMoveHistory()[currentMoveIndex()]?.branchName || 
-                       'main';
+      // Get the current move from the history to check if it's a branch move
+      const currentMove = fullMoveHistory()[currentMoveIndex()];
+      const isBranchMove = currentMove?.isBranch || false;
+      
+      // If we're on a branch move, use its branch name, otherwise use the current branch name
+      const branchName = isBranchMove 
+        ? currentMove.branchName 
+        : currentBranchName() || 'main';
       
       console.log('Final branch name before updateBasePoint:', branchName);
       
       // Debug log
       console.log('=== DEBUG: Before updateBasePoint ===');
       console.log('Current branch name:', branchName);
+      console.log('Is branch move:', isBranchMove);
       console.log('Move number:', moveNumber);
       console.log('Point to move ID:', pointToMove.id);
       console.log('Target position:', { x: targetX, y: targetY });
       
-      // Ensure we always pass a non-null branch name, defaulting to 'main' if falsy
+      // Call updateBasePoint with the correct branch name and isNewBranch flag
       const result = await updateBasePoint(
         pointToMove.id, 
         targetX, 
         targetY, 
         moveNumber, 
-        branchName || 'main',  // Ensure we always pass a non-null branch name
-        false,                 // isNewBranch (default to false)
-        gameId(),              // gameId
-        pointToMove.x,         // fromX (current position before move)
-        pointToMove.y          // fromY (current position before move)
+        branchName,
+        isBranchMove,  // isNewBranch flag - true if this is a branch move
+        gameId(),
+        pointToMove.x,
+        pointToMove.y
       );
       
       if (!result.success) {
