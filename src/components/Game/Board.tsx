@@ -12,6 +12,7 @@ import {
   For,
   createSelector
 } from 'solid-js';
+import type { PieceType } from '~/types/board';
 import { useNavigate } from '@solidjs/router';
 import { moveEventService } from '~/lib/server/events/move-events';
 import { PLAYER_COLORS, type PlayerColor, isInNonPlayableCorner as isInNonPlayableCornerUtil } from '~/constants/game';
@@ -38,6 +39,11 @@ import styles from './Board.module.css';
 // Import shared board configuration
 import { BOARD_CONFIG, DEFAULT_GAME_ID } from '~/constants/game';
 import { useAuth } from '~/contexts/AuthContext';
+
+// Type guard for PieceType
+const isValidPieceType = (str: string): str is PieceType => {
+  return ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king'].includes(str);
+};
 
 // Team color definitions
 const TEAM_1_COLORS = ['#F44336', '#FFEB3B']; // Red and Yellow
@@ -418,7 +424,9 @@ const Board: Component<BoardProps> = (props) => {
             
             if (response.ok) {
               const data = await response.json();
+              console.log('Moves API Response:', JSON.stringify(data, null, 2));
               const rawMoves = Array.isArray(data?.moves) ? data.moves : [];
+              console.log('Raw moves:', rawMoves);
               
               // Define the type for the move object from the API
               interface ApiMove {
@@ -991,10 +999,10 @@ const Board: Component<BoardProps> = (props) => {
       el.setAttribute('data-is-current', 'false');
     });
     
-    // Create a map for quick lookup of pieces by position
-    const positionMap = new Map<string, any>();
-    newBasePoints.forEach((point: any) => {
-      positionMap.set(`${point.x},${point.y}`, point);
+    // Create a deep copy of the initial state for the position map
+    const positionMap = new Map<string, BasePoint>();
+    newBasePoints.forEach((point: BasePoint) => {
+      positionMap.set(`${point.x},${point.y}`, { ...point });
     });
     
     console.log('Initial position map:', Array.from(positionMap.entries()));
@@ -1032,6 +1040,7 @@ const Board: Component<BoardProps> = (props) => {
       const piece = positionMap.get(fromKey);
       if (!piece) {
         console.error(`No piece found at source position (${fromX},${fromY})`);
+        console.log('Current position map:', Array.from(positionMap.entries()));
         return; // Skip this move if source piece not found
       }
       
@@ -1039,27 +1048,37 @@ const Board: Component<BoardProps> = (props) => {
         id: piece.id,
         type: piece.pieceType,
         color: piece.color,
-        team: getTeamByColor(piece.color)
+        team: getTeamByColor(piece.color),
+        from: fromKey,
+        to: toKey
       });
       
-      // Check for capture
+      // Check for capture first (before we move the piece)
       if (positionMap.has(toKey)) {
         const capturedPiece = positionMap.get(toKey);
-        console.log('Capturing piece at target:', {
-          id: capturedPiece.id,
-          type: capturedPiece.pieceType,
-          color: capturedPiece.color,
-          team: getTeamByColor(capturedPiece.color)
-        });
-        positionMap.delete(toKey);
+        if (capturedPiece) {
+          console.log('Capturing piece at target:', {
+            id: capturedPiece.id,
+            type: capturedPiece.pieceType,
+            color: capturedPiece.color,
+            team: getTeamByColor(capturedPiece.color)
+          });
+          positionMap.delete(toKey);
+        }
       }
       
-      // Move the piece to the new position
+      // Create a new piece object with updated position and type
+      const movedPiece: BasePoint = {
+        ...piece,
+        x: toX,
+        y: toY,
+        pieceType: (pieceType && isValidPieceType(pieceType)) ? pieceType : piece.pieceType,
+        hasMoved: true
+      };
+      
+      // Remove the piece from its old position and place it in the new position
       positionMap.delete(fromKey);
-      piece.x = toX;
-      piece.y = toY;
-      piece.pieceType = pieceType; // Update piece type in case of promotion
-      positionMap.set(toKey, piece);
+      positionMap.set(toKey, movedPiece);
       
       console.log('Position map after move:', Array.from(positionMap.entries()));
     });
