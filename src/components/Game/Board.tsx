@@ -1339,39 +1339,58 @@ const Board: Component<BoardProps> = (props) => {
     
     const newIndex = currentIndex >= 0 ? currentIndex - 1 : -1;
     
-    // Replay all moves up to the new index
-    const movesToReplay = fullMoveHistory().slice(0, newIndex + 1);
-    
     try {
-      // Start with initial base points
-      let newBasePoints = [...INITIAL_BASE_POINTS];
+      // Use the same logic as updateBoardState for consistency
+      const movesToReplay = fullMoveHistory().slice(0, newIndex + 1);
+      
+      // Start with a fresh copy of the initial board state
+      const newBasePoints = JSON.parse(JSON.stringify(INITIAL_BASE_POINTS));
+      const positionMap = new Map<string, BasePoint>();
+      
+      // Initialize position map with initial pieces
+      newBasePoints.forEach((point: BasePoint) => {
+        positionMap.set(`${point.x},${point.y}`, { ...point });
+      });
       
       // Replay each move up to the new index
       for (let i = 0; i <= newIndex; i++) {
         const move = fullMoveHistory()[i];
         const [fromX, fromY] = move.from;
         const [toX, toY] = move.to;
+        const pieceType = move.pieceType;
         
-        // Find and move the piece
-        const pieceIndex = newBasePoints.findIndex(p => p.x === fromX && p.y === fromY);
-        if (pieceIndex !== -1) {
-          // If this move captured a piece, remove it
-          if (move.capturedPieceId) {
-            newBasePoints = newBasePoints.filter(p => p.id !== move.capturedPieceId);
-          }
-          
-          // Update the piece's position
-          newBasePoints[pieceIndex] = {
-            ...newBasePoints[pieceIndex],
-            x: toX,
-            y: toY,
-            hasMoved: true
-          };
+        const fromKey = `${fromX},${fromY}`;
+        const toKey = `${toX},${toY}`;
+        
+        // Find the piece being moved
+        const piece = positionMap.get(fromKey);
+        if (!piece) {
+          console.error(`No piece found at source position (${fromX},${fromY})`);
+          continue;
         }
+        
+        // Check for capture first (before we move the piece)
+        if (positionMap.has(toKey)) {
+          positionMap.delete(toKey);
+        }
+        
+        // Create a new piece object with updated position and type
+        const movedPiece: BasePoint = {
+          ...piece,
+          x: toX,
+          y: toY,
+          pieceType: (pieceType && isValidPieceType(pieceType)) ? pieceType : piece.pieceType,
+          hasMoved: true
+        };
+        
+        // Remove the piece from its old position and place it in the new position
+        positionMap.delete(fromKey);
+        positionMap.set(toKey, movedPiece);
       }
       
-      // Update the board state
-      setBasePoints(newBasePoints);
+      // Update the board state with the final positions
+      const updatedBasePoints = Array.from(positionMap.values());
+      setBasePoints(updatedBasePoints);
       setCurrentMoveIndex(newIndex);
       
       // Update turn index - next player's turn (since the move at newIndex was just applied)
@@ -1391,9 +1410,8 @@ const Board: Component<BoardProps> = (props) => {
       const playerColorName = PLAYER_COLORS[newTurnIndex].toLowerCase() as TeamColor;
       const currentPlayerColor = COLOR_MAP[playerColorName] || playerColorName;
       
-
-      // Get current player's pieces - use the replayed base points (newBasePoints) instead of the current state
-      let currentPlayerPieces = newBasePoints.filter((p: BasePoint) => {
+      // Get current player's pieces - use the replayed base points instead of the current state
+      let currentPlayerPieces = updatedBasePoints.filter((p: BasePoint) => {
         // Normalize both colors for comparison
         const pieceColor = p.color?.toLowerCase();
         const targetColor = currentPlayerColor.toLowerCase();
