@@ -488,16 +488,25 @@ const Board: Component<BoardProps> = (props) => {
                 }
                 
                 // Update the board state with the calculated moves
-                setMoveHistory(movesToApply);
-                setCurrentMoveIndex(movesToApply.length - 1);
-                setCurrentTurnIndex(movesToApply.length % PLAYER_COLORS.length);
-                updateBoardState(movesToApply);
+                // Batch the state updates to prevent unnecessary re-renders
+                batch(() => {
+                  setMoveHistory(movesToApply);
+                  // Only update the index if it's not already set to the correct value
+                  const newIndex = movesToApply.length > 0 ? movesToApply.length - 1 : -1;
+                  if (currentMoveIndex() !== newIndex) {
+                    setCurrentMoveIndex(newIndex);
+                  }
+                  setCurrentTurnIndex(movesToApply.length % PLAYER_COLORS.length);
+                  updateBoardState(movesToApply);
+                });
               } else {
                 // No moves, reset to initial position
-                setMoveHistory([]);
-                setCurrentMoveIndex(-1);
-                setCurrentTurnIndex(0);
-                setBasePoints([...INITIAL_BASE_POINTS]);
+                batch(() => {
+                  setMoveHistory([]);
+                  setCurrentMoveIndex(-1);
+                  setCurrentTurnIndex(0);
+                  setBasePoints([...INITIAL_BASE_POINTS]);
+                });
               }
               
               // Update last loaded state
@@ -530,11 +539,13 @@ const Board: Component<BoardProps> = (props) => {
       }
     } else {
       // Clear state if no game ID or user
-      setMoveHistory([]);
-      setFullMoveHistory([]);
-      setCurrentMoveIndex(-1);
-      setCurrentTurnIndex(0);
-      setLastLoadedState({ gameId: null, userId: null });
+      batch(() => {
+        setMoveHistory([]);
+        setFullMoveHistory([]);
+        setCurrentMoveIndex(-1);
+        setCurrentTurnIndex(0);
+        setLastLoadedState({ gameId: null, userId: null });
+      });
     }
   });
   // Listen for move events
@@ -920,10 +931,10 @@ const Board: Component<BoardProps> = (props) => {
   
   // Full move history from the server
   const [fullMoveHistory, setFullMoveHistory] = createSignal<Move[]>([]);
-  // Current position in the move history (for going back/forward)
-  const [currentMoveIndex, setCurrentMoveIndex] = createSignal(-1);
   // Current move history up to the current position
   const [moveHistory, setMoveHistory] = createSignal<Move[]>([]);
+  // Current position in the move history (for going back/forward)
+  const [currentMoveIndex, setCurrentMoveIndex] = createSignal(-1);
   // Branch name for the current move (if any)
   const [currentBranchName, setCurrentBranchName] = createSignal<string | null>(null);
 
@@ -2500,8 +2511,8 @@ const Board: Component<BoardProps> = (props) => {
                 
                 const currentIndex = currentMoveIndex();
                 const moveNum = move.moveNumber ?? 0;
-                // Find the actual index of this move in the history
-                const moveIndex = moveHistory().findIndex(m => m.moveNumber === moveNum);
+                // Use the current index from the map function (index()) to determine the move position
+                const moveIndex = index();
                 // Highlight the move that comes after the current move
                 const isNextMove = moveIndex === currentIndex + 1;
                 
