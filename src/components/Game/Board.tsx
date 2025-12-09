@@ -1337,6 +1337,14 @@ const Board: Component<BoardProps> = (props) => {
     const totalMoves = history.length;
     
     console.log(`[BackNav] Current move: ${currentIndex + 1}/${totalMoves}, branch: ${currentBranchName() || 'main'}`);
+    console.log('[BackNav] Full move history:', history.map((m, i) => ({
+      index: i,
+      from: [m.fromX, m.fromY],
+      to: [m.toX, m.toY],
+      branch: m.branchName || 'main',
+      moveNum: m.moveNumber,
+      isBranch: m.isBranch
+    })));
     
     if (totalMoves === 0) {
       console.log('[BackNav] No moves to go back from');
@@ -1441,6 +1449,26 @@ const Board: Component<BoardProps> = (props) => {
       if (newIndex >= 0) {
         const targetMove = history[newIndex];
         const newBranch = targetMove.branchName || 'main';
+        const isReturningToMain = !targetMove.branchName || targetMove.branchName === 'main';
+        
+        console.log('[BackNav] Target move details:', {
+          from: [targetMove.fromX, targetMove.fromY],
+          to: [targetMove.toX, targetMove.toY],
+          branch: newBranch,
+          moveNumber: targetMove.moveNumber,
+          isBranch: targetMove.isBranch,
+          isReturningToMain
+        });
+        
+        // Find next main line move after the target move
+        const nextMainLineMove = history.slice(newIndex + 1).find(m => !m.branchName || m.branchName === 'main');
+        console.log('[BackNav] Next main line move after target:', nextMainLineMove ? {
+          from: [nextMainLineMove.fromX, nextMainLineMove.fromY],
+          to: [nextMainLineMove.toX, nextMainLineMove.toY],
+          branch: nextMainLineMove.branchName || 'main',
+          moveNumber: nextMainLineMove.moveNumber
+        } : 'None');
+        
         setCurrentBranchName(targetMove.branchName || null);
         console.log(`[Branch] Moved to move ${newIndex + 1}/${totalMoves}, branch: ${newBranch}`);
         console.log(`[Branch] Move details: [${targetMove.fromX},${targetMove.fromY}] -> [${targetMove.toX},${targetMove.toY}], move #${targetMove.moveNumber}`);
