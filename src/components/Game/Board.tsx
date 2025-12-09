@@ -960,10 +960,14 @@ const Board: Component<BoardProps> = (props) => {
       // Log details of each rendered piece
       renderedPieces.forEach(piece => {
         const rect = piece.getBoundingClientRect();
+        // Find the first element with a fill attribute inside the piece
+        const filledElement = piece.querySelector('[fill]');
+        const fillColor = filledElement ? filledElement.getAttribute('fill') : null;
+        
         console.log('Rendered piece:', {
           id: piece.getAttribute('data-piece-id'),
           type: piece.getAttribute('data-piece'),
-          color: piece.getAttribute('fill'),
+          color: fillColor || piece.getAttribute('fill') || 'none',
           position: [
             parseInt(piece.getAttribute('data-x') || '0'),
             parseInt(piece.getAttribute('data-y') || '0')
