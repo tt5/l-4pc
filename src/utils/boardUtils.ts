@@ -283,13 +283,43 @@ export const fetchBasePoints = async ({
     const newBasePoints = result.data.basePoints;
     console.log('Processed base points:', JSON.stringify(newBasePoints, null, 2));
     
-    // Ensure all base points have required fields
-    const validatedBasePoints = newBasePoints.map((bp: any, index: number) => ({
-      ...bp,
-      id: bp.id || index, // Ensure id exists
-      color: bp.color || '#000000', // Default color if missing
-      pieceType: bp.pieceType || 'pawn' // Default piece type if missing
-    }));
+    // Ensure all base points have required fields with valid values
+    const validatedBasePoints = newBasePoints.map((bp: any, index: number) => {
+      // Ensure id is a valid number
+      const id = typeof bp.id === 'number' ? bp.id : index;
+      
+      // Ensure color is a valid string
+      let color = bp.color;
+      if (!color || typeof color !== 'string') {
+        // Use team-based colors if available, otherwise fallback to black
+        if (bp.team === 1) {
+          color = '#FFEB3B'; // Yellow for team 1
+        } else if (bp.team === 2) {
+          color = '#2196F3'; // Blue for team 2
+        } else {
+          color = '#000000'; // Default to black if no team
+        }
+      }
+      
+      // Ensure pieceType is a valid string
+      const pieceType = bp.pieceType && typeof bp.pieceType === 'string' 
+        ? bp.pieceType.toLowerCase() 
+        : 'pawn';
+      
+      // Return the validated base point with all required fields
+      return {
+        ...bp,
+        id,
+        color,
+        pieceType,
+        // Ensure other required fields have defaults
+        x: typeof bp.x === 'number' ? bp.x : 0,
+        y: typeof bp.y === 'number' ? bp.y : 0,
+        userId: bp.userId || 'system',
+        team: typeof bp.team === 'number' ? bp.team : 1,
+        createdAtMs: bp.createdAtMs || Date.now()
+      };
+    });
     
     console.log('Validated base points:', JSON.stringify(validatedBasePoints, null, 2));
     setBasePoints(validatedBasePoints);
