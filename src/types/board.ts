@@ -63,14 +63,11 @@ export interface AddBasePointResponse extends ApiResponse<BasePoint> {}
 export interface Move {
   id: number;
   basePointId: number | string;  // Allow string for userId
-  // Support both tuple and flat coordinate formats
-  from: Point;
-  to: Point;
-  // Flat coordinate alternatives
-  fromX?: number;
-  fromY?: number;
-  toX?: number;
-  toY?: number;
+  // Flat coordinate format
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
   
   playerId: string;
   timestamp: number;

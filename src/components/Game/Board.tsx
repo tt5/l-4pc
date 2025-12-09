@@ -561,10 +561,10 @@ const Board: Component<BoardProps> = (props) => {
       setMoveHistory(prev => {
         const exists = prev.some(m => 
           m.id === move.id || 
-          (m.from[0] === move.from[0] && 
-           m.from[1] === move.from[1] && 
-           m.to[0] === move.to[0] && 
-           m.to[1] === move.to[1] &&
+          (m.fromX === move.fromX && 
+           m.fromY === move.fromY && 
+           m.toX === move.toX && 
+           m.toY === move.toY &&
            m.timestamp === move.timestamp)
         );
         return exists ? prev : [...prev, move];
@@ -1056,13 +1056,11 @@ const Board: Component<BoardProps> = (props) => {
     
     // Apply each move in sequence
     moves.forEach((move, index) => {
-      // Handle both move formats:
-      // 1. { fromX, fromY, toX, toY } (from API)
-      // 2. { from: [x, y], to: [x, y] } (transformed format)
-      const fromX = 'fromX' in move ? move.fromX : move.from[0];
-      const fromY = 'fromY' in move ? move.fromY : move.from[1];
-      const toX = 'toX' in move ? move.toX : move.to[0];
-      const toY = 'toY' in move ? move.toY : move.to[1];
+      // Use flat coordinate format
+      const fromX = move.fromX;
+      const fromY = move.fromY;
+      const toX = move.toX;
+      const toY = move.toY;
       const pieceType = move.pieceType;
       
       const fromKey = `${fromX},${fromY}`;
@@ -1208,8 +1206,7 @@ const Board: Component<BoardProps> = (props) => {
     
     try {
       const currentBasePoints = [...basePoints()];
-      const [fromX, fromY] = nextMove.from;
-      const [toX, toY] = nextMove.to;
+      const { fromX, fromY, toX, toY } = nextMove;
       
       // Find and move the piece
       const pieceIndex = currentBasePoints.findIndex(p => p.x === fromX && p.y === fromY);
@@ -1366,11 +1363,11 @@ const Board: Component<BoardProps> = (props) => {
       for (let i = 0; i <= newIndex; i++) {
         const move = fullMoveHistory()[i];
         
-        // Match the format handling in updateBoardState
-        const fromX = 'fromX' in move ? move.fromX : move.from?.[0];
-        const fromY = 'fromY' in move ? move.fromY : move.from?.[1];
-        const toX = 'toX' in move ? move.toX : move.to?.[0];
-        const toY = 'toY' in move ? move.toY : move.to?.[1];
+        // Use flat coordinates
+        const fromX = move.fromX;
+        const fromY = move.fromY;
+        const toX = move.toX;
+        const toY = move.toY;
         const pieceType = move.pieceType;
         
         // Skip if we don't have valid coordinates
@@ -2048,10 +2045,10 @@ const Board: Component<BoardProps> = (props) => {
           // Check if the move is the same as the next move in the main line
           const nextMoveInMainLine = fullMoveHistory()[currentMoveIndex() + 1];
           const isSameAsMainLine = nextMoveInMainLine && 
-            nextMoveInMainLine.from[0] === startX &&
-            nextMoveInMainLine.from[1] === startY &&
-            nextMoveInMainLine.to[0] === targetX &&
-            nextMoveInMainLine.to[1] === targetY;
+            nextMoveInMainLine.fromX === startX &&
+            nextMoveInMainLine.fromY === startY &&
+            nextMoveInMainLine.toX === targetX &&
+            nextMoveInMainLine.toY === targetY;
           
           if (isSameAsMainLine) {
             // If the move is the same as in the main line, just move forward in the main line
@@ -2084,14 +2081,17 @@ const Board: Component<BoardProps> = (props) => {
         const newMove: Move = {
           id: Date.now(),
           basePointId: pointToMove.id,
-          from: [startX, startY] as [number, number],
-          to: [targetX, targetY] as [number, number],
+          fromX: startX,
+          fromY: startY,
+          toX: targetX,
+          toY: targetY,
           timestamp: Date.now(),
           playerId: pointToMove.userId,
           color: currentColor,
           moveNumber: fullMoveHistory().length + 1,
           isBranch: isBranching,
-          branchName: currentBranch
+          branchName: currentBranch,
+          pieceType: pointToMove.pieceType
         };
         
         // If this is a branching move, update the current branch name
@@ -2559,19 +2559,19 @@ const Board: Component<BoardProps> = (props) => {
           <Show when={moveHistory().length > 0} fallback={<div>No moves yet</div>}>
             <For each={[...moveHistory()].reverse()}>
               {(move, index) => {
-                // Handle both move formats: fromX/Y and from/to tuples
-                const fromX = move.fromX ?? move.from?.[0] ?? 0;
-                const fromY = move.fromY ?? move.from?.[1] ?? 0;
-                const toX = move.toX ?? move.to?.[0] ?? 0;
-                const toY = move.toY ?? move.to?.[1] ?? 0;
+                // Use flat coordinates
+                const fromX = move.fromX;
+                const fromY = move.fromY;
+                const toX = move.toX;
+                const toY = move.toY;
                 const moveNumber = move.moveNumber ?? (index() + 1);
                 const moveTime = move.timestamp ? new Date(move.timestamp).toLocaleTimeString() : 'Unknown time';
                 const currentMove = moveHistory()[currentMoveIndex()];
                 const isNextMove = move.moveNumber === ((currentMove?.moveNumber ?? -1) + 1);
                 
-                // Log a warning if we're using fallback values
-                if ((!move.fromX && !move.from?.[0]) || (!move.toX && !move.to?.[0])) {
-                  console.warn('Move data format unexpected, using fallback values');
+                // Log a warning if we're missing required coordinates
+                if (fromX === undefined || fromY === undefined || toX === undefined || toY === undefined) {
+                  console.warn('Move data is missing required coordinates', move);
                 }
                 
                 return (
