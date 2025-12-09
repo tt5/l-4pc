@@ -2164,12 +2164,11 @@ const Board: Component<BoardProps> = (props) => {
         }
 
         // Updating base point in database
-        const moveNumber = fullMoveHistory().length + 1;
         const result = await updateBasePoint(
           pointToMove.id, 
           targetX, 
           targetY, 
-          moveNumber, 
+          newMove.moveNumber,  // Use the move number from newMove
           newMove.branchName,
           Boolean(newMove.isBranch),  // Explicitly convert to boolean
           gameId(),         // Pass the current game ID
@@ -2183,6 +2182,7 @@ const Board: Component<BoardProps> = (props) => {
 
         // 5. Calculate new restricted squares from the server
         // Calling /api/calculate-squares
+        const moveNumber = moveHistory().length + 1; // Calculate the next move number
 
         try {
           const response = await fetch('/api/calculate-squares', {
@@ -2466,6 +2466,9 @@ const Board: Component<BoardProps> = (props) => {
           onGoBack={handleGoBack}
           onGoForward={handleGoForward}
           onReset={async () => {
+            // Log the current move history before reset
+            console.log('Resetting board. Current move history:', JSON.stringify(fullMoveHistory(), null, 2));
+            
             // Reset move history and turn counter
             setFullMoveHistory([]);
             setCurrentMoveIndex(-1);
@@ -2473,8 +2476,26 @@ const Board: Component<BoardProps> = (props) => {
             setCurrentTurnIndex(0);
             setCurrentBranchName(null); // Reset the current branch name
             
+            // Force a state update to ensure the move history is cleared
+            await new Promise(resolve => setTimeout(resolve, 0));
+            
+            // Log the state after reset
+            console.log('Board reset complete. New move history state:', {
+              fullMoveHistory: fullMoveHistory(),
+              currentMoveIndex: currentMoveIndex(),
+              moveHistory: moveHistory(),
+              currentTurnIndex: currentTurnIndex(),
+              currentBranchName: currentBranchName()
+            });
+            
             // Refresh the base points
             await fetchBasePoints();
+            
+            // Force another state update
+            await new Promise(resolve => setTimeout(resolve, 0));
+            
+            // Log the next move number
+            console.log('Next move number will be:', fullMoveHistory().length + 1);
             
             // Refresh the restricted squares
             const squaresResponse = await fetch('/api/calculate-squares', {
@@ -2483,7 +2504,8 @@ const Board: Component<BoardProps> = (props) => {
               body: JSON.stringify({
                 currentPosition: [0, 0],
                 destination: [0, 0],
-                gameId: gameId()
+                gameId: gameId(),
+                branchName: currentBranchName() || null
               })
             });
 
