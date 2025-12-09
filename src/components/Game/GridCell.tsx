@@ -89,6 +89,11 @@ export const GridCell: Component<GridCellProps> = (props) => {
         <div 
           class={`${styles.basePoint} ${styles.basePointMarker}`}
           style={{ 'background-color': state.color || '#4CAF50', '--piece-color': state.color || '#4CAF50' }}
+          data-piece={state.pieceType}
+          data-x={x}
+          data-y={y}
+          data-color={state.color}
+          data-testid={`piece-${x}-${y}`}
         >
           {state.pieceType === 'queen' && (
             <Queen class={styles.pieceIcon} />

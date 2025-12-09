@@ -2,13 +2,13 @@ import {
   type Component, 
   type ParentProps,
   createEffect, 
-  createSignal, 
+  createSignal,
+  batch, 
   createMemo,
   Show,
   onMount,
   onCleanup,
   on,
-  batch,
   For,
   createSelector
 } from 'solid-js';
@@ -980,16 +980,54 @@ const Board: Component<BoardProps> = (props) => {
     });
   });
 
-  // Log UI board state whenever basePoints changes
-  createEffect(() => {
-    const points = basePoints();
-    console.log('UI Board State:', points.map(p => ({
+  // Utility function to log the current board state in a readable format
+  const logBoardState = (points: BasePoint[]) => {
+    const boardSize = 14; // Adjust based on your actual board size
+    const board = Array(boardSize).fill(null).map(() => Array(boardSize).fill('.'));
+
+    // Mark non-playable corners if needed
+    const nonPlayableCorners = [
+      [0,0], [0,1], [1,0], [1,1],
+      [0,12], [0,13], [1,12], [1,13],
+      [12,0], [12,1], [13,0], [13,1],
+      [12,12], [12,13], [13,12], [13,13]
+    ];
+    
+    nonPlayableCorners.forEach(([x, y]) => {
+      if (x < boardSize && y < boardSize) {
+        board[y][x] = 'X';
+      }
+    });
+
+    // Place pieces on the board
+    points.forEach(p => {
+      if (p.x >= 0 && p.x < boardSize && p.y >= 0 && p.y < boardSize) {
+        const colorCode = p.color === '#FFEB3B' ? 'Y' : 
+                         p.color === '#F44336' ? 'R' : 
+                         p.color === '#2196F3' ? 'B' : 'G';
+        board[p.y][p.x] = `${p.pieceType.charAt(0).toUpperCase()}${colorCode}`;
+      }
+    });
+
+    console.log('\nCurrent Board State:');
+    console.log('   ' + Array(boardSize).fill(0).map((_, i) => i.toString().padStart(2, ' ')).join(' '));
+    board.forEach((row, y) => {
+      console.log(`${y.toString().padStart(2, ' ')} ${row.join('  ')}`);
+    });
+    
+    // Also log the raw data for reference
+    console.log('Raw board data:', points.map(p => ({
       id: p.id,
       type: p.pieceType,
       color: p.color,
-      position: [p.x, p.y],
-      hasMoved: p.hasMoved
+      position: `(${p.x},${p.y})`
     })));
+  };
+
+  // Log UI board state whenever basePoints changes
+  createEffect(() => {
+    const points = basePoints();
+    logBoardState(points);
   });
 
   // Log board state after replay when user logs in
@@ -998,14 +1036,8 @@ const Board: Component<BoardProps> = (props) => {
     const currentUser = auth.user();
     
     if (currentUser && points.length > 0) {
-      console.log('Board state after replay:');
-      console.table(points.map(p => ({
-        id: p.id,
-        type: p.pieceType,
-        color: p.color,
-        position: `(${p.x},${p.y})`,
-        player: p.userId
-      })));
+      console.log('\n=== Board State After Replay ===');
+      logBoardState(points);
     }
   });
 
@@ -1034,11 +1066,9 @@ const Board: Component<BoardProps> = (props) => {
     console.group('updateBoardState');
     console.log('Starting board state update with moves:', moves);
     
-    // If we have existing base points, use them as the starting point
-    // Otherwise, start with a fresh copy of the initial board state
-    const currentBasePoints = basePoints().length > 0 
-      ? JSON.parse(JSON.stringify(basePoints())) 
-      : JSON.parse(JSON.stringify(INITIAL_BASE_POINTS));
+    // Always start with a fresh copy of the initial board state when replaying moves
+    // This ensures consistent move replay from the initial position
+    const currentBasePoints = JSON.parse(JSON.stringify(INITIAL_BASE_POINTS));
       
     console.log('Current base points:', JSON.parse(JSON.stringify(currentBasePoints)));
     
@@ -1470,7 +1500,7 @@ const Board: Component<BoardProps> = (props) => {
       const newBasePoints = JSON.parse(JSON.stringify(INITIAL_BASE_POINTS));
       const positionMap = new Map<string, BasePoint>();
       
-      // Initialize position map with initial pieces
+      // Initialize position map with initial pieces from the fresh copy
       newBasePoints.forEach((point: BasePoint) => {
         positionMap.set(`${point.x},${point.y}`, { ...point });
       });
