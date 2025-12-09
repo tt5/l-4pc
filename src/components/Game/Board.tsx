@@ -937,6 +937,8 @@ const Board: Component<BoardProps> = (props) => {
   
   // Full move history from the server
   const [fullMoveHistory, setFullMoveHistory] = createSignal<Move[]>([]);
+  // Track the main line moves (original game line without branches)
+  const [mainLineMoves, setMainLineMoves] = createSignal<Move[]>([]);
   // Current move history up to the current position
   const [moveHistory, setMoveHistory] = createSignal<Move[]>([]);
   // Current position in the move history (for going back/forward)
@@ -2173,27 +2175,24 @@ const Board: Component<BoardProps> = (props) => {
             isBranching: isBranching
           });
 
-          const expectedMainLineMove = currentMainLineMove()?.move || nextMoveInMainLine;
-          const isSameAsMainLine = expectedMainLineMove && 
-            expectedMainLineMove.fromX === startX &&
-            expectedMainLineMove.fromY === startY &&
-            expectedMainLineMove.toX === targetX &&
-            expectedMainLineMove.toY === targetY;
+          // Check if the current move matches the main line move at this position
+          const mainLineMove = mainLineMoves()[currentIndex + 1];
+          const isMainLineMove = mainLineMove && 
+            mainLineMove.fromX === startX &&
+            mainLineMove.fromY === startY &&
+            mainLineMove.toX === targetX &&
+            mainLineMove.toY === targetY;
           
-          if (isSameAsMainLine) {
-            console.log(`[Branch] ✅ Move matches main line at index ${currentMainLineMove()?.index || nextMoveIdx}`);
-            // Clear the stored main line move since we're using it now
-            if (currentMainLineMove()) {
-              setCurrentMoveIndex(currentMainLineMove()!.index);
-              setCurrentMainLineMove(null);
-            }
+          if (isMainLineMove) {
+            console.log(`[Branch] ✅ Move matches main line at index ${currentIndex + 1}`);
+            console.log(`[Branch] Moving forward in main line to move ${currentIndex + 2}`);
             
-            console.log(`[Branch] Moving forward in main line to move ${nextMoveIdx + 1}`);
+            // Update the move index to the next position
+            const newIndex = currentIndex + 1;
+            setCurrentMoveIndex(newIndex);
+            setCurrentBranchName('main');
             
-            // Update the move index to the index of the next main line move
-            setCurrentMoveIndex(nextMoveIdx);
-            
-            // Then update the base points
+            // Update the base points
             const updatedBasePoints = basePoints().map(bp => 
               bp.id === pointToMove.id
                 ? { ...bp, x: targetX, y: targetY }
@@ -2249,6 +2248,11 @@ const Board: Component<BoardProps> = (props) => {
         }
         
         // Move number is already calculated and stored in newMove object
+        
+        // If this is a main line move, add it to mainLineMoves
+        if (!isBranching && (!currentBranchName() || currentBranchName() === 'main')) {
+          setMainLineMoves(prev => [...prev, newMove]);
+        }
         
         // Add the new move to the full history
         let newFullHistory;
