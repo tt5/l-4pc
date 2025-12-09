@@ -1333,18 +1333,45 @@ const Board: Component<BoardProps> = (props) => {
   // Handle going back one move in history
   const handleGoBack = async () => {
     const currentIndex = currentMoveIndex();
-    const totalMoves = fullMoveHistory().length;
+    const history = fullMoveHistory();
+    const totalMoves = history.length;
+    
+    console.log(`[BackNav] Current move: ${currentIndex + 1}/${totalMoves}, branch: ${currentBranchName() || 'main'}`);
     
     if (totalMoves === 0) {
+      console.log('[BackNav] No moves to go back from');
       return;
     }
     
-    // If we're already at the beginning, do nothing
     if (currentIndex === -1) {
+      console.log('[BackNav] Already at the beginning of history');
       return;
     }
+
+    const newIndex = currentIndex - 1;
+    console.log(`[BackNav] Moving from move ${currentIndex + 1} to ${newIndex + 1}`);
+
+    // Log the current and target moves
+    const currentMove = history[currentIndex];
+    const targetMove = newIndex >= 0 ? history[newIndex] : null;
     
-    const newIndex = currentIndex >= 0 ? currentIndex - 1 : -1;
+    console.log('[BackNav] Current move details:', {
+      from: currentMove ? [currentMove.fromX, currentMove.fromY] : 'start',
+      to: currentMove ? [currentMove.toX, currentMove.toY] : 'start',
+      branch: currentMove?.branchName || 'main',
+      moveNumber: currentMove?.moveNumber
+    });
+
+    if (targetMove) {
+      console.log('[BackNav] Target move details:', {
+        from: [targetMove.fromX, targetMove.fromY],
+        to: [targetMove.toX, targetMove.toY],
+        branch: targetMove.branchName || 'main',
+        moveNumber: targetMove.moveNumber
+      });
+    } else {
+      console.log('[BackNav] Moving to initial position (before first move)');
+    }
     
     try {
       // Use the same logic as updateBoardState for consistency
@@ -1412,11 +1439,13 @@ const Board: Component<BoardProps> = (props) => {
       
       // Update the current branch name based on the move we're going to
       if (newIndex >= 0) {
-        const targetMove = fullMoveHistory()[newIndex];
+        const targetMove = history[newIndex];
+        const newBranch = targetMove.branchName || 'main';
         setCurrentBranchName(targetMove.branchName || null);
-        console.log(`[Branch] Moved to move ${newIndex}, branch: ${targetMove.branchName || 'main'}`);
+        console.log(`[Branch] Moved to move ${newIndex + 1}/${totalMoves}, branch: ${newBranch}`);
+        console.log(`[Branch] Move details: [${targetMove.fromX},${targetMove.fromY}] -> [${targetMove.toX},${targetMove.toY}], move #${targetMove.moveNumber}`);
       } else {
-        setCurrentBranchName(null); // Back to the beginning, no branch
+        setCurrentBranchName(null);
         console.log('[Branch] Reset to initial position, no branch');
       }
       
@@ -1558,6 +1587,7 @@ const Board: Component<BoardProps> = (props) => {
       
     } catch (error) {
       console.error('Error in handleGoBack:', error);
+      console.error('[BackNav] Error during back navigation:', error);
       setError('Failed to go back. Please try again.');
       
       // Try to restore to a consistent state
@@ -2042,16 +2072,35 @@ const Board: Component<BoardProps> = (props) => {
         let branchName: string | null = null;
         
         if (isAtHistoricalPosition) {
-          // The next move should be the first move after currentMoveIndex that's in the main line
-          const nextMoveInMainLine = fullMoveHistory().slice(currentMoveIndex() + 1).find(move => 
+          const currentIndex = currentMoveIndex();
+          const history = fullMoveHistory();
+          const remainingMoves = history.slice(currentIndex + 1);
+          
+          console.log(`[Branch] Current position: move ${currentIndex + 1} of ${history.length}`);
+          console.log(`[Branch] Current branch: ${currentBranchName() || 'main'}`);
+          
+          // Log all remaining moves for debugging
+          console.log(`[Branch] Remaining moves (${remainingMoves.length}):`, 
+            remainingMoves.map((m, i) => ({
+              index: currentIndex + 1 + i,
+              from: [m.fromX, m.fromY],
+              to: [m.toX, m.toY],
+              branch: m.branchName || 'main',
+              moveNum: m.moveNumber,
+              type: m.pieceType
+            }))
+          );
+          
+          // Find the next move in the main line
+          const nextMoveInMainLine = remainingMoves.find(move => 
             !move.branchName || move.branchName === 'main'
           );
-          const nextMoveIdx = nextMoveInMainLine ? fullMoveHistory().indexOf(nextMoveInMainLine) : -1;
+          const nextMoveIdx = nextMoveInMainLine ? history.indexOf(nextMoveInMainLine) : -1;
           
-          console.log(`[Branch] Current move index: ${currentMoveIndex()}, next main line move at index: ${nextMoveIdx}`);
+          console.log(`[Branch] Next main line move at index: ${nextMoveIdx} (${nextMoveInMainLine ? 'found' : 'not found'})`);
           
           if (nextMoveInMainLine) {
-            console.log(`[Branch] Next move in main line:`, {
+            console.log(`[Branch] Next main line move:`, {
               from: [nextMoveInMainLine.fromX, nextMoveInMainLine.fromY],
               to: [nextMoveInMainLine.toX, nextMoveInMainLine.toY],
               branch: nextMoveInMainLine.branchName || 'main',
@@ -2060,9 +2109,11 @@ const Board: Component<BoardProps> = (props) => {
             });
           }
           
-          console.log(`[Branch] Current move:`, {
+          console.log(`[Branch] Attempting move:`, {
             from: [startX, startY],
-            to: [targetX, targetY]
+            to: [targetX, targetY],
+            currentBranch: currentBranchName() || 'main',
+            isBranching: isBranching
           });
 
           const isSameAsMainLine = nextMoveInMainLine && 
@@ -2100,13 +2151,17 @@ const Board: Component<BoardProps> = (props) => {
         // Get the current branch name from context or previous move
         const currentBranch = branchName || currentBranchName() || 
                             (fullMoveHistory()[currentMoveIndex()]?.branchName) ||
-                            undefined;
+                            'main';
+                            
+        console.log(`[Move] Current branch set to: ${currentBranch}`);
                             
         // Calculate the move number based on the current branch's move count
         const currentBranchMoves = fullMoveHistory().filter(
           move => move.branchName === currentBranch
         );
         const branchMoveNumber = currentBranchMoves.length + 1;
+        
+        console.log(`[Move] Branch '${currentBranch}' has ${currentBranchMoves.length} moves, next will be #${branchMoveNumber}`);
         
         const newMove: Move = {
           id: Date.now(),
@@ -2139,10 +2194,25 @@ const Board: Component<BoardProps> = (props) => {
             ...fullMoveHistory().slice(0, currentMoveIndex() + 1),
             newMove
           ];
-          console.log(`[Branch] Created branch '${branchName}' at move ${currentMoveIndex() + 1}`);
+          console.log(`[Branch] Created branch '${branchName}' at move ${currentMoveIndex() + 1}`, {
+            branchPoint: currentMoveIndex(),
+            newMove: {
+              from: [startX, startY],
+              to: [targetX, targetY],
+              moveNumber: branchMoveNumber,
+              branch: branchName
+            },
+            historyLength: newFullHistory.length
+          });
         } else {
           // Normal case - just append to the end
           newFullHistory = [...fullMoveHistory(), newMove];
+          console.log(`[Move] Appended move to history (total: ${newFullHistory.length})`, {
+            from: [startX, startY],
+            to: [targetX, targetY],
+            moveNumber: branchMoveNumber,
+            branch: currentBranch
+          });
         }
         
         
@@ -2150,6 +2220,9 @@ const Board: Component<BoardProps> = (props) => {
         setCurrentMoveIndex(newFullHistory.length - 1);
         // Update moveHistory to include all moves up to the current one
         setMoveHistory(newFullHistory);
+        
+        console.log(`[Move] Updated history - total moves: ${newFullHistory.length}, current index: ${newFullHistory.length - 1}`);
+        console.log(`[Move] Current branch after update: ${currentBranchName() || 'main'}`);
         
         // History update complete
         
