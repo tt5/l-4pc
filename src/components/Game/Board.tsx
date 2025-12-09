@@ -1557,6 +1557,16 @@ const Board: Component<BoardProps> = (props) => {
       setBasePoints(updatedBasePoints);
       setCurrentMoveIndex(newIndex);
       
+      // Update the current branch name based on the move we're going to
+      if (newIndex >= 0) {
+        const targetMove = fullMoveHistory()[newIndex];
+        setCurrentBranchName(targetMove.branchName || null);
+        console.log(`[Branch] Moved to move ${newIndex}, branch: ${targetMove.branchName || 'main'}`);
+      } else {
+        setCurrentBranchName(null); // Back to the beginning, no branch
+        console.log('[Branch] Reset to initial position, no branch');
+      }
+      
       // Update turn index - next player's turn (since the move at newIndex was just applied)
       const newTurnIndex = (newIndex + 1) % PLAYER_COLORS.length;
       setCurrentTurnIndex(newTurnIndex);
@@ -2581,6 +2591,7 @@ const Board: Component<BoardProps> = (props) => {
             setCurrentMoveIndex(-1);
             setMoveHistory([]);
             setCurrentTurnIndex(0);
+            setCurrentBranchName(null); // Reset the current branch name
             
             // Refresh the base points
             await fetchBasePoints();
