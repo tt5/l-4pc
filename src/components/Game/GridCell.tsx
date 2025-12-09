@@ -12,6 +12,7 @@ interface CellState {
   isSaving: boolean;
   isInCheck?: boolean;
   isNonPlayable?: boolean; // Indicates if the square is in a non-playable corner
+  id?: number; // ID of the piece
   color?: string; // Optional color for the base point
   pieceType?: string; // Type of the piece (e.g., 'pawn', 'queen')
 }
@@ -96,22 +97,22 @@ export const GridCell: Component<GridCellProps> = (props) => {
           data-testid={`piece-${x}-${y}`}
         >
           {state.pieceType === 'queen' && (
-            <Queen class={styles.pieceIcon} />
+            <Queen class={styles.pieceIcon} color={state.color} data-piece-id={state.id} />
           )}
           {state.pieceType === 'king' && (
-            <King class={styles.pieceIcon} />
+            <King class={styles.pieceIcon} color={state.color} data-piece-id={state.id} />
           )}
           {state.pieceType === 'pawn' && (
-            <Pawn class={styles.pieceIcon} color={state.color} />
+            <Pawn class={styles.pieceIcon} color={state.color} data-piece-id={state.id} />
           )}
           {state.pieceType === 'bishop' && (
-            <Bishop class={styles.pieceIcon} color={state.color} />
+            <Bishop class={styles.pieceIcon} color={state.color} data-piece-id={state.id} />
           )}
           {state.pieceType === 'knight' && (
-            <Knight class={styles.pieceIcon} color={state.color} />
+            <Knight class={styles.pieceIcon} color={state.color} data-piece-id={state.id} />
           )}
           {state.pieceType === 'rook' && (
-            <Rook class={styles.pieceIcon} color={state.color} />
+            <Rook class={styles.pieceIcon} color={state.color} data-piece-id={state.id} />
           )}
         </div>
       ) : !isSelected ? (
