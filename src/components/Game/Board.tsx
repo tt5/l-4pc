@@ -950,38 +950,32 @@ const Board: Component<BoardProps> = (props) => {
   // Track rendered pieces in the DOM and compare with basePoints
   createEffect(() => {
     const points = basePoints();
-    console.log('Base Points Updated:', points.length, 'pieces');
     
-    // Log the actual rendered state after the next paint
-    requestAnimationFrame(() => {
-      const renderedPieces = Array.from(document.querySelectorAll('[data-piece]'));
-      console.log('Rendered pieces in DOM:', renderedPieces.length);
-      
-      // Log details of each rendered piece
-      renderedPieces.forEach(piece => {
-        const rect = piece.getBoundingClientRect();
-        // Find the first element with a fill attribute inside the piece
-        const filledElement = piece.querySelector('[fill]');
-        const fillColor = filledElement ? filledElement.getAttribute('fill') : null;
+    // Only log in development
+    if (import.meta.env.DEV) {
+      requestAnimationFrame(() => {
+        const renderedPieces = Array.from(document.querySelectorAll('[data-piece]'));
         
-        console.log('Rendered piece:', {
-          id: piece.getAttribute('data-piece-id'),
-          type: piece.getAttribute('data-piece'),
-          color: fillColor || piece.getAttribute('fill') || 'none',
-          position: [
-            parseInt(piece.getAttribute('data-x') || '0'),
-            parseInt(piece.getAttribute('data-y') || '0')
-          ]
+        // Group pieces by type and color for better readability
+        const pieceCounts: Record<string, number> = {};
+        renderedPieces.forEach(piece => {
+          const type = piece.getAttribute('data-piece');
+          const color = piece.querySelector('[fill]')?.getAttribute('fill') || 
+                       piece.getAttribute('fill') || 'none';
+          const key = `${type}-${color}`;
+          pieceCounts[key] = (pieceCounts[key] || 0) + 1;
         });
+        
+        console.log('Rendered pieces summary:', pieceCounts);
+        
+        // Log any pieces that are in basePoints but not rendered
+        const renderedIds = new Set(renderedPieces.map(p => p.getAttribute('data-piece-id')));
+        const missingPieces = points.filter(p => p.id && !renderedIds.has(p.id.toString()));
+        if (missingPieces.length > 0) {
+          console.warn('Missing pieces:', missingPieces.length);
+        }
       });
-      
-      // Log any pieces that are in basePoints but not rendered
-      const renderedIds = new Set(renderedPieces.map(p => p.getAttribute('data-piece-id')));
-      const missingPieces = points.filter(p => !renderedIds.has(p.id.toString()));
-      if (missingPieces.length > 0) {
-        console.warn('Pieces in state but not rendered:', missingPieces);
-      }
-    });
+    }
   });
 
   // Utility function to log the current board state in a readable format
