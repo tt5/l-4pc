@@ -943,6 +943,8 @@ const Board: Component<BoardProps> = (props) => {
   const [currentMoveIndex, setCurrentMoveIndex] = createSignal(-1);
   // Branch name for the current move (if any)
   const [currentBranchName, setCurrentBranchName] = createSignal<string | null>(null);
+  // Track the next main line move when returning from a branch
+  const [currentMainLineMove, setCurrentMainLineMove] = createSignal<{index: number, move: Move} | null>(null);
 
   // Track rendered pieces in the DOM and compare with basePoints
   createEffect(() => {
@@ -1461,13 +1463,40 @@ const Board: Component<BoardProps> = (props) => {
         });
         
         // Find next main line move after the target move
-        const nextMainLineMove = history.slice(newIndex + 1).find(m => !m.branchName || m.branchName === 'main');
+        // First check if we're returning to the main line from a branch
+        const isReturningFromBranch = currentBranchName() && (!targetMove.branchName || targetMove.branchName === 'main');
+        
+        // Find the next main line move, which could be after some branch moves
+        let nextMainLineMove;
+        let nextMainLineIndex = -1;
+        
+        // Look ahead in history for the next main line move
+        for (let i = newIndex + 1; i < history.length; i++) {
+          const move = history[i];
+          if (!move.branchName || move.branchName === 'main') {
+            nextMainLineMove = move;
+            nextMainLineIndex = i;
+            break;
+          }
+        }
+        
         console.log('[BackNav] Next main line move after target:', nextMainLineMove ? {
+          index: nextMainLineIndex,
           from: [nextMainLineMove.fromX, nextMainLineMove.fromY],
           to: [nextMainLineMove.toX, nextMainLineMove.toY],
           branch: nextMainLineMove.branchName || 'main',
           moveNumber: nextMainLineMove.moveNumber
         } : 'None');
+        
+        // If we're returning to main line, store the next main line move
+        if (isReturningFromBranch && nextMainLineMove) {
+          console.log('[BackNav] Returning to main line, next main line move is at index', nextMainLineIndex);
+          // Store the next main line move info for use in move validation
+          setCurrentMainLineMove({
+            index: nextMainLineIndex,
+            move: nextMainLineMove
+          });
+        }
         
         setCurrentBranchName(targetMove.branchName || null);
         console.log(`[Branch] Moved to move ${newIndex + 1}/${totalMoves}, branch: ${newBranch}`);
@@ -2144,14 +2173,21 @@ const Board: Component<BoardProps> = (props) => {
             isBranching: isBranching
           });
 
-          const isSameAsMainLine = nextMoveInMainLine && 
-            nextMoveInMainLine.fromX === startX &&
-            nextMoveInMainLine.fromY === startY &&
-            nextMoveInMainLine.toX === targetX &&
-            nextMoveInMainLine.toY === targetY;
+          const expectedMainLineMove = currentMainLineMove()?.move || nextMoveInMainLine;
+          const isSameAsMainLine = expectedMainLineMove && 
+            expectedMainLineMove.fromX === startX &&
+            expectedMainLineMove.fromY === startY &&
+            expectedMainLineMove.toX === targetX &&
+            expectedMainLineMove.toY === targetY;
           
           if (isSameAsMainLine) {
-            console.log(`[Branch] ✅ Move matches main line at index ${nextMoveIdx}`);
+            console.log(`[Branch] ✅ Move matches main line at index ${currentMainLineMove()?.index || nextMoveIdx}`);
+            // Clear the stored main line move since we're using it now
+            if (currentMainLineMove()) {
+              setCurrentMoveIndex(currentMainLineMove()!.index);
+              setCurrentMainLineMove(null);
+            }
+            
             console.log(`[Branch] Moving forward in main line to move ${nextMoveIdx + 1}`);
             
             // Update the move index to the index of the next main line move
