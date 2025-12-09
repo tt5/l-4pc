@@ -1865,13 +1865,6 @@ const Board: Component<BoardProps> = (props) => {
   });
   
 
-  // Effect to handle user changes and fetch base points
-  createEffect(() => {
-    const currentUser = user();
-    if (currentUser) {
-      handleFetchBasePoints();
-    }
-  });
   // Effect to check king in check when base points change
   createEffect(() => {
     if (basePoints().length > 0) {
