@@ -1212,20 +1212,27 @@ const Board: Component<BoardProps> = (props) => {
     const nextIndex = currentIndex + 1;
     const nextMove = history[nextIndex];
     
-    console.log('[Forward] Next move details:', {
+    console.log('[Forward] Next move details:\n' + JSON.stringify({
       from: [nextMove.fromX, nextMove.fromY],
       to: [nextMove.toX, nextMove.toY],
       moveNumber: nextMove.moveNumber,
       branch: nextMove.branchName || 'main',
       pieceType: nextMove.pieceType,
       isBranch: nextMove.isBranch,
-      capturedPieceId: nextMove.capturedPieceId || 'none'
-    });
+      capturedPieceId: nextMove.capturedPieceId || 'none',
+      id: nextMove.id,
+      gameId: nextMove.gameId
+    }, null, 2));
     
     try {
-      console.log('[Forward] Current board state before move:', 
-        basePoints().map(p => ({ id: p.id, type: p.pieceType, pos: [p.x, p.y] }))
-      );
+      console.log('[Forward] Current board state before move:\n' + JSON.stringify(
+        basePoints().map(p => ({
+          id: p.id,
+          type: p.pieceType,
+          pos: [p.x, p.y],
+          color: p.color
+        })), null, 2
+      ));
       
       const currentBasePoints = [...basePoints()];
       const { fromX, fromY, toX, toY } = nextMove;
@@ -1266,9 +1273,14 @@ const Board: Component<BoardProps> = (props) => {
       setCurrentTurnIndex(newTurnIndex);
       console.log(`[Forward] Turn updated to player ${newTurnIndex} (${PLAYER_COLORS[newTurnIndex]})`);
       
-      console.log('[Forward] Board state after move:', 
-        currentBasePoints.map(p => ({ id: p.id, type: p.pieceType, pos: [p.x, p.y] }))
-      );
+      console.log('[Forward] Board state after move:\n' + JSON.stringify(
+        currentBasePoints.map(p => ({
+          id: p.id,
+          type: p.pieceType,
+          pos: [p.x, p.y],
+          color: p.color
+        })), null, 2
+      ));
       
       // Recalculate legal moves for the current player
       const currentPlayerPieces = currentBasePoints.filter(p => {
