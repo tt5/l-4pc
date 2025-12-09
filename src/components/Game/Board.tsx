@@ -1200,9 +1200,9 @@ const Board: Component<BoardProps> = (props) => {
   const handleGoForward = async () => {
     console.log('[Forward] Forward button pressed');
     const currentIndex = currentMoveIndex();
-    const history = fullMoveHistory();
+    const history = currentBranchName() === 'main' ? mainLineMoves() : fullMoveHistory();
     
-    console.log(`[Forward] Current index: ${currentIndex}, Total moves: ${history.length - 1}`);
+    console.log(`[Forward] Current index: ${currentIndex}, Total moves: ${history.length - 1}, Branch: ${currentBranchName() || 'main'}`);
     
     if (currentIndex >= history.length - 1) {
       console.log('[Forward] Already at the latest move, cannot go forward');
