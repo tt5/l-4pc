@@ -1027,7 +1027,10 @@ const Board: Component<BoardProps> = (props) => {
   // Log UI board state whenever basePoints changes
   createEffect(() => {
     const points = basePoints();
-    logBoardState(points);
+    if (points.length > 0) {
+      console.log(`Base points updated: ${points.length} pieces`);
+      logBoardState(points);
+    }
   });
 
   // Log board state after replay when user logs in
@@ -2646,6 +2649,7 @@ const Board: Component<BoardProps> = (props) => {
             isSaving: isSaving(),
             isInCheck: isKingInCheck,
             isNonPlayable,
+            id: basePoint?.id,
             color: basePoint?.color,
             pieceType: basePoint?.pieceType
           };

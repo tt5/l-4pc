@@ -272,14 +272,27 @@ export const fetchBasePoints = async ({
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const { data } = await response.json();
+    const result = await response.json();
+    console.log('Raw base points response:', JSON.stringify(result, null, 2));
     
-    if (!data || !Array.isArray(data.basePoints)) {
+    if (!result || !result.data || !Array.isArray(result.data.basePoints)) {
+      console.error('Invalid base points response structure:', result);
       throw new Error('Invalid response: expected data.basePoints to be an array');
     }
     
-    const newBasePoints = data.basePoints;
-    setBasePoints(newBasePoints);
+    const newBasePoints = result.data.basePoints;
+    console.log('Processed base points:', JSON.stringify(newBasePoints, null, 2));
+    
+    // Ensure all base points have required fields
+    const validatedBasePoints = newBasePoints.map((bp: any, index: number) => ({
+      ...bp,
+      id: bp.id || index, // Ensure id exists
+      color: bp.color || '#000000', // Default color if missing
+      pieceType: bp.pieceType || 'pawn' // Default piece type if missing
+    }));
+    
+    console.log('Validated base points:', JSON.stringify(validatedBasePoints, null, 2));
+    setBasePoints(validatedBasePoints);
       
     setLastFetchTime(now);
   } catch (error) {
