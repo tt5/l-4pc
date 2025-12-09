@@ -947,6 +947,51 @@ const Board: Component<BoardProps> = (props) => {
   // Branch name for the current move (if any)
   const [currentBranchName, setCurrentBranchName] = createSignal<string | null>(null);
 
+  // Track rendered pieces in the DOM and compare with basePoints
+  createEffect(() => {
+    const points = basePoints();
+    console.log('Base Points Updated:', points.length, 'pieces');
+    
+    // Log the actual rendered state after the next paint
+    requestAnimationFrame(() => {
+      const renderedPieces = Array.from(document.querySelectorAll('[data-piece]'));
+      console.log('Rendered pieces in DOM:', renderedPieces.length);
+      
+      // Log details of each rendered piece
+      renderedPieces.forEach(piece => {
+        const rect = piece.getBoundingClientRect();
+        console.log('Rendered piece:', {
+          id: piece.getAttribute('data-piece-id'),
+          type: piece.getAttribute('data-piece'),
+          color: piece.getAttribute('fill'),
+          position: [
+            parseInt(piece.getAttribute('data-x') || '0'),
+            parseInt(piece.getAttribute('data-y') || '0')
+          ]
+        });
+      });
+      
+      // Log any pieces that are in basePoints but not rendered
+      const renderedIds = new Set(renderedPieces.map(p => p.getAttribute('data-piece-id')));
+      const missingPieces = points.filter(p => !renderedIds.has(p.id.toString()));
+      if (missingPieces.length > 0) {
+        console.warn('Pieces in state but not rendered:', missingPieces);
+      }
+    });
+  });
+
+  // Log UI board state whenever basePoints changes
+  createEffect(() => {
+    const points = basePoints();
+    console.log('UI Board State:', points.map(p => ({
+      id: p.id,
+      type: p.pieceType,
+      color: p.color,
+      position: [p.x, p.y],
+      hasMoved: p.hasMoved
+    })));
+  });
+
   // Log board state after replay when user logs in
   createEffect(() => {
     const points = basePoints();
@@ -1125,17 +1170,56 @@ const Board: Component<BoardProps> = (props) => {
       board[y][x] = symbol;
     });
     
-    // Log the board
-    console.log('\nCurrent Board State:');
-    console.log('  ' + Array(boardSize).fill(undefined).map((_, i) => i.toString().padStart(2, ' ')).join(' '));
+    // Log the board with better browser console formatting
+    console.group('Current Board State');
+    
+    // Column headers
+    console.log('   ' + Array(boardSize).fill(undefined).map((_, i) => 
+      `%c${i.toString().padStart(2, ' ')}`, 'color: #666'
+    ).join(' '));
+    
+    // Board rows
     board.forEach((row, y) => {
-      console.log(y.toString().padStart(2, ' ') + ' ' + row.join('  '));
+      const rowLabel = `%c${y.toString().padStart(2, ' ')}`;
+      const rowContent = row.map(cell => {
+        if (cell === 'X') return ['%cX ', 'color: #666'];
+        if (cell === '.') return ['%c. ', 'color: #666'];
+        
+        // Determine color and symbol
+        let color = '#000';
+        let symbol = '';
+        
+        if (cell.endsWith('Y')) color = '#FFD700'; // Yellow
+        else if (cell.endsWith('B')) color = '#2196F3'; // Blue
+        else if (cell.endsWith('G')) color = '#4CAF50'; // Green
+        else color = '#F44336'; // Red
+        
+        const piece = cell.replace(/[YBGR]$/, '').toLowerCase();
+        symbol = piece === 'p' ? '♟' : 
+                piece === 'r' ? '♜' :
+                piece === 'n' ? '♞' :
+                piece === 'b' ? '♝' :
+                piece === 'q' ? '♛' : '♚';
+        
+        return [`%c${symbol} `, `color: ${color}; font-weight: bold`];
+      });
+      
+      // Flatten the row content for console.log
+      const logArgs = [rowLabel, 'color: #666', ...rowContent.flat()];
+      console.log(...logArgs);
     });
-    console.log('\nLegend:');
-    console.log('Uppercase: Yellow (Y), Blue (B), Green (G)');
-    console.log('Lowercase: Red (r)');
-    console.log('X: Non-playable corner');
-    console.log('.: Empty square');
+    
+    // Legend
+    console.groupCollapsed('Legend');
+    console.log('%c♛ ♜ ♝ ♞ ♚ ♟', 'color: #FFD700; font-weight: bold', '- Yellow');
+    console.log('%c♛ ♜ ♝ ♞ ♚ ♟', 'color: #2196F3; font-weight: bold', '- Blue');
+    console.log('%c♛ ♜ ♝ ♞ ♚ ♟', 'color: #4CAF50; font-weight: bold', '- Green');
+    console.log('%c♛ ♜ ♝ ♞ ♚ ♟', 'color: #F44336; font-weight: bold', '- Red');
+    console.log('%cX', 'color: #666', '- Non-playable corner');
+    console.log('%c.', 'color: #666', '- Empty square');
+    console.groupEnd(); // End Legend
+    
+    console.groupEnd(); // End Current Board State
     
     setBasePoints(updatedBasePoints);
     
