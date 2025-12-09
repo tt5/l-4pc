@@ -2102,6 +2102,12 @@ const Board: Component<BoardProps> = (props) => {
                             (fullMoveHistory()[currentMoveIndex()]?.branchName) ||
                             undefined;
                             
+        // Calculate the move number based on the current branch's move count
+        const currentBranchMoves = fullMoveHistory().filter(
+          move => move.branchName === currentBranch
+        );
+        const branchMoveNumber = currentBranchMoves.length + 1;
+        
         const newMove: Move = {
           id: Date.now(),
           basePointId: pointToMove.id,
@@ -2112,7 +2118,7 @@ const Board: Component<BoardProps> = (props) => {
           timestamp: Date.now(),
           playerId: pointToMove.userId,
           color: currentColor,
-          moveNumber: fullMoveHistory().length + 1,
+          moveNumber: branchMoveNumber,  // Use the branch-aware move number
           isBranch: isBranching,
           branchName: currentBranch,
           pieceType: pointToMove.pieceType
@@ -2182,7 +2188,8 @@ const Board: Component<BoardProps> = (props) => {
 
         // 5. Calculate new restricted squares from the server
         // Calling /api/calculate-squares
-        const moveNumber = moveHistory().length + 1; // Calculate the next move number
+        // Use the moveNumber from newMove which is already calculated correctly
+        const moveNumber = newMove.moveNumber;
 
         try {
           const response = await fetch('/api/calculate-squares', {
