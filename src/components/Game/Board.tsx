@@ -2042,8 +2042,25 @@ const Board: Component<BoardProps> = (props) => {
         let branchName: string | null = null;
         
         if (isAtHistoricalPosition) {
-          // Check if the move is the same as the next move in the main line
-          const nextMoveInMainLine = fullMoveHistory()[currentMoveIndex() + 1];
+          const nextMoveIdx = currentMoveIndex() + 1;
+          const nextMoveInMainLine = fullMoveHistory()[nextMoveIdx];
+          
+          console.log(`[Branch] Current move index: ${currentMoveIndex()}, next index: ${nextMoveIdx}`);
+          
+          if (nextMoveInMainLine) {
+            console.log(`[Branch] Next move in main line:`, {
+              from: [nextMoveInMainLine.fromX, nextMoveInMainLine.fromY],
+              to: [nextMoveInMainLine.toX, nextMoveInMainLine.toY],
+              branch: nextMoveInMainLine.branchName || 'main',
+              moveNumber: nextMoveInMainLine.moveNumber
+            });
+          }
+          
+          console.log(`[Branch] Current move:`, {
+            from: [startX, startY],
+            to: [targetX, targetY]
+          });
+
           const isSameAsMainLine = nextMoveInMainLine && 
             nextMoveInMainLine.fromX === startX &&
             nextMoveInMainLine.fromY === startY &&
@@ -2051,10 +2068,13 @@ const Board: Component<BoardProps> = (props) => {
             nextMoveInMainLine.toY === targetY;
           
           if (isSameAsMainLine) {
-            // If the move is the same as in the main line, just move forward in the main line
-            console.log(`[Branch] Moving forward in main line to move ${currentMoveIndex() + 2}`);
-            setCurrentMoveIndex(currentMoveIndex() + 1);
-            // Update the base points to reflect the move in the main line
+            console.log(`[Branch] ✅ Move matches main line at index ${nextMoveIdx}`);
+            console.log(`[Branch] Moving forward in main line to move ${nextMoveIdx + 1}`);
+            
+            // Update the move index first
+            setCurrentMoveIndex(nextMoveIdx);
+            
+            // Then update the base points
             const updatedBasePoints = basePoints().map(bp => 
               bp.id === pointToMove.id
                 ? { ...bp, x: targetX, y: targetY }
@@ -2064,10 +2084,10 @@ const Board: Component<BoardProps> = (props) => {
             cleanupDragState();
             return;
           } else {
-            // If the move is different, create a new branch
+            console.log(`[Branch] ❌ Move does not match main line at index ${nextMoveIdx}`);
+            console.log(`[Branch] Creating new branch from move ${nextMoveIdx}`);
             isBranching = true;
-            branchName = generateBranchName(currentMoveIndex() + 1);
-            console.log(`[Branch] Creating new branch '${branchName}' from move ${currentMoveIndex() + 1} with different move`);
+            branchName = generateBranchName(nextMoveIdx);
             setCurrentBranchName(branchName);
           }
         }
