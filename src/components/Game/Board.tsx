@@ -351,7 +351,6 @@ interface BoardProps {
 }
 
 const Board: Component<BoardProps> = (props) => {
-  console.log('Board component mounted');
   const { gameId: initialGameId = 'default' } = props;
   const auth = useAuth();
   const navigate = useNavigate();
@@ -424,9 +423,7 @@ const Board: Component<BoardProps> = (props) => {
             
             if (response.ok) {
               const data = await response.json();
-              console.log('Moves API Response:', JSON.stringify(data, null, 2));
               const rawMoves = Array.isArray(data?.moves) ? data.moves : [];
-              console.log('Raw moves:', rawMoves);
               
               // Define the type for the move object from the API
               interface ApiMove {
@@ -966,8 +963,6 @@ const Board: Component<BoardProps> = (props) => {
           pieceCounts[key] = (pieceCounts[key] || 0) + 1;
         });
         
-        console.log('Rendered pieces summary:', pieceCounts);
-        
         // Log any pieces that are in basePoints but not rendered
         const renderedIds = new Set(renderedPieces.map(p => p.getAttribute('data-piece-id')));
         const missingPieces = points.filter(p => p.id && !renderedIds.has(p.id.toString()));
@@ -1006,41 +1001,17 @@ const Board: Component<BoardProps> = (props) => {
         board[p.y][p.x] = `${p.pieceType.charAt(0).toUpperCase()}${colorCode}`;
       }
     });
-
-    console.log('\nCurrent Board State:');
-    console.log('   ' + Array(boardSize).fill(0).map((_, i) => i.toString().padStart(2, ' ')).join(' '));
-    board.forEach((row, y) => {
-      console.log(`${y.toString().padStart(2, ' ')} ${row.join('  ')}`);
-    });
-    
-    // Also log the raw data for reference
-    console.log('Raw board data:', points.map(p => ({
-      id: p.id,
-      type: p.pieceType,
-      color: p.color,
-      position: `(${p.x},${p.y})`
-    })));
   };
 
   // Log UI board state whenever basePoints changes
   createEffect(() => {
     const points = basePoints();
     if (points.length > 0) {
-      console.log(`Base points updated: ${points.length} pieces`);
       logBoardState(points);
     }
   });
 
-  // Log board state after replay when user logs in
-  createEffect(() => {
-    const points = basePoints();
-    const currentUser = auth.user();
-    
-    if (currentUser && points.length > 0) {
-      console.log('\n=== Board State After Replay ===');
-      logBoardState(points);
-    }
-  });
+  // No longer logging board state after login
 
   // Generate a simple branch name based on move number and timestamp
   const generateBranchName = (moveNumber: number): string => {
@@ -1070,8 +1041,6 @@ const Board: Component<BoardProps> = (props) => {
     // Always start with a fresh copy of the initial board state when replaying moves
     // This ensures consistent move replay from the initial position
     const currentBasePoints = JSON.parse(JSON.stringify(INITIAL_BASE_POINTS));
-      
-    console.log('Current base points:', JSON.parse(JSON.stringify(currentBasePoints)));
     
     // Clear any lingering currentMove classes
     document.querySelectorAll(`.${styles.currentMove}`).forEach(el => {
@@ -1084,8 +1053,6 @@ const Board: Component<BoardProps> = (props) => {
     currentBasePoints.forEach((point: BasePoint) => {
       positionMap.set(`${point.x},${point.y}`, { ...point });
     });
-    
-    console.log('Initial position map:', Array.from(positionMap.entries()));
     
     // Apply each move in sequence
     moves.forEach((move, index) => {
@@ -1101,48 +1068,20 @@ const Board: Component<BoardProps> = (props) => {
       const fromKey = `${fromX},${fromY}`;
       const toKey = `${toX},${toY}`;
       
-      console.log(`\nMove ${index + 1}/${moves.length}:`, {
-        move,  // Log the full move object
-        from: { x: fromX, y: fromY },
-        to: { x: toX, y: toY },
-        pieceType,
-        fromKey,
-        toKey
-      });
-      
       // Skip if we don't have valid coordinates
       if (fromX === undefined || fromY === undefined || toX === undefined || toY === undefined) {
-        console.error('Invalid move coordinates:', { fromX, fromY, toX, toY, move });
         return;
       }
       
       // Find the piece being moved
       const piece = positionMap.get(fromKey);
       if (!piece) {
-        console.error(`No piece found at source position (${fromX},${fromY})`);
-        console.log('Current position map:', Array.from(positionMap.entries()));
         return; // Skip this move if source piece not found
       }
-      
-      console.log('Moving piece:', {
-        id: piece.id,
-        type: piece.pieceType,
-        color: piece.color,
-        team: getTeamByColor(piece.color),
-        from: fromKey,
-        to: toKey
-      });
-      
       // Check for capture first (before we move the piece)
       if (positionMap.has(toKey)) {
         const capturedPiece = positionMap.get(toKey);
         if (capturedPiece) {
-          console.log('Capturing piece at target:', {
-            id: capturedPiece.id,
-            type: capturedPiece.pieceType,
-            color: capturedPiece.color,
-            team: getTeamByColor(capturedPiece.color)
-          });
           positionMap.delete(toKey);
         }
       }
@@ -1167,94 +1106,11 @@ const Board: Component<BoardProps> = (props) => {
       
       // Place the moved piece in the new position
       positionMap.set(toKey, movedPiece);
-      
-      console.log('Position map after move:', Array.from(positionMap.entries()));
     });
     
     // Update the base points with the new positions
     const updatedBasePoints = Array.from(positionMap.values());
-    
-    // Create a visual representation of the board
-    const boardSize = 14;
-    const board = Array(boardSize).fill(undefined).map(() => Array(boardSize).fill('.'));
-    
-    // Mark non-playable corners
-    const nonPlayableCorners = [
-      [0,0], [0,1], [1,0], [1,1],                         // Top-left
-      [0,12], [0,13], [1,12], [1,13],                     // Top-right
-      [12,0], [12,1], [13,0], [13,1],                     // Bottom-left
-      [12,12], [12,13], [13,12], [13,13]                  // Bottom-right
-    ];
-    
-    nonPlayableCorners.forEach(([x, y]) => {
-      board[y][x] = 'X';
-    });
-    
-    // Place pieces on the board
-    updatedBasePoints.forEach(piece => {
-      const { x, y, pieceType, color } = piece;
-      let symbol = pieceType.charAt(0).toUpperCase();
-      if (color === '#F44336') symbol = symbol.toLowerCase(); // Red (lowercase)
-      if (color === '#FFEB3B') symbol = symbol.toUpperCase() + 'Y'; // Yellow
-      if (color === '#2196F3') symbol = symbol.toUpperCase() + 'B'; // Blue
-      if (color === '#4CAF50') symbol = symbol.toUpperCase() + 'G'; // Green
-      board[y][x] = symbol;
-    });
-    
-    // Log the board with better browser console formatting
-    console.group('Current Board State');
-    
-    // Column headers
-    console.log('   ' + Array(boardSize).fill(undefined).map((_, i) => 
-      `%c${i.toString().padStart(2, ' ')}`, 'color: #666'
-    ).join(' '));
-    
-    // Board rows
-    board.forEach((row, y) => {
-      const rowLabel = `%c${y.toString().padStart(2, ' ')}`;
-      const rowContent = row.map(cell => {
-        if (cell === 'X') return ['%cX ', 'color: #666'];
-        if (cell === '.') return ['%c. ', 'color: #666'];
-        
-        // Determine color and symbol
-        let color = '#000';
-        let symbol = '';
-        
-        if (cell.endsWith('Y')) color = '#FFD700'; // Yellow
-        else if (cell.endsWith('B')) color = '#2196F3'; // Blue
-        else if (cell.endsWith('G')) color = '#4CAF50'; // Green
-        else color = '#F44336'; // Red
-        
-        const piece = cell.replace(/[YBGR]$/, '').toLowerCase();
-        symbol = piece === 'p' ? '♟' : 
-                piece === 'r' ? '♜' :
-                piece === 'n' ? '♞' :
-                piece === 'b' ? '♝' :
-                piece === 'q' ? '♛' : '♚';
-        
-        return [`%c${symbol} `, `color: ${color}; font-weight: bold`];
-      });
-      
-      // Flatten the row content for console.log
-      const logArgs = [rowLabel, 'color: #666', ...rowContent.flat()];
-      console.log(...logArgs);
-    });
-    
-    // Legend
-    console.groupCollapsed('Legend');
-    console.log('%c♛ ♜ ♝ ♞ ♚ ♟', 'color: #FFD700; font-weight: bold', '- Yellow');
-    console.log('%c♛ ♜ ♝ ♞ ♚ ♟', 'color: #2196F3; font-weight: bold', '- Blue');
-    console.log('%c♛ ♜ ♝ ♞ ♚ ♟', 'color: #4CAF50; font-weight: bold', '- Green');
-    console.log('%c♛ ♜ ♝ ♞ ♚ ♟', 'color: #F44336; font-weight: bold', '- Red');
-    console.log('%cX', 'color: #666', '- Non-playable corner');
-    console.log('%c.', 'color: #666', '- Empty square');
-    console.groupEnd(); // End Legend
-    
-    console.groupEnd(); // End Current Board State
-    
     setBasePoints(updatedBasePoints);
-    
-    console.groupEnd();
   };
   
   // Initial board setup - matches the reset-board.ts configuration
