@@ -1,7 +1,8 @@
 import { type Component, splitProps } from 'solid-js';
 
+// Update ChessPieceProps to make color required
 interface ChessPieceProps {
-  color?: string;
+  color: string;  // Made color required
   class?: string;
   'data-piece-id'?: string | number;
   'data-x'?: number;
@@ -9,19 +10,27 @@ interface ChessPieceProps {
   [key: `data-${string}`]: any; // Allow any data-* attribute
 }
 
-// Helper function to extract data attributes from props
+// Update the extractDataAttributes function to handle the required color prop
 const extractDataAttributes = (props: ChessPieceProps) => {
-  const dataAttrs: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(props)) {
-    if (key.startsWith('data-')) {
-      dataAttrs[key] = value;
-    }
-  }
+  const dataAttrs: Record<string, unknown> = {
+    'data-piece-id': props['data-piece-id'],
+    'data-x': props['data-x'],
+    'data-y': props['data-y'],
+    // Copy all other data-* attributes
+    ...Object.fromEntries(
+      Object.entries(props).filter(([key]) => 
+        key.startsWith('data-') && 
+        !['data-piece-id', 'data-x', 'data-y'].includes(key)
+      )
+    )
+  };
   return dataAttrs;
 };
 
 export const King: Component<ChessPieceProps> = (props) => {
   const dataAttrs = extractDataAttributes(props);
+  const color = props.color || '#000000'; // Default to black if no color provided
+  
   return (
     <svg 
       xmlns="http://www.w3.org/2000/svg" 
@@ -32,7 +41,7 @@ export const King: Component<ChessPieceProps> = (props) => {
       {...dataAttrs}
     >
       <g 
-        fill={props.color || 'currentColor'} 
+        fill={color} 
         fill-rule="evenodd" 
         stroke="#000" 
         stroke-linecap="round" 
@@ -51,6 +60,8 @@ export const King: Component<ChessPieceProps> = (props) => {
 
 export const Pawn: Component<ChessPieceProps> = (props) => {
   const dataAttrs = extractDataAttributes(props);
+  const color = props.color || '#000000';
+  
   return (
     <svg 
       xmlns="http://www.w3.org/2000/svg" 
@@ -60,10 +71,22 @@ export const Pawn: Component<ChessPieceProps> = (props) => {
       class={props.class}
       {...dataAttrs}
     >
-      <path 
-        d="m 22.5,9 c -2.21,0 -4,1.79 -4,4 0,0.89 0.29,1.71 0.78,2.38 C 17.33,16.5 16,18.59 16,21 c 0,2.03 0.94,3.84 2.41,5.03 C 15.41,27.09 11,31.58 11,39.5 H 34 C 34,31.58 29.59,27.09 26.59,26.03 28.06,24.84 29,23.03 29,21 29,18.59 27.67,16.5 25.72,15.38 26.21,14.71 26.5,13.89 26.5,13 c 0,-2.21 -1.79,-4 -4,-4 z" 
-        style={`opacity:1; fill:${props.color || '#ffffff'}; fill-opacity:1; fill-rule:nonzero; stroke:#000000; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:miter; stroke-miterlimit:4; stroke-dasharray:none; stroke-opacity:1;`}
-      />
+      <g 
+        fill={color} 
+        fill-rule="nonzero" 
+        stroke="#000" 
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="miter"
+        stroke-miterlimit="4"
+        stroke-dasharray="none"
+        stroke-opacity="1"
+      >
+        <path 
+          d="m 22.5,9 c -2.21,0 -4,1.79 -4,4 0,0.89 0.29,1.71 0.78,2.38 C 17.33,16.5 16,18.59 16,21 c 0,2.03 0.94,3.84 2.41,5.03 C 15.41,27.09 11,31.58 11,39.5 H 34 C 34,31.58 29.59,27.09 26.59,26.03 28.06,24.84 29,23.03 29,21 29,18.59 27.67,16.5 25.72,15.38 26.21,14.71 26.5,13.89 26.5,13 c 0,-2.21 -1.79,-4 -4,-4 z" 
+          style="opacity:1; fill-opacity:1;"
+        />
+      </g>
     </svg>
   );
 };
@@ -71,6 +94,8 @@ export const Pawn: Component<ChessPieceProps> = (props) => {
 
 export const Queen: Component<ChessPieceProps> = (props) => {
   const dataAttrs = extractDataAttributes(props);
+  const color = props.color || '#000000';
+  
   return (
     <svg 
       xmlns="http://www.w3.org/2000/svg"
@@ -81,7 +106,7 @@ export const Queen: Component<ChessPieceProps> = (props) => {
       {...dataAttrs}
     >
       <g 
-        fill={props.color || 'currentColor'} 
+        fill={color} 
         fill-rule="evenodd" 
         stroke="#000" 
         stroke-linecap="round" 
@@ -105,6 +130,8 @@ export const Queen: Component<ChessPieceProps> = (props) => {
 
 export const Bishop: Component<ChessPieceProps> = (props) => {
   const dataAttrs = extractDataAttributes(props);
+  const color = props.color || '#000000';
+  
   return (
     <svg 
       xmlns="http://www.w3.org/2000/svg" 
@@ -117,7 +144,7 @@ export const Bishop: Component<ChessPieceProps> = (props) => {
       <g 
         style={{
           opacity: 1,
-          fill: props.color || '#ffffff',
+          fill: color,
           'fill-opacity': 1,
           'fill-rule': 'evenodd',
           stroke: '#000000',
@@ -131,7 +158,7 @@ export const Bishop: Component<ChessPieceProps> = (props) => {
       >
         <g 
           style={{
-            fill: props.color || '#ffffff',
+            fill: color,
             stroke: '#000000',
             'stroke-linecap': 'butt',
           }}
@@ -155,6 +182,8 @@ export const Bishop: Component<ChessPieceProps> = (props) => {
 
 export const Rook: Component<ChessPieceProps> = (props) => {
   const dataAttrs = extractDataAttributes(props);
+  const color = props.color || '#000000';
+  
   return (
     <svg 
       xmlns="http://www.w3.org/2000/svg" 
@@ -165,44 +194,43 @@ export const Rook: Component<ChessPieceProps> = (props) => {
       class={props.class}
       {...dataAttrs}
     >
-      <g style={{
-        opacity: 1,
-        fill: props.color || '#ffffff',
-        'fill-opacity': 1,
-        'fill-rule': 'evenodd',
-        stroke: '#000000',
-        'stroke-width': '1.5',
-        'stroke-linecap': 'round',
-        'stroke-linejoin': 'round',
-        'stroke-miterlimit': 4,
-        'stroke-dasharray': 'none',
-        'stroke-opacity': 1,
-      }} transform="translate(0,0.3)">
+      <g 
+        style={{
+          opacity: 1,
+          fill: color,
+          'fill-opacity': 1,
+          'fill-rule': 'evenodd',
+          stroke: '#000000',
+          'stroke-width': '1.5',
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+          'stroke-miterlimit': 4,
+          'stroke-dasharray': 'none',
+          'stroke-opacity': 1,
+        }}
+        transform="translate(0,0.3)"
+      >
         <path 
           d="M 9,39 L 36,39 L 36,36 L 9,36 L 9,39 z " 
-          style="stroke-linecap:butt;" 
+          style={{ 'stroke-linecap': 'butt' }} 
         />
         <path 
           d="M 12,36 L 12,32 L 33,32 L 33,36 L 12,36 z " 
-          style="stroke-linecap:butt;" 
+          style={{ 'stroke-linecap': 'butt' }} 
         />
         <path 
           d="M 11,14 L 11,9 L 15,9 L 15,11 L 20,11 L 20,9 L 25,9 L 25,11 L 30,11 L 30,9 L 34,9 L 34,14" 
-          style="stroke-linecap:butt;" 
+          style={{ 'stroke-linecap': 'butt' }} 
         />
-        <path 
-          d="M 34,14 L 31,17 L 14,17 L 11,14" 
-        />
+        <path d="M 34,14 L 31,17 L 14,17 L 11,14" />
         <path 
           d="M 31,17 L 31,29.5 L 14,29.5 L 14,17" 
-          style="stroke-linecap:butt; stroke-linejoin:miter;" 
+          style={{ 'stroke-linecap': 'butt', 'stroke-linejoin': 'miter' }} 
         />
-        <path 
-          d="M 31,29.5 L 32.5,32 L 12.5,32 L 14,29.5" 
-        />
+        <path d="M 31,29.5 L 32.5,32 L 12.5,32 L 14,29.5" />
         <path 
           d="M 11,14 L 34,14" 
-          style="fill:none; stroke:#000000; stroke-linejoin:miter;" 
+          style={{ fill: 'none', stroke: '#000000', 'stroke-linejoin': 'miter' }} 
         />
       </g>
     </svg>
@@ -212,6 +240,8 @@ export const Rook: Component<ChessPieceProps> = (props) => {
 
 export const Knight: Component<ChessPieceProps> = (props) => {
   const dataAttrs = extractDataAttributes(props);
+  const color = props.color || '#000000';
+  
   return (
     <svg 
       xmlns="http://www.w3.org/2000/svg" 
@@ -222,38 +252,39 @@ export const Knight: Component<ChessPieceProps> = (props) => {
       class={props.class}
       {...dataAttrs}
     >
-      <g style={{
-        opacity: 1,
-        fill: props.color || '#ffffff',
-        'fill-opacity': 1,
-        'fill-rule': 'evenodd',
-        stroke: '#000000',
-        'stroke-width': '1.5',
-        'stroke-linecap': 'round',
-        'stroke-linejoin': 'round',
-        'stroke-miterlimit': 4,
-        'stroke-dasharray': 'none',
-        'stroke-opacity': 1,
-      }} transform="translate(0,0.3)">
+      <g 
+        style={{
+          opacity: 1,
+          fill: color,
+          'fill-opacity': 1,
+          'fill-rule': 'evenodd',
+          stroke: '#000000',
+          'stroke-width': '1.5',
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+          'stroke-miterlimit': 4,
+          'stroke-dasharray': 'none',
+          'stroke-opacity': 1,
+        }}
+      >
         <path 
           d="M 22,10 C 32.5,11 38.5,18 38,39 L 15,39 C 15,30 25,32.5 23,18" 
-          style={`fill:${props.color || '#ffffff'}; stroke:#000000;`} 
+          style={{ fill: color, stroke: '#000000' }}
         />
         <path 
-          d="M 24,18 C 24.38,20.91 18.45,25.37 16,27 C 13,29 13.18,31.34 11,31 C 9.958,30.06 12.41,27.96 11,28 C 10,28 11.19,29.23 10,30 C 9,30 5.997,31 6,26 C 6,24 12,14 12,14 C 12,14 13.89,12.1 14,10.5 C 13.27,9.506 13.5,8.5 13.5,7.5 C 14.5,6.5 16.5,10 16.5,10 L 18.5,10 C 18.5,10 19.28,8.008 21,7 C 22,7 22,10 22,10" 
-          style={`fill:${props.color || '#ffffff'}; stroke:#000000;`} 
+          d="M 24,18 C 24.38,20.91 18.45,25.37 16,27 C 13,29 13.18,31.34 11,31 C 9.958,30.06 12.41,27.96 11,28 C 10,28 11.19,29.23 10,30 C 9,30 5.997,31 6,26 C 6,24 12,14 12,14 C 12,14 13.89,12.1 14,10.5 C 13.27,9.506 13.5,8.5 13.5,7.5 C 14.5,6.5 16.5,10 16.5,10 L 18.5,10 C 18.5,10 19.28,8.008 21,7 C 22,7 22,10 22,10"
+          style={{ fill: color, stroke: '#000000' }}
         />
         <path 
           d="M 9.5 25.5 A 0.5 0.5 0 1 1 8.5,25.5 A 0.5 0.5 0 1 1 9.5 25.5 z" 
-          style="fill:#000000; stroke:#000000;" 
+          style={{ fill: '#000000', stroke: '#000000' }}
         />
         <path 
-          d="M 15 15.5 A 0.5 1.5 0 1 1 14,15.5 A 0.5 1.5 0 1 1 15 15.5 z" 
-          transform="matrix(0.866,0.5,-0.5,0.866,9.693,-5.173)" 
-          style="fill:#000000; stroke:#000000;" 
+          d="M 15 15.5 A 0.5 1.5 0 1 1  14,15.5 A 0.5 1.5 0 1 1  15 15.5 z" 
+          transform="matrix(0.866,0.5,-0.5,0.866,9.693,-5.173)"
+          style={{ fill: '#000000', stroke: '#000000' }}
         />
       </g>
     </svg>
   );
 };
-
