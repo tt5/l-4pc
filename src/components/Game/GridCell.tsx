@@ -97,22 +97,58 @@ export const GridCell: Component<GridCellProps> = (props) => {
           data-testid={`piece-${x}-${y}`}
         >
           {pieceType === 'queen' && (
-            <Queen class={styles.pieceIcon} color={state.color} data-piece-id={id} data-x={x} data-y={y} />
+            <Queen 
+              class={styles.pieceIcon} 
+              color={state.color || '#000000'} 
+              data-piece-id={state.id} 
+              data-x={x} 
+              data-y={y} 
+            />
           )}
           {pieceType === 'king' && (
-            <King class={styles.pieceIcon} color={state.color} data-piece-id={id} data-x={x} data-y={y} />
+            <King 
+              class={styles.pieceIcon} 
+              color={state.color || '#000000'} 
+              data-piece-id={state.id} 
+              data-x={x} 
+              data-y={y} 
+            />
           )}
           {pieceType === 'pawn' && (
-            <Pawn class={styles.pieceIcon} color={state.color} data-piece-id={id} data-x={x} data-y={y} />
+            <Pawn 
+              class={styles.pieceIcon} 
+              color={state.color || '#000000'} 
+              data-piece-id={state.id} 
+              data-x={x} 
+              data-y={y} 
+            />
           )}
           {pieceType === 'bishop' && (
-            <Bishop class={styles.pieceIcon} color={state.color} data-piece-id={id} data-x={x} data-y={y} />
+            <Bishop 
+              class={styles.pieceIcon} 
+              color={state.color || '#000000'} 
+              data-piece-id={state.id} 
+              data-x={x} 
+              data-y={y} 
+            />
           )}
           {pieceType === 'knight' && (
-            <Knight class={styles.pieceIcon} color={state.color} data-piece-id={id} data-x={x} data-y={y} />
+            <Knight 
+              class={styles.pieceIcon} 
+              color={state.color || '#000000'} 
+              data-piece-id={state.id} 
+              data-x={x} 
+              data-y={y} 
+            />
           )}
           {pieceType === 'rook' && (
-            <Rook class={styles.pieceIcon} color={state.color} data-piece-id={id} data-x={x} data-y={y} />
+            <Rook 
+              class={styles.pieceIcon} 
+              color={state.color || '#000000'} 
+              data-piece-id={state.id} 
+              data-x={x} 
+              data-y={y} 
+            />
           )}
         </div>
       ) : !isSelected ? (
