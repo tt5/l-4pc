@@ -2042,17 +2042,21 @@ const Board: Component<BoardProps> = (props) => {
         let branchName: string | null = null;
         
         if (isAtHistoricalPosition) {
-          const nextMoveIdx = currentMoveIndex() + 1;
-          const nextMoveInMainLine = fullMoveHistory()[nextMoveIdx];
+          // The next move should be the first move after currentMoveIndex that's in the main line
+          const nextMoveInMainLine = fullMoveHistory().slice(currentMoveIndex() + 1).find(move => 
+            !move.branchName || move.branchName === 'main'
+          );
+          const nextMoveIdx = nextMoveInMainLine ? fullMoveHistory().indexOf(nextMoveInMainLine) : -1;
           
-          console.log(`[Branch] Current move index: ${currentMoveIndex()}, next index: ${nextMoveIdx}`);
+          console.log(`[Branch] Current move index: ${currentMoveIndex()}, next main line move at index: ${nextMoveIdx}`);
           
           if (nextMoveInMainLine) {
             console.log(`[Branch] Next move in main line:`, {
               from: [nextMoveInMainLine.fromX, nextMoveInMainLine.fromY],
               to: [nextMoveInMainLine.toX, nextMoveInMainLine.toY],
               branch: nextMoveInMainLine.branchName || 'main',
-              moveNumber: nextMoveInMainLine.moveNumber
+              moveNumber: nextMoveInMainLine.moveNumber,
+              indexInHistory: nextMoveIdx
             });
           }
           
@@ -2071,7 +2075,7 @@ const Board: Component<BoardProps> = (props) => {
             console.log(`[Branch] ✅ Move matches main line at index ${nextMoveIdx}`);
             console.log(`[Branch] Moving forward in main line to move ${nextMoveIdx + 1}`);
             
-            // Update the move index first
+            // Update the move index to the index of the next main line move
             setCurrentMoveIndex(nextMoveIdx);
             
             // Then update the base points
