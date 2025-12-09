@@ -78,6 +78,7 @@ export interface Move {
   gameId?: string;
   moveNumber: number;
   pieceType?: string;
+  branch?: string; // For tracking move branches in game variations
   capturedPieceId?: number | null;
   createdAtMs?: number;
   isBranch?: boolean | number;  // Can be boolean or number (0/1) from API
