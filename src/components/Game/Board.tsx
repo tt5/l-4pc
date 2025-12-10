@@ -947,6 +947,12 @@ const Board: Component<BoardProps> = (props) => {
   const [currentBranchName, setCurrentBranchName] = createSignal<string | null>(null);
   // Track the next main line move when returning from a branch
   const [currentMainLineMove, setCurrentMainLineMove] = createSignal<{index: number, move: Move} | null>(null);
+  
+  // Track branch points and their associated branches
+  const [branchPoints, setBranchPoints] = createSignal<Record<number, Array<{
+    branchName: string;
+    firstMove: Move;
+  }>>>({});
 
   // Track rendered pieces in the DOM and compare with basePoints
   createEffect(() => {
@@ -2268,19 +2274,156 @@ const Board: Component<BoardProps> = (props) => {
             return;
           } else {
             console.log(`[Branch] ❌ Move does not match main line at index ${currentIndex + 1}`);
-          console.log(`[Branch] Creating new branch from move ${currentIndex + 1}`);
-          console.log('[Branch] Current branch state:', {
-            currentMoveIndex: currentIndex,
-            currentBranch: currentBranchName() || 'main',
-            mainLineMoves: mainLineMoves().map(m => ({
-              moveNumber: m.moveNumber,
-              from: [m.fromX, m.fromY],
-              to: [m.toX, m.toY],
-              piece: m.pieceType
-            }))
-          });
+
+            const currentMove = fullMoveHistory()[currentIndex];
+            const currentMoveNumber = currentMove?.moveNumber || 0;
+            const nextMoveNumber = currentMoveNumber + 1;
+            
+            // 1. First check if this matches the main line
+            const nextMainLineMove = mainLineMoves().find(m => m.moveNumber === nextMoveNumber);
+            const isMainLineMove = nextMainLineMove && 
+                                 nextMainLineMove.fromX === startX &&
+                                 nextMainLineMove.fromY === startY &&
+                                 nextMainLineMove.toX === targetX &&
+                                 nextMainLineMove.toY === targetY;
+            
+            if (isMainLineMove) {
+              console.log('[Branch] Following main line move');
+              branchName = 'main';
+              setCurrentBranchName('main');
+              isBranching = false;
+              
+              // Find the rest of the main line moves to append
+              const remainingMainLineMoves = mainLineMoves()
+                .filter(m => m.moveNumber >= nextMoveNumber)
+                .sort((a, b) => a.moveNumber - b.moveNumber);
+                
+              setFullMoveHistory(prev => [
+                ...prev.slice(0, currentIndex + 1),
+                ...remainingMainLineMoves
+              ]);
+              setCurrentMoveIndex(currentIndex + remainingMainLineMoves.length);
+              
+              // Update board state
+              const newBasePoints = [...basePoints()];
+              remainingMainLineMoves.forEach(move => {
+                const pieceIndex = newBasePoints.findIndex(p => 
+                  p.x === move.fromX && p.y === move.fromY
+                );
+                if (pieceIndex !== -1) {
+                  newBasePoints[pieceIndex] = {
+                    ...newBasePoints[pieceIndex],
+                    x: move.toX,
+                    y: move.toY
+                  };
+                }
+              });
+              setBasePoints(newBasePoints);
+              
+              cleanupDragState();
+              return;
+            }
+            
+            // 2. Check if this matches an existing branch from this position
+            const currentBranches = branchPoints()[currentIndex] || [];
+            const matchingBranch = currentBranches.find(branch => {
+              const move = branch.firstMove;
+              return move.fromX === startX && 
+                     move.fromY === startY &&
+                     move.toX === targetX && 
+                     move.toY === targetY;
+            });
+            
+            if (matchingBranch) {
+              branchName = matchingBranch.branchName;
+              console.log(`[Branch] Following existing branch: ${branchName}`);
+              setCurrentBranchName(branchName);
+              isBranching = false;
+            }
+
+            if (matchingBranch) {
+              // Get just the next move in this branch
+              const nextMoveInBranch = (fullMoveHistory() || []).find(move => 
+                move && 
+                move.branchName === branchName && 
+                move.moveNumber === nextMoveNumber
+              );
+
+              if (nextMoveInBranch) {
+                // Update state to follow this branch
+                setCurrentBranchName(branchName);
+                
+                // Only add the next move to history
+                setFullMoveHistory(prev => {
+                  const currentHistory = prev || [];
+                  return [
+                    ...currentHistory.slice(0, currentIndex + 1),
+                    nextMoveInBranch
+                  ];
+                });
+                
+                setCurrentMoveIndex(currentIndex + 1);
+                setMoveHistory(prev => [...prev, nextMoveInBranch]);
+                
+                // Update board state with just this move
+                const newBasePoints = [...basePoints()];
+                const pieceIndex = newBasePoints.findIndex(p => 
+                  p.x === nextMoveInBranch.fromX && p.y === nextMoveInBranch.fromY
+                );
+                
+                if (pieceIndex !== -1) {
+                  newBasePoints[pieceIndex] = {
+                    ...newBasePoints[pieceIndex],
+                    x: nextMoveInBranch.toX,
+                    y: nextMoveInBranch.toY
+                  };
+                  setBasePoints(newBasePoints);
+                }
+                
+                cleanupDragState();
+                return;
+              }
+            }
+
+            // If we get here, it's a new branch
+            console.log(`[Branch] Creating new branch from move ${currentIndex + 1}`);
+            console.log('[Branch] Current branch state:', {
+              currentMoveIndex: currentIndex,
+              currentBranch: currentBranchName() || 'main',
+              mainLineMoves: mainLineMoves().map(m => ({
+                moveNumber: m.moveNumber,
+                from: [m.fromX, m.fromY],
+                to: [m.toX, m.toY],
+                piece: m.pieceType
+              }))
+            });
             isBranching = true;
             branchName = generateBranchName(nextMoveIdx);
+            // Track this branch point
+            setBranchPoints(prev => ({
+              ...prev,
+              [currentIndex]: [
+                ...(prev[currentIndex] || []),
+                { 
+                  branchName: branchName || 'main', 
+                  firstMove: {
+                    fromX: startX,
+                    fromY: startY,
+                    toX: targetX,
+                    toY: targetY,
+                    // Add other required move properties to satisfy the Move type
+                    id: Date.now(),
+                    basePointId: '',
+                    timestamp: Date.now(),
+                    playerId: '',
+                    color: currentPlayerColor(),
+                    moveNumber: nextMoveIdx,
+                    isBranch: true,
+                    pieceType: 'pawn' // This should be the actual piece type
+                  } as Move
+                }
+              ]
+            }));
             setCurrentBranchName(branchName);
           }
         }
