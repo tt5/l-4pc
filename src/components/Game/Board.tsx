@@ -2957,24 +2957,41 @@ const Board: Component<BoardProps> = (props) => {
             // Log the current move history before reset
             console.log('Resetting board. Current move history:', JSON.stringify(fullMoveHistory(), null, 2));
             
-            // Reset move history and turn counter
+            // Get branch points before clearing state
+            const branchPoints = fullMoveHistory().filter(move => move.isBranch);
+            
+            // Clear all state
             setFullMoveHistory([]);
             setCurrentMoveIndex(-1);
             setMoveHistory([]);
             setCurrentTurnIndex(0);
-            setCurrentBranchName(null); // Reset the current branch name
+            setCurrentBranchName(null);
+            setBranchPoints({});
             
-            // Force a state update to ensure the move history is cleared
+            // Force a state update to ensure the state is cleared
             await new Promise(resolve => setTimeout(resolve, 0));
             
-            // Log the state after reset
-            console.log('Board reset complete. New move history state:', {
-              fullMoveHistory: fullMoveHistory(),
-              currentMoveIndex: currentMoveIndex(),
-              moveHistory: moveHistory(),
-              currentTurnIndex: currentTurnIndex(),
-              currentBranchName: currentBranchName()
-            });
+            // Log branch points after reset
+            console.log('Branch points after reset:', JSON.stringify({
+              count: branchPoints.length,
+              branches: branchPoints.map(bp => ({
+                id: bp.id,
+                moveNumber: bp.moveNumber,
+                branchName: bp.branchName,
+                from: [bp.fromX, bp.fromY],
+                to: [bp.toX, bp.toY],
+                pieceType: bp.pieceType,
+              }))
+            }, null, 2));
+            
+            // Log the clean state after reset
+            console.log('Board reset complete. New clean state:', JSON.stringify({
+              fullMoveHistory: [],
+              currentMoveIndex: -1,
+              moveHistory: [],
+              currentTurnIndex: 0,
+              currentBranchName: null
+            }, null, 2));
             
             // Refresh the base points
             await fetchBasePoints();
