@@ -2533,13 +2533,13 @@ const Board: Component<BoardProps> = (props) => {
               isBranching = false;
               
               // Get all moves in this branch, sorted by move number
-              const branchMoves = fullMoveHistory()
+              const currentBranchMoves = fullMoveHistory()
                 .filter(move => move && move.branchName === branchName)
                 .sort((a, b) => a.moveNumber - b.moveNumber);
 
-              if (branchMoves.length > 0) {
+              if (currentBranchMoves.length > 0) {
                 // Apply the first move in the branch to update the board state
-                const firstMove = branchMoves[0];
+                const firstMove = currentBranchMoves[0];
                 console.log(`[Branch] Applying first move in branch ${branchName}:`, {
                   from: [firstMove.fromX, firstMove.fromY],
                   to: [firstMove.toX, firstMove.toY],
@@ -2562,7 +2562,7 @@ const Board: Component<BoardProps> = (props) => {
                 }
                 
                 // Update the move history and index
-                const newIndex = fullMoveHistory().findIndex(m => 
+                const moveHistoryIndex = fullMoveHistory().findIndex(m => 
                   m.id === firstMove.id || 
                   (m.fromX === firstMove.fromX && 
                    m.fromY === firstMove.fromY && 
@@ -2570,21 +2570,24 @@ const Board: Component<BoardProps> = (props) => {
                    m.toY === firstMove.toY)
                 );
                 
-                if (newIndex !== -1) {
-                  setCurrentMoveIndex(newIndex);
+                if (moveHistoryIndex !== -1) {
+                  setCurrentMoveIndex(moveHistoryIndex);
                 }
                 
-                // Update the move history and index
-                const newIndex = fullMoveHistory().findIndex(m => 
-                  m.id === nextMove.id || 
-                  (m.fromX === nextMove.fromX && 
-                   m.fromY === nextMove.fromY && 
-                   m.toX === nextMove.toX && 
-                   m.toY === nextMove.toY)
-                );
-                
-                if (newIndex !== -1) {
-                  setCurrentMoveIndex(newIndex);
+                // If there's a next move in the branch, update to it
+                if (currentBranchMoves.length > 1) {
+                  const nextMove = currentBranchMoves[1];
+                  const newIndex = fullMoveHistory().findIndex(m => 
+                    m.id === nextMove.id || 
+                    (m.fromX === nextMove.fromX && 
+                     m.fromY === nextMove.fromY && 
+                     m.toX === nextMove.toX && 
+                     m.toY === nextMove.toY)
+                  );
+                  
+                  if (newIndex !== -1) {
+                    setCurrentMoveIndex(newIndex);
+                  }
                 }
                 
                 console.log(`[Branch] Successfully auto-played move in branch ${branchName}`);
