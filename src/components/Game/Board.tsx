@@ -2397,10 +2397,18 @@ const Board: Component<BoardProps> = (props) => {
             // Update the move history to show the main line
             setMoveHistory(prev => {
               // Keep the history up to the current index, then add main line moves
+              // If nextMainLineMoves already includes nextMainLineMove as its first item, skip it to avoid duplicates
+              const movesToAdd = nextMainLineMoves.length > 0 && 
+                               nextMainLineMoves[0].fromX === nextMainLineMove.fromX &&
+                               nextMainLineMoves[0].fromY === nextMainLineMove.fromY &&
+                               nextMainLineMoves[0].toX === nextMainLineMove.toX &&
+                               nextMainLineMoves[0].toY === nextMainLineMove.toY
+                ? [...nextMainLineMoves]  // Skip nextMainLineMove since it's already included
+                : [nextMainLineMove, ...nextMainLineMoves];  // Include both if they're different
+              
               const mainLineHistory = [
                 ...prev.slice(0, currentIndex + 1),
-                nextMainLineMove,
-                ...nextMainLineMoves
+                ...movesToAdd
               ];
               const logData = {
                 currentIndex,
@@ -2519,6 +2527,73 @@ const Board: Component<BoardProps> = (props) => {
                   nextMoveNumber
                 }, null, 2)
               }`);
+             
+              // Set the current branch name
+              setCurrentBranchName(branchName);
+              isBranching = false;
+              
+              // Get all moves in this branch, sorted by move number
+              const branchMoves = fullMoveHistory()
+                .filter(move => move && move.branchName === branchName)
+                .sort((a, b) => a.moveNumber - b.moveNumber);
+
+              if (branchMoves.length > 0) {
+                // Apply the first move in the branch to update the board state
+                const firstMove = branchMoves[0];
+                console.log(`[Branch] Applying first move in branch ${branchName}:`, {
+                  from: [firstMove.fromX, firstMove.fromY],
+                  to: [firstMove.toX, firstMove.toY],
+                  moveNumber: firstMove.moveNumber
+                });
+                
+                // Update the base points to reflect the move
+                const updatedBasePoints = [...basePoints()];
+                const pieceIndex = updatedBasePoints.findIndex(p => 
+                  p.x === firstMove.fromX && p.y === firstMove.fromY
+                );
+                
+                if (pieceIndex !== -1) {
+                  updatedBasePoints[pieceIndex] = {
+                    ...updatedBasePoints[pieceIndex],
+                    x: firstMove.toX,
+                    y: firstMove.toY
+                  };
+                  setBasePoints(updatedBasePoints);
+                }
+                
+                // Update the move history and index
+                const newIndex = fullMoveHistory().findIndex(m => 
+                  m.id === firstMove.id || 
+                  (m.fromX === firstMove.fromX && 
+                   m.fromY === firstMove.fromY && 
+                   m.toX === firstMove.toX && 
+                   m.toY === firstMove.toY)
+                );
+                
+                if (newIndex !== -1) {
+                  setCurrentMoveIndex(newIndex);
+                }
+                
+                // Update the move history and index
+                const newIndex = fullMoveHistory().findIndex(m => 
+                  m.id === nextMove.id || 
+                  (m.fromX === nextMove.fromX && 
+                   m.fromY === nextMove.fromY && 
+                   m.toX === nextMove.toX && 
+                   m.toY === nextMove.toY)
+                );
+                
+                if (newIndex !== -1) {
+                  setCurrentMoveIndex(newIndex);
+                }
+                
+                console.log(`[Branch] Successfully auto-played move in branch ${branchName}`);
+              } else {
+                console.log(`[Branch] No more moves to auto-play in branch ${branchName}`);
+              }
+              
+              cleanupDragState();
+              return;
               setCurrentBranchName(branchName);
               isBranching = false;
               
