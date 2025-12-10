@@ -1225,15 +1225,6 @@ const Board: Component<BoardProps> = (props) => {
     }, null, 2));
     
     try {
-      console.log('[Forward] Current board state before move:\n' + JSON.stringify(
-        basePoints().map(p => ({
-          id: p.id,
-          type: p.pieceType,
-          pos: [p.x, p.y],
-          color: p.color
-        })), null, 2
-      ));
-      
       const currentBasePoints = [...basePoints()];
       const { fromX, fromY, toX, toY } = nextMove;
       
@@ -1272,15 +1263,6 @@ const Board: Component<BoardProps> = (props) => {
       const newTurnIndex = (nextIndex + 1) % PLAYER_COLORS.length;
       setCurrentTurnIndex(newTurnIndex);
       console.log(`[Forward] Turn updated to player ${newTurnIndex} (${PLAYER_COLORS[newTurnIndex]})`);
-      
-      console.log('[Forward] Board state after move:\n' + JSON.stringify(
-        currentBasePoints.map(p => ({
-          id: p.id,
-          type: p.pieceType,
-          pos: [p.x, p.y],
-          color: p.color
-        })), null, 2
-      ));
       
       // Recalculate legal moves for the current player
       const currentPlayerPieces = currentBasePoints.filter(p => {
@@ -1381,15 +1363,16 @@ const Board: Component<BoardProps> = (props) => {
     const history = fullMoveHistory();
     const totalMoves = history.length;
     
-    console.log(`[BackNav] Current move: ${currentIndex + 1}/${totalMoves}, branch: ${currentBranchName() || 'main'}`);
-    console.log('[BackNav] Full move history:', history.map((m, i) => ({
-      index: i,
-      from: [m.fromX, m.fromY],
-      to: [m.toX, m.toY],
-      branch: m.branchName || 'main',
-      moveNum: m.moveNumber,
-      isBranch: m.isBranch
-    })));
+    console.log(`[BackNav] Current: ${currentIndex + 1}/${totalMoves} (${currentBranchName() || 'main'})`);
+    console.log('[BackNav] Last 3 moves:', 
+      history.slice(Math.max(0, currentIndex - 1), currentIndex + 2).map(m => ({
+        idx: history.indexOf(m) + 1,
+        from: [m.fromX, m.fromY],
+        to: [m.toX, m.toY],
+        br: m.branchName || 'main',
+        moveNumber: m.moveNumber
+      }))
+    );
     
     if (totalMoves === 0) {
       console.log('[BackNav] No moves to go back from');
@@ -1402,28 +1385,16 @@ const Board: Component<BoardProps> = (props) => {
     }
 
     const newIndex = currentIndex - 1;
-    console.log(`[BackNav] Moving from move ${currentIndex + 1} to ${newIndex + 1}`);
-
-    // Log the current and target moves
+    console.log(`[BackNav] Moving: ${currentIndex + 1}→${newIndex + 1}`);
+    
     const currentMove = history[currentIndex];
     const targetMove = newIndex >= 0 ? history[newIndex] : null;
     
-    console.log('[BackNav] Current move details:', {
-      from: currentMove ? [currentMove.fromX, currentMove.fromY] : 'start',
-      to: currentMove ? [currentMove.toX, currentMove.toY] : 'start',
-      branch: currentMove?.branchName || 'main',
-      moveNumber: currentMove?.moveNumber
-    });
-
     if (targetMove) {
-      console.log('[BackNav] Target move details:', {
-        from: [targetMove.fromX, targetMove.fromY],
-        to: [targetMove.toX, targetMove.toY],
-        branch: targetMove.branchName || 'main',
-        moveNumber: targetMove.moveNumber
-      });
+      console.log(`[BackNav] Target: [${targetMove.fromX},${targetMove.fromY}]→[${targetMove.toX},${targetMove.toY}], ` +
+                 `#${targetMove.moveNumber} (${targetMove.branchName || 'main'})`);
     } else {
-      console.log('[BackNav] Moving to initial position (before first move)');
+      console.log('[BackNav] Moving to initial position');
     }
     
     try {
@@ -1523,13 +1494,9 @@ const Board: Component<BoardProps> = (props) => {
           }
         }
         
-        console.log('[BackNav] Next main line move after target:', nextMainLineMove ? {
-          index: nextMainLineIndex,
-          from: [nextMainLineMove.fromX, nextMainLineMove.fromY],
-          to: [nextMainLineMove.toX, nextMainLineMove.toY],
-          branch: nextMainLineMove.branchName || 'main',
-          moveNumber: nextMainLineMove.moveNumber
-        } : 'None');
+        console.log('[BackNav] Next main move:', nextMainLineMove ? 
+          `[${nextMainLineMove.fromX},${nextMainLineMove.fromY}]→[${nextMainLineMove.toX},${nextMainLineMove.toY}] ` +
+          `#${nextMainLineMove.moveNumber} (idx:${nextMainLineIndex})` : 'None');
         
         // If we're returning to main line, store the next main line move
         if (isReturningFromBranch && nextMainLineMove) {
@@ -1542,8 +1509,8 @@ const Board: Component<BoardProps> = (props) => {
         }
         
         setCurrentBranchName(targetMove.branchName || null);
-        console.log(`[Branch] Moved to move ${newIndex + 1}/${totalMoves}, branch: ${newBranch}`);
-        console.log(`[Branch] Move details: [${targetMove.fromX},${targetMove.fromY}] -> [${targetMove.toX},${targetMove.toY}], move #${targetMove.moveNumber}`);
+        console.log(`[Branch] Now at: ${newIndex + 1}/${totalMoves} (${newBranch})`);
+        console.log(`[Branch] Move: [${targetMove.fromX},${targetMove.fromY}]→[${targetMove.toX},${targetMove.toY}] #${targetMove.moveNumber}`);
       } else {
         setCurrentBranchName(null);
         console.log('[Branch] Reset to initial position, no branch');
@@ -2253,20 +2220,50 @@ const Board: Component<BoardProps> = (props) => {
           
           if (isMainLineMove) {
             console.log(`[Branch] ✅ Move matches main line at index ${currentIndex + 1}`);
-            console.log(`[Branch] Moving forward in main line to move ${currentIndex + 2}`);
             
-            // Update the move index to the next position
+            // Find all main line moves that come after the current position
+            const nextMainLineMoves = mainLineMoves().filter(move => 
+              move.moveNumber > (fullMoveHistory()[currentIndex]?.moveNumber || 0)
+            );
+            
+            console.log(`[Branch] Reconnecting to main line at move ${nextMainLineMove.moveNumber}`);
+            console.log(`[Branch] Found ${nextMainLineMoves.length} main line moves to replay`);
+            
+            // Keep the existing history but update the current branch to main
+            const newHistory = [
+              ...fullMoveHistory().slice(0, currentIndex + 1),
+              nextMainLineMove,
+              ...nextMainLineMoves
+            ];
+            
+            // Update the full history with main line moves
+            setFullMoveHistory(newHistory);
+            
+            // Move to the next position in the main line
             const newIndex = currentIndex + 1;
             setCurrentMoveIndex(newIndex);
             setCurrentBranchName('main');
             
-            // Update the base points
+            // Update the base points to reflect the current position
             const updatedBasePoints = basePoints().map(bp => 
               bp.id === pointToMove.id
                 ? { ...bp, x: targetX, y: targetY }
                 : bp
             );
             setBasePoints(updatedBasePoints);
+            
+            // Update the move history to show the main line
+            setMoveHistory(prev => {
+              // Keep the history up to the current index, then add main line moves
+              const mainLineHistory = [
+                ...prev.slice(0, currentIndex + 1),
+                nextMainLineMove,
+                ...nextMainLineMoves
+              ];
+              console.log(`[Branch] Updated move history with ${mainLineHistory.length} moves`);
+              return mainLineHistory;
+            });
+            
             cleanupDragState();
             return;
           } else {
