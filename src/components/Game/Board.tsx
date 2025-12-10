@@ -1224,21 +1224,71 @@ const Board: Component<BoardProps> = (props) => {
       // Find all moves in the current branch
       const branchMoves = history.filter(move => move.branchName === currentBranch);
       
-      // Find the current move in the branch
-      const currentMoveInBranch = branchMoves.find(move => 
-        move.fromX === nextMove.fromX && 
-        move.fromY === nextMove.fromY && 
-        move.toX === nextMove.toX && 
-        move.toY === nextMove.toY
-      );
-      
-      if (!currentMoveInBranch) {
-        console.log('[Forward] Current move not found in branch, cannot go forward');
+      if (branchMoves.length === 0) {
+        console.log('[Forward] No moves found in current branch, cannot go forward');
         return;
       }
       
-      const currentBranchIndex = branchMoves.indexOf(currentMoveInBranch);
+      // Find the current position in the branch
+      let currentBranchIndex = -1;
       
+      // First, try to find the current move in the branch using move ID for exact matching
+      if (currentIndex >= 0 && currentIndex < history.length) {
+        const currentMove = history[currentIndex];
+        
+        // First try to match by ID if available (most reliable)
+        if (currentMove.id) {
+          currentBranchIndex = branchMoves.findIndex(move => 
+            move.id === currentMove.id
+          );
+        }
+        
+        // If not found by ID, try matching by coordinates and timestamp
+        if (currentBranchIndex === -1) {
+          currentBranchIndex = branchMoves.findIndex(move => 
+            move.fromX === currentMove.fromX && 
+            move.fromY === currentMove.fromY && 
+            move.toX === currentMove.toX && 
+            move.toY === currentMove.toY &&
+            move.timestamp === currentMove.timestamp
+          );
+        }
+        
+        // If still not found, try matching just by coordinates (least reliable)
+        if (currentBranchIndex === -1) {
+          currentBranchIndex = branchMoves.findIndex(move => 
+            move.fromX === currentMove.fromX && 
+            move.fromY === currentMove.fromY && 
+            move.toX === currentMove.toX && 
+            move.toY === currentMove.toY
+          );
+        }
+        
+        console.log(`[Forward] Current move in branch: index=${currentBranchIndex}, move=`, 
+          currentBranchIndex >= 0 ? branchMoves[currentBranchIndex] : 'not found');
+      }
+      
+      // If current move not found in branch, use the last move before the branch point
+      if (currentBranchIndex === -1) {
+        // Find the branch point (the move where the branch was created)
+        const branchPoint = history.find(move => 
+          move.branchName === currentBranch && move.isBranch
+        );
+        
+        if (branchPoint) {
+          // Find the index of the branch point in the branch
+          currentBranchIndex = branchMoves.findIndex(move => 
+            move.fromX === branchPoint.fromX && 
+            move.fromY === branchPoint.fromY && 
+            move.toX === branchPoint.toX && 
+            move.toY === branchPoint.toY
+          ) - 1; // Go to the move before the branch point
+        } else {
+          currentBranchIndex = -1; // Start from the beginning of the branch
+        }
+      }
+      
+      // If we're at the end of the branch, don't go further
       if (currentBranchIndex >= branchMoves.length - 1) {
         console.log('[Forward] Already at the latest move in this branch');
         return;
@@ -1252,7 +1302,8 @@ const Board: Component<BoardProps> = (props) => {
         move.fromX === nextMoveInBranch.fromX && 
         move.fromY === nextMoveInBranch.fromY && 
         move.toX === nextMoveInBranch.toX && 
-        move.toY === nextMoveInBranch.toY
+        move.toY === nextMoveInBranch.toY &&
+        move.branchName === currentBranch
       );
       
       if (nextIndex === -1) {
@@ -1422,12 +1473,13 @@ const Board: Component<BoardProps> = (props) => {
     
     console.log(`[BackNav] Current: ${currentIndex + 1}/${totalMoves} (${currentBranchName() || 'main'})`);
     console.log('[BackNav] Last 3 moves:', 
-      history.slice(Math.max(0, currentIndex - 1), currentIndex + 2).map(m => ({
+      history.slice(Math.max(0, currentIndex - 1), Math.min(currentIndex + 2, history.length)).map(m => ({
         idx: history.indexOf(m) + 1,
         from: [m.fromX, m.fromY],
         to: [m.toX, m.toY],
         br: m.branchName || 'main',
-        moveNumber: m.moveNumber
+        moveNumber: m.moveNumber,
+        id: m.id
       }))
     );
     
@@ -1452,12 +1504,16 @@ const Board: Component<BoardProps> = (props) => {
                  `#${targetMove.moveNumber} (${targetMove.branchName || 'main'})`);
     } else {
       console.log('[BackNav] Moving to initial position');
+      // Reset to initial state when going back to the beginning
+      setBasePoints(JSON.parse(JSON.stringify(INITIAL_BASE_POINTS)));
+      setCurrentMoveIndex(-1);
+      setCurrentBranchName(null);
+      setCurrentTurnIndex(0);
+      console.log('[BackNav] Reset to initial position');
+      return;
     }
     
     try {
-      // Use the same logic as updateBoardState for consistency
-      const movesToReplay = fullMoveHistory().slice(0, newIndex + 1);
-      
       // Start with a fresh copy of the initial board state
       const newBasePoints = JSON.parse(JSON.stringify(INITIAL_BASE_POINTS));
       const positionMap = new Map<string, BasePoint>();
@@ -1469,9 +1525,15 @@ const Board: Component<BoardProps> = (props) => {
       
       // Replay each move up to the new index
       for (let i = 0; i <= newIndex; i++) {
-        const move = fullMoveHistory()[i];
+        const move = history[i];
         
-        // Use flat coordinates
+        // Skip if move is undefined
+        if (!move) {
+          console.warn(`[BackNav] Missing move at index ${i}`);
+          continue;
+        }
+        
+        // Use flat coordinates with null checks
         const fromX = move.fromX;
         const fromY = move.fromY;
         const toX = move.toX;
@@ -1480,7 +1542,12 @@ const Board: Component<BoardProps> = (props) => {
         
         // Skip if we don't have valid coordinates
         if (fromX === undefined || fromY === undefined || toX === undefined || toY === undefined) {
-          console.error('Invalid move coordinates in handleGoBack:', { move });
+          console.error('[BackNav] Invalid move coordinates:', { 
+            move, 
+            index: i,
+            id: move.id,
+            moveNumber: move.moveNumber
+          });
           continue;
         }
         
@@ -1490,12 +1557,20 @@ const Board: Component<BoardProps> = (props) => {
         // Find the piece being moved
         const piece = positionMap.get(fromKey);
         if (!piece) {
-          console.error(`No piece found at source position (${fromX},${fromY}) in move:`, move);
+          console.error(`[BackNav] No piece found at source position (${fromX},${fromY}) in move:`, { 
+            move,
+            index: i,
+            id: move.id,
+            moveNumber: move.moveNumber,
+            positionMap: Array.from(positionMap.entries())
+          });
           continue;
         }
         
         // Check for capture first (before we move the piece)
         if (positionMap.has(toKey)) {
+          const capturedPiece = positionMap.get(toKey);
+          console.log(`[BackNav] Capturing piece at [${toX},${toY}]:`, capturedPiece);
           positionMap.delete(toKey);
         }
         
@@ -1511,10 +1586,14 @@ const Board: Component<BoardProps> = (props) => {
         // Remove the piece from its old position and place it in the new position
         positionMap.delete(fromKey);
         positionMap.set(toKey, movedPiece);
+        
+        console.log(`[BackNav] Applied move ${i+1}/${newIndex+1}: [${fromX},${fromY}]→[${toX},${toY}]`);
       }
       
       // Update the board state with the final positions
       const updatedBasePoints = Array.from(positionMap.values());
+      
+      // Update the board state
       setBasePoints(updatedBasePoints);
       setCurrentMoveIndex(newIndex);
       
@@ -1530,11 +1609,11 @@ const Board: Component<BoardProps> = (props) => {
           branch: newBranch,
           moveNumber: targetMove.moveNumber,
           isBranch: targetMove.isBranch,
-          isReturningToMain
+          isReturningToMain,
+          id: targetMove.id
         });
         
         // Find next main line move after the target move
-        // First check if we're returning to the main line from a branch
         const isReturningFromBranch = currentBranchName() && (!targetMove.branchName || targetMove.branchName === 'main');
         
         // Find the next main line move, which could be after some branch moves
@@ -1551,13 +1630,19 @@ const Board: Component<BoardProps> = (props) => {
           }
         }
         
-        console.log('[BackNav] Next main move:', nextMainLineMove ? 
-          `[${nextMainLineMove.fromX},${nextMainLineMove.fromY}]→[${nextMainLineMove.toX},${nextMainLineMove.toY}] ` +
-          `#${nextMainLineMove.moveNumber} (idx:${nextMainLineIndex})` : 'None');
+        console.log('[BackNav] Next main move:', nextMainLineMove ? {
+          from: [nextMainLineMove.fromX, nextMainLineMove.fromY],
+          to: [nextMainLineMove.toX, nextMainLineMove.toY],
+          moveNumber: nextMainLineMove.moveNumber,
+          index: nextMainLineIndex,
+          id: nextMainLineMove.id
+        } : 'None');
         
         // If we're returning to main line, store the next main line move
         if (isReturningFromBranch && nextMainLineMove) {
-          console.log('[BackNav] Returning to main line, next main line move is at index', nextMainLineIndex);
+          console.log('[BackNav] Returning to main line, next main line move is at index', nextMainLineIndex, {
+            move: nextMainLineMove
+          });
           // Store the next main line move info for use in move validation
           setCurrentMainLineMove({
             index: nextMainLineIndex,
