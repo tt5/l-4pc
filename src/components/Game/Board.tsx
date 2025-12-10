@@ -2402,7 +2402,25 @@ const Board: Component<BoardProps> = (props) => {
                 nextMainLineMove,
                 ...nextMainLineMoves
               ];
-              console.log(`[Branch] Updated move history with ${mainLineHistory.length} moves`);
+              console.log(`[Branch] Updated move history with ${mainLineHistory.length} moves`, {
+                currentIndex,
+                prevLength: prev.length,
+                nextMainLineMove: nextMainLineMove ? {
+                  from: [nextMainLineMove.fromX, nextMainLineMove.fromY],
+                  to: [nextMainLineMove.toX, nextMainLineMove.toY],
+                  moveNumber: nextMainLineMove.moveNumber
+                } : null,
+                nextMainLineMoves: nextMainLineMoves.map(m => ({
+                  from: [m.fromX, m.fromY],
+                  to: [m.toX, m.toY],
+                  moveNumber: m.moveNumber
+                })),
+                mainLineHistory: mainLineHistory.map(m => ({
+                  from: [m.fromX, m.fromY],
+                  to: [m.toX, m.toY],
+                  moveNumber: m.moveNumber
+                }))
+              });
               return mainLineHistory;
             });
             
