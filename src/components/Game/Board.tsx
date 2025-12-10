@@ -1206,17 +1206,62 @@ const Board: Component<BoardProps> = (props) => {
   const handleGoForward = async () => {
     console.log('[Forward] Forward button pressed');
     const currentIndex = currentMoveIndex();
-    const history = currentBranchName() === 'main' ? mainLineMoves() : fullMoveHistory();
+    const history = fullMoveHistory();
+    const currentBranch = currentBranchName();
     
-    console.log(`[Forward] Current index: ${currentIndex}, Total moves: ${history.length - 1}, Branch: ${currentBranchName() || 'main'}`);
+    console.log(`[Forward] Current index: ${currentIndex}, Total moves: ${history.length - 1}, Branch: ${currentBranch || 'main'}`);
     
     if (currentIndex >= history.length - 1) {
       console.log('[Forward] Already at the latest move, cannot go forward');
       return;
     }
     
-    const nextIndex = currentIndex + 1;
-    const nextMove = history[nextIndex];
+    let nextIndex = currentIndex + 1;
+    let nextMove = history[nextIndex];
+    
+    // If we're in a branch, only allow moving forward within that branch
+    if (currentBranch && currentBranch !== 'main') {
+      // Find all moves in the current branch
+      const branchMoves = history.filter(move => move.branchName === currentBranch);
+      
+      // Find the current move in the branch
+      const currentMoveInBranch = branchMoves.find(move => 
+        move.fromX === nextMove.fromX && 
+        move.fromY === nextMove.fromY && 
+        move.toX === nextMove.toX && 
+        move.toY === nextMove.toY
+      );
+      
+      if (!currentMoveInBranch) {
+        console.log('[Forward] Current move not found in branch, cannot go forward');
+        return;
+      }
+      
+      const currentBranchIndex = branchMoves.indexOf(currentMoveInBranch);
+      
+      if (currentBranchIndex >= branchMoves.length - 1) {
+        console.log('[Forward] Already at the latest move in this branch');
+        return;
+      }
+      
+      // Get the next move in this branch
+      const nextMoveInBranch = branchMoves[currentBranchIndex + 1];
+      
+      // Find the actual index of this move in the full history
+      nextIndex = history.findIndex(move => 
+        move.fromX === nextMoveInBranch.fromX && 
+        move.fromY === nextMoveInBranch.fromY && 
+        move.toX === nextMoveInBranch.toX && 
+        move.toY === nextMoveInBranch.toY
+      );
+      
+      if (nextIndex === -1) {
+        console.error('[Forward] Could not find next move in full history');
+        return;
+      }
+      
+      nextMove = history[nextIndex];
+    }
     
     console.log('[Forward] Next move details:\n' + JSON.stringify({
       from: [nextMove.fromX, nextMove.fromY],
@@ -1264,6 +1309,12 @@ const Board: Component<BoardProps> = (props) => {
       setBasePoints(currentBasePoints);
       setCurrentMoveIndex(nextIndex);
       console.log(`[Forward] Move index updated to ${nextIndex}`);
+      
+      // Update the current branch if this move is part of a branch
+      if (nextMove.branchName && nextMove.branchName !== currentBranch) {
+        setCurrentBranchName(nextMove.branchName);
+        console.log(`[Forward] Switched to branch: ${nextMove.branchName}`);
+      }
       
       // Update turn to the next player
       const newTurnIndex = (nextIndex + 1) % PLAYER_COLORS.length;
