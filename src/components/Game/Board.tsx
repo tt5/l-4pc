@@ -2402,7 +2402,7 @@ const Board: Component<BoardProps> = (props) => {
                 nextMainLineMove,
                 ...nextMainLineMoves
               ];
-              console.log(`[Branch] Updated move history with ${mainLineHistory.length} moves`, {
+              const logData = {
                 currentIndex,
                 prevLength: prev.length,
                 nextMainLineMove: nextMainLineMove ? {
@@ -2420,7 +2420,8 @@ const Board: Component<BoardProps> = (props) => {
                   to: [m.toX, m.toY],
                   moveNumber: m.moveNumber
                 }))
-              });
+              };
+              console.log(`[Branch] Updated move history with ${mainLineHistory.length} moves\n${JSON.stringify(logData, null, 2)}`);
               return mainLineHistory;
             });
             
