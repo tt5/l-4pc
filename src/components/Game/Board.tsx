@@ -2349,6 +2349,12 @@ const Board: Component<BoardProps> = (props) => {
             
             if (matchingBranch) {
               branchName = matchingBranch.branchName;
+              console.log('[Branch] Current branchPoints when following branch:', 
+                JSON.stringify(branchPoints(), (key, value) => 
+                  key === 'firstMove' ? 
+                    `[Move ${value.moveNumber}: ${value.fromX},${value.fromY}→${value.toX},${value.toY}${value.branchName ? ` (${value.branchName})` : ''}]` : 
+                    value,
+                2));
               console.log(`[Branch] Following existing branch: ${branchName}\n${
                 JSON.stringify({
                   from: [startX, startY],
@@ -2369,43 +2375,43 @@ const Board: Component<BoardProps> = (props) => {
               if (branchMoves.length > 0) {
                 console.log(`[Branch] Found ${branchMoves.length} moves in branch: ${branchName}`);
                 
-                // Get the first move that hasn't been played yet
-                const nextMoveInBranch = branchMoves[0];
-                
-                // Update history with the next move from the branch
-                setFullMoveHistory(prev => {
-                  const currentHistory = prev || [];
-                  const newHistory = [
-                    ...currentHistory.slice(0, currentIndex + 1),
-                    nextMoveInBranch
-                  ];
-                  console.log(`[Branch] Updated full move history to length: ${newHistory.length}`);
-                  return newHistory;
-                });
-                
-                setCurrentMoveIndex(currentIndex + 1);
-                setMoveHistory(prev => {
-                  const newHistory = [...prev, nextMoveInBranch];
-                  console.log(`[Branch] Updated move history to length: ${newHistory.length}`);
-                  return newHistory;
-                });
-                
-                // Update the board state with the move
-                const newBasePoints = [...basePoints()];
-                const pieceIndex = newBasePoints.findIndex(p => 
-                  p.x === nextMoveInBranch.fromX && p.y === nextMoveInBranch.fromY
-                );
-                
-                if (pieceIndex !== -1) {
-                  console.log(`[Branch] Moving piece from [${nextMoveInBranch.fromX},${nextMoveInBranch.fromY}] to [${nextMoveInBranch.toX},${nextMoveInBranch.toY}]`);
-                  newBasePoints[pieceIndex] = {
-                    ...newBasePoints[pieceIndex],
-                    x: nextMoveInBranch.toX,
-                    y: nextMoveInBranch.toY
-                  };
-                  setBasePoints(newBasePoints);
-                } else {
-                  console.error(`[Branch] Could not find piece at [${nextMoveInBranch.fromX},${nextMoveInBranch.fromY}]`);
+                // Find all consecutive moves in this branch that come after the current position
+                const currentMoveNumber = fullMoveHistory()[currentIndex]?.moveNumber || 0;
+                const branchMovesToFollow = branchMoves
+                  .filter(move => move.moveNumber > currentMoveNumber)
+                  .sort((a, b) => a.moveNumber - b.moveNumber);
+
+                if (branchMovesToFollow.length > 0) {
+                  console.log(`[Branch] Following ${branchMovesToFollow.length} moves in branch: ${branchName}`);
+                  
+                  // Update history with all moves from the branch
+                  setFullMoveHistory(prev => [
+                    ...prev.slice(0, currentIndex + 1),
+                    ...branchMovesToFollow
+                  ]);
+                  
+                  // Update board state for all moves in the branch
+                  const updatedBasePoints = [...basePoints()];
+                  branchMovesToFollow.forEach(move => {
+                    const pieceIndex = updatedBasePoints.findIndex(p => 
+                      p.x === move.fromX && p.y === move.fromY
+                    );
+                    if (pieceIndex !== -1) {
+                      console.log(`[Branch] Moving piece from [${move.fromX},${move.fromY}] to [${move.toX},${move.toY}]`);
+                      updatedBasePoints[pieceIndex] = {
+                        ...updatedBasePoints[pieceIndex],
+                        x: move.toX,
+                        y: move.toY
+                      };
+                    }
+                  });
+                  
+                  setBasePoints(updatedBasePoints);
+                  setCurrentMoveIndex(currentIndex + branchMovesToFollow.length);
+                  setMoveHistory(prev => [
+                    ...prev.slice(0, currentIndex + 1),
+                    ...branchMovesToFollow
+                  ]);
                 }
                 
                 cleanupDragState();
@@ -2519,6 +2525,14 @@ const Board: Component<BoardProps> = (props) => {
                   currentBranches: newPoints[currentIndex] || []
                 }, null, 2)
               }`);
+              
+              // Log the complete branch points state
+              console.log('[Branch] Current branchPoints state:', 
+                JSON.stringify(newPoints, (key, value) => 
+                  key === 'firstMove' ? 
+                    `[Move ${value.moveNumber}: ${value.fromX},${value.fromY}→${value.toX},${value.toY}${value.branchName ? ` (${value.branchName})` : ''}]` : 
+                    value,
+                2));
               
               return newPoints;
             });
