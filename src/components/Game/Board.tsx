@@ -2325,7 +2325,20 @@ const Board: Component<BoardProps> = (props) => {
             }
             
             // 2. Check if this matches an existing branch from this position
+            let shouldCreateNewBranch = true; // Initialize to true by default
             const currentBranches = branchPoints()[currentIndex] || [];
+            console.log(`[Branch] Checking for branches at move ${currentIndex + 1}\n${
+              JSON.stringify({
+                currentPosition: [startX, startY],
+                targetPosition: [targetX, targetY],
+                availableBranches: currentBranches.map(b => ({
+                  branchName: b.branchName,
+                  from: [b.firstMove.fromX, b.firstMove.fromY],
+                  to: [b.firstMove.toX, b.firstMove.toY]
+                }))
+              }, null, 2)
+            }`);
+            
             const matchingBranch = currentBranches.find(branch => {
               const move = branch.firstMove;
               return move.fromX === startX && 
@@ -2336,12 +2349,75 @@ const Board: Component<BoardProps> = (props) => {
             
             if (matchingBranch) {
               branchName = matchingBranch.branchName;
-              console.log(`[Branch] Following existing branch: ${branchName}`);
+              console.log(`[Branch] Following existing branch: ${branchName}\n${
+                JSON.stringify({
+                  from: [startX, startY],
+                  to: [targetX, targetY],
+                  branchName,
+                  currentIndex,
+                  nextMoveNumber
+                }, null, 2)
+              }`);
               setCurrentBranchName(branchName);
               isBranching = false;
+              
+              // Get the first move of this branch
+              const firstMoveInBranch = (fullMoveHistory() || []).find(move => 
+                move && 
+                move.branchName === branchName && 
+                move.moveNumber === 1
+              );
+              
+              if (firstMoveInBranch) {
+                console.log(`[Branch] Found first move in branch: ${branchName}`);
+                
+                // Update history with the first move from the branch
+                setFullMoveHistory(prev => {
+                  const currentHistory = prev || [];
+                  const newHistory = [
+                    ...currentHistory.slice(0, currentIndex + 1),
+                    firstMoveInBranch
+                  ];
+                  console.log(`[Branch] Updated full move history to length: ${newHistory.length}`);
+                  return newHistory;
+                });
+                
+                setCurrentMoveIndex(currentIndex + 1);
+                setMoveHistory(prev => {
+                  const newHistory = [...prev, firstMoveInBranch];
+                  console.log(`[Branch] Updated move history to length: ${newHistory.length}`);
+                  return newHistory;
+                });
+                
+                // Update the board state with the first move
+                const newBasePoints = [...basePoints()];
+                const pieceIndex = newBasePoints.findIndex(p => 
+                  p.x === firstMoveInBranch.fromX && p.y === firstMoveInBranch.fromY
+                );
+                
+                if (pieceIndex !== -1) {
+                  console.log(`[Branch] Moving piece from [${firstMoveInBranch.fromX},${firstMoveInBranch.fromY}] to [${firstMoveInBranch.toX},${firstMoveInBranch.toY}]`);
+                  newBasePoints[pieceIndex] = {
+                    ...newBasePoints[pieceIndex],
+                    x: firstMoveInBranch.toX,
+                    y: firstMoveInBranch.toY
+                  };
+                  setBasePoints(newBasePoints);
+                } else {
+                  console.error(`[Branch] Could not find piece at [${firstMoveInBranch.fromX},${firstMoveInBranch.fromY}]`);
+                }
+                
+                cleanupDragState();
+                return; // Exit early since we've handled the branch following
+              } else {
+                console.error(`[Branch] No first move found in branch ${branchName}`);
+                cleanupDragState();
+                return; // Exit without making a move if no first move is found
+              }
             }
-
-            if (matchingBranch) {
+            
+            // Only proceed to branch creation if we didn't find a matching branch
+            if (!matchingBranch) {
               // Get just the next move in this branch
               const nextMoveInBranch = (fullMoveHistory() || []).find(move => 
                 move && 
@@ -2387,43 +2463,64 @@ const Board: Component<BoardProps> = (props) => {
 
             // If we get here, it's a new branch
             console.log(`[Branch] Creating new branch from move ${currentIndex + 1}`);
-            console.log('[Branch] Current branch state:', {
-              currentMoveIndex: currentIndex,
-              currentBranch: currentBranchName() || 'main',
-              mainLineMoves: mainLineMoves().map(m => ({
-                moveNumber: m.moveNumber,
-                from: [m.fromX, m.fromY],
-                to: [m.toX, m.toY],
-                piece: m.pieceType
-              }))
-            });
+            console.log(`[Branch] Current branch state:\n${
+              JSON.stringify({
+                currentMoveIndex: currentIndex,
+                currentBranch: currentBranchName() || 'main',
+                mainLineMoves: mainLineMoves().map(m => ({
+                  moveNumber: m.moveNumber,
+                  from: [m.fromX, m.fromY],
+                  to: [m.toX, m.toY],
+                  piece: m.pieceType
+                }))
+              }, null, 2)
+            }`);
             isBranching = true;
             branchName = generateBranchName(nextMoveIdx);
             // Track this branch point
-            setBranchPoints(prev => ({
-              ...prev,
-              [currentIndex]: [
-                ...(prev[currentIndex] || []),
-                { 
-                  branchName: branchName || 'main', 
-                  firstMove: {
-                    fromX: startX,
-                    fromY: startY,
-                    toX: targetX,
-                    toY: targetY,
-                    // Add other required move properties to satisfy the Move type
-                    id: Date.now(),
-                    basePointId: '',
-                    timestamp: Date.now(),
-                    playerId: '',
-                    color: currentPlayerColor(),
-                    moveNumber: nextMoveIdx,
-                    isBranch: true,
-                    pieceType: 'pawn' // This should be the actual piece type
-                  } as Move
-                }
-              ]
-            }));
+            console.log(`[Branch] Creating new branch point at move ${currentIndex + 1} with branch name: ${branchName}\n${
+              JSON.stringify({
+                from: [startX, startY],
+                to: [targetX, targetY],
+                branchName,
+                currentIndex
+              }, null, 2)
+            }`);
+            
+            setBranchPoints(prev => {
+              const newPoints = {
+                ...prev,
+                [currentIndex]: [
+                  ...(prev[currentIndex] || []),
+                  { 
+                    branchName: branchName || 'main', 
+                    firstMove: {
+                      fromX: startX,
+                      fromY: startY,
+                      toX: targetX,
+                      toY: targetY,
+                      id: Date.now(),
+                      basePointId: '',
+                      timestamp: Date.now(),
+                      playerId: '',
+                      color: currentPlayerColor(),
+                      moveNumber: nextMoveIdx,
+                      isBranch: true,
+                      pieceType: 'pawn' // This should be the actual piece type
+                    } as Move
+                  }
+                ]
+              };
+              
+              console.log(`[Branch] Updated branch points:\n${
+                JSON.stringify({
+                  allBranchPoints: newPoints,
+                  currentBranches: newPoints[currentIndex] || []
+                }, null, 2)
+              }`);
+              
+              return newPoints;
+            });
             setCurrentBranchName(branchName);
           }
         }
