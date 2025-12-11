@@ -2607,28 +2607,32 @@ const Board: Component<BoardProps> = (props) => {
                   })), null, 2)
                 );
                 
-                // After updating history, update the board state
-                const updatedBasePoints = [...basePoints()];
-                adjustedBranchMoves.forEach(move => {
+                // Execute only the first move of the branch
+                const firstMove = adjustedBranchMoves[0];
+                if (firstMove) {
+                  const updatedBasePoints = [...basePoints()];
                   const pieceIndex = updatedBasePoints.findIndex(p => 
-                    p.x === move.fromX && p.y === move.fromY
+                    p.x === firstMove.fromX && p.y === firstMove.fromY
                   );
+                  
                   if (pieceIndex !== -1) {
-                    console.log(`[Branch] Moving piece from [${move.fromX},${move.fromY}] to [${move.toX},${move.toY}]`);
+                    console.log(`[Branch] Moving piece from [${firstMove.fromX},${firstMove.fromY}] to [${firstMove.toX},${firstMove.toY}]`);
                     updatedBasePoints[pieceIndex] = {
                       ...updatedBasePoints[pieceIndex],
-                      x: move.toX,
-                      y: move.toY
+                      x: firstMove.toX,
+                      y: firstMove.toY
                     };
+                    setBasePoints(updatedBasePoints);
                   }
-                });
-                setBasePoints(updatedBasePoints);
+                  
+                  // Only increment move index by 1 since we're only doing one move
+                  setCurrentMoveIndex(currentIndex + 1);
+                } else {
+                  setCurrentMoveIndex(currentIndex);
+                }
                 
                 return newHistory;
               });
-              
-              // Update the current move index after history is updated
-              setCurrentMoveIndex(currentIndex + adjustedBranchMoves.length);
               
               cleanupDragState();
               return; // Exit early since we've handled the branch following
