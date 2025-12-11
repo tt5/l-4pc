@@ -2363,75 +2363,120 @@ const Board: Component<BoardProps> = (props) => {
           if (isMainLineMove) {
             console.log(`[Branch] ✅ Move matches main line at index ${currentIndex + 1}`);
             
-            // Find all main line moves that come after the current position
-            const nextMainLineMoves = mainLineMoves().filter(move => 
+            // Get the next main line move
+            const nextMainLineMove = mainLineMoves().find(move => 
               move.moveNumber > (fullMoveHistory()[currentIndex]?.moveNumber || 0)
             );
             
-            console.log(`[Branch] Reconnecting to main line at move ${nextMainLineMove.moveNumber}`);
-            console.log(`[Branch] Found ${nextMainLineMoves.length} main line moves to replay`);
+            if (!nextMainLineMove) {
+              console.error('[Branch] No main line move found after current position');
+              cleanupDragState();
+              return;
+            }
             
-            // Keep the existing history but update the current branch to main
-            const newHistory = [
-              ...fullMoveHistory().slice(0, currentIndex + 1),
-              nextMainLineMove,
-              ...nextMainLineMoves
-            ];
+            console.log(`[Branch] Executing main line move:`, {
+              from: [nextMainLineMove.fromX, nextMainLineMove.fromY],
+              to: [nextMainLineMove.toX, nextMainLineMove.toY],
+              moveNumber: nextMainLineMove.moveNumber
+            });
             
-            // Update the full history with main line moves
-            setFullMoveHistory(newHistory);
-            
-            // Move to the next position in the main line
-            const newIndex = currentIndex + 1;
-            setCurrentMoveIndex(newIndex);
+            // Update the current branch to main
             setCurrentBranchName('main');
             
-            // Update the base points to reflect the current position
-            const updatedBasePoints = basePoints().map(bp => 
-              bp.id === pointToMove.id
-                ? { ...bp, x: targetX, y: targetY }
-                : bp
+            // Update the base points to reflect the move
+            const updatedBasePoints = [...basePoints()];
+            const pieceIndex = updatedBasePoints.findIndex(p => 
+              p.x === nextMainLineMove.fromX && p.y === nextMainLineMove.fromY
             );
-            setBasePoints(updatedBasePoints);
             
-            // Update the move history to show the main line
-            setMoveHistory(prev => {
-              // Keep the history up to the current index, then add main line moves
-              // If nextMainLineMoves already includes nextMainLineMove as its first item, skip it to avoid duplicates
-              const movesToAdd = nextMainLineMoves.length > 0 && 
-                               nextMainLineMoves[0].fromX === nextMainLineMove.fromX &&
-                               nextMainLineMoves[0].fromY === nextMainLineMove.fromY &&
-                               nextMainLineMoves[0].toX === nextMainLineMove.toX &&
-                               nextMainLineMoves[0].toY === nextMainLineMove.toY
-                ? [...nextMainLineMoves]  // Skip nextMainLineMove since it's already included
-                : [nextMainLineMove, ...nextMainLineMoves];  // Include both if they're different
-              
-              const mainLineHistory = [
-                ...prev.slice(0, currentIndex + 1),
-                ...movesToAdd
-              ];
-              const logData = {
-                currentIndex,
-                prevLength: prev.length,
-                nextMainLineMove: nextMainLineMove ? {
-                  from: [nextMainLineMove.fromX, nextMainLineMove.fromY],
-                  to: [nextMainLineMove.toX, nextMainLineMove.toY],
-                  moveNumber: nextMainLineMove.moveNumber
-                } : null,
-                nextMainLineMoves: nextMainLineMoves.map(m => ({
-                  from: [m.fromX, m.fromY],
-                  to: [m.toX, m.toY],
-                  moveNumber: m.moveNumber
-                })),
-                mainLineHistory: mainLineHistory.map(m => ({
-                  from: [m.fromX, m.fromY],
-                  to: [m.toX, m.toY],
-                  moveNumber: m.moveNumber
-                }))
+            if (pieceIndex !== -1) {
+              // Move the piece in the UI
+              updatedBasePoints[pieceIndex] = {
+                ...updatedBasePoints[pieceIndex],
+                x: nextMainLineMove.toX,
+                y: nextMainLineMove.toY
               };
-              console.log(`[Branch] Updated move history with ${mainLineHistory.length} moves\n${JSON.stringify(logData, null, 2)}`);
-              return mainLineHistory;
+              setBasePoints(updatedBasePoints);
+              
+              // Update turn to the next player
+              const newTurnIndex = (currentTurnIndex() + 1) % PLAYER_COLORS.length;
+              setCurrentTurnIndex(newTurnIndex);
+              
+              // Recalculate restricted squares for the new player
+              const currentPlayerPieces = updatedBasePoints.filter(p => {
+                const pieceColor = p.color?.toLowerCase();
+                const expectedColor = PLAYER_COLORS[newTurnIndex].toLowerCase();
+                const mappedColor = {
+                  'blue': '#2196f3',
+                  'red': '#f44336',
+                  'yellow': '#ffeb3b',
+                  'green': '#4caf50'
+                }[expectedColor] || expectedColor;
+                return pieceColor && (pieceColor === expectedColor || pieceColor === mappedColor);
+              });
+              
+              const newRestrictedSquares: number[] = [];
+              const newRestrictedSquaresInfo: Array<{
+                index: number;
+                x: number;
+                y: number;
+                restrictedBy: Array<{ 
+                  basePointId: string; 
+                  basePointX: number; 
+                  basePointY: number;
+                }>;
+              }> = [];
+              
+              // Calculate restricted squares for current player's pieces
+              for (const piece of currentPlayerPieces) {
+                const moves = getLegalMoves(piece, updatedBasePoints);
+                
+                for (const move of moves) {
+                  const { x, y } = move;
+                  const index = y * BOARD_CONFIG.GRID_SIZE + x;
+                  
+                  if (!newRestrictedSquares.includes(index)) {
+                    newRestrictedSquares.push(index);
+                  }
+                  
+                  const existingInfo = newRestrictedSquaresInfo.find(info => 
+                    info.x === x && info.y === y
+                  );
+                  
+                  if (existingInfo) {
+                    existingInfo.restrictedBy.push({
+                      basePointId: piece.id.toString(),
+                      basePointX: piece.x,
+                      basePointY: piece.y
+                    });
+                  } else {
+                    newRestrictedSquaresInfo.push({
+                      index,
+                      x,
+                      y,
+                      restrictedBy: [{
+                        basePointId: piece.id.toString(),
+                        basePointX: piece.x,
+                        basePointY: piece.y
+                      }]
+                    });
+                  }
+                }
+              }
+              
+              // Update the restricted squares state
+              setRestrictedSquares(newRestrictedSquares);
+              setRestrictedSquaresInfo(newRestrictedSquaresInfo);
+            }
+            
+            // Update the move history
+            setMoveHistory(prev => {
+              const newHistory = [...prev, nextMainLineMove];
+              return newHistory;
             });
+            
+            // Update the current move index
+            setCurrentMoveIndex(prev => prev + 1);
             
             cleanupDragState();
             return;
