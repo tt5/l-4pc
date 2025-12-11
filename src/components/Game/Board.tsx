@@ -2854,8 +2854,8 @@ const Board: Component<BoardProps> = (props) => {
               }, null, 2)
             }`);
             isBranching = true;
-            const parentBranch = currentBranchName() || null;
-            branchName = generateBranchName(nextMoveIdx, parentBranch);
+            const parentBranch = currentBranchName() || 'main';
+            branchName = generateBranchName(nextMoveIdx, parentBranch) || `branch-${Date.now()}`;
             
             // Track this branch point
             console.log(`[Branch] Creating new branch point at move ${currentIndex + 1} with branch name: ${branchName}\n${
@@ -2869,12 +2869,15 @@ const Board: Component<BoardProps> = (props) => {
             }`);
             
             setBranchPoints(prev => {
+              // Ensure branchName is never null or undefined
+              const safeBranchName = branchName || `branch-${Date.now()}`;
+              
               const newPoints = {
                 ...prev,
                 [currentIndex]: [
                   ...(prev[currentIndex] || []),
                   { 
-                    branchName: branchName, 
+                    branchName: safeBranchName, 
                     firstMove: {
                       fromX: startX,
                       fromY: startY,
@@ -2887,8 +2890,8 @@ const Board: Component<BoardProps> = (props) => {
                       color: currentPlayerColor(),
                       moveNumber: nextMoveIdx,
                       isBranch: true,
-                      branchName: branchName,
-                      parentBranchName: parentBranch,
+                      branchName: safeBranchName,
+                      parentBranchName: parentBranch || 'main',
                       pieceType: 'pawn' // This should be the actual piece type
                     } as Move
                   }
