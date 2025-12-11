@@ -2330,14 +2330,16 @@ const Board: Component<BoardProps> = (props) => {
           
           // Log all remaining moves for debugging
           console.log(`[Branch] Remaining moves (${remainingMoves.length}):`, 
-            remainingMoves.map((m, i) => ({
+            JSON.stringify(remainingMoves.map((m, i) => ({
               index: currentIndex + 1 + i,
               from: [m.fromX, m.fromY],
               to: [m.toX, m.toY],
               branch: m.branchName || 'main',
               moveNum: m.moveNumber,
-              type: m.pieceType
-            }))
+              type: m.pieceType,
+              id: m.id,
+              basePointId: m.basePointId
+            })), null, 2)
           );
           
           // Find the next move in the main line
