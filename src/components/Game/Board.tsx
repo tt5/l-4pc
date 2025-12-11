@@ -2585,26 +2585,7 @@ const Board: Component<BoardProps> = (props) => {
               // Keep the original move numbers in fullMoveHistory
               // Only update the current move history with adjusted move numbers
               
-              // Update board state for all moves in the branch
-              const updatedBasePoints = [...basePoints()];
-              adjustedBranchMoves.forEach(move => {
-                const pieceIndex = updatedBasePoints.findIndex(p => 
-                  p.x === move.fromX && p.y === move.fromY
-                );
-                if (pieceIndex !== -1) {
-                  console.log(`[Branch] Moving piece from [${move.fromX},${move.fromY}] to [${move.toX},${move.toY}]`);
-                  updatedBasePoints[pieceIndex] = {
-                    ...updatedBasePoints[pieceIndex],
-                    x: move.toX,
-                    y: move.toY
-                  };
-                }
-              });
-              
-              setBasePoints(updatedBasePoints);
-              setCurrentMoveIndex(currentIndex + adjustedBranchMoves.length);
-              
-              // Add the branch moves to the current history
+              // First, update the move history
               setMoveHistory(prev => {
                 const newHistory = [
                   ...prev.slice(0, currentIndex + 1),
@@ -2626,8 +2607,28 @@ const Board: Component<BoardProps> = (props) => {
                   })), null, 2)
                 );
                 
+                // After updating history, update the board state
+                const updatedBasePoints = [...basePoints()];
+                adjustedBranchMoves.forEach(move => {
+                  const pieceIndex = updatedBasePoints.findIndex(p => 
+                    p.x === move.fromX && p.y === move.fromY
+                  );
+                  if (pieceIndex !== -1) {
+                    console.log(`[Branch] Moving piece from [${move.fromX},${move.fromY}] to [${move.toX},${move.toY}]`);
+                    updatedBasePoints[pieceIndex] = {
+                      ...updatedBasePoints[pieceIndex],
+                      x: move.toX,
+                      y: move.toY
+                    };
+                  }
+                });
+                setBasePoints(updatedBasePoints);
+                
                 return newHistory;
               });
+              
+              // Update the current move index after history is updated
+              setCurrentMoveIndex(currentIndex + adjustedBranchMoves.length);
               
               cleanupDragState();
               return; // Exit early since we've handled the branch following
