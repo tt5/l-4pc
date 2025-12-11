@@ -393,8 +393,10 @@ export const POST = withAuth(async ({ request, user }) => {
       
       // Just log the move validation - actual move saving happens in the base-points endpoint
       console.log('[Move] Validating move:', {
-        from: { x: currentPosition[0], y: currentPosition[1] },
-        to: { x: destination[0], y: destination[1] },
+        fromX: currentPosition[0],
+        fromY: currentPosition[1],
+        toX: destination[0],
+        toY: destination[1],
         pieceType,
         moveNumber
       });
@@ -403,8 +405,10 @@ export const POST = withAuth(async ({ request, user }) => {
       moveEventService.emitMoveMade({
         id: Date.now(), // Temporary ID - will be replaced by the actual move ID from base-points
         basePointId: user.userId, // Using userId as basePointId
-        from: [currentPosition[0], currentPosition[1]] as [number, number],
-        to: [destination[0], destination[1]] as [number, number],
+        fromX: currentPosition[0],
+        fromY: currentPosition[1],
+        toX: destination[0],
+        toY: destination[1],
         playerId: user.userId,
         timestamp: Date.now(),
         color: '#000000',
