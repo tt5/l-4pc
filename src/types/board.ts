@@ -83,6 +83,7 @@ export interface Move {
   createdAtMs?: number;
   isBranch?: boolean | number;  // Can be boolean or number (0/1) from API
   branchName?: string;
+  parentBranchName?: string | null;  // Track parent branch for nested branches
 }
 
 export interface GameState {

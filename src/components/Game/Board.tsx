@@ -1023,10 +1023,36 @@ const Board: Component<BoardProps> = (props) => {
 
   // No longer logging board state after login
 
-  // Generate a simple branch name based on move number and timestamp
-  const generateBranchName = (moveNumber: number): string => {
+  // Generate a branch name with optional parent branch path
+  const generateBranchName = (moveNumber: number, parentBranch: string | null = null): string => {
     const timestamp = Date.now().toString(36).slice(-4);
-    return `Branch-${moveNumber}-${timestamp}`;
+    const branchSuffix = `branch-${moveNumber}-${timestamp}`;
+    return parentBranch ? `${parentBranch}/${branchSuffix}` : branchSuffix;
+  };
+
+  // Rebuild move history for a given target branch, handling nested branches
+  const rebuildMoveHistory = (targetBranch: string | null): Move[] => {
+    const branchPath = targetBranch?.split('/') || [];
+    let history: Move[] = [];
+    
+    // Start with main line
+    let currentHistory = fullMoveHistory().filter(m => !m.branchName || m.branchName === 'main');
+    
+    for (const branch of branchPath) {
+      const branchMoves = fullMoveHistory().filter(m => 
+        m.branchName && m.branchName.endsWith(branch)
+      );
+      
+      if (branchMoves.length > 0) {
+        const branchPoint = Math.min(...branchMoves.map(m => m.moveNumber));
+        currentHistory = [
+          ...currentHistory.filter(m => m.moveNumber < branchPoint),
+          ...branchMoves
+        ];
+      }
+    }
+    
+    return currentHistory;
   };
 
   // Track rendered moves to debug highlighting
@@ -1270,11 +1296,21 @@ const Board: Component<BoardProps> = (props) => {
       
       // If current move not found in branch, use the last move before the branch point
       if (currentBranchIndex === -1) {
-        // Find the branch point (the move where the branch was created)
-        const branchPoint = history.find(move => 
-          move.branchName === currentBranch && move.isBranch
-        );
-        
+        // Get the list of branches at a specific move index with their full paths
+        const getBranchesAtMove = (moveIndex: number): Array<{name: string, path: string[]}> => {
+          const branches = branchPoints()[moveIndex] || [];
+          return branches.map(b => {
+            const path = b.firstMove.parentBranchName 
+              ? [...b.firstMove.parentBranchName.split('/'), b.branchName]
+              : [b.branchName];
+            
+            return {
+              name: b.branchName.split('/').pop() || b.branchName, // Just the last part for display
+              path: path,
+              fullPath: b.branchName
+            };
+          });
+        };      
         if (branchPoint) {
           // Find the index of the branch point in the branch
           currentBranchIndex = branchMoves.findIndex(move => 
@@ -2814,13 +2850,16 @@ const Board: Component<BoardProps> = (props) => {
               }, null, 2)
             }`);
             isBranching = true;
-            branchName = generateBranchName(nextMoveIdx);
+            const parentBranch = currentBranchName() || null;
+            branchName = generateBranchName(nextMoveIdx, parentBranch);
+            
             // Track this branch point
             console.log(`[Branch] Creating new branch point at move ${currentIndex + 1} with branch name: ${branchName}\n${
               JSON.stringify({
                 from: [startX, startY],
                 to: [targetX, targetY],
                 branchName,
+                parentBranch,
                 currentIndex
               }, null, 2)
             }`);
@@ -2831,7 +2870,7 @@ const Board: Component<BoardProps> = (props) => {
                 [currentIndex]: [
                   ...(prev[currentIndex] || []),
                   { 
-                    branchName: branchName || 'main', 
+                    branchName: branchName, 
                     firstMove: {
                       fromX: startX,
                       fromY: startY,
@@ -2844,6 +2883,8 @@ const Board: Component<BoardProps> = (props) => {
                       color: currentPlayerColor(),
                       moveNumber: nextMoveIdx,
                       isBranch: true,
+                      branchName: branchName,
+                      parentBranchName: parentBranch,
                       pieceType: 'pawn' // This should be the actual piece type
                     } as Move
                   }
@@ -2897,6 +2938,8 @@ const Board: Component<BoardProps> = (props) => {
           timestamp: Date.now(),
           playerId: pointToMove.userId,
           color: currentColor,
+          branchName: currentBranch,
+          parentBranchName: currentBranch === 'main' ? null : currentBranch.split('/').slice(0, -1).join('/') || null,
           moveNumber: branchMoveNumber,  // Use the branch-aware move number
           isBranch: isBranching,
           branchName: currentBranch,
