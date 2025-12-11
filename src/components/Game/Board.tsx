@@ -1311,13 +1311,17 @@ const Board: Component<BoardProps> = (props) => {
             };
           });
         };      
-        if (branchPoint) {
+        // Get the current branch point from branchPoints if it exists
+        const currentBranchPoints = branchPoints()[currentMoveIndex()];
+        if (currentBranchPoints && currentBranchPoints.length > 0) {
+          // Use the first branch point's first move as the reference
+          const branchRefMove = currentBranchPoints[0].firstMove;
           // Find the index of the branch point in the branch
           currentBranchIndex = branchMoves.findIndex(move => 
-            move.fromX === branchPoint.fromX && 
-            move.fromY === branchPoint.fromY && 
-            move.toX === branchPoint.toX && 
-            move.toY === branchPoint.toY
+            move.fromX === branchRefMove.fromX && 
+            move.fromY === branchRefMove.fromY && 
+            move.toX === branchRefMove.toX && 
+            move.toY === branchRefMove.toY
           ) - 1; // Go to the move before the branch point
         } else {
           currentBranchIndex = -1; // Start from the beginning of the branch
