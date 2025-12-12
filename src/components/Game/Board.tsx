@@ -2075,6 +2075,25 @@ const Board: Component<BoardProps> = (props) => {
     return true;
   };
 
+  // Validate a move and handle the necessary state updates
+  const validateMoveWithState = (startX: number, startY: number, targetX: number, targetY: number) => {
+    const validation = validateMove(startX, startY, targetX, targetY);
+    if (!validation.isValid) {
+      setError(validation.error || 'Invalid move');
+      cleanupDragState();
+      return null;
+    }
+
+    const pointToMove = validation.pointToMove;
+    if (!pointToMove) {
+      setError('No piece found to move');
+      cleanupDragState();
+      return null;
+    }
+
+    return pointToMove;
+  };
+
   // Validates a move from start to target coordinates
   const validateMove = (startX: number, startY: number, targetX: number, targetY: number) => {
     const index = targetY * BOARD_CONFIG.GRID_SIZE + targetX;
@@ -2166,21 +2185,8 @@ const Board: Component<BoardProps> = (props) => {
     
     // Only proceed if we actually moved to a new cell
     if (startX !== targetX || startY !== targetY) {
-      // Validate the move
-      const validation = validateMove(startX, startY, targetX, targetY);
-      if (!validation.isValid) {
-        console.warn('Invalid move:', validation.error);
-        setError(validation.error || 'Invalid move');
-        cleanupDragState();
-        return;
-      }
-      
-      const pointToMove = validation.pointToMove;
-      if (!pointToMove) {
-        setError('No piece found to move');
-        cleanupDragState();
-        return;
-      }
+      const pointToMove = validateMoveWithState(startX, startY, targetX, targetY);
+      if (!pointToMove) return;
       
       // Save the current state for potential rollback
       const originalBasePoints = [...basePoints()];
