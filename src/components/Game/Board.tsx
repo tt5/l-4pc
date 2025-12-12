@@ -14,6 +14,7 @@ import {
   Accessor,
   Setter
 } from 'solid-js';
+import { COLOR_MAP } from '~/utils/gameUtils';
 import type { PieceType } from '~/types/board';
 import { useNavigate } from '@solidjs/router';
 import { moveEventService } from '~/lib/server/events/move-events';
@@ -1623,17 +1624,10 @@ const Board: Component<BoardProps> = (props) => {
       const newTurnIndex = (newIndex + 1) % PLAYER_COLORS.length;
       setCurrentTurnIndex(newTurnIndex);
       
-      // Map of player colors to their hex codes
-      type TeamColor = 'blue' | 'red' | 'yellow' | 'green';
-      const COLOR_MAP: Record<TeamColor, string> = {
-        'blue': '#2196F3',
-        'red': '#F44336',
-        'yellow': '#FFEB3B',
-        'green': '#4CAF50'
-      };
+      // Use the shared color map from gameUtils
 
       // Get the current player's color, converting from color name to hex if needed
-      const playerColorName = PLAYER_COLORS[newTurnIndex].toLowerCase() as TeamColor;
+      const playerColorName = PLAYER_COLORS[newTurnIndex].toLowerCase();
       const currentPlayerColor = COLOR_MAP[playerColorName] || playerColorName;
       
       // Get current player's pieces - use the replayed base points instead of the current state
