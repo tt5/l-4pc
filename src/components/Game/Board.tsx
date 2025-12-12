@@ -1258,6 +1258,47 @@ const Board: Component<BoardProps> = (props) => {
     return { nextIndex, nextMove: history[nextIndex] };
   };
 
+  // Helper function to apply a move to the board state
+  const applyMoveToBoard = (
+    basePoints: BasePoint[],
+    move: Move
+  ): { updatedBasePoints: BasePoint[]; capturedPiece: BasePoint | null } => {
+    const updatedBasePoints = [...basePoints];
+    const { fromX, fromY, toX, toY } = move;
+    let capturedPiece: BasePoint | null = null;
+    
+    // Find and move the piece
+    const pieceIndex = updatedBasePoints.findIndex(p => p.x === fromX && p.y === fromY);
+    
+    if (pieceIndex === -1) {
+      console.warn(`[Move] No piece found at [${fromX},${fromY}] to move`);
+      return { updatedBasePoints, capturedPiece: null };
+    }
+
+    const piece = updatedBasePoints[pieceIndex];
+    console.log(`[Move] Moving piece ${piece.id} (${piece.pieceType}) from [${fromX},${fromY}] to [${toX},${toY}]`);
+    
+    // If this move captures a piece, remove it
+    if (move.capturedPieceId) {
+      const capturedPieceIndex = updatedBasePoints.findIndex(p => p.id === move.capturedPieceId);
+      if (capturedPieceIndex !== -1) {
+        capturedPiece = updatedBasePoints[capturedPieceIndex];
+        console.log(`[Move] Capturing piece ${capturedPiece.id} (${capturedPiece.pieceType}) at [${toX},${toY}]`);
+        updatedBasePoints.splice(capturedPieceIndex, 1);
+      }
+    }
+    
+    // Update the piece's position
+    updatedBasePoints[pieceIndex] = {
+      ...piece,
+      x: toX,
+      y: toY,
+      hasMoved: true
+    };
+
+    return { updatedBasePoints, capturedPiece };
+  };
+
   // Handle going forward one move in history
   const handleGoForward = async () => {
     console.log('[Forward] Forward button pressed');
@@ -1298,36 +1339,12 @@ const Board: Component<BoardProps> = (props) => {
     
     try {
       const currentBasePoints = [...basePoints()];
-      const { fromX, fromY, toX, toY } = nextMove;
       
-      // Find and move the piece
-      const pieceIndex = currentBasePoints.findIndex(p => p.x === fromX && p.y === fromY);
-      
-      if (pieceIndex !== -1) {
-        const piece = currentBasePoints[pieceIndex];
-        console.log(`[Forward] Moving piece ${piece.id} (${piece.pieceType}) from [${fromX},${fromY}] to [${toX},${toY}]`);
-        
-        // If this move captures a piece, remove it
-        if (nextMove.capturedPieceId) {
-          const capturedPieceIndex = currentBasePoints.findIndex(p => p.id === nextMove.capturedPieceId);
-          if (capturedPieceIndex !== -1) {
-            const capturedPiece = currentBasePoints[capturedPieceIndex];
-            console.log(`[Forward] Capturing piece ${capturedPiece.id} (${capturedPiece.pieceType}) at [${toX},${toY}]`);
-            currentBasePoints.splice(capturedPieceIndex, 1);
-          }
-        }
-        
-        // Update the piece's position
-        currentBasePoints[pieceIndex] = {
-          ...piece,
-          x: toX,
-          y: toY,
-          hasMoved: true
-        };
-      }
+      // Apply the move to get new board state
+      const { updatedBasePoints } = applyMoveToBoard(currentBasePoints, nextMove);
       
       // Update the board state and move index
-      setBasePoints(currentBasePoints);
+      setBasePoints(updatedBasePoints);
       setCurrentMoveIndex(nextIndex);
       console.log(`[Forward] Move index updated to ${nextIndex}`);
       
