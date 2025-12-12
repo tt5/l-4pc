@@ -1325,18 +1325,6 @@ const Board: Component<BoardProps> = (props) => {
     
     const { nextIndex, nextMove } = nextMoveInfo;
     
-    console.log('[Forward] Next move details:\n' + JSON.stringify({
-      from: [nextMove.fromX, nextMove.fromY],
-      to: [nextMove.toX, nextMove.toY],
-      moveNumber: nextMove.moveNumber,
-      branch: nextMove.branchName || 'main',
-      pieceType: nextMove.pieceType,
-      isBranch: nextMove.isBranch,
-      capturedPieceId: nextMove.capturedPieceId || 'none',
-      id: nextMove.id,
-      gameId: nextMove.gameId
-    }, null, 2));
-    
     try {
       const currentBasePoints = [...basePoints()];
       
@@ -1373,18 +1361,6 @@ const Board: Component<BoardProps> = (props) => {
         
         // Compare with both the direct color and the mapped color
         return p.color && (p.color === expectedColor || p.color === mappedColor);
-      });
-      
-      console.log('Current player pieces after forward move:', {
-        turnIndex: newTurnIndex,
-        expectedColor: PLAYER_COLORS[newTurnIndex],
-        pieceCount: currentPlayerPieces.length,
-        pieces: currentPlayerPieces.map(p => ({
-          id: p.id,
-          color: p.color,
-          type: p.pieceType,
-          position: [p.x, p.y]
-        }))
       });
       
       const newRestrictedSquares: number[] = [];
@@ -1569,16 +1545,6 @@ const Board: Component<BoardProps> = (props) => {
         const newBranch = targetMove.branchName || 'main';
         const isReturningToMain = !targetMove.branchName || targetMove.branchName === 'main';
         
-        console.log('[BackNav] Target move details:', {
-          from: [targetMove.fromX, targetMove.fromY],
-          to: [targetMove.toX, targetMove.toY],
-          branch: newBranch,
-          moveNumber: targetMove.moveNumber,
-          isBranch: targetMove.isBranch,
-          isReturningToMain,
-          id: targetMove.id
-        });
-        
         // Find next main line move after the target move
         const isReturningFromBranch = currentBranchName() && (!targetMove.branchName || targetMove.branchName === 'main');
         
@@ -1595,14 +1561,6 @@ const Board: Component<BoardProps> = (props) => {
             break;
           }
         }
-        
-        console.log('[BackNav] Next main move:', nextMainLineMove ? {
-          from: [nextMainLineMove.fromX, nextMainLineMove.fromY],
-          to: [nextMainLineMove.toX, nextMainLineMove.toY],
-          moveNumber: nextMainLineMove.moveNumber,
-          index: nextMainLineIndex,
-          id: nextMainLineMove.id
-        } : 'None');
         
         // If we're returning to main line, store the next main line move
         if (isReturningFromBranch && nextMainLineMove) {
@@ -2064,17 +2022,6 @@ const Board: Component<BoardProps> = (props) => {
         )
       )
     ];
-    
-    // Log visible restricted squares including capturable base points
-    const visibleSquaresStr = visibleRestrictedSquares.length > 0
-      ? visibleRestrictedSquares.map(sq => {
-          const row = Math.floor(sq.index / BOARD_CONFIG.GRID_SIZE);
-          const col = sq.index % BOARD_CONFIG.GRID_SIZE;
-          const isBasePoint = 'isBasePoint' in sq ? sq.isBasePoint : basePoints().some(bp => bp.x === col && bp.y === row);
-          return `(${col},${row})${isBasePoint ? ' (base point)' : ''}`;
-        }).join(', ')
-      : 'None';
-    
   };
 
   // Helper function to update base point UI during drag
