@@ -551,6 +551,7 @@ const Board: Component<BoardProps> = (props) => {
       });
     }
   });
+
   // Listen for move events
   createEffect(() => {
     const handleMoveMade = (move: Move) => {
@@ -1149,6 +1150,113 @@ const Board: Component<BoardProps> = (props) => {
     return Promise.resolve(JSON.parse(JSON.stringify(INITIAL_BASE_POINTS)));
   };
 
+  // Helper function to find the next move in the current branch
+  const findNextMoveInBranch = (
+    history: Move[],
+    currentIndex: number,
+    currentBranch: string,
+    allBranchPoints: Record<number, any[]>,
+    getCurrentMoveIndex: () => number
+  ): { nextIndex: number; nextMove: Move } | null => {
+    // If not in a branch or on main, return the next move directly
+    if (!currentBranch || currentBranch === 'main') {
+      const nextIndex = currentIndex + 1;
+      return nextIndex < history.length 
+        ? { nextIndex, nextMove: history[nextIndex] } 
+        : null;
+    }
+
+    // Find all moves in the current branch
+    const branchMoves = history.filter(move => move.branchName === currentBranch);
+    
+    if (branchMoves.length === 0) {
+      console.log('[Forward] No moves found in current branch, cannot go forward');
+      return null;
+    }
+
+    // Find the current position in the branch
+    let currentBranchIndex = -1;
+    
+    // First, try to find the current move in the branch using move ID for exact matching
+    if (currentIndex >= 0 && currentIndex < history.length) {
+      const currentMove = history[currentIndex];
+      
+      // First try to match by ID if available (most reliable)
+      if (currentMove.id) {
+        currentBranchIndex = branchMoves.findIndex(move => 
+          move.id === currentMove.id
+        );
+      }
+      
+      // If not found by ID, try matching by coordinates and timestamp
+      if (currentBranchIndex === -1) {
+        currentBranchIndex = branchMoves.findIndex(move => 
+          move.fromX === currentMove.fromX && 
+          move.fromY === currentMove.fromY && 
+          move.toX === currentMove.toX && 
+          move.toY === currentMove.toY &&
+          move.timestamp === currentMove.timestamp
+        );
+      }
+      
+      // If still not found, try matching just by coordinates (least reliable)
+      if (currentBranchIndex === -1) {
+        currentBranchIndex = branchMoves.findIndex(move => 
+          move.fromX === currentMove.fromX && 
+          move.fromY === currentMove.fromY && 
+          move.toX === currentMove.toX && 
+          move.toY === currentMove.toY
+        );
+      }
+      
+      console.log(`[Forward] Current move in branch: index=${currentBranchIndex}, move=`, 
+        currentBranchIndex >= 0 ? branchMoves[currentBranchIndex] : 'not found');
+    }
+    
+    // If current move not found in branch, use the last move before the branch point
+    if (currentBranchIndex === -1) {
+      // Get the current branch point from branchPoints if it exists
+      const currentBranchPoints = allBranchPoints[getCurrentMoveIndex()];
+      if (currentBranchPoints && currentBranchPoints.length > 0) {
+        // Use the first branch point's first move as the reference
+        const branchRefMove = currentBranchPoints[0].firstMove;
+        // Find the index of the branch point in the branch
+        currentBranchIndex = branchMoves.findIndex(move => 
+          move.fromX === branchRefMove.fromX && 
+          move.fromY === branchRefMove.fromY && 
+          move.toX === branchRefMove.toX && 
+          move.toY === branchRefMove.toY
+        ) - 1; // Go to the move before the branch point
+      } else {
+        currentBranchIndex = -1; // Start from the beginning of the branch
+      }
+    }
+    
+    // If we're at the end of the branch, don't go further
+    if (currentBranchIndex >= branchMoves.length - 1) {
+      console.log('[Forward] Already at the latest move in this branch');
+      return null;
+    }
+    
+    // Get the next move in this branch
+    const nextMoveInBranch = branchMoves[currentBranchIndex + 1];
+    
+    // Find the actual index of this move in the full history
+    const nextIndex = history.findIndex(move => 
+      move.fromX === nextMoveInBranch.fromX && 
+      move.fromY === nextMoveInBranch.fromY && 
+      move.toX === nextMoveInBranch.toX && 
+      move.toY === nextMoveInBranch.toY &&
+      move.branchName === currentBranch
+    );
+    
+    if (nextIndex === -1) {
+      console.error('[Forward] Could not find next move in full history');
+      return null;
+    }
+    
+    return { nextIndex, nextMove: history[nextIndex] };
+  };
 
   // Handle going forward one move in history
   const handleGoForward = async () => {
@@ -1163,118 +1271,18 @@ const Board: Component<BoardProps> = (props) => {
       console.log('[Forward] Already at the latest move, cannot go forward');
       return;
     }
+
+    const nextMoveInfo = findNextMoveInBranch(
+      history,
+      currentIndex,
+      currentBranch || '',
+      branchPoints(),
+      currentMoveIndex
+    );
     
-    let nextIndex = currentIndex + 1;
-    let nextMove = history[nextIndex];
+    if (!nextMoveInfo) return;
     
-    // If we're in a branch, only allow moving forward within that branch
-    if (currentBranch && currentBranch !== 'main') {
-      // Find all moves in the current branch
-      const branchMoves = history.filter(move => move.branchName === currentBranch);
-      
-      if (branchMoves.length === 0) {
-        console.log('[Forward] No moves found in current branch, cannot go forward');
-        return;
-      }
-      
-      // Find the current position in the branch
-      let currentBranchIndex = -1;
-      
-      // First, try to find the current move in the branch using move ID for exact matching
-      if (currentIndex >= 0 && currentIndex < history.length) {
-        const currentMove = history[currentIndex];
-        
-        // First try to match by ID if available (most reliable)
-        if (currentMove.id) {
-          currentBranchIndex = branchMoves.findIndex(move => 
-            move.id === currentMove.id
-          );
-        }
-        
-        // If not found by ID, try matching by coordinates and timestamp
-        if (currentBranchIndex === -1) {
-          currentBranchIndex = branchMoves.findIndex(move => 
-            move.fromX === currentMove.fromX && 
-            move.fromY === currentMove.fromY && 
-            move.toX === currentMove.toX && 
-            move.toY === currentMove.toY &&
-            move.timestamp === currentMove.timestamp
-          );
-        }
-        
-        // If still not found, try matching just by coordinates (least reliable)
-        if (currentBranchIndex === -1) {
-          currentBranchIndex = branchMoves.findIndex(move => 
-            move.fromX === currentMove.fromX && 
-            move.fromY === currentMove.fromY && 
-            move.toX === currentMove.toX && 
-            move.toY === currentMove.toY
-          );
-        }
-        
-        console.log(`[Forward] Current move in branch: index=${currentBranchIndex}, move=`, 
-          currentBranchIndex >= 0 ? branchMoves[currentBranchIndex] : 'not found');
-      }
-      
-      // If current move not found in branch, use the last move before the branch point
-      if (currentBranchIndex === -1) {
-        // Get the list of branches at a specific move index with their full paths
-        const getBranchesAtMove = (moveIndex: number): Array<{name: string, path: string[]}> => {
-          const branches = branchPoints()[moveIndex] || [];
-          return branches.map(b => {
-            const path = b.firstMove.parentBranchName 
-              ? [...b.firstMove.parentBranchName.split('/'), b.branchName]
-              : [b.branchName];
-            
-            return {
-              name: b.branchName.split('/').pop() || b.branchName, // Just the last part for display
-              path: path,
-              fullPath: b.branchName
-            };
-          });
-        };      
-        // Get the current branch point from branchPoints if it exists
-        const currentBranchPoints = branchPoints()[currentMoveIndex()];
-        if (currentBranchPoints && currentBranchPoints.length > 0) {
-          // Use the first branch point's first move as the reference
-          const branchRefMove = currentBranchPoints[0].firstMove;
-          // Find the index of the branch point in the branch
-          currentBranchIndex = branchMoves.findIndex(move => 
-            move.fromX === branchRefMove.fromX && 
-            move.fromY === branchRefMove.fromY && 
-            move.toX === branchRefMove.toX && 
-            move.toY === branchRefMove.toY
-          ) - 1; // Go to the move before the branch point
-        } else {
-          currentBranchIndex = -1; // Start from the beginning of the branch
-        }
-      }
-      
-      // If we're at the end of the branch, don't go further
-      if (currentBranchIndex >= branchMoves.length - 1) {
-        console.log('[Forward] Already at the latest move in this branch');
-        return;
-      }
-      
-      // Get the next move in this branch
-      const nextMoveInBranch = branchMoves[currentBranchIndex + 1];
-      
-      // Find the actual index of this move in the full history
-      nextIndex = history.findIndex(move => 
-        move.fromX === nextMoveInBranch.fromX && 
-        move.fromY === nextMoveInBranch.fromY && 
-        move.toX === nextMoveInBranch.toX && 
-        move.toY === nextMoveInBranch.toY &&
-        move.branchName === currentBranch
-      );
-      
-      if (nextIndex === -1) {
-        console.error('[Forward] Could not find next move in full history');
-        return;
-      }
-      
-      nextMove = history[nextIndex];
-    }
+    const { nextIndex, nextMove } = nextMoveInfo;
     
     console.log('[Forward] Next move details:\n' + JSON.stringify({
       from: [nextMove.fromX, nextMove.fromY],
