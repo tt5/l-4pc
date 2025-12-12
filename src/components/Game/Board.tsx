@@ -1452,51 +1452,30 @@ const Board: Component<BoardProps> = (props) => {
     }
   };
 
+  // Reset the board to its initial state
+  const resetBoardToInitialState = () => {
+    setBasePoints(JSON.parse(JSON.stringify(INITIAL_BASE_POINTS)));
+    setCurrentMoveIndex(-1);
+    setCurrentBranchName(null);
+    setCurrentTurnIndex(0);
+  };
+
   // Handle going back one move in history
   const handleGoBack = async () => {
     const currentIndex = currentMoveIndex();
     const history = fullMoveHistory();
-    const totalMoves = history.length;
     
-    console.log(`[BackNav] Current: ${currentIndex + 1}/${totalMoves} (${currentBranchName() || 'main'})`);
-    console.log('[BackNav] Last 3 moves:', 
-      history.slice(Math.max(0, currentIndex - 1), Math.min(currentIndex + 2, history.length)).map(m => ({
-        idx: history.indexOf(m) + 1,
-        from: [m.fromX, m.fromY],
-        to: [m.toX, m.toY],
-        br: m.branchName || 'main',
-        moveNumber: m.moveNumber,
-        id: m.id
-      }))
-    );
-    
-    if (totalMoves === 0) {
-      console.log('[BackNav] No moves to go back from');
-      return;
-    }
-    
-    if (currentIndex === -1) {
-      console.log('[BackNav] Already at the beginning of history');
+    if (history.length === 0 || currentIndex === -1) {
       return;
     }
 
     const newIndex = currentIndex - 1;
-    console.log(`[BackNav] Moving: ${currentIndex + 1}→${newIndex + 1}`);
-    
     const currentMove = history[currentIndex];
     const targetMove = newIndex >= 0 ? history[newIndex] : null;
     
-    if (targetMove) {
-      console.log(`[BackNav] Target: [${targetMove.fromX},${targetMove.fromY}]→[${targetMove.toX},${targetMove.toY}], ` +
-                 `#${targetMove.moveNumber} (${targetMove.branchName || 'main'})`);
-    } else {
-      console.log('[BackNav] Moving to initial position');
+    if (!targetMove) {
       // Reset to initial state when going back to the beginning
-      setBasePoints(JSON.parse(JSON.stringify(INITIAL_BASE_POINTS)));
-      setCurrentMoveIndex(-1);
-      setCurrentBranchName(null);
-      setCurrentTurnIndex(0);
-      console.log('[BackNav] Reset to initial position');
+      resetBoardToInitialState();
       return;
     }
     
@@ -1638,11 +1617,8 @@ const Board: Component<BoardProps> = (props) => {
         }
         
         setCurrentBranchName(targetMove.branchName || null);
-        console.log(`[Branch] Now at: ${newIndex + 1}/${totalMoves} (${newBranch})`);
-        console.log(`[Branch] Move: [${targetMove.fromX},${targetMove.fromY}]→[${targetMove.toX},${targetMove.toY}] #${targetMove.moveNumber}`);
       } else {
         setCurrentBranchName(null);
-        console.log('[Branch] Reset to initial position, no branch');
       }
       
       // Update turn index - next player's turn (since the move at newIndex was just applied)
