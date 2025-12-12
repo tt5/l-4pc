@@ -2114,6 +2114,23 @@ const Board: Component<BoardProps> = (props) => {
     };
   };
 
+  // Helper function to get the target position for a move
+  const getMoveTarget = (): [number, number] | null => {
+    // Try to get the target from the target position state
+    const target = targetPosition();
+    if (target) return target;
+
+    // Fall back to the hovered cell if no explicit target
+    const hovered = hoveredCell();
+    if (hovered) {
+      const newTarget: [number, number] = [...hovered];
+      setTargetPosition(newTarget);
+      return newTarget;
+    }
+
+    return null;
+  };
+
   // Handle mouse up anywhere on the document to complete dragging
   const handleGlobalMouseUp = async (e?: MouseEvent | Event) => {
     // Prevent multiple simultaneous move processing
@@ -2124,7 +2141,6 @@ const Board: Component<BoardProps> = (props) => {
     // Convert to MouseEvent if it's a standard Event
     const mouseEvent = e && 'clientX' in e ? e : undefined;
     
-    
     if (!isDragging() || !pickedUpBasePoint()) {
       return;
     }
@@ -2132,17 +2148,11 @@ const Board: Component<BoardProps> = (props) => {
     // Set processing flag
     setIsProcessingMove(true);
 
-    // If we don't have a target position, try to get it from the hovered cell
-    let target = targetPosition();
+    // Get the target position for the move
+    const target = getMoveTarget();
     if (!target) {
-      const hovered = hoveredCell();
-      if (hovered) {
-        target = [...hovered];
-        setTargetPosition(target);
-      } else {
-        cleanupDragState();
-        return;
-      }
+      cleanupDragState();
+      return;
     }
 
     const [targetX, targetY] = target;
