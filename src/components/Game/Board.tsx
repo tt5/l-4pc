@@ -10,12 +10,14 @@ import {
   onCleanup,
   on,
   For,
-  createSelector
+  createSelector,
+  Accessor,
+  Setter
 } from 'solid-js';
 import type { PieceType } from '~/types/board';
 import { useNavigate } from '@solidjs/router';
 import { moveEventService } from '~/lib/server/events/move-events';
-import { PLAYER_COLORS, type PlayerColor, isInNonPlayableCorner as isInNonPlayableCornerUtil } from '~/constants/game';
+import { PLAYER_COLORS, type PlayerColor, isInNonPlayableCorner as isInNonPlayableCornerUtil, normalizeColor, getCurrentPlayerColor } from '~/constants/game';
 import { basePointEventService } from '~/lib/server/events/base-point-events';
 import { GridCell } from './GridCell';
 import { useRestrictedSquares } from '../../contexts/RestrictedSquaresContext';
@@ -2294,17 +2296,9 @@ const Board: Component<BoardProps> = (props) => {
         const currentColor = pointToMove.color.toLowerCase();
         const currentTurn = currentPlayerColor().toLowerCase();
         
-        // Create a mapping of color names to their hex values for comparison
-        const colorMap: Record<string, string> = {
-          'red': '#f44336',
-          'blue': '#2196f3',
-          'yellow': '#ffeb3b',
-          'green': '#4caf50'
-        };
-        
-        // Get the normalized colors for comparison
-        const normalizedCurrentColor = colorMap[currentColor] || currentColor;
-        const normalizedTurnColor = colorMap[currentTurn] || currentTurn;
+        // Use the utility function to normalize colors
+        const normalizedCurrentColor = normalizeColor(currentColor);
+        const normalizedTurnColor = normalizeColor(currentTurn);
         
         // Move attempt logging removed for cleaner output
 

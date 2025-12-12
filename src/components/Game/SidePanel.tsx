@@ -31,8 +31,6 @@ const SidePanel: Component<SidePanelProps> = (props) => {
     isConnected,
     error,
     notifications,
-    addedCount,
-    deletedCount,
     reconnect
   } = useSSE('/api/sse');
 
@@ -76,8 +74,6 @@ const SidePanel: Component<SidePanelProps> = (props) => {
   });
 
   const [notificationsState, setNotificationsState] = createSignal<Notification[]>([]);
-  const [addedCountState, setAddedCountState] = createSignal(0);
-  const [deletedCountState, setDeletedCountState] = createSignal(0);
   const [totalBasePointsState, setTotalBasePointsState] = createSignal<number | null>(null);
 
   return (
@@ -102,8 +98,6 @@ const SidePanel: Component<SidePanelProps> = (props) => {
           <div>
             <InfoTab 
               username={props.username}
-              addedCount={addedCountState()}
-              deletedCount={deletedCountState()}
               totalBasePoints={totalBasePointsState()}
             />
           </div>

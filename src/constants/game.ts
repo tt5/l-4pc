@@ -6,6 +6,25 @@ export type PlayerColor = typeof PLAYER_COLORS[number];
 
 export const TURN_ORDER = PLAYER_COLORS;
 
+/**
+ * Normalizes color string to match one of the PLAYER_COLORS
+ * @param color - The color to normalize
+ * @returns A normalized PlayerColor or undefined if not a valid color
+ */
+export function normalizeColor(color: string): PlayerColor | undefined {
+  const lowerColor = color.toLowerCase();
+  return PLAYER_COLORS.find(c => c === lowerColor);
+}
+
+/**
+ * Gets the current player's color based on turn index
+ * @param turnIndex - The current turn index
+ * @returns The current player's color
+ */
+export function getCurrentPlayerColor(turnIndex: number): PlayerColor {
+  return TURN_ORDER[turnIndex % TURN_ORDER.length];
+}
+
 export const DEFAULT_GAME_ID = 'default';
 
 export const BOARD_CONFIG = {
