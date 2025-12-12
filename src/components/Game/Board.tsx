@@ -1921,14 +1921,6 @@ const Board: Component<BoardProps> = (props) => {
       });
   });
   
-
-  // Effect to check king in check when base points change
-  createEffect(() => {
-    if (basePoints().length > 0) {
-      checkKingInCheck();
-    }
-  });
-
   // Set up SSE for real-time updates
   useSSE('/api/sse', (message) => {
     // The point data might be in message.point or message.basePoint or the message itself
