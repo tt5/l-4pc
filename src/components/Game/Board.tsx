@@ -2127,6 +2127,45 @@ const Board: Component<BoardProps> = (props) => {
     return true;
   };
 
+  // Validates a move from start to target coordinates
+  const validateMove = (startX: number, startY: number, targetX: number, targetY: number) => {
+    const index = targetY * BOARD_CONFIG.GRID_SIZE + targetX;
+    const validation = validateSquarePlacementLocal(index);
+    
+    if (!validation.isValid) {
+      return { 
+        isValid: false, 
+        error: `Invalid placement: ${validation.reason || 'Unknown reason'}` 
+      };
+    }
+
+    const pointToMove = basePoints().find(bp => bp.x === startX && bp.y === startY);
+    if (!pointToMove) {
+      return { 
+        isValid: false, 
+        error: `No piece found at (${startX}, ${startY})` 
+      };
+    }
+
+    // Check if it's this color's turn
+    const currentColor = pointToMove.color.toLowerCase();
+    const currentTurn = currentPlayerColor().toLowerCase();
+    const normalizedCurrentColor = normalizeColor(currentColor);
+    const normalizedTurnColor = normalizeColor(currentTurn);
+
+    if (normalizedCurrentColor !== normalizedTurnColor) {
+      return { 
+        isValid: false, 
+        error: `It's not ${currentColor}'s turn. Current turn: ${currentTurn}`
+      };
+    }
+
+    return { 
+      isValid: true, 
+      pointToMove 
+    };
+  };
+
   // Handle mouse up anywhere on the document to complete dragging
   const handleGlobalMouseUp = async (e?: MouseEvent | Event) => {
     // Prevent multiple simultaneous move processing
@@ -2159,17 +2198,6 @@ const Board: Component<BoardProps> = (props) => {
     }
 
     const [targetX, targetY] = target;
-    const index = targetY * BOARD_CONFIG.GRID_SIZE + targetX;
-    
-    // Final validation - pass the index of the target position
-    const validation = validateSquarePlacementLocal(index);
-    if (!validation.isValid) {
-      console.warn('Invalid move:', validation.reason);
-      setError(`Invalid placement: ${validation.reason || 'Unknown reason'}`);
-      cleanupDragState();
-      return;
-    }
-
     const startPos = dragStartPosition();
     if (!startPos) {
       cleanupDragState();
@@ -2180,6 +2208,21 @@ const Board: Component<BoardProps> = (props) => {
     
     // Only proceed if we actually moved to a new cell
     if (startX !== targetX || startY !== targetY) {
+      // Validate the move
+      const validation = validateMove(startX, startY, targetX, targetY);
+      if (!validation.isValid) {
+        console.warn('Invalid move:', validation.error);
+        setError(validation.error || 'Invalid move');
+        cleanupDragState();
+        return;
+      }
+      
+      const pointToMove = validation.pointToMove;
+      if (!pointToMove) {
+        setError('No piece found to move');
+        cleanupDragState();
+        return;
+      }
       
       // Save the current state for potential rollback
       const originalBasePoints = [...basePoints()];
@@ -2187,32 +2230,6 @@ const Board: Component<BoardProps> = (props) => {
       const originalRestrictedSquaresInfo = [...restrictedSquaresInfo()];
       
       try {
-        // 1. Optimistically update the base points in the UI
-        // 1. Find the base point being moved before updating
-        const pointToMove = originalBasePoints.find(bp => 
-          bp.x === startX && bp.y === startY
-        );
-
-        if (!pointToMove) {
-          throw new Error(`Base point not found at position (${startX}, ${startY})`);
-        }
-
-        // Check if it's this color's turn
-        const currentColor = pointToMove.color.toLowerCase();
-        const currentTurn = currentPlayerColor().toLowerCase();
-        
-        // Use the utility function to normalize colors
-        const normalizedCurrentColor = normalizeColor(currentColor);
-        const normalizedTurnColor = normalizeColor(currentTurn);
-        
-        // Move attempt logging removed for cleaner output
-
-        if (normalizedCurrentColor !== normalizedTurnColor) {
-          const errorMsg = `It's not ${currentColor}'s turn. Current turn: ${currentTurn}`;
-          console.error(errorMsg);
-          setError(errorMsg);
-          return;
-        }
 
         // Check if we're making a move from a historical position (not the latest move)
         const isAtHistoricalPosition = currentMoveIndex() < fullMoveHistory().length - 1;
@@ -2845,7 +2862,7 @@ const Board: Component<BoardProps> = (props) => {
           toY: targetY,
           timestamp: Date.now(),
           playerId: pointToMove.userId,
-          color: currentColor,
+          color: pointToMove.color.toLowerCase(),
           branchName: currentBranch,
           parentBranchName: currentBranch === 'main' ? null : currentBranch.split('/').slice(0, -1).join('/') || null,
           moveNumber: branchMoveNumber,  // Use the branch-aware move number
