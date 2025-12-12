@@ -8,12 +8,28 @@ export const TURN_ORDER = PLAYER_COLORS;
 
 /**
  * Normalizes color string to match one of the PLAYER_COLORS
- * @param color - The color to normalize
+ * @param color - The color to normalize (can be color name or hex code)
  * @returns A normalized PlayerColor or undefined if not a valid color
  */
 export function normalizeColor(color: string): PlayerColor | undefined {
-  const lowerColor = color.toLowerCase();
-  return PLAYER_COLORS.find(c => c === lowerColor);
+  if (!color) return undefined;
+  
+  const lowerColor = color.toLowerCase().trim();
+  
+  // First try direct match with PLAYER_COLORS
+  const directMatch = PLAYER_COLORS.find(c => c === lowerColor);
+  if (directMatch) return directMatch;
+  
+  // Map of hex codes to color names
+  const hexToColorMap: Record<string, PlayerColor> = {
+    '#f44336': 'red',
+    '#ffeb3b': 'yellow',
+    '#2196f3': 'blue',
+    '#4caf50': 'green'
+  };
+  
+  // Try to match hex code (case insensitive)
+  return hexToColorMap[lowerColor];
 }
 
 /**
