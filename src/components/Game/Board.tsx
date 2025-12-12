@@ -47,14 +47,8 @@ const isValidPieceType = (str: string): str is PieceType => {
   return ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king'].includes(str);
 };
 
-// Team color definitions
-const TEAM_1_COLORS = ['#F44336', '#FFEB3B']; // Red and Yellow
-const TEAM_2_COLORS = ['#2196F3', '#4CAF50']; // Blue and Green
-
-// Helper functions for move calculation
-const getTeamByColor = (color: string): 1 | 2 => {
-  return TEAM_1_COLORS.includes(color) ? 1 : 2;
-};
+// Import team-related utilities
+import { getTeamByColor } from '~/constants/game';
 
 const isSquareOccupied = (x: number, y: number, basePoints: BasePoint[]): boolean => {
   return basePoints.some(bp => bp.x === x && bp.y === y);
@@ -596,17 +590,8 @@ const Board: Component<BoardProps> = (props) => {
     setError(null);
   };
 
-  // Helper function to determine team based on color
-  const getTeam = (color: string): 1 | 2 => {
-    // Normalize color to lowercase for case-insensitive comparison
-    const normalizedColor = color.toLowerCase();
-    // Team 1: red (#f44336) or yellow (#ffeb3b)
-    if (normalizedColor === '#f44336' || normalizedColor === '#ffeb3b') {
-      return 1;
-    }
-    // Team 2: blue (#2196f3) or green (#4caf50)
-    return 2;
-  };
+  // Use the imported getTeamByColor from game constants
+  const getTeam = getTeamByColor;
   
   // Track which squares have kings in check
   const [kingsInCheck, setKingsInCheck] = createSignal<{[key: string]: boolean}>({});

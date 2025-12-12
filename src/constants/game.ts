@@ -1,10 +1,45 @@
 import { createPoint } from '../types/board';
 
+// Team color definitions
+export const TEAM_1_COLORS = ['red', 'yellow'] as const;
+export const TEAM_2_COLORS = ['blue', 'green'] as const;
+
+// Keep the original turn order: red -> blue -> yellow -> green
 export const PLAYER_COLORS = ['red', 'blue', 'yellow', 'green'] as const;
 
 export type PlayerColor = typeof PLAYER_COLORS[number];
 
 export const TURN_ORDER = PLAYER_COLORS;
+
+// Map of hex colors to their corresponding color names
+const HEX_TO_COLOR: Record<string, PlayerColor> = {
+  '#f44336': 'red',
+  '#ffeb3b': 'yellow',
+  '#2196f3': 'blue',
+  '#4caf50': 'green'
+} as const;
+
+type TeamNumber = 1 | 2;
+
+/**
+ * Gets the team number (1 or 2) for a given color
+ * @param color - The color to check (can be name or hex code)
+ * @returns The team number (1 or 2)
+ * @throws Will throw an error if the color is not a valid player color
+ */
+export function getTeamByColor(color: string): TeamNumber {
+  if (!color) {
+    throw new Error('Color cannot be empty');
+  }
+
+  const normalizedColor = normalizeColor(color);
+  
+  if (!normalizedColor) {
+    throw new Error(`Invalid color: ${color}`);
+  }
+
+  return TEAM_1_COLORS.includes(normalizedColor as any) ? 1 : 2;
+}
 
 /**
  * Normalizes color string to match one of the PLAYER_COLORS
