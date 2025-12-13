@@ -18,6 +18,24 @@ import { COLOR_MAP, getColorHex } from '~/utils/colorUtils';
 import type { PieceType } from '~/types/board';
 import { useNavigate } from '@solidjs/router';
 import { moveEventService } from '~/lib/server/events/move-events';
+
+interface RestrictedByInfo {
+  basePointId: string;
+  basePointX: number;
+  basePointY: number;
+}
+
+interface RestrictedSquareInfo {
+  index: number;
+  x: number;
+  y: number;
+  canCapture?: boolean;
+  originX?: number;
+  originY?: number;
+  pieceType?: string;
+  team?: number;
+  restrictedBy?: RestrictedByInfo[];
+}
 import { PLAYER_COLORS, type PlayerColor, isInNonPlayableCorner as isInNonPlayableCornerUtil, normalizeColor, getCurrentPlayerColor } from '~/constants/game';
 import { basePointEventService } from '~/lib/server/events/base-point-events';
 import { GridCell } from './GridCell';
@@ -345,6 +363,224 @@ const isInNonPlayableCorner = isInNonPlayableCornerUtil;
 
 interface BoardProps {
   gameId?: string;
+}
+
+// Helper function to handle moves from historical positions
+async function handleHistoricalMove(
+  startX: number,
+  startY: number,
+  targetX: number,
+  targetY: number,
+  pointToMove: BasePoint,
+  currentIndex: number,
+  history: Move[],
+  remainingMoves: Move[],
+  currentBranchName: () => string | null,
+  mainLineMoves: () => Move[],
+  fullMoveHistory: () => Move[],
+  setCurrentBranchName: (name: string) => void,
+  setBasePoints: (points: BasePoint[]) => void,
+  setCurrentTurnIndex: (index: number) => void,
+  setRestrictedSquares: (squares: number[]) => void,
+  setRestrictedSquaresInfo: (info: RestrictedSquareInfo[]) => void,
+  setMoveHistory: (history: Move[]) => void,
+  setCurrentMoveIndex: (updater: number | ((prev: number) => number)) => void,
+  cleanupDragState: () => void,
+  basePoints: () => BasePoint[],
+  currentTurnIndex: () => number,
+  getLegalMoves: (piece: BasePoint, board: BasePoint[]) => Array<{x: number, y: number, canCapture: boolean}>,
+  BOARD_CONFIG: { GRID_SIZE: number }
+): Promise<boolean> {
+  console.log(`[Branch] Current position: move ${currentIndex + 1} of ${history.length}`);
+  console.log(`[Branch] Current branch: ${currentBranchName() || 'main'}`);
+  
+  // Log all remaining moves for debugging
+  console.log(`[Branch] Remaining moves (${remainingMoves.length}):`, 
+    JSON.stringify(remainingMoves.map((m, i) => ({
+      index: currentIndex + 1 + i,
+      from: [m.fromX, m.fromY],
+      to: [m.toX, m.toY],
+      branch: m.branchName || 'main',
+      moveNum: m.moveNumber,
+      type: m.pieceType,
+      id: m.id,
+      basePointId: m.basePointId
+    })), null, 2)
+  );
+
+  // Find the next move in the main line
+  const nextMoveInMainLine = remainingMoves.find(move => 
+    !move.branchName || move.branchName === 'main'
+  );
+  const nextMoveIdx = nextMoveInMainLine ? history.indexOf(nextMoveInMainLine) : -1;
+  
+  console.log(`[Branch] Next main line move at index: ${nextMoveIdx} (${nextMoveInMainLine ? 'found' : 'not found'})`);
+  
+  if (nextMoveInMainLine) {
+    console.log(`[Branch] Next main line move:`, {
+      from: [nextMoveInMainLine.fromX, nextMoveInMainLine.fromY],
+      to: [nextMoveInMainLine.toX, nextMoveInMainLine.toY],
+      branch: nextMoveInMainLine.branchName || 'main',
+      moveNumber: nextMoveInMainLine.moveNumber,
+      indexInHistory: nextMoveIdx
+    });
+  }
+  
+  console.log(`[Branch] Attempting move:`, {
+    from: [startX, startY],
+    to: [targetX, targetY],
+    currentBranch: currentBranchName() || 'main',
+    isBranching: false
+  });
+
+  // Check if the current move matches the main line move at this position
+  const nextMainLineMove = mainLineMoves().find(move => 
+    move.moveNumber > (fullMoveHistory()[currentIndex]?.moveNumber || 0) &&
+    move.branchName === 'main'
+  );
+  
+  const isMainLineMove = nextMainLineMove && 
+    nextMainLineMove.fromX === startX &&
+    nextMainLineMove.fromY === startY &&
+    nextMainLineMove.toX === targetX &&
+    nextMainLineMove.toY === targetY;
+    
+  console.log('[Branch] Checking against main line move:', {
+    currentMoveNumber: fullMoveHistory()[currentIndex]?.moveNumber || 0,
+    nextMainLineMove: nextMainLineMove ? {
+      moveNumber: nextMainLineMove.moveNumber,
+      from: [nextMainLineMove.fromX, nextMainLineMove.fromY],
+      to: [nextMainLineMove.toX, nextMainLineMove.toY],
+      piece: nextMainLineMove.pieceType
+    } : 'No main line move found',
+    actualMove: {
+      from: [startX, startY],
+      to: [targetX, targetY],
+      piece: pointToMove.pieceType
+    },
+    isMatch: isMainLineMove ? '✅' : '❌',
+    mainLineMoves: mainLineMoves().map(m => ({
+      moveNumber: m.moveNumber,
+      from: [m.fromX, m.fromY],
+      to: [m.toX, m.toY],
+      branch: m.branchName
+    }))
+  });
+  
+  if (isMainLineMove) {
+    console.log(`[Branch] ✅ Move matches main line at index ${currentIndex + 1}`);
+    
+    // Get the next main line move
+    const nextMainLineMove = mainLineMoves().find(move => 
+      move.moveNumber > (fullMoveHistory()[currentIndex]?.moveNumber || 0)
+    );
+    
+    if (!nextMainLineMove) {
+      console.error('[Branch] No main line move found after current position');
+      cleanupDragState();
+      return true; // Indicate that the move was handled
+    }
+    
+    console.log(`[Branch] Executing main line move:`, {
+      from: [nextMainLineMove.fromX, nextMainLineMove.fromY],
+      to: [nextMainLineMove.toX, nextMainLineMove.toY],
+      moveNumber: nextMainLineMove.moveNumber
+    });
+    
+    // Update the current branch to main
+    setCurrentBranchName('main');
+    
+    // Update the base points to reflect the move
+    const updatedBasePoints = [...basePoints()];
+    const pieceIndex = updatedBasePoints.findIndex(p => 
+      p.x === nextMainLineMove.fromX && p.y === nextMainLineMove.fromY
+    );
+    
+    if (pieceIndex !== -1) {
+      // Move the piece in the UI
+      updatedBasePoints[pieceIndex] = {
+        ...updatedBasePoints[pieceIndex],
+        x: nextMainLineMove.toX,
+        y: nextMainLineMove.toY
+      };
+      setBasePoints(updatedBasePoints);
+      
+      // Update turn to the next player
+      const newTurnIndex = (currentTurnIndex() + 1) % PLAYER_COLORS.length;
+      setCurrentTurnIndex(newTurnIndex);
+      
+      // Recalculate restricted squares for the new player
+      const currentPlayerPieces = updatedBasePoints.filter(p => {
+        const pieceColor = p.color?.toLowerCase();
+        const expectedColor = PLAYER_COLORS[newTurnIndex].toLowerCase();
+        const mappedColor = {
+          'blue': '#2196f3',
+          'red': '#f44336',
+          'yellow': '#ffeb3b',
+          'green': '#4caf50'
+        }[expectedColor] || expectedColor;
+        return pieceColor && (pieceColor === expectedColor || pieceColor === mappedColor);
+      });
+      
+      const newRestrictedSquares: number[] = [];
+      const newRestrictedSquaresInfo: RestrictedSquareInfo[] = [];
+      
+      // Calculate restricted squares for current player's pieces
+      for (const piece of currentPlayerPieces) {
+        const moves = getLegalMoves(piece, updatedBasePoints);
+        
+        for (const move of moves) {
+          const { x, y } = move;
+          const index = y * BOARD_CONFIG.GRID_SIZE + x;
+          
+          if (!newRestrictedSquares.includes(index)) {
+            newRestrictedSquares.push(index);
+          }
+          
+          const existingInfo = newRestrictedSquaresInfo.find(info => 
+            info.x === x && info.y === y
+          );
+          
+          if (existingInfo) {
+            if (!existingInfo.restrictedBy) {
+              existingInfo.restrictedBy = [];
+            }
+            existingInfo.restrictedBy.push({
+              basePointId: piece.id.toString(),
+              basePointX: piece.x,
+              basePointY: piece.y
+            });
+          } else {
+            newRestrictedSquaresInfo.push({
+              index,
+              x,
+              y,
+              restrictedBy: [{
+                basePointId: piece.id.toString(),
+                basePointX: piece.x,
+                basePointY: piece.y
+              }]
+            });
+          }
+        }
+      }
+      
+      // Update the restricted squares state
+      setRestrictedSquares(newRestrictedSquares);
+      setRestrictedSquaresInfo(newRestrictedSquaresInfo);
+    }
+    
+    // Update the move history
+    setMoveHistory([...history, nextMainLineMove]);
+    
+    // Update the current move index
+    setCurrentMoveIndex((prev: number) => prev + 1);
+    
+    cleanupDragState();
+    return true; // Indicate that the move was handled
+  }
+  
+  return false; // Indicate that the move was not handled as a historical move
 }
 
 const Board: Component<BoardProps> = (props) => {
@@ -2075,28 +2311,6 @@ const Board: Component<BoardProps> = (props) => {
     };
   };
 
-  const validateAndGetMove = (
-    startX: number, 
-    startY: number, 
-    targetX: number, 
-    targetY: number
-  ): { isValid: boolean; pointToMove?: BasePoint; error?: string } => {
-    // If no actual movement, no need to validate
-    if (startX === targetX && startY === targetY) {
-      return { isValid: false, error: 'No movement detected' };
-    }
-
-    const pointToMove = validateMoveWithState(startX, startY, targetX, targetY);
-    if (!pointToMove) {
-      return { 
-        isValid: false, 
-        error: 'Invalid move or no piece found to move' 
-      };
-    }
-
-    return { isValid: true, pointToMove };
-  };
-
   // Type guard to check if an event is a MouseEvent
   const isMouseEvent = (e?: MouseEvent | Event): e is MouseEvent => {
     return !!e && 'clientX' in e;
@@ -2173,203 +2387,35 @@ const Board: Component<BoardProps> = (props) => {
           const history = fullMoveHistory();
           const remainingMoves = history.slice(currentIndex + 1);
           
-          console.log(`[Branch] Current position: move ${currentIndex + 1} of ${history.length}`);
-          console.log(`[Branch] Current branch: ${currentBranchName() || 'main'}`);
-          
-          // Log all remaining moves for debugging
-          console.log(`[Branch] Remaining moves (${remainingMoves.length}):`, 
-            JSON.stringify(remainingMoves.map((m, i) => ({
-              index: currentIndex + 1 + i,
-              from: [m.fromX, m.fromY],
-              to: [m.toX, m.toY],
-              branch: m.branchName || 'main',
-              moveNum: m.moveNumber,
-              type: m.pieceType,
-              id: m.id,
-              basePointId: m.basePointId
-            })), null, 2)
+          // Use the handleHistoricalMove helper function
+          const moveHandled = await handleHistoricalMove(
+            startX,
+            startY,
+            targetX,
+            targetY,
+            pointToMove,
+            currentIndex,
+            history,
+            remainingMoves,
+            currentBranchName,
+            mainLineMoves,
+            fullMoveHistory,
+            setCurrentBranchName,
+            setBasePoints,
+            setCurrentTurnIndex,
+            setRestrictedSquares,
+            setRestrictedSquaresInfo,
+            setMoveHistory,
+            setCurrentMoveIndex,
+            cleanupDragState,
+            basePoints,
+            currentTurnIndex,
+            getLegalMoves,
+            BOARD_CONFIG
           );
           
-          // Find the next move in the main line
-          const nextMoveInMainLine = remainingMoves.find(move => 
-            !move.branchName || move.branchName === 'main'
-          );
-          const nextMoveIdx = nextMoveInMainLine ? history.indexOf(nextMoveInMainLine) : -1;
-          
-          console.log(`[Branch] Next main line move at index: ${nextMoveIdx} (${nextMoveInMainLine ? 'found' : 'not found'})`);
-          
-          if (nextMoveInMainLine) {
-            console.log(`[Branch] Next main line move:`, {
-              from: [nextMoveInMainLine.fromX, nextMoveInMainLine.fromY],
-              to: [nextMoveInMainLine.toX, nextMoveInMainLine.toY],
-              branch: nextMoveInMainLine.branchName || 'main',
-              moveNumber: nextMoveInMainLine.moveNumber,
-              indexInHistory: nextMoveIdx
-            });
-          }
-          
-          console.log(`[Branch] Attempting move:`, {
-            from: [startX, startY],
-            to: [targetX, targetY],
-            currentBranch: currentBranchName() || 'main',
-            isBranching: isBranching
-          });
-
-          // Check if the current move matches the main line move at this position
-          // We need to find the next main line move that would come after the current position
-          const nextMainLineMove = mainLineMoves().find(move => 
-            move.moveNumber > (fullMoveHistory()[currentIndex]?.moveNumber || 0) &&
-            move.branchName === 'main'
-          );
-          
-          const isMainLineMove = nextMainLineMove && 
-            nextMainLineMove.fromX === startX &&
-            nextMainLineMove.fromY === startY &&
-            nextMainLineMove.toX === targetX &&
-            nextMainLineMove.toY === targetY;
-            
-          console.log('[Branch] Checking against main line move:', {
-            currentMoveNumber: fullMoveHistory()[currentIndex]?.moveNumber || 0,
-            nextMainLineMove: nextMainLineMove ? {
-              moveNumber: nextMainLineMove.moveNumber,
-              from: [nextMainLineMove.fromX, nextMainLineMove.fromY],
-              to: [nextMainLineMove.toX, nextMainLineMove.toY],
-              piece: nextMainLineMove.pieceType
-            } : 'No main line move found',
-            actualMove: {
-              from: [startX, startY],
-              to: [targetX, targetY],
-              piece: pointToMove.pieceType
-            },
-            isMatch: isMainLineMove ? '✅' : '❌',
-            mainLineMoves: mainLineMoves().map(m => ({
-              moveNumber: m.moveNumber,
-              from: [m.fromX, m.fromY],
-              to: [m.toX, m.toY],
-              branch: m.branch
-            }))
-          });
-          
-          if (isMainLineMove) {
-            console.log(`[Branch] ✅ Move matches main line at index ${currentIndex + 1}`);
-            
-            // Get the next main line move
-            const nextMainLineMove = mainLineMoves().find(move => 
-              move.moveNumber > (fullMoveHistory()[currentIndex]?.moveNumber || 0)
-            );
-            
-            if (!nextMainLineMove) {
-              console.error('[Branch] No main line move found after current position');
-              cleanupDragState();
-              return;
-            }
-            
-            console.log(`[Branch] Executing main line move:`, {
-              from: [nextMainLineMove.fromX, nextMainLineMove.fromY],
-              to: [nextMainLineMove.toX, nextMainLineMove.toY],
-              moveNumber: nextMainLineMove.moveNumber
-            });
-            
-            // Update the current branch to main
-            setCurrentBranchName('main');
-            
-            // Update the base points to reflect the move
-            const updatedBasePoints = [...basePoints()];
-            const pieceIndex = updatedBasePoints.findIndex(p => 
-              p.x === nextMainLineMove.fromX && p.y === nextMainLineMove.fromY
-            );
-            
-            if (pieceIndex !== -1) {
-              // Move the piece in the UI
-              updatedBasePoints[pieceIndex] = {
-                ...updatedBasePoints[pieceIndex],
-                x: nextMainLineMove.toX,
-                y: nextMainLineMove.toY
-              };
-              setBasePoints(updatedBasePoints);
-              
-              // Update turn to the next player
-              const newTurnIndex = (currentTurnIndex() + 1) % PLAYER_COLORS.length;
-              setCurrentTurnIndex(newTurnIndex);
-              
-              // Recalculate restricted squares for the new player
-              const currentPlayerPieces = updatedBasePoints.filter(p => {
-                const pieceColor = p.color?.toLowerCase();
-                const expectedColor = PLAYER_COLORS[newTurnIndex].toLowerCase();
-                const mappedColor = {
-                  'blue': '#2196f3',
-                  'red': '#f44336',
-                  'yellow': '#ffeb3b',
-                  'green': '#4caf50'
-                }[expectedColor] || expectedColor;
-                return pieceColor && (pieceColor === expectedColor || pieceColor === mappedColor);
-              });
-              
-              const newRestrictedSquares: number[] = [];
-              const newRestrictedSquaresInfo: Array<{
-                index: number;
-                x: number;
-                y: number;
-                restrictedBy: Array<{ 
-                  basePointId: string; 
-                  basePointX: number; 
-                  basePointY: number;
-                }>;
-              }> = [];
-              
-              // Calculate restricted squares for current player's pieces
-              for (const piece of currentPlayerPieces) {
-                const moves = getLegalMoves(piece, updatedBasePoints);
-                
-                for (const move of moves) {
-                  const { x, y } = move;
-                  const index = y * BOARD_CONFIG.GRID_SIZE + x;
-                  
-                  if (!newRestrictedSquares.includes(index)) {
-                    newRestrictedSquares.push(index);
-                  }
-                  
-                  const existingInfo = newRestrictedSquaresInfo.find(info => 
-                    info.x === x && info.y === y
-                  );
-                  
-                  if (existingInfo) {
-                    existingInfo.restrictedBy.push({
-                      basePointId: piece.id.toString(),
-                      basePointX: piece.x,
-                      basePointY: piece.y
-                    });
-                  } else {
-                    newRestrictedSquaresInfo.push({
-                      index,
-                      x,
-                      y,
-                      restrictedBy: [{
-                        basePointId: piece.id.toString(),
-                        basePointX: piece.x,
-                        basePointY: piece.y
-                      }]
-                    });
-                  }
-                }
-              }
-              
-              // Update the restricted squares state
-              setRestrictedSquares(newRestrictedSquares);
-              setRestrictedSquaresInfo(newRestrictedSquaresInfo);
-            }
-            
-            // Update the move history
-            setMoveHistory(prev => {
-              const newHistory = [...prev, nextMainLineMove];
-              return newHistory;
-            });
-            
-            // Update the current move index
-            setCurrentMoveIndex(prev => prev + 1);
-            
-            cleanupDragState();
-            return;
+          if (moveHandled) {
+            return; // Move was handled by the helper function
           } else {
             console.log(`[Branch] ❌ Move does not match main line at index ${currentIndex + 1}`);
 
@@ -2705,6 +2751,7 @@ const Board: Component<BoardProps> = (props) => {
             }`);
             isBranching = true;
             const parentBranch = currentBranchName() || 'main';
+            const nextMoveIdx = (currentIndex + 1) + 1; // currentIndex + 1 for 1-based, then +1 for next move
             branchName = generateBranchName(nextMoveIdx, parentBranch) || `branch-${Date.now()}`;
             
             // Track this branch point
