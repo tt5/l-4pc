@@ -2112,6 +2112,23 @@ const Board: Component<BoardProps> = (props) => {
     return !isProcessingMove() && isMouseEvent(e) && isDragValid();
   };
 
+  // Get and validate the move target and start position
+  const getValidatedMoveTarget = (): { target: [number, number]; startPos: [number, number] } | null => {
+    const target = getMoveTarget();
+    if (!target) {
+      cleanupDragState();
+      return null;
+    }
+
+    const startPos = dragStartPosition();
+    if (!startPos) {
+      cleanupDragState();
+      return null;
+    }
+
+    return { target, startPos };
+  };
+
   // Handle mouse up anywhere on the document to complete dragging
   const handleGlobalMouseUp = async (e?: MouseEvent | Event) => {
     // Prevent multiple simultaneous move processing and validate input
@@ -2122,21 +2139,13 @@ const Board: Component<BoardProps> = (props) => {
     // Set processing flag
     setIsProcessingMove(true);
 
-    // Get the target position for the move
-    const target = getMoveTarget();
-    if (!target) {
-      cleanupDragState();
+    // Get and validate the move target
+    const moveData = getValidatedMoveTarget();
+    if (!moveData) {
       return;
     }
 
-    const [targetX, targetY] = target;
-    const startPos = dragStartPosition();
-    if (!startPos) {
-      cleanupDragState();
-      return;
-    }
-
-    const [startX, startY] = startPos;
+    const { target: [targetX, targetY], startPos: [startX, startY] } = moveData;
     
     // Only proceed if we actually moved to a new cell
     if (startX !== targetX || startY !== targetY) {
