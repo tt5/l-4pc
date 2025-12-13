@@ -2343,6 +2343,59 @@ const Board: Component<BoardProps> = (props) => {
     return { target, startPos };
   };
 
+  // Handle following the main line move
+  const followMainLineMove = async (
+    currentIndex: number,
+    nextMoveNumber: number,
+    mainLineMoves: () => Move[],
+    fullMoveHistory: () => Move[],
+    setCurrentBranchName: (name: string) => void,
+    setFullMoveHistory: (updater: (prev: Move[]) => Move[]) => void,
+    setCurrentMoveIndex: (index: number) => void,
+    setBasePoints: (points: BasePoint[]) => void,
+    basePoints: () => BasePoint[],
+    cleanupDragState: () => void
+  ): Promise<boolean> => {
+    console.log('[Branch] Following main line move');
+    setCurrentBranchName('main');
+    
+    // Find the rest of the main line moves to append
+    const remainingMainLineMoves = mainLineMoves()
+      .filter(m => m.moveNumber >= nextMoveNumber)
+      .sort((a, b) => a.moveNumber - b.moveNumber);
+      
+    if (remainingMainLineMoves.length === 0) {
+      console.log('[Branch] No remaining main line moves to follow');
+      return false;
+    }
+    
+    setFullMoveHistory(prev => [
+      ...prev.slice(0, currentIndex + 1),
+      ...remainingMainLineMoves
+    ]);
+    
+    setCurrentMoveIndex(currentIndex + remainingMainLineMoves.length);
+    
+    // Update board state
+    const newBasePoints = [...basePoints()];
+    remainingMainLineMoves.forEach(move => {
+      const pieceIndex = newBasePoints.findIndex(p => 
+        p.x === move.fromX && p.y === move.fromY
+      );
+      if (pieceIndex !== -1) {
+        newBasePoints[pieceIndex] = {
+          ...newBasePoints[pieceIndex],
+          x: move.toX,
+          y: move.toY
+        };
+      }
+    });
+    
+    setBasePoints(newBasePoints);
+    cleanupDragState();
+    return true;
+  };
+
   // Handle mouse up anywhere on the document to complete dragging
   const handleGlobalMouseUp = async (e?: MouseEvent | Event) => {
     // Prevent multiple simultaneous move processing and validate input
@@ -2432,40 +2485,24 @@ const Board: Component<BoardProps> = (props) => {
                                  nextMainLineMove.toY === targetY;
             
             if (isMainLineMove) {
-              console.log('[Branch] Following main line move');
-              branchName = 'main';
-              setCurrentBranchName('main');
-              isBranching = false;
+              const success = await followMainLineMove(
+                currentIndex,
+                nextMoveNumber,
+                mainLineMoves,
+                fullMoveHistory,
+                setCurrentBranchName,
+                setFullMoveHistory,
+                setCurrentMoveIndex,
+                setBasePoints,
+                basePoints,
+                cleanupDragState
+              );
               
-              // Find the rest of the main line moves to append
-              const remainingMainLineMoves = mainLineMoves()
-                .filter(m => m.moveNumber >= nextMoveNumber)
-                .sort((a, b) => a.moveNumber - b.moveNumber);
-                
-              setFullMoveHistory(prev => [
-                ...prev.slice(0, currentIndex + 1),
-                ...remainingMainLineMoves
-              ]);
-              setCurrentMoveIndex(currentIndex + remainingMainLineMoves.length);
-              
-              // Update board state
-              const newBasePoints = [...basePoints()];
-              remainingMainLineMoves.forEach(move => {
-                const pieceIndex = newBasePoints.findIndex(p => 
-                  p.x === move.fromX && p.y === move.fromY
-                );
-                if (pieceIndex !== -1) {
-                  newBasePoints[pieceIndex] = {
-                    ...newBasePoints[pieceIndex],
-                    x: move.toX,
-                    y: move.toY
-                  };
-                }
-              });
-              setBasePoints(newBasePoints);
-              
-              cleanupDragState();
-              return;
+              if (success) {
+                branchName = 'main';
+                isBranching = false;
+                return;
+              }
             }
             
             // 2. Check if this matches an existing branch from this position
