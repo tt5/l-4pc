@@ -2059,6 +2059,31 @@ const Board: Component<BoardProps> = (props) => {
     return null;
   };
 
+  /**
+   * Validates if a move can be made from start to target coordinates
+   */
+  const validateAndGetMove = (
+    startX: number, 
+    startY: number, 
+    targetX: number, 
+    targetY: number
+  ): { isValid: boolean; pointToMove?: BasePoint; error?: string } => {
+    // If no actual movement, no need to validate
+    if (startX === targetX && startY === targetY) {
+      return { isValid: false, error: 'No movement detected' };
+    }
+
+    const pointToMove = validateMoveWithState(startX, startY, targetX, targetY);
+    if (!pointToMove) {
+      return { 
+        isValid: false, 
+        error: 'Invalid move or no piece found to move' 
+      };
+    }
+
+    return { isValid: true, pointToMove };
+  };
+
   // Handle mouse up anywhere on the document to complete dragging
   const handleGlobalMouseUp = async (e?: MouseEvent | Event) => {
     // Prevent multiple simultaneous move processing
@@ -2094,8 +2119,14 @@ const Board: Component<BoardProps> = (props) => {
     
     // Only proceed if we actually moved to a new cell
     if (startX !== targetX || startY !== targetY) {
-      const pointToMove = validateMoveWithState(startX, startY, targetX, targetY);
-      if (!pointToMove) return;
+      const { isValid, pointToMove, error } = validateAndGetMove(startX, startY, targetX, targetY);
+      if (!isValid || !pointToMove) {
+        if (error) {
+          console.error('Move validation failed:', error);
+        }
+        cleanupDragState();
+        return;
+      }
       
       // Save the current state for potential rollback
       const originalBasePoints = [...basePoints()];
