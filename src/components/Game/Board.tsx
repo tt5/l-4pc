@@ -2097,6 +2097,11 @@ const Board: Component<BoardProps> = (props) => {
     return { isValid: true, pointToMove };
   };
 
+  // Type guard to check if an event is a MouseEvent
+  const isMouseEvent = (e?: MouseEvent | Event): e is MouseEvent => {
+    return !!e && 'clientX' in e;
+  };
+
   // Handle mouse up anywhere on the document to complete dragging
   const handleGlobalMouseUp = async (e?: MouseEvent | Event) => {
     // Prevent multiple simultaneous move processing
@@ -2105,7 +2110,9 @@ const Board: Component<BoardProps> = (props) => {
     }
 
     // Convert to MouseEvent if it's a standard Event
-    const mouseEvent = e && 'clientX' in e ? e : undefined;
+    if (!isMouseEvent(e)) {
+      return;
+    }
     
     if (!isDragging() || !pickedUpBasePoint()) {
       return;
