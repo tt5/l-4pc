@@ -2396,6 +2396,188 @@ const Board: Component<BoardProps> = (props) => {
     return true;
   };
 
+  /**
+   * Updates the restricted squares based on the current board state
+   */
+  const updateRestrictedSquares = (
+    basePoints: BasePoint[],
+    currentPlayerIndex: number,
+    setRestrictedSquares: (squares: number[]) => void,
+    setRestrictedSquaresInfo: (info: RestrictedSquareInfo[]) => void,
+    getLegalMoves: (piece: BasePoint, board: BasePoint[]) => Array<{x: number, y: number, canCapture: boolean}>,
+    boardConfig: { GRID_SIZE: number }
+  ) => {
+    const currentPlayerPieces = basePoints.filter(p => {
+      const pieceColor = p.color?.toLowerCase();
+      const expectedColor = PLAYER_COLORS[currentPlayerIndex].toLowerCase();
+      const mappedColor = {
+        'blue': '#2196f3',
+        'red': '#f44336',
+        'yellow': '#ffeb3b',
+        'green': '#4caf50'
+      }[expectedColor] || expectedColor;
+      return pieceColor && (pieceColor === expectedColor || pieceColor === mappedColor);
+    });
+    
+    const newRestrictedSquares: number[] = [];
+    const newRestrictedSquaresInfo: RestrictedSquareInfo[] = [];
+    
+    // Calculate restricted squares for current player's pieces
+    for (const piece of currentPlayerPieces) {
+      const moves = getLegalMoves(piece, basePoints);
+      
+      for (const move of moves) {
+        const { x, y } = move;
+        const index = y * boardConfig.GRID_SIZE + x;
+        
+        if (!newRestrictedSquares.includes(index)) {
+          newRestrictedSquares.push(index);
+        }
+        
+        const existingInfo = newRestrictedSquaresInfo.find(info => 
+          info.x === x && info.y === y
+        );
+        
+        if (existingInfo) {
+          if (!existingInfo.restrictedBy) {
+            existingInfo.restrictedBy = [];
+          }
+          existingInfo.restrictedBy.push({
+            basePointId: piece.id.toString(),
+            basePointX: piece.x,
+            basePointY: piece.y
+          });
+        } else {
+          newRestrictedSquaresInfo.push({
+            index,
+            x,
+            y,
+            restrictedBy: [{
+              basePointId: piece.id.toString(),
+              basePointX: piece.x,
+              basePointY: piece.y
+            }]
+          });
+        }
+      }
+    }
+    
+    // Update the restricted squares state
+    setRestrictedSquares(newRestrictedSquares);
+    setRestrictedSquaresInfo(newRestrictedSquaresInfo);
+  };
+
+  /**
+   * Handles following an existing branch in the game
+   */
+  const followExistingBranch = async (
+    matchingBranch: { branchName: string; firstMove: Move },
+    currentIndex: number,
+    fullMoveHistory: () => Move[],
+    setCurrentBranchName: (name: string) => void,
+    setMoveHistory: (updater: (prev: Move[]) => Move[]) => void,
+    setBasePoints: (points: BasePoint[]) => void,
+    basePoints: () => BasePoint[],
+    currentTurnIndex: () => number,
+    setCurrentTurnIndex: (index: number) => void,
+    setRestrictedSquares: (squares: number[]) => void,
+    setRestrictedSquaresInfo: (info: RestrictedSquareInfo[]) => void,
+    getLegalMoves: (piece: BasePoint, board: BasePoint[]) => Array<{x: number, y: number, canCapture: boolean}>,
+    cleanupDragState: () => void,
+    boardConfig: { GRID_SIZE: number },
+    startX: number,
+    startY: number,
+    targetX: number,
+    targetY: number
+  ): Promise<boolean> => {
+    const { branchName: matchedBranchName } = matchingBranch;
+    console.log(`[Branch] Found matching branch '${matchedBranchName}' for move`, {
+      from: [startX, startY],
+      to: [targetX, targetY]
+    });
+    
+    // Set the current branch
+    setCurrentBranchName(matchedBranchName);
+    
+    // Get all moves in this branch, sorted by move number
+    const branchMoves = fullMoveHistory()
+      .filter(move => move && move.branchName === matchedBranchName)
+      .sort((a, b) => a.moveNumber - b.moveNumber);
+
+    if (branchMoves.length === 0) {
+      console.error(`[Branch] No moves found in branch '${matchedBranchName}'`);
+      cleanupDragState();
+      return false; // Indicate failure
+    }
+    
+    console.log(`[Branch] Found ${branchMoves.length} moves in branch '${matchedBranchName}'`);
+    
+    // Get the current move number from the main line at the branch point
+    const currentMove = fullMoveHistory()[currentIndex];
+    const currentMoveNumber = currentMove?.moveNumber || 0;
+    
+    // Adjust branch move numbers to be relative to game start
+    const branchMovesToFollow = branchMoves.map((move, index) => ({
+      ...move,
+      moveNumber: currentMoveNumber + index + 1
+    }));
+    
+    // Only take the first move in the branch
+    const firstBranchMove = branchMovesToFollow[0];
+    
+    console.log(`[Branch] Will execute first move only:`, {
+      from: [firstBranchMove.fromX, firstBranchMove.fromY],
+      to: [firstBranchMove.toX, firstBranchMove.toY],
+      moveNumber: firstBranchMove.moveNumber,
+      originalMoveNumber: branchMoves[0].moveNumber,
+      adjusted: true
+    });
+    
+    // Update the move history
+    setMoveHistory(prev => {
+      const newHistory = [
+        ...prev.slice(0, currentIndex + 1),
+        ...branchMovesToFollow
+      ];
+      
+      // Execute only the first move of the branch
+      if (firstBranchMove) {
+        const updatedBasePoints = [...basePoints()];
+        const pieceIndex = updatedBasePoints.findIndex(p => 
+          p.x === firstBranchMove.fromX && p.y === firstBranchMove.fromY
+        );
+        
+        if (pieceIndex !== -1) {
+          // Move the piece
+          updatedBasePoints[pieceIndex] = {
+            ...updatedBasePoints[pieceIndex],
+            x: firstBranchMove.toX,
+            y: firstBranchMove.toY
+          };
+          setBasePoints(updatedBasePoints);
+          
+          // Update turn to the next player
+          const newTurnIndex = (currentTurnIndex() + 1) % PLAYER_COLORS.length;
+          setCurrentTurnIndex(newTurnIndex);
+          
+          // Recalculate restricted squares for the new player
+          updateRestrictedSquares(
+            updatedBasePoints,
+            newTurnIndex,
+            setRestrictedSquares,
+            setRestrictedSquaresInfo,
+            getLegalMoves,
+            boardConfig
+          );
+        }
+      }
+      
+      return newHistory;
+    });
+    
+    return true; // Indicate success
+  };
+
   // Handle mouse up anywhere on the document to complete dragging
   const handleGlobalMouseUp = async (e?: MouseEvent | Event) => {
     // Prevent multiple simultaneous move processing and validate input
@@ -2508,16 +2690,6 @@ const Board: Component<BoardProps> = (props) => {
             // 2. Check if this matches an existing branch from this position
             const currentBranches = branchPoints()[currentIndex] || [];
             
-            // Enhanced logging with collapsible groups
-            console.group(`[Branch] Move ${currentIndex + 1} of ${moveHistory().length} (${currentBranchName() || 'main'})`);
-            console.log('Current position:', [startX, startY], '→', [targetX, targetY]);
-            console.log('Available branches:', currentBranches.map(b => ({
-              branch: b.branchName,
-              from: [b.firstMove.fromX, b.firstMove.fromY],
-              to: [b.firstMove.toX, b.firstMove.toY]
-            })));
-            console.groupEnd();
-            
             // Find a matching branch for this move
             const matchingBranch = currentBranches.find(branch => {
               const move = branch.firstMove;
@@ -2528,203 +2700,31 @@ const Board: Component<BoardProps> = (props) => {
             });
             
             if (matchingBranch) {
-              const { branchName: matchedBranchName } = matchingBranch;
-              console.log(`[Branch] Found matching branch '${matchedBranchName}' for move`, {
-                from: [startX, startY],
-                to: [targetX, targetY]
-              });
+              const success = await followExistingBranch(
+                matchingBranch,
+                currentIndex,
+                fullMoveHistory,
+                setCurrentBranchName,
+                setMoveHistory,
+                setBasePoints,
+                basePoints,
+                currentTurnIndex,
+                setCurrentTurnIndex,
+                setRestrictedSquares,
+                setRestrictedSquaresInfo,
+                getLegalMoves,
+                cleanupDragState,
+                BOARD_CONFIG,
+                startX,
+                startY,
+                targetX,
+                targetY
+              );
               
-              // Set the current branch
-              setCurrentBranchName(matchedBranchName);
-              isBranching = false;
-              
-              // Get all moves in this branch, sorted by move number
-              const branchMoves = fullMoveHistory()
-                .filter(move => move && move.branchName === matchedBranchName)
-                .sort((a, b) => a.moveNumber - b.moveNumber);
-
-              if (branchMoves.length === 0) {
-                console.error(`[Branch] No moves found in branch '${matchedBranchName}'`);
-                cleanupDragState();
-                return; // Exit without making a move if no moves are found
+              if (success) {
+                isBranching = false;
+                return; // Exit early since we've handled the branch following
               }
-              
-              console.log(`[Branch] Found ${branchMoves.length} moves in branch '${matchedBranchName}'`);
-              
-              // Get the current move number from the main line at the branch point
-              const currentMove = fullMoveHistory()[currentIndex];
-              const currentMoveNumber = currentMove?.moveNumber || 0;
-              
-              // Adjust branch move numbers to be relative to game start
-              const branchMovesToFollow = branchMoves.map((move, index) => ({
-                ...move,
-                moveNumber: currentMoveNumber + index + 1
-              }));
-              
-              // Only take the first move in the branch
-              const firstBranchMove = branchMovesToFollow[0];
-              
-              console.log(`[Branch] Will execute first move only:`, {
-                from: [firstBranchMove.fromX, firstBranchMove.fromY],
-                to: [firstBranchMove.toX, firstBranchMove.toY],
-                moveNumber: firstBranchMove.moveNumber,
-                originalMoveNumber: branchMoves[0].moveNumber,
-                adjusted: true
-              });
-              
-              console.log(`[Branch] Following ${1} move in branch '${matchedBranchName}'`);
-              console.log('[Branch] Current move history:', JSON.stringify(fullMoveHistory().map(m => ({
-                from: [m.fromX, m.fromY],
-                to: [m.toX, m.toY],
-                moveNumber: m.moveNumber,
-                branch: m.branchName || 'main',
-                id: m.id
-              })), null, 2));
-              
-              // Get the branch point move to use as reference for move numbers
-              const branchPointMove = fullMoveHistory()[currentIndex];
-              const branchPointMoveNumber = branchPointMove?.moveNumber || 0;
-              
-              // Adjust branch move numbers to be relative to the branch point
-              const adjustedBranchMoves = branchMovesToFollow.map((move, index) => ({
-                ...move,
-                moveNumber: branchPointMoveNumber + index + 1
-              }));
-              
-              console.log('[Branch] Adjusted branch move numbers:', JSON.stringify({
-                branchPointMoveNumber,
-                adjustedMoves: adjustedBranchMoves.map(m => ({
-                  from: [m.fromX, m.fromY],
-                  to: [m.toX, m.toY],
-                  moveNumber: m.moveNumber
-                }))
-              }, null, 2));
-              
-              // Keep the original move numbers in fullMoveHistory
-              // Only update the current move history with adjusted move numbers
-              
-              // First, update the move history
-              setMoveHistory(prev => {
-                const newHistory = [
-                  ...prev.slice(0, currentIndex + 1),
-                  ...adjustedBranchMoves
-                ];
-                
-                console.log('[Branch] Added branch moves to history:', {
-                  branchPoint: currentIndex,
-                  branchMoves: adjustedBranchMoves.length,
-                  totalMoves: newHistory.length
-                });
-                
-                console.log('[Branch] Move history after update:', 
-                  JSON.stringify(newHistory.map(m => ({
-                    from: [m.fromX, m.fromY],
-                    to: [m.toX, m.toY],
-                    moveNumber: m.moveNumber,
-                    branch: m.branchName || 'main'
-                  })), null, 2)
-                );
-                
-                // Execute only the first move of the branch
-                const firstMove = adjustedBranchMoves[0];
-                if (firstMove) {
-                  const updatedBasePoints = [...basePoints()];
-                  const pieceIndex = updatedBasePoints.findIndex(p => 
-                    p.x === firstMove.fromX && p.y === firstMove.fromY
-                  );
-                  
-                  if (pieceIndex !== -1) {
-                    console.log(`[Branch] Moving piece from [${firstMove.fromX},${firstMove.fromY}] to [${firstMove.toX},${firstMove.toY}]`);
-                    updatedBasePoints[pieceIndex] = {
-                      ...updatedBasePoints[pieceIndex],
-                      x: firstMove.toX,
-                      y: firstMove.toY
-                    };
-                    setBasePoints(updatedBasePoints);
-                    
-                    // Update turn to the next player
-                    const newTurnIndex = (currentTurnIndex() + 1) % PLAYER_COLORS.length;
-                    setCurrentTurnIndex(newTurnIndex);
-                    console.log(`[Branch] Turn updated to player ${newTurnIndex} (${PLAYER_COLORS[newTurnIndex]})`);
-                    
-                    // Recalculate restricted squares for the new player
-                    const currentPlayerPieces = updatedBasePoints.filter(p => {
-                      const pieceColor = p.color?.toLowerCase();
-                      const expectedColor = PLAYER_COLORS[newTurnIndex].toLowerCase();
-                      const mappedColor = {
-                        'blue': '#2196f3',
-                        'red': '#f44336',
-                        'yellow': '#ffeb3b',
-                        'green': '#4caf50'
-                      }[expectedColor] || expectedColor;
-                      return pieceColor && (pieceColor === expectedColor || pieceColor === mappedColor);
-                    });
-                    
-                    const newRestrictedSquares: number[] = [];
-                    const newRestrictedSquaresInfo: Array<{
-                      index: number;
-                      x: number;
-                      y: number;
-                      restrictedBy: Array<{ 
-                        basePointId: string; 
-                        basePointX: number; 
-                        basePointY: number;
-                      }>;
-                    }> = [];
-                    
-                    // Calculate restricted squares for current player's pieces
-                    for (const piece of currentPlayerPieces) {
-                      const moves = getLegalMoves(piece, updatedBasePoints);
-                      
-                      for (const move of moves) {
-                        const { x, y } = move;
-                        const index = y * BOARD_CONFIG.GRID_SIZE + x;
-                        
-                        if (!newRestrictedSquares.includes(index)) {
-                          newRestrictedSquares.push(index);
-                        }
-                        
-                        const existingInfo = newRestrictedSquaresInfo.find(info => 
-                          info.x === x && info.y === y
-                        );
-                        
-                        if (existingInfo) {
-                          existingInfo.restrictedBy.push({
-                            basePointId: piece.id.toString(),
-                            basePointX: piece.x,
-                            basePointY: piece.y
-                          });
-                        } else {
-                          newRestrictedSquaresInfo.push({
-                            index,
-                            x,
-                            y,
-                            restrictedBy: [{
-                              basePointId: piece.id.toString(),
-                              basePointX: piece.x,
-                              basePointY: piece.y
-                            }]
-                          });
-                        }
-                      }
-                    }
-                    
-                    // Update the restricted squares state
-                    setRestrictedSquares(newRestrictedSquares);
-                    setRestrictedSquaresInfo(newRestrictedSquaresInfo);
-                  }
-                  
-                  // Only increment move index by 1 since we're only doing one move
-                  setCurrentMoveIndex(currentIndex + 1);
-                } else {
-                  setCurrentMoveIndex(currentIndex);
-                }
-                
-                return newHistory;
-              });
-              
-              cleanupDragState();
-              return; // Exit early since we've handled the branch following
             }
             
             // Only proceed to branch creation if we didn't find a matching branch
