@@ -2107,11 +2107,15 @@ const Board: Component<BoardProps> = (props) => {
     return isDragging() && !!pickedUpBasePoint();
   };
 
+  // Check if mouse up event should be processed
+  const shouldProcessMouseUp = (e?: MouseEvent | Event): boolean => {
+    return !isProcessingMove() && isMouseEvent(e) && isDragValid();
+  };
 
   // Handle mouse up anywhere on the document to complete dragging
   const handleGlobalMouseUp = async (e?: MouseEvent | Event) => {
     // Prevent multiple simultaneous move processing and validate input
-    if (isProcessingMove() || !isMouseEvent(e) || !isDragValid()) {
+    if (!shouldProcessMouseUp(e)) {
       return;
     }
 
