@@ -2062,6 +2062,19 @@ const Board: Component<BoardProps> = (props) => {
   /**
    * Validates if a move can be made from start to target coordinates
    */
+  /**
+   * Saves the current game state for potential rollback
+   */
+  const saveCurrentStateForRollback = () => {
+    return {
+      basePoints: [...basePoints()],
+      restrictedSquares: [...getRestrictedSquares()],
+      restrictedSquaresInfo: [...restrictedSquaresInfo()],
+      moveHistory: [...fullMoveHistory()],
+      currentMoveIndex: currentMoveIndex()
+    };
+  };
+
   const validateAndGetMove = (
     startX: number, 
     startY: number, 
@@ -2129,9 +2142,7 @@ const Board: Component<BoardProps> = (props) => {
       }
       
       // Save the current state for potential rollback
-      const originalBasePoints = [...basePoints()];
-      const originalRestrictedSquares = [...getRestrictedSquares()];
-      const originalRestrictedSquaresInfo = [...restrictedSquaresInfo()];
+      const originalState = saveCurrentStateForRollback();
       
       try {
 
@@ -2911,9 +2922,9 @@ const Board: Component<BoardProps> = (props) => {
       } catch (error) {
         // Handle errors and revert to original state
         console.error('Error during move:', error);
-        setBasePoints(originalBasePoints);
-        setRestrictedSquares(originalRestrictedSquares);
-        setRestrictedSquaresInfo(originalRestrictedSquaresInfo);
+        setBasePoints(originalState.basePoints);
+        setRestrictedSquares(originalState.restrictedSquares);
+        setRestrictedSquaresInfo(originalState.restrictedSquaresInfo);
         setError(error instanceof Error ? error.message : 'Failed to place base point');
         throw error; // Re-throw to trigger the finally block
       } finally {
