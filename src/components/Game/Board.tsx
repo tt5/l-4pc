@@ -1,6 +1,5 @@
 import { 
   type Component, 
-  type ParentProps,
   createEffect, 
   createSignal,
   batch, 
@@ -15,9 +14,9 @@ import {
   Setter
 } from 'solid-js';
 import { COLOR_MAP, getColorHex } from '~/utils/colorUtils';
-import type { PieceType } from '~/types/board';
 import { useNavigate } from '@solidjs/router';
 import { moveEventService } from '~/lib/server/events/move-events';
+import type { PieceType } from '~/types/board';
 
 interface RestrictedByInfo {
   basePointId: string;
@@ -61,21 +60,15 @@ import styles from './Board.module.css';
 import { BOARD_CONFIG, DEFAULT_GAME_ID } from '~/constants/game';
 import { useAuth } from '~/contexts/AuthContext';
 
+import { getTeamByColor } from '~/constants/game';
+
 // Type guard for PieceType
 const isValidPieceType = (str: string): str is PieceType => {
   return ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king'].includes(str);
 };
 
-// Import team-related utilities
-import { getTeamByColor } from '~/constants/game';
-
 const isSquareOccupied = (x: number, y: number, basePoints: BasePoint[]): boolean => {
   return basePoints.some(bp => bp.x === x && bp.y === y);
-};
-
-const isTeammate = (x: number, y: number, team: number, basePoints: BasePoint[]): boolean => {
-  const point = basePoints.find(bp => bp.x === x && bp.y === y);
-  return point ? getTeamByColor(point.color) === team : false;
 };
 
 const getSquaresInDirection = (
@@ -584,7 +577,6 @@ async function handleHistoricalMove(
 }
 
 const Board: Component<BoardProps> = (props) => {
-  const { gameId: initialGameId = 'default' } = props;
   const auth = useAuth();
   const navigate = useNavigate();
   const [gameId, setGameId] = createSignal<string>(props.gameId || DEFAULT_GAME_ID);
