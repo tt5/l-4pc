@@ -2107,6 +2107,7 @@ const Board: Component<BoardProps> = (props) => {
     return isDragging() && !!pickedUpBasePoint();
   };
 
+
   // Handle mouse up anywhere on the document to complete dragging
   const handleGlobalMouseUp = async (e?: MouseEvent | Event) => {
     // Prevent multiple simultaneous move processing and validate input
@@ -2135,7 +2136,7 @@ const Board: Component<BoardProps> = (props) => {
     
     // Only proceed if we actually moved to a new cell
     if (startX !== targetX || startY !== targetY) {
-      const { isValid, pointToMove, error } = validateAndGetMove(startX, startY, targetX, targetY);
+      const { isValid, pointToMove, error } = validateMove(startX, startY, targetX, targetY);
       if (!isValid || !pointToMove) {
         if (error) {
           console.error('Move validation failed:', error);
