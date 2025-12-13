@@ -1428,292 +1428,217 @@ const Board: Component<BoardProps> = (props) => {
     setCurrentTurnIndex(0);
   };
 
-  // Handle going back one move in history
+  /**
+   * Replays moves on the board up to a specific index
+   */
+  const replayMoves = (moves: Move[], endIndex: number): BasePoint[] => {
+    const positionMap = new Map<string, BasePoint>();
+    
+    // Initialize with a fresh copy of the initial board state
+    INITIAL_BASE_POINTS.forEach(point => {
+      positionMap.set(`${point.x},${point.y}`, { ...point });
+    });
+
+    // Replay each move up to the target index
+    for (let i = 0; i <= endIndex; i++) {
+      const move = moves[i];
+      if (!move) {
+        console.warn(`[BackNav] Missing move at index ${i}`);
+        continue;
+      }
+
+      const { fromX, fromY, toX, toY, pieceType, id: moveId, moveNumber } = move;
+      
+      // Validate move coordinates
+      if ([fromX, fromY, toX, toY].some(coord => coord === undefined)) {
+        console.error('[BackNav] Invalid move coordinates:', { move, index: i, moveNumber });
+        continue;
+      }
+
+      const fromKey = `${fromX},${fromY}`;
+      const toKey = `${toX},${toY}`;
+      const piece = positionMap.get(fromKey);
+
+      if (!piece) {
+        console.error(`[BackNav] No piece at source position (${fromX},${fromY}) in move:`, { 
+          move, index: i, moveNumber 
+        });
+        continue;
+      }
+
+      // Handle captures
+      if (positionMap.has(toKey)) {
+        const capturedPiece = positionMap.get(toKey);
+        console.log(`[BackNav] Capturing piece at [${toX},${toY}]:`, capturedPiece);
+        positionMap.delete(toKey);
+      }
+
+      // Move the piece
+      const movedPiece: BasePoint = {
+        ...piece,
+        x: toX!,
+        y: toY!,
+        pieceType: (pieceType && isValidPieceType(pieceType)) ? pieceType : piece.pieceType,
+        hasMoved: true
+      };
+
+      positionMap.delete(fromKey);
+      positionMap.set(toKey, movedPiece);
+      
+      console.log(`[BackNav] Applied move ${i+1}/${endIndex+1}: [${fromX},${fromY}]→[${toX},${toY}]`);
+    }
+
+    return Array.from(positionMap.values());
+  };
+
+  /**
+   * Updates branch information when navigating move history
+   */
+  const updateBranchInfo = (history: Move[], targetIndex: number) => {
+    if (targetIndex < 0) {
+      setCurrentBranchName(null);
+      return;
+    }
+
+    const targetMove = history[targetIndex];
+    setCurrentBranchName(targetMove.branchName || null);
+
+    // Check if we're returning to main line from a branch
+    const isReturningFromBranch = currentBranchName() && (!targetMove.branchName || targetMove.branchName === 'main');
+    
+    if (isReturningFromBranch) {
+      // Find next main line move after the target move
+      for (let i = targetIndex + 1; i < history.length; i++) {
+        const move = history[i];
+        if (!move.branchName || move.branchName === 'main') {
+          console.log('[BackNav] Returning to main line, next main line move is at index', i, { move });
+          setCurrentMainLineMove({ index: i, move });
+          break;
+        }
+      }
+    }
+  };
+
+  /**
+   * Calculates restricted squares for the current player
+   */
+  const calculateRestrictedSquares = (pieces: BasePoint[], boardState: BasePoint[]) => {
+    const restrictedSquares: number[] = [];
+    const restrictedSquaresInfo: Array<{
+      index: number;
+      x: number;
+      y: number;
+      restrictedBy: Array<{ basePointId: string; basePointX: number; basePointY: number }>;
+    }> = [];
+
+    for (const piece of pieces) {
+      const moves = getLegalMoves(piece, boardState);
+      
+      for (const { x, y } of moves) {
+        const index = y * BOARD_CONFIG.GRID_SIZE + x;
+        
+        if (!restrictedSquares.includes(index)) {
+          restrictedSquares.push(index);
+        }
+        
+        const existingInfo = restrictedSquaresInfo.find(info => info.x === x && info.y === y);
+        const restrictionInfo = {
+          basePointId: String(piece.id),
+          basePointX: piece.x,
+          basePointY: piece.y
+        };
+        
+        if (existingInfo) {
+          existingInfo.restrictedBy.push(restrictionInfo);
+        } else {
+          restrictedSquaresInfo.push({
+            index,
+            x,
+            y,
+            restrictedBy: [restrictionInfo]
+          });
+        }
+      }
+    }
+
+    return { restrictedSquares, restrictedSquaresInfo };
+  };
+
+  /**
+   * Handles errors during move history navigation
+   */
+  const handleNavigationError = (error: unknown) => {
+    console.error('[BackNav] Error during navigation:', error);
+    setError('Failed to navigate. Please try again.');
+    
+    // Reset to a known good state
+    setCurrentMoveIndex(-1);
+    setMoveHistory([]);
+    setBasePoints([...INITIAL_BASE_POINTS]);
+    setCurrentTurnIndex(0);
+    setRestrictedSquares([]);
+    setRestrictedSquaresInfo([]);
+  };
+
+  /**
+   * Handles going back one move in history
+   */
   const handleGoBack = async () => {
     const currentIndex = currentMoveIndex();
-    const history = fullMoveHistory();
+    const history = [...fullMoveHistory()]; // Create a copy of the move history array
     
     if (history.length === 0 || currentIndex === -1) {
       return;
     }
 
     const newIndex = currentIndex - 1;
-    const currentMove = history[currentIndex];
-    const targetMove = newIndex >= 0 ? history[newIndex] : null;
-    
-    if (!targetMove) {
-      // Reset to initial state when going back to the beginning
-      resetBoardToInitialState();
-      return;
-    }
     
     try {
-      // Start with a fresh copy of the initial board state
-      const newBasePoints = JSON.parse(JSON.stringify(INITIAL_BASE_POINTS));
-      const positionMap = new Map<string, BasePoint>();
+      // 1. Replay all moves up to the target index
+      const updatedBasePoints = replayMoves(history, newIndex);
       
-      // Initialize position map with initial pieces from the fresh copy
-      newBasePoints.forEach((point: BasePoint) => {
-        positionMap.set(`${point.x},${point.y}`, { ...point });
-      });
-      
-      // Replay each move up to the new index
-      for (let i = 0; i <= newIndex; i++) {
-        const move = history[i];
-        
-        // Skip if move is undefined
-        if (!move) {
-          console.warn(`[BackNav] Missing move at index ${i}`);
-          continue;
-        }
-        
-        // Use flat coordinates with null checks
-        const fromX = move.fromX;
-        const fromY = move.fromY;
-        const toX = move.toX;
-        const toY = move.toY;
-        const pieceType = move.pieceType;
-        
-        // Skip if we don't have valid coordinates
-        if (fromX === undefined || fromY === undefined || toX === undefined || toY === undefined) {
-          console.error('[BackNav] Invalid move coordinates:', { 
-            move, 
-            index: i,
-            id: move.id,
-            moveNumber: move.moveNumber
-          });
-          continue;
-        }
-        
-        const fromKey = `${fromX},${fromY}`;
-        const toKey = `${toX},${toY}`;
-        
-        // Find the piece being moved
-        const piece = positionMap.get(fromKey);
-        if (!piece) {
-          console.error(`[BackNav] No piece found at source position (${fromX},${fromY}) in move:`, { 
-            move,
-            index: i,
-            id: move.id,
-            moveNumber: move.moveNumber,
-            positionMap: Array.from(positionMap.entries())
-          });
-          continue;
-        }
-        
-        // Check for capture first (before we move the piece)
-        if (positionMap.has(toKey)) {
-          const capturedPiece = positionMap.get(toKey);
-          console.log(`[BackNav] Capturing piece at [${toX},${toY}]:`, capturedPiece);
-          positionMap.delete(toKey);
-        }
-        
-        // Create a new piece object with updated position and type
-        const movedPiece: BasePoint = {
-          ...piece,
-          x: toX,
-          y: toY,
-          pieceType: (pieceType && isValidPieceType(pieceType)) ? pieceType : piece.pieceType,
-          hasMoved: true
-        };
-        
-        // Remove the piece from its old position and place it in the new position
-        positionMap.delete(fromKey);
-        positionMap.set(toKey, movedPiece);
-        
-        console.log(`[BackNav] Applied move ${i+1}/${newIndex+1}: [${fromX},${fromY}]→[${toX},${toY}]`);
-      }
-      
-      // Update the board state with the final positions
-      const updatedBasePoints = Array.from(positionMap.values());
-      
-      // Update the board state
+      // 2. Update board state and move index
       setBasePoints(updatedBasePoints);
       setCurrentMoveIndex(newIndex);
       
-      // Update the current branch name based on the move we're going to
-      if (newIndex >= 0) {
-        const targetMove = history[newIndex];
-        const newBranch = targetMove.branchName || 'main';
-        const isReturningToMain = !targetMove.branchName || targetMove.branchName === 'main';
-        
-        // Find next main line move after the target move
-        const isReturningFromBranch = currentBranchName() && (!targetMove.branchName || targetMove.branchName === 'main');
-        
-        // Find the next main line move, which could be after some branch moves
-        let nextMainLineMove;
-        let nextMainLineIndex = -1;
-        
-        // Look ahead in history for the next main line move
-        for (let i = newIndex + 1; i < history.length; i++) {
-          const move = history[i];
-          if (!move.branchName || move.branchName === 'main') {
-            nextMainLineMove = move;
-            nextMainLineIndex = i;
-            break;
-          }
-        }
-        
-        // If we're returning to main line, store the next main line move
-        if (isReturningFromBranch && nextMainLineMove) {
-          console.log('[BackNav] Returning to main line, next main line move is at index', nextMainLineIndex, {
-            move: nextMainLineMove
-          });
-          // Store the next main line move info for use in move validation
-          setCurrentMainLineMove({
-            index: nextMainLineIndex,
-            move: nextMainLineMove
-          });
-        }
-        
-        setCurrentBranchName(targetMove.branchName || null);
-      } else {
-        setCurrentBranchName(null);
-      }
+      // 3. Update branch information
+      updateBranchInfo(history, newIndex);
       
-      // Update turn index - next player's turn (since the move at newIndex was just applied)
+      // 4. Update turn index (next player's turn)
       const newTurnIndex = (newIndex + 1) % PLAYER_COLORS.length;
       setCurrentTurnIndex(newTurnIndex);
       
-      // Use the shared color map from gameUtils
-
-      // Get the current player's color, converting from color name to hex if needed
+      // 5. Get current player's pieces
       const playerColorName = PLAYER_COLORS[newTurnIndex].toLowerCase();
-      const currentPlayerColor = getColorHex(playerColorName);
+      const currentPlayerPieces = updatedBasePoints.filter(p => 
+        p.color?.toLowerCase() === playerColorName || 
+        p.color?.toLowerCase() === getColorHex(playerColorName)?.toLowerCase()
+      );
+
+      // 6. Calculate and update restricted squares
+      const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(
+        currentPlayerPieces,
+        updatedBasePoints
+      );
       
-      // Get current player's pieces - use the replayed base points instead of the current state
-      let currentPlayerPieces = updatedBasePoints.filter((p: BasePoint) => {
-        // Normalize both colors for comparison
-        const pieceColor = p.color?.toLowerCase();
-        const targetColor = currentPlayerColor.toLowerCase();
-        const colorName = playerColorName.toLowerCase();
-        
-        return pieceColor && (pieceColor === targetColor || pieceColor === colorName);
-      });
-
+      setRestrictedSquares(restrictedSquares);
+      setRestrictedSquaresInfo(restrictedSquaresInfo);
       
-      
-      const newRestrictedSquares: number[] = [];
-      const newRestrictedSquaresInfo: Array<{
-        index: number;
-        x: number;
-        y: number;
-        restrictedBy: Array<{
-          basePointId: string;
-          basePointX: number;
-          basePointY: number;
-          direction?: string;
-        }>;
-      }> = [];
-
-      // Calculate restricted squares for current player's pieces
-      for (const piece of currentPlayerPieces) {
-        const moves = getLegalMoves(piece, basePoints());
-        
-        for (const move of moves) {
-          const { x, y } = move;
-          const index = y * BOARD_CONFIG.GRID_SIZE + x;
-          
-          if (!newRestrictedSquares.includes(index)) {
-            newRestrictedSquares.push(index);
-          }
-          
-          const existingInfo = newRestrictedSquaresInfo.find((info: { x: number; y: number }) => 
-            info.x === x && info.y === y
-          );
-          
-          if (existingInfo) {
-            existingInfo.restrictedBy.push({
-              basePointId: String(piece.id),
-              basePointX: piece.x,
-              basePointY: piece.y
-            });
-          } else {
-            newRestrictedSquaresInfo.push({
-              index,
-              x,
-              y,
-              restrictedBy: [{
-                basePointId: String(piece.id),
-                basePointX: piece.x,
-                basePointY: piece.y
-              }]
-            });
-          }
-        }
-      }
-
-      // Update the restricted squares state
-      setRestrictedSquares(newRestrictedSquares);
-      setRestrictedSquaresInfo(newRestrictedSquaresInfo);
-
-      // Log the calculated restricted squares
-
-      // Force a re-render to ensure the UI updates with the new restricted squares
+      // 7. Force UI update and recalculate restricted squares with latest state
       await new Promise(resolve => setTimeout(resolve, 0));
       
-      // Re-fetch the latest base points to ensure we have the most up-to-date state
-      const latestBasePoints = basePoints();
+      const finalBoardState = basePoints();
+      const { restrictedSquares: finalSquares, restrictedSquaresInfo: finalSquaresInfo } = 
+        calculateRestrictedSquares(currentPlayerPieces, finalBoardState);
       
-      // Recalculate restricted squares again to ensure they're in sync with the UI
-      const recalculatedRestrictedSquares: number[] = [];
-      const recalculatedRestrictedSquaresInfo: typeof newRestrictedSquaresInfo = [];
-      
-      for (const piece of currentPlayerPieces) {
-        const moves = getLegalMoves(piece, latestBasePoints);
-        
-        for (const move of moves) {
-          const { x, y } = move;
-          const index = y * BOARD_CONFIG.GRID_SIZE + x;
-          
-          if (!recalculatedRestrictedSquares.includes(index)) {
-            recalculatedRestrictedSquares.push(index);
-          }
-          
-          const existingInfo = recalculatedRestrictedSquaresInfo.find(info => 
-            info.x === x && info.y === y
-          );
-          
-          if (existingInfo) {
-            existingInfo.restrictedBy.push({
-              basePointId: String(piece.id),
-              basePointX: piece.x,
-              basePointY: piece.y
-            });
-          } else {
-            recalculatedRestrictedSquaresInfo.push({
-              index,
-              x,
-              y,
-              restrictedBy: [{
-                basePointId: String(piece.id),
-                basePointX: piece.x,
-                basePointY: piece.y
-              }]
-            });
-          }
-        }
-      }
-      
-      // Update with the final calculated restricted squares
-      setRestrictedSquares(recalculatedRestrictedSquares);
-      setRestrictedSquaresInfo(recalculatedRestrictedSquaresInfo);
-
+      setRestrictedSquares(finalSquares);
+      setRestrictedSquaresInfo(finalSquaresInfo);
       
     } catch (error) {
-      console.error('Error in handleGoBack:', error);
-      console.error('[BackNav] Error during back navigation:', error);
-      setError('Failed to go back. Please try again.');
-      
-      // Try to restore to a consistent state
-      setCurrentMoveIndex(-1);
-      setMoveHistory([]);
-      setBasePoints([...INITIAL_BASE_POINTS]);
-      setCurrentTurnIndex(0);
-      setRestrictedSquares([]);
-      setRestrictedSquaresInfo([]);
+      handleNavigationError(error);
     }
   };
+
   const [hoveredSquare, setHoveredSquare] = createSignal<number | null>(null);
   const [kingInCheck, setKingInCheck] = createSignal<{team: 1 | 2, position: [number, number]} | null>(null);
   
