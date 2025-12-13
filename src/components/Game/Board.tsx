@@ -14,7 +14,7 @@ import {
   Accessor,
   Setter
 } from 'solid-js';
-import { COLOR_MAP } from '~/utils/gameUtils';
+import { COLOR_MAP, getColorHex } from '~/utils/colorUtils';
 import type { PieceType } from '~/types/board';
 import { useNavigate } from '@solidjs/router';
 import { moveEventService } from '~/lib/server/events/move-events';
@@ -611,18 +611,10 @@ const Board: Component<BoardProps> = (props) => {
     // Get all kings on the board
     const allKings = allBasePoints.filter(bp => bp.pieceType === 'king');
     
-    // Map color names to hex codes for comparison
-    const colorMap: Record<string, string> = {
-      'red': '#f44336',
-      'blue': '#2196f3',
-      'yellow': '#ffeb3b',
-      'green': '#4caf50'
-    };
-    
     // Find the current player's king
     const currentPlayerKing = allBasePoints.find(bp => {
       const isKing = bp.pieceType === 'king';
-      const currentPlayerHex = colorMap[currentPlayer.toLowerCase()] || currentPlayer.toLowerCase();
+      const currentPlayerHex = getColorHex(currentPlayer);
       const matchesColor = bp.color.toLowerCase() === currentPlayerHex;
       
       return isKing && matchesColor;
@@ -1587,7 +1579,7 @@ const Board: Component<BoardProps> = (props) => {
 
       // Get the current player's color, converting from color name to hex if needed
       const playerColorName = PLAYER_COLORS[newTurnIndex].toLowerCase();
-      const currentPlayerColor = COLOR_MAP[playerColorName] || playerColorName;
+      const currentPlayerColor = getColorHex(playerColorName);
       
       // Get current player's pieces - use the replayed base points instead of the current state
       let currentPlayerPieces = updatedBasePoints.filter((p: BasePoint) => {
@@ -1971,16 +1963,8 @@ const Board: Component<BoardProps> = (props) => {
     const basePoint = basePoints().find(bp => bp.x === x && bp.y === y);
     if (!basePoint) return;
     
-    // Map color names to hex codes for comparison
-    const colorMap: Record<string, string> = {
-      'red': '#f44336',
-      'blue': '#2196f3',
-      'yellow': '#ffeb3b',
-      'green': '#4caf50'
-    };
-    
     const currentTurnColorName = currentPlayerColor();
-    const currentTurnHexColor = colorMap[currentTurnColorName] || currentTurnColorName;
+    const currentTurnHexColor = getColorHex(currentTurnColorName);
     const pieceColor = basePoint.color.toLowerCase();
     
     // Check if it's this player's turn to move (based on piece color)
