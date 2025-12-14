@@ -2028,37 +2028,6 @@ const Board: Component<BoardProps> = (props) => {
     setPickedUpBasePoint([x, y]);
     setDragStartPosition([x, y]);
     setIsDragging(true);
-    
-    // Get all restricted squares and base points
-    const restrictedSquares = getRestrictedSquares();
-    const restrictedInfo = restrictedSquaresInfo();
-    
-    // Get all base points that can be captured (enemy base points)
-    const enemyBasePoints = basePoints()
-      .filter(bp => bp.color.toLowerCase() !== currentTurnHexColor)
-      .map(bp => ({
-        index: bp.y * BOARD_CONFIG.GRID_SIZE + bp.x,
-        x: bp.x,
-        y: bp.y,
-        isBasePoint: true,
-        restrictedBy: [{ basePointX: x, basePointY: y }]
-      }));
-    
-    // Get restricted squares that are visible (restricted by the picked up base point)
-    const visibleRestrictedSquares = [
-      ...restrictedInfo.filter(sq => 
-        sq.restrictedBy.some(r => r.basePointX === x && r.basePointY === y)
-      ),
-      ...enemyBasePoints.filter(bp => 
-        // Only include enemy base points that are in the restricted squares list
-        // or are being restricted by the current base point
-        restrictedSquares.includes(bp.index) ||
-        restrictedInfo.some(sq => 
-          sq.index === bp.index && 
-          sq.restrictedBy.some(r => r.basePointX === x && r.basePointY === y)
-        )
-      )
-    ];
   };
 
   // Helper function to update base point UI during drag
@@ -2534,13 +2503,17 @@ const Board: Component<BoardProps> = (props) => {
           } else {
             console.log(`[Branch] ❌ Move does not match main line at index ${currentIndex + 1}`);
 
-            const currentMove = fullMoveHistory()[currentIndex];
-            const currentMoveNumber = currentMove?.moveNumber || 0;
-            const nextMoveNumber = currentMoveNumber + 1;
+            const nextMoveNumber = currentIndex + 2; // currentIndex is 0-based, moveNumber is 1-based
             
-            // 1. First check if this matches the main line
-            const nextMainLineMove = mainLineMoves().find( m => m.moveNumber === nextMoveNumber);
-
+            // Find the corresponding move in main line that matches both coordinates and move number
+            const nextMainLineMove = mainLineMoves().find(mainMove => 
+              mainMove.moveNumber === nextMoveNumber &&
+              mainMove.fromX === startX && 
+              mainMove.fromY === startY &&
+              mainMove.toX === targetX &&
+              mainMove.toY === targetY
+            );
+            
             if (nextMainLineMove) {
               const success = await followMainLineMove(
                 currentIndex,
@@ -2640,16 +2613,6 @@ const Board: Component<BoardProps> = (props) => {
             const parentBranch = currentBranchName() || 'main';
             const nextMoveIdx = (currentIndex + 1) + 1; // currentIndex + 1 for 1-based, then +1 for next move
             branchName = generateBranchName(nextMoveIdx, parentBranch) || `branch-${Date.now()}`;
-            
-            console.log(`[Branch] Creating new branch point at move ${currentIndex + 1} with branch name: ${branchName}\n${
-              JSON.stringify({
-                from: [startX, startY],
-                to: [targetX, targetY],
-                branchName,
-                parentBranch,
-                currentIndex
-              }, null, 2)
-            }`);
             
             setBranchPoints(prev => {
               // Ensure branchName is never null or undefined
@@ -3091,10 +3054,6 @@ const Board: Component<BoardProps> = (props) => {
     console.log('Square clicked, but base point placement is disabled');
   };
   
-  // Reset board functionality has been moved to BoardControls component
-
-  console.log('Rendering Board. Kings in check:', Object.keys(kingsInCheck()));
-  
   return (
     <div class={styles.board}>
       
@@ -3122,19 +3081,6 @@ const Board: Component<BoardProps> = (props) => {
             
             // Force a state update to ensure the state is cleared
             await new Promise(resolve => setTimeout(resolve, 0));
-            
-            // Log branch points after reset
-            console.log('Branch points after reset:', JSON.stringify({
-              count: branchPoints.length,
-              branches: branchPoints.map(bp => ({
-                id: bp.id,
-                moveNumber: bp.moveNumber,
-                branchName: bp.branchName,
-                from: [bp.fromX, bp.fromY],
-                to: [bp.toX, bp.toY],
-                pieceType: bp.pieceType,
-              }))
-            }, null, 2));
             
             // Log the clean state after reset
             console.log('Board reset complete. New clean state:', JSON.stringify({
