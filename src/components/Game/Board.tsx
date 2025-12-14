@@ -3068,9 +3068,6 @@ const Board: Component<BoardProps> = (props) => {
             // Log the current move history before reset
             console.log('Resetting board. Current move history:', JSON.stringify(fullMoveHistory(), null, 2));
             
-            // Get branch points before clearing state
-            const branchPoints = fullMoveHistory().filter(move => move.isBranch);
-            
             // Clear all state
             setFullMoveHistory([]);
             setCurrentMoveIndex(-1);
@@ -3082,23 +3079,11 @@ const Board: Component<BoardProps> = (props) => {
             // Force a state update to ensure the state is cleared
             await new Promise(resolve => setTimeout(resolve, 0));
             
-            // Log the clean state after reset
-            console.log('Board reset complete. New clean state:', JSON.stringify({
-              fullMoveHistory: [],
-              currentMoveIndex: -1,
-              moveHistory: [],
-              currentTurnIndex: 0,
-              currentBranchName: null
-            }, null, 2));
-            
             // Refresh the base points
             await fetchBasePoints();
             
             // Force another state update
             await new Promise(resolve => setTimeout(resolve, 0));
-            
-            // Log the next move number
-            console.log('Next move number will be:', fullMoveHistory().length + 1);
             
             // Refresh the restricted squares
             const squaresResponse = await fetch('/api/calculate-squares', {
