@@ -1,20 +1,21 @@
 import { 
   type Component, 
-  createEffect, 
+  type Accessor,
+  type Setter,
   createSignal,
-  batch, 
   createMemo,
-  Show,
+  createSelector,
+  createEffect,
+  batch,
   onMount,
   onCleanup,
   on,
-  For,
-  createSelector,
-  Accessor,
-  Setter
+  Show,
+  For
 } from 'solid-js';
-import { COLOR_MAP, getColorHex } from '~/utils/colorUtils';
+
 import { useNavigate } from '@solidjs/router';
+import { COLOR_MAP, getColorHex } from '~/utils/colorUtils';
 import { moveEventService } from '~/lib/server/events/move-events';
 import type { PieceType } from '~/types/board';
 
