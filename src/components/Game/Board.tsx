@@ -702,18 +702,7 @@ const Board: Component<BoardProps> = (props) => {
   // Listen for move events
   createEffect(() => {
     const handleMoveMade = (move: Move) => {
-      // Only add the move if it's not already in the history
-      setMoveHistory(prev => {
-        const exists = prev.some(m => 
-          m.id === move.id || 
-          (m.fromX === move.fromX && 
-           m.fromY === move.fromY && 
-           m.toX === move.toX && 
-           m.toY === move.toY &&
-           m.timestamp === move.timestamp)
-        );
-        return exists ? prev : [...prev, move];
-      });
+      console.log(`[Move] ${JSON.stringify(move)}`);
     };
 
     // Subscribe to move events
@@ -2420,14 +2409,15 @@ const Board: Component<BoardProps> = (props) => {
     // Only take the first move in the branch
     const firstBranchMove = branchMovesToFollow[0];
     
-    // Update the move history
-    setMoveHistory(prev => {
-      const newHistory = [
+    // Batch all state updates together
+    batch(() => {
+      // 1. Update move history
+      setMoveHistory(prev => [
         ...prev.slice(0, currentIndex + 1),
         ...branchMovesToFollow
-      ];
-      
-      // Execute only the first move of the branch
+      ]);
+
+      // 2. Execute only the first move of the branch
       if (firstBranchMove) {
         const updatedBasePoints = [...basePoints()];
         const pieceIndex = updatedBasePoints.findIndex(p => 
@@ -2441,13 +2431,15 @@ const Board: Component<BoardProps> = (props) => {
             x: firstBranchMove.toX,
             y: firstBranchMove.toY
           };
+          
+          // 3. Update board state
           setBasePoints(updatedBasePoints);
           
-          // Update turn to the next player
+          // 4. Update turn to the next player
           const newTurnIndex = (currentTurnIndex() + 1) % PLAYER_COLORS.length;
           setCurrentTurnIndex(newTurnIndex);
           
-          // Recalculate restricted squares for the new player
+          // 5. Recalculate restricted squares for the new player
           updateRestrictedSquares(
             updatedBasePoints,
             newTurnIndex,
@@ -2458,8 +2450,6 @@ const Board: Component<BoardProps> = (props) => {
           );
         }
       }
-      
-      return newHistory;
     });
     
     return true; // Indicate success
