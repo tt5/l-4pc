@@ -19,6 +19,14 @@ const HEX_TO_COLOR: Record<string, PlayerColor> = {
   '#4caf50': 'green'
 } as const;
 
+// Map of color names to their hex values
+export const COLOR_TO_HEX: Record<PlayerColor, string> = {
+  'red': '#f44336',
+  'yellow': '#ffeb3b',
+  'blue': '#2196f3',
+  'green': '#4caf50'
+} as const;
+
 type TeamNumber = 1 | 2;
 
 /**

@@ -1,10 +1,6 @@
 import { 
   type Component, 
-  type Accessor,
-  type Setter,
   createSignal,
-  createMemo,
-  createSelector,
   createEffect,
   batch,
   onMount,
@@ -15,7 +11,7 @@ import {
 } from 'solid-js';
 
 import { useNavigate } from '@solidjs/router';
-import { COLOR_MAP, getColorHex } from '~/utils/colorUtils';
+import { getColorHex } from '~/utils/colorUtils';
 import { moveEventService } from '~/lib/server/events/move-events';
 import type { PieceType } from '~/types/board';
 
@@ -36,8 +32,7 @@ interface RestrictedSquareInfo {
   team?: number;
   restrictedBy?: RestrictedByInfo[];
 }
-import { PLAYER_COLORS, type PlayerColor, isInNonPlayableCorner as isInNonPlayableCornerUtil, normalizeColor, getCurrentPlayerColor } from '~/constants/game';
-import { basePointEventService } from '~/lib/server/events/base-point-events';
+import { PLAYER_COLORS, type PlayerColor, isInNonPlayableCorner as isInNonPlayableCornerUtil, normalizeColor, getCurrentPlayerColor, COLOR_TO_HEX } from '~/constants/game';
 import { GridCell } from './GridCell';
 import { useRestrictedSquares } from '../../contexts/RestrictedSquaresContext';
 import { useFetchBasePoints } from '../../hooks/useFetchBasePoints';
@@ -50,8 +45,6 @@ import {
   createPoint
 } from '../../types/board';
 import { 
-  isBasePoint,
-  gridToWorld,
   updateBasePoint,
   indicesToPoints
 } from '../../utils/boardUtils';
@@ -385,48 +378,13 @@ async function handleHistoricalMove(
   getLegalMoves: (piece: BasePoint, board: BasePoint[]) => Array<{x: number, y: number, canCapture: boolean}>,
   BOARD_CONFIG: { GRID_SIZE: number }
 ): Promise<boolean> {
-  console.log(`[Branch] Current position: move ${currentIndex + 1} of ${history.length}`);
-  console.log(`[Branch] Current branch: ${currentBranchName() || 'main'}`);
   
-  // Log all remaining moves for debugging
-  console.log(`[Branch] Remaining moves (${remainingMoves.length}):`, 
-    JSON.stringify(remainingMoves.map((m, i) => ({
-      index: currentIndex + 1 + i,
-      from: [m.fromX, m.fromY],
-      to: [m.toX, m.toY],
-      branch: m.branchName || 'main',
-      moveNum: m.moveNumber,
-      type: m.pieceType,
-      id: m.id,
-      basePointId: m.basePointId
-    })), null, 2)
-  );
-
   // Find the next move in the main line
   const nextMoveInMainLine = remainingMoves.find(move => 
     !move.branchName || move.branchName === 'main'
   );
   const nextMoveIdx = nextMoveInMainLine ? history.indexOf(nextMoveInMainLine) : -1;
   
-  console.log(`[Branch] Next main line move at index: ${nextMoveIdx} (${nextMoveInMainLine ? 'found' : 'not found'})`);
-  
-  if (nextMoveInMainLine) {
-    console.log(`[Branch] Next main line move:`, {
-      from: [nextMoveInMainLine.fromX, nextMoveInMainLine.fromY],
-      to: [nextMoveInMainLine.toX, nextMoveInMainLine.toY],
-      branch: nextMoveInMainLine.branchName || 'main',
-      moveNumber: nextMoveInMainLine.moveNumber,
-      indexInHistory: nextMoveIdx
-    });
-  }
-  
-  console.log(`[Branch] Attempting move:`, {
-    from: [startX, startY],
-    to: [targetX, targetY],
-    currentBranch: currentBranchName() || 'main',
-    isBranching: false
-  });
-
   // Check if the current move matches the main line move at this position
   const nextMainLineMove = mainLineMoves().find(move => 
     move.moveNumber > (fullMoveHistory()[currentIndex]?.moveNumber || 0) &&
@@ -439,28 +397,6 @@ async function handleHistoricalMove(
     nextMainLineMove.toX === targetX &&
     nextMainLineMove.toY === targetY;
     
-  console.log('[Branch] Checking against main line move:', {
-    currentMoveNumber: fullMoveHistory()[currentIndex]?.moveNumber || 0,
-    nextMainLineMove: nextMainLineMove ? {
-      moveNumber: nextMainLineMove.moveNumber,
-      from: [nextMainLineMove.fromX, nextMainLineMove.fromY],
-      to: [nextMainLineMove.toX, nextMainLineMove.toY],
-      piece: nextMainLineMove.pieceType
-    } : 'No main line move found',
-    actualMove: {
-      from: [startX, startY],
-      to: [targetX, targetY],
-      piece: pointToMove.pieceType
-    },
-    isMatch: isMainLineMove ? '✅' : '❌',
-    mainLineMoves: mainLineMoves().map(m => ({
-      moveNumber: m.moveNumber,
-      from: [m.fromX, m.fromY],
-      to: [m.toX, m.toY],
-      branch: m.branchName
-    }))
-  });
-  
   if (isMainLineMove) {
     console.log(`[Branch] ✅ Move matches main line at index ${currentIndex + 1}`);
     
@@ -474,12 +410,6 @@ async function handleHistoricalMove(
       cleanupDragState();
       return true; // Indicate that the move was handled
     }
-    
-    console.log(`[Branch] Executing main line move:`, {
-      from: [nextMainLineMove.fromX, nextMainLineMove.fromY],
-      to: [nextMainLineMove.toX, nextMainLineMove.toY],
-      moveNumber: nextMainLineMove.moveNumber
-    });
     
     // Update the current branch to main
     setCurrentBranchName('main');
@@ -507,12 +437,7 @@ async function handleHistoricalMove(
       const currentPlayerPieces = updatedBasePoints.filter(p => {
         const pieceColor = p.color?.toLowerCase();
         const expectedColor = PLAYER_COLORS[newTurnIndex].toLowerCase();
-        const mappedColor = {
-          'blue': '#2196f3',
-          'red': '#f44336',
-          'yellow': '#ffeb3b',
-          'green': '#4caf50'
-        }[expectedColor] || expectedColor;
+        const mappedColor = COLOR_TO_HEX[expectedColor as PlayerColor] || expectedColor;
         return pieceColor && (pieceColor === expectedColor || pieceColor === mappedColor);
       });
       
