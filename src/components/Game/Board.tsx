@@ -2785,25 +2785,17 @@ const Board: Component<BoardProps> = (props) => {
         } else {
           // Normal case - just append to the end
           newFullHistory = [...fullMoveHistory(), newMove];
-          console.log(`[Move] Appended move to history (total: ${newFullHistory.length})`, {
-            from: [startX, startY],
-            to: [targetX, targetY],
-            moveNumber: branchMoveNumber,
-            branch: currentBranch
-          });
+          console.log(`[Move] normal case`)
         }
         
-        
         setFullMoveHistory(newFullHistory);
-        setCurrentMoveIndex(newFullHistory.length - 1);
-        // Update moveHistory to include all moves up to the current one
-        setMoveHistory(newFullHistory);
         
-        console.log(`[Move] Updated history - total moves: ${newFullHistory.length}, current index: ${newFullHistory.length - 1}`);
-        console.log(`[Move] Current branch after update: ${currentBranchName() || 'main'}`);
-        
-        // History update complete
-        
+        // Rebuild the move history for the current branch
+        const currentBranchNameValue = currentBranchName();
+        const linearHistory = rebuildMoveHistory(currentBranchNameValue);
+        setMoveHistory(linearHistory);
+        setCurrentMoveIndex(linearHistory.length);
+
         // Update turn to next player
         setCurrentTurnIndex(prev => (prev + 1) % PLAYER_COLORS.length);
 
