@@ -370,14 +370,13 @@ async function handleHistoricalMove(
   setCurrentTurnIndex: (index: number) => void,
   setRestrictedSquares: (squares: number[]) => void,
   setRestrictedSquaresInfo: (info: RestrictedSquareInfo[]) => void,
-  setMoveHistory: (history: Move[]) => void,
   setCurrentMoveIndex: (updater: number | ((prev: number) => number)) => void,
   cleanupDragState: () => void,
   basePoints: () => BasePoint[],
   currentTurnIndex: () => number,
   getLegalMoves: (piece: BasePoint, board: BasePoint[]) => Array<{x: number, y: number, canCapture: boolean}>,
   BOARD_CONFIG: { GRID_SIZE: number }
-): Promise<boolean> {
+): Promise<Move | null> {
   
   // Find the next move in the main line
   const nextMoveInMainLine = remainingMoves.find(move => 
@@ -408,7 +407,7 @@ async function handleHistoricalMove(
     if (!nextMainLineMove) {
       console.error('[Branch] No main line move found after current position');
       cleanupDragState();
-      return true; // Indicate that the move was handled
+      return null; // No move to return, but the case was handled
     }
     
     // Update the current branch to main
@@ -489,17 +488,11 @@ async function handleHistoricalMove(
       setRestrictedSquaresInfo(newRestrictedSquaresInfo);
     }
     
-    // Update the move history
-    setMoveHistory([...history, nextMainLineMove]);
-    
-    // Update the current move index
-    setCurrentMoveIndex((prev: number) => prev + 1);
-    
-    cleanupDragState();
-    return true; // Indicate that the move was handled
+    // Return the next move to be added to history
+    return nextMainLineMove;
   }
   
-  return false; // Indicate that the move was not handled as a historical move
+  return null; // Indicate that the move was not handled as a historical move
 }
 
 const Board: Component<BoardProps> = (props) => {
@@ -2516,8 +2509,8 @@ const Board: Component<BoardProps> = (props) => {
           const history = fullMoveHistory();
           const remainingMoves = history.slice(currentIndex + 1);
           
-          // Use the handleHistoricalMove helper function
-          const moveHandled = await handleHistoricalMove(
+          // Use the handleHistoricalMove helper function to get the next move
+          const nextMove = await handleHistoricalMove(
             startX,
             startY,
             targetX,
@@ -2534,7 +2527,6 @@ const Board: Component<BoardProps> = (props) => {
             setCurrentTurnIndex,
             setRestrictedSquares,
             setRestrictedSquaresInfo,
-            setMoveHistory,
             setCurrentMoveIndex,
             cleanupDragState,
             basePoints,
@@ -2543,7 +2535,11 @@ const Board: Component<BoardProps> = (props) => {
             BOARD_CONFIG
           );
           
-          if (moveHandled) {
+          if (nextMove) {
+            // Update the move history and state
+            setMoveHistory(prev => [...prev, nextMove]);
+            setCurrentMoveIndex(prev => prev + 1);
+            cleanupDragState();
             return; // Move was handled by the helper function
           } else {
             console.log(`[Branch] ❌ Move does not match main line at index ${currentIndex + 1}`);
