@@ -6,8 +6,6 @@ import {
   onMount,
   onCleanup,
   on,
-  Show,
-  For
 } from 'solid-js';
 
 import { useNavigate } from '@solidjs/router';
@@ -1081,7 +1079,6 @@ const Board: Component<BoardProps> = (props) => {
   // Rebuild move history for a given target branch, handling nested branches
   const rebuildMoveHistory = (targetBranch: string | null): Move[] => {
     const branchPath = targetBranch?.split('/') || [];
-    let history: Move[] = [];
     
     // Start with main line
     let currentHistory = fullMoveHistory().filter(m => !m.branchName || m.branchName === 'main');
