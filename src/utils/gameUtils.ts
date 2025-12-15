@@ -1,5 +1,25 @@
 import { getTeamByColor, isInNonPlayableCorner, BOARD_CONFIG } from '~/constants/game';
-import type { BasePoint } from '~/types/board';
+import type { BasePoint, PieceType } from '~/types/board';
+
+/**
+ * Type guard for PieceType
+ * @param str - The string to check
+ * @returns True if the string is a valid PieceType
+ */
+export function isValidPieceType(str: string): str is PieceType {
+  return ['pawn', 'rook', 'knight', 'bishop', 'queen', 'king'].includes(str);
+}
+
+/**
+ * Check if a square is occupied by any base point
+ * @param x - X coordinate to check
+ * @param y - Y coordinate to check
+ * @param basePoints - Array of base points to check against
+ * @returns True if the square is occupied, false otherwise
+ */
+export function isSquareOccupied(x: number, y: number, basePoints: BasePoint[]): boolean {
+  return basePoints.some(point => point.x === x && point.y === y);
+}
 
 // Color mapping for consistent color handling across the game
 export const COLOR_MAP: Record<string, string> = {
@@ -29,16 +49,6 @@ export function getCurrentPlayerColor(turnIndex: number, playerColors: string[])
   return playerColors[turnIndex % playerColors.length];
 }
 
-/**
- * Check if a square is occupied by a base point
- * @param x - X coordinate of the square
- * @param y - Y coordinate of the square
- * @param allBasePoints - Array of all base points on the board
- * @returns True if the square is occupied, false otherwise
- */
-function isSquareOccupied(x: number, y: number, allBasePoints: BasePoint[]): boolean {
-  return allBasePoints.some(point => point.x === x && point.y === y);
-}
 
 /**
  * Get all squares in a direction until an obstacle is hit
