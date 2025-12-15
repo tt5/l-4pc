@@ -11,7 +11,6 @@ import {
 import { useNavigate } from '@solidjs/router';
 import { getColorHex } from '~/utils/colorUtils';
 import { moveEventService } from '~/lib/server/events/move-events';
-import type { PieceType } from '~/types/board';
 
 import { MoveHistory } from './MoveHistory';
 
@@ -60,8 +59,8 @@ interface BoardProps {
   gameId?: string;
 }
 
-// Helper function to handle moves from historical positions
-async function handleHistoricalMove(
+// Helper function to handle main line moves from historical positions
+async function handleMainLineMove(
   startX: number,
   startY: number,
   targetX: number,
@@ -86,19 +85,10 @@ async function handleHistoricalMove(
   BOARD_CONFIG: { GRID_SIZE: number }
 ): Promise<Move | null> {
   
-  // Find the next move in the main line
-  const nextMoveInMainLine = remainingMoves.find(move => 
-    !move.branchName || move.branchName === 'main'
-  );
-  const nextMoveIdx = nextMoveInMainLine ? history.indexOf(nextMoveInMainLine) : -1;
-  
-  // Check if the current move matches the main line move at this position
-  const nextMainLineMove = mainLineMoves().find(move => 
-    move.moveNumber > (fullMoveHistory()[currentIndex]?.moveNumber || 0) &&
-    move.branchName === 'main'
-  );
-  
+  // Check if the current move matches the next main line move
+  const nextMainLineMove = mainLineMoves()[currentIndex + 1];
   const isMainLineMove = nextMainLineMove && 
+    nextMainLineMove.branchName === 'main' &&
     nextMainLineMove.fromX === startX &&
     nextMainLineMove.fromY === startY &&
     nextMainLineMove.toX === targetX &&
@@ -106,17 +96,6 @@ async function handleHistoricalMove(
     
   if (isMainLineMove) {
     console.log(`[Branch] ✅ Move matches main line at index ${currentIndex + 1}`);
-    
-    // Get the next main line move
-    const nextMainLineMove = mainLineMoves().find(move => 
-      move.moveNumber > (fullMoveHistory()[currentIndex]?.moveNumber || 0)
-    );
-    
-    if (!nextMainLineMove) {
-      console.error('[Branch] No main line move found after current position');
-      cleanupDragState();
-      return null; // No move to return, but the case was handled
-    }
     
     // Update the current branch to main
     setCurrentBranchName('main');
@@ -200,7 +179,7 @@ async function handleHistoricalMove(
     return nextMainLineMove;
   }
   
-  return null; // Indicate that the move was not handled as a historical move
+  return null; // Indicate that the move was not a main line move
 }
 
 const Board: Component<BoardProps> = (props) => {
@@ -2048,17 +2027,17 @@ const Board: Component<BoardProps> = (props) => {
       try {
 
         // Check if we're making a move from a historical position (not the latest move)
-        const isAtHistoricalPosition = currentMoveIndex() < fullMoveHistory().length - 1;
+        const isAtHistoricalPosition = currentMoveIndex() < moveHistory().length - 1;
         let isBranching = false;
         let branchName: string | null = null;
         
         if (isAtHistoricalPosition) {
           const currentIndex = currentMoveIndex();
-          const history = fullMoveHistory();
+          const history = moveHistory();
           const remainingMoves = history.slice(currentIndex + 1);
           
-          // Use the handleHistoricalMove helper function to get the next move
-          const nextMove = await handleHistoricalMove(
+          // Use the handleMainLineMove helper function to get the next move
+          const nextMove = await handleMainLineMove(
             startX,
             startY,
             targetX,
@@ -2165,17 +2144,12 @@ const Board: Component<BoardProps> = (props) => {
             }
             
             if (!matchingBranch) {
-              // Get just the next move in this branch
-              const nextMoveInBranch = (fullMoveHistory() || []).find(move => 
-                move && 
-                move.branchName === branchName && 
-                move.moveNumber === nextMoveNumber
-              );
+              // Get the next move in sequence using the current index
+              const nextMoveInBranch = moveHistory()[currentIndex + 1];
 
               if (nextMoveInBranch) {
                 
                 setCurrentMoveIndex(currentIndex + 1);
-                setMoveHistory(prev => [...prev, nextMoveInBranch]);
                 
                 // Update board state with just this move
                 const newBasePoints = [...basePoints()];
@@ -2232,13 +2206,6 @@ const Board: Component<BoardProps> = (props) => {
                   }
                 ]
               };
-              
-              console.log(`[Branch] Updated branch points:\n${
-                JSON.stringify({
-                  allBranchPoints: newPoints,
-                  currentBranches: newPoints[currentIndex] || []
-                }, null, 2)
-              }`);
               
               return newPoints;
             });
@@ -2444,8 +2411,6 @@ const Board: Component<BoardProps> = (props) => {
     const [targetX, targetY] = target;
     const index = targetY * BOARD_CONFIG.GRID_SIZE + targetX;
     
-    console.log(`[handleBasePointPlacement] Previewing base point at (${targetX}, ${targetY})`);
-    
     // Validate the target position
     const validation = validateSquarePlacementLocal(index);
     if (!validation.isValid) {
@@ -2494,11 +2459,6 @@ const Board: Component<BoardProps> = (props) => {
 
       if (!pointToCheck) {
         const errorMsg = `Base point not found at position (${basePoint[0]}, ${basePoint[1]})`;
-        console.error('[handleBasePointPlacement]', errorMsg, { 
-          basePoints: basePoints(),
-          dragStartPosition: dragPos,
-          targetPosition: [targetX, targetY]
-        });
         setError(errorMsg);
         return;
       }
@@ -2519,20 +2479,11 @@ const Board: Component<BoardProps> = (props) => {
       // Update the drag start position to the new position after successful move
       setDragStartPosition([targetX, targetY]);
       
-      // Note: calculate-squares API call has been moved to handleGlobalMouseUp
-      // to only trigger once after drag ends
-
       // Update the base point in the database
-      const moveNumber = fullMoveHistory().length + 1;
-      // Debug: Log current branch name sources
-      console.log('Current branch name sources:', {
-        currentBranchName: currentBranchName(),
-        historyBranchName: fullMoveHistory()[currentMoveIndex()]?.branchName,
-        default: 'main'
-      });
+      const moveNumber = moveHistory().length + 1;
       
       // Get the current move from the history to check if it's a branch move
-      const currentMove = fullMoveHistory()[currentMoveIndex()];
+      const currentMove = moveHistory()[currentMoveIndex()];
       const isBranchMove = currentMove?.isBranch || false;
       
       // If we're on a branch move, use its branch name, otherwise use the current branch name
