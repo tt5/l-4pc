@@ -1276,108 +1276,49 @@ const Board: Component<BoardProps> = (props) => {
   const findNextMoveInBranch = (
     history: Move[],
     currentIndex: number,
-    currentBranch: string,
-    allBranchPoints: Record<number, any[]>,
-    getCurrentMoveIndex: () => number
+    currentBranch: string | null,
+    _allBranchPoints: Record<number, any[]>,
+    _getCurrentMoveIndex: () => number
   ): { nextIndex: number; nextMove: Move } | null => {
-    // If not in a branch or on main, return the next move directly
-    if (!currentBranch || currentBranch === 'main') {
-      const nextIndex = currentIndex + 1;
-      return nextIndex < history.length 
-        ? { nextIndex, nextMove: history[nextIndex] } 
-        : null;
-    }
-
-    // Find all moves in the current branch
-    const branchMoves = history.filter(move => move.branchName === currentBranch);
+    // Get the linear history for the current branch
+    const linearHistory = rebuildMoveHistory(currentBranch);
     
-    if (branchMoves.length === 0) {
-      console.log('[Forward] No moves found in current branch, cannot go forward');
+    if (linearHistory.length === 0) {
+      console.log('[Forward] No moves found in current branch');
       return null;
     }
+    
+    // Find the current move in the linear history
+    const currentMove = currentIndex >= 0 && currentIndex < history.length 
+      ? history[currentIndex] 
+      : null;
+      
+    let currentLinearIndex = currentMove 
+      ? linearHistory.findIndex(m => m === currentMove)
+      : -1;
 
-    // Find the current position in the branch
-    let currentBranchIndex = -1;
-    
-    // First, try to find the current move in the branch using move ID for exact matching
-    if (currentIndex >= 0 && currentIndex < history.length) {
-      const currentMove = history[currentIndex];
-      
-      // First try to match by ID if available (most reliable)
-      if (currentMove.id) {
-        currentBranchIndex = branchMoves.findIndex(move => 
-          move.id === currentMove.id
-        );
-      }
-      
-      // If not found by ID, try matching by coordinates and timestamp
-      if (currentBranchIndex === -1) {
-        currentBranchIndex = branchMoves.findIndex(move => 
-          move.fromX === currentMove.fromX && 
-          move.fromY === currentMove.fromY && 
-          move.toX === currentMove.toX && 
-          move.toY === currentMove.toY &&
-          move.timestamp === currentMove.timestamp
-        );
-      }
-      
-      // If still not found, try matching just by coordinates (least reliable)
-      if (currentBranchIndex === -1) {
-        currentBranchIndex = branchMoves.findIndex(move => 
-          move.fromX === currentMove.fromX && 
-          move.fromY === currentMove.fromY && 
-          move.toX === currentMove.toX && 
-          move.toY === currentMove.toY
-        );
-      }
-      
-      console.log(`[Forward] Current move in branch: index=${currentBranchIndex}, move=`, 
-        currentBranchIndex >= 0 ? branchMoves[currentBranchIndex] : 'not found');
+    // If current move not found in linear history, start from beginning
+    if (currentLinearIndex === -1) {
+      currentLinearIndex = -1; // Will make nextIndex 0
     }
+
+    const nextLinearIndex = currentLinearIndex + 1;
     
-    // If current move not found in branch, use the last move before the branch point
-    if (currentBranchIndex === -1) {
-      // Get the current branch point from branchPoints if it exists
-      const currentBranchPoints = allBranchPoints[getCurrentMoveIndex()];
-      if (currentBranchPoints && currentBranchPoints.length > 0) {
-        // Use the first branch point's first move as the reference
-        const branchRefMove = currentBranchPoints[0].firstMove;
-        // Find the index of the branch point in the branch
-        currentBranchIndex = branchMoves.findIndex(move => 
-          move.fromX === branchRefMove.fromX && 
-          move.fromY === branchRefMove.fromY && 
-          move.toX === branchRefMove.toX && 
-          move.toY === branchRefMove.toY
-        ) - 1; // Go to the move before the branch point
-      } else {
-        currentBranchIndex = -1; // Start from the beginning of the branch
-      }
-    }
-    
-    // If we're at the end of the branch, don't go further
-    if (currentBranchIndex >= branchMoves.length - 1) {
+    if (nextLinearIndex >= linearHistory.length) {
       console.log('[Forward] Already at the latest move in this branch');
       return null;
     }
-    
-    // Get the next move in this branch
-    const nextMoveInBranch = branchMoves[currentBranchIndex + 1];
-    
-    // Find the actual index of this move in the full history
-    const nextIndex = history.findIndex(move => 
-      move.fromX === nextMoveInBranch.fromX && 
-      move.fromY === nextMoveInBranch.fromY && 
-      move.toX === nextMoveInBranch.toX && 
-      move.toY === nextMoveInBranch.toY &&
-      move.branchName === currentBranch
-    );
+
+    const nextMove = linearHistory[nextLinearIndex];
+    const nextIndex = history.indexOf(nextMove);
     
     if (nextIndex === -1) {
       console.error('[Forward] Could not find next move in full history');
       return null;
     }
-    
-    return { nextIndex, nextMove: history[nextIndex] };
+
+    console.log(`[Forward] Found next move at index ${nextIndex} in branch '${currentBranch || 'main'}'`);
+    return { nextIndex, nextMove };
   };
 
   // Helper function to apply a move to the board state
@@ -1473,16 +1414,11 @@ const Board: Component<BoardProps> = (props) => {
       const currentPlayerPieces = currentBasePoints.filter(p => {
         // Get the expected color for the current turn
         const expectedColor = PLAYER_COLORS[newTurnIndex];
-        // Get the mapped color if it exists
-        const mappedColor = {
-          'blue': '#2196F3',
-          'red': '#F44336',
-          'yellow': '#FFEB3B',
-          'green': '#4CAF50'
-        }[expectedColor.toLowerCase()] || expectedColor;
+        // Get the hex color for consistent comparison
+        const hexColor = getColorHex(expectedColor);
         
-        // Compare with both the direct color and the mapped color
-        return p.color && (p.color === expectedColor || p.color === mappedColor);
+        // Compare with both the direct color and the hex color
+        return p.color && (p.color === expectedColor || p.color === hexColor);
       });
       
       const newRestrictedSquares: number[] = [];
@@ -1861,15 +1797,6 @@ const Board: Component<BoardProps> = (props) => {
     }
   };
   
-  // Wrapper to handle the fetch with error handling
-  const handleFetchBasePoints = async () => {
-    try {
-      await fetchBasePoints();
-    } catch (error) {
-      console.error('Error in fetchBasePoints:', error);
-    }
-  };
-
   // Effect to handle user changes
   createEffect(on(
     () => user(),
@@ -1888,8 +1815,6 @@ const Board: Component<BoardProps> = (props) => {
 
   // Check for king in check when restricted squares or base points change
   createEffect(() => {
-    const squares = getRestrictedSquares();
-    const points = basePoints();
     checkKingInCheck();
     
     // Clear previous check highlights
@@ -1926,8 +1851,8 @@ const Board: Component<BoardProps> = (props) => {
         }
       });
   });
-  
-  // Set up SSE for real-time updates
+
+// Set up SSE for real-time updates
   useSSE('/api/sse', (message) => {
     // The point data might be in message.point or message.basePoint or the message itself
     const point = message.point || message.basePoint || message;
@@ -2083,25 +2008,6 @@ const Board: Component<BoardProps> = (props) => {
     return true;
   };
 
-  // Validate a move and handle the necessary state updates
-  const validateMoveWithState = (startX: number, startY: number, targetX: number, targetY: number) => {
-    const validation = validateMove(startX, startY, targetX, targetY);
-    if (!validation.isValid) {
-      setError(validation.error || 'Invalid move');
-      cleanupDragState();
-      return null;
-    }
-
-    const pointToMove = validation.pointToMove;
-    if (!pointToMove) {
-      setError('No piece found to move');
-      cleanupDragState();
-      return null;
-    }
-
-    return pointToMove;
-  };
-
   // Validates a move from start to target coordinates
   const validateMove = (startX: number, startY: number, targetX: number, targetY: number) => {
     const index = targetY * BOARD_CONFIG.GRID_SIZE + targetX;
@@ -2169,38 +2075,6 @@ const Board: Component<BoardProps> = (props) => {
       moveHistory: [...fullMoveHistory()],
       currentMoveIndex: currentMoveIndex()
     };
-  };
-
-  // Type guard to check if an event is a MouseEvent
-  const isMouseEvent = (e?: MouseEvent | Event): e is MouseEvent => {
-    return !!e && 'clientX' in e;
-  };
-
-  // Check if drag operation is valid
-  const isDragValid = (): boolean => {
-    return isDragging() && !!pickedUpBasePoint();
-  };
-
-  // Check if mouse up event should be processed
-  const shouldProcessMouseUp = (e?: MouseEvent | Event): boolean => {
-    return !isProcessingMove() && isMouseEvent(e) && isDragValid();
-  };
-
-  // Get and validate the move target and start position
-  const getValidatedMoveTarget = (): { target: [number, number]; startPos: [number, number] } | null => {
-    const target = getMoveTarget();
-    if (!target) {
-      cleanupDragState();
-      return null;
-    }
-
-    const startPos = dragStartPosition();
-    if (!startPos) {
-      cleanupDragState();
-      return null;
-    }
-
-    return { target, startPos };
   };
 
   // Handle following the main line move
@@ -2429,20 +2303,28 @@ const Board: Component<BoardProps> = (props) => {
   // Handle mouse up anywhere on the document to complete dragging
   const handleGlobalMouseUp = async (e?: MouseEvent | Event) => {
     // Prevent multiple simultaneous move processing and validate input
-    if (!shouldProcessMouseUp(e)) {
+    if (!(!isProcessingMove() && !!e && 'clientX' in e && isDragging() && !!pickedUpBasePoint())) {
       return;
     }
 
     // Set processing flag
     setIsProcessingMove(true);
 
-    // Get and validate the move target
-    const moveData = getValidatedMoveTarget();
-    if (!moveData) {
+    // Get and validate the move target and start position
+    const target = getMoveTarget();
+    if (!target) {
+      cleanupDragState();
       return;
     }
 
-    const { target: [targetX, targetY], startPos: [startX, startY] } = moveData;
+    const startPos = dragStartPosition();
+    if (!startPos) {
+      cleanupDragState();
+      return;
+    }
+
+    const [targetX, targetY] = target;
+    const [startX, startY] = startPos;
     
     // Only proceed if we actually moved to a new cell
     if (startX !== targetX || startY !== targetY) {
@@ -3048,14 +2930,6 @@ const Board: Component<BoardProps> = (props) => {
     };
   });
   
-  const handleSquareClick = async (index: number) => {
-    // Prevent handling clicks during drag operations
-    if (isSaving() || isDragging()) return;
-    
-    // Base point placement has been removed
-    console.log('Square clicked, but base point placement is disabled');
-  };
-  
   return (
     <div class={styles.board}>
       
@@ -3168,11 +3042,16 @@ const Board: Component<BoardProps> = (props) => {
               onBasePointPlacement={handleBasePointPlacement}
               setBasePoints={setBasePoints}
               onClick={() => {
-                handleSquareClick(index)
-                  .catch(err => {
-                    console.error('Error processing click:', err);
-                    setError('Failed to process your action. Please try again.');
-                  });
+                try {
+                  // Prevent handling clicks during drag operations
+                  if (!isSaving() && !isDragging()) {
+                    // Base point placement has been removed
+                    console.log('Square clicked, but base point placement is disabled');
+                  }
+                } catch (err) {
+                  console.error('Error processing click:', err);
+                  setError('Failed to process your action. Please try again.');
+                }
               }}
             />
           );
