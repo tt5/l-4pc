@@ -749,10 +749,18 @@ const Board: Component<BoardProps> = (props) => {
   // Track the next main line move when returning from a branch
   const [currentMainLineMove, setCurrentMainLineMove] = createSignal<{index: number, move: Move} | null>(null);
   
+  // Type for simplified move coordinates in branch points
+  interface BranchMove {
+    fromX: number;
+    fromY: number;
+    toX: number;
+    toY: number;
+  }
+
   // Track branch points and their associated branches
   const [branchPoints, setBranchPoints] = createSignal<Record<number, Array<{
     branchName: string;
-    firstMove: Move;
+    firstMove: BranchMove;
   }>>>({});
 
 
@@ -1884,7 +1892,7 @@ const Board: Component<BoardProps> = (props) => {
    * Handles following an existing branch in the game
    */
   const followExistingBranch = async (
-    matchingBranch: { branchName: string; firstMove: Move },
+    matchingBranch: { branchName: string; firstMove: BranchMove },
     currentIndex: number,
     fullMoveHistory: () => Move[],
     setCurrentBranchName: (name: string) => void,
@@ -1903,13 +1911,9 @@ const Board: Component<BoardProps> = (props) => {
     targetX: number,
     targetY: number
   ): Promise<boolean> => {
+
     const { branchName: matchedBranchName } = matchingBranch;
-    console.log(`[Branch] Found matching branch '${matchedBranchName}' for move`, {
-      from: [startX, startY],
-      to: [targetX, targetY]
-    });
     
-    // Set the current branch
     setCurrentBranchName(matchedBranchName);
     
     // Get all moves in this branch, sorted by move number
@@ -2173,6 +2177,7 @@ const Board: Component<BoardProps> = (props) => {
 
             // If we get here, it's a new branch
             isBranching = true;
+            console.log("branching")
             const parentBranch = currentBranchName() || 'main';
             const nextMoveIdx = (currentIndex + 1) + 1; // currentIndex + 1 for 1-based, then +1 for next move
             branchName = generateBranchName(nextMoveIdx, parentBranch) || `branch-${Date.now()}`;
@@ -2191,18 +2196,8 @@ const Board: Component<BoardProps> = (props) => {
                       fromX: startX,
                       fromY: startY,
                       toX: targetX,
-                      toY: targetY,
-                      id: Date.now(),
-                      basePointId: '',
-                      timestamp: Date.now(),
-                      playerId: '',
-                      color: currentPlayerColor(),
-                      moveNumber: nextMoveIdx,
-                      isBranch: true,
-                      branchName: safeBranchName,
-                      parentBranchName: parentBranch || 'main',
-                      pieceType: 'pawn' // This should be the actual piece type
-                    } as Move
+                      toY: targetY
+                    }
                   }
                 ]
               };
@@ -2215,9 +2210,7 @@ const Board: Component<BoardProps> = (props) => {
         
         // 2. Add move to history before updating position
         // Get the current branch name from context or previous move
-        const currentBranch = branchName || currentBranchName() || 
-                            (fullMoveHistory()[currentMoveIndex()]?.branchName) ||
-                            'main';
+        const currentBranch = branchName || currentBranchName() || 'main';
                             
         console.log(`[Move] Current branch set to: ${currentBranch}`);
                             
