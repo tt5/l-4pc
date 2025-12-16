@@ -2415,11 +2415,7 @@ const Board: Component<BoardProps> = (props) => {
           canGoForward={currentMoveIndex() < fullMoveHistory().length - 1}
           onGoBack={handleGoBack}
           onGoForward={handleGoForward}
-          onReset={async () => {
-
-            resetBoardToInitialState();
-            
-          }}
+          onReset={resetBoardToInitialState}
         />
         
         <div class={styles.grid}>
@@ -2480,18 +2476,6 @@ const Board: Component<BoardProps> = (props) => {
               onBasePointPickup={handleBasePointPickup}
               onBasePointPlacement={handleBasePointPlacement}
               setBasePoints={setBasePoints}
-              onClick={() => {
-                try {
-                  // Prevent handling clicks during drag operations
-                  if (!isSaving() && !isDragging()) {
-                    // Base point placement has been removed
-                    console.log('Square clicked, but base point placement is disabled');
-                  }
-                } catch (err) {
-                  console.error('Error processing click:', err);
-                  setError('Failed to process your action. Please try again.');
-                }
-              }}
             />
           );
         })}

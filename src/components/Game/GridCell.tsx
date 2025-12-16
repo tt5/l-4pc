@@ -24,7 +24,7 @@ interface GridCellProps {
   isDragging: boolean;
   pickedUpBasePoint: Point | null;
   onHover: (isHovered: boolean) => void;
-  onClick: () => void;
+  onClick?: () => void;  // Made optional with ?
   onBasePointPickup: (point: Point) => void;
   onBasePointPlacement: (point: Point) => void;
   setBasePoints: (updater: (prev: BasePoint[]) => BasePoint[]) => void;

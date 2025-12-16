@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import styles from './BoardControls.module.css';
 
 type BoardControlsProps = {
-  onReset?: () => Promise<void>;
+  onReset?: () => void;
   onGoBack?: () => Promise<void>;
   onGoForward?: () => Promise<void>;
   gameId?: string;
@@ -39,7 +39,7 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
       }
 
       if (props.onReset) {
-        await props.onReset();
+        props.onReset();
       }
       
     } catch (error) {
