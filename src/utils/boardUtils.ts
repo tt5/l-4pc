@@ -2,6 +2,69 @@ import { BOARD_CONFIG } from '../constants/game';
 import { createPoint, Point, BasePoint, Direction, BasePoint as BasePointType } from '../types/board';
 import { createSignal, createEffect, onCleanup, onMount, batch, Accessor } from 'solid-js';
 import type { ApiResponse } from './api';
+import { getLegalMoves } from './gameUtils';
+
+export interface RestrictedByInfo {
+  basePointId: string;
+  basePointX: number;
+  basePointY: number;
+}
+
+export interface RestrictedSquareInfo {
+  index: number;
+  x: number;
+  y: number;
+  canCapture?: boolean;
+  originX?: number;
+  originY?: number;
+  pieceType?: string;
+  team?: number;
+  restrictedBy?: RestrictedByInfo[];
+}
+
+export interface RestrictedSquaresResult {
+  restrictedSquares: number[];
+  restrictedSquaresInfo: RestrictedSquareInfo[];
+}
+
+export function calculateRestrictedSquares(pieces: BasePoint[], boardState: BasePoint[]): RestrictedSquaresResult {
+  const restrictedSquares: number[] = [];
+  const restrictedSquaresInfo: RestrictedSquareInfo[] = [];
+
+  for (const piece of pieces) {
+    const moves = getLegalMoves(piece, boardState);
+    for (const { x, y } of moves) {
+      const index = y * BOARD_CONFIG.GRID_SIZE + x;
+      
+      if (!restrictedSquares.includes(index)) {
+        restrictedSquares.push(index);
+      }
+      
+      const existingInfo = restrictedSquaresInfo.find(info => info.x === x && info.y === y);
+      const restrictionInfo: RestrictedByInfo = {
+        basePointId: String(piece.id),
+        basePointX: piece.x,
+        basePointY: piece.y
+      };
+
+      if (existingInfo) {
+        if (!existingInfo.restrictedBy) {
+          existingInfo.restrictedBy = [];
+        }
+        existingInfo.restrictedBy.push(restrictionInfo);
+      } else {
+        restrictedSquaresInfo.push({
+          index,
+          x,
+          y,
+          restrictedBy: [restrictionInfo]
+        });
+      }
+    }
+  }
+
+  return { restrictedSquares, restrictedSquaresInfo };
+}
 
 
 type FetchBasePointsOptions = {

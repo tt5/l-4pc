@@ -7,32 +7,13 @@ import {
   onCleanup,
   on,
 } from 'solid-js';
-
 import { useNavigate } from '@solidjs/router';
 import { getColorHex } from '~/utils/colorUtils';
 import { moveEventService } from '~/lib/server/events/move-events';
-
 import { MoveHistory } from './MoveHistory';
-
-interface RestrictedByInfo {
-  basePointId: string;
-  basePointX: number;
-  basePointY: number;
-}
-
-interface RestrictedSquareInfo {
-  index: number;
-  x: number;
-  y: number;
-  canCapture?: boolean;
-  originX?: number;
-  originY?: number;
-  pieceType?: string;
-  team?: number;
-  restrictedBy?: RestrictedByInfo[];
-}
 import { PLAYER_COLORS, type PlayerColor, normalizeColor, getCurrentPlayerColor, COLOR_TO_HEX, isInNonPlayableCorner, getTeamByColor } from '~/constants/game';
 import { getLegalMoves, isValidPieceType, isSquareOccupied } from '~/utils/gameUtils';
+import { calculateRestrictedSquares, type RestrictedSquareInfo } from '~/utils/boardUtils';
 import { GridCell } from './GridCell';
 import { useRestrictedSquares } from '../../contexts/RestrictedSquaresContext';
 import { useFetchBasePoints } from '../../hooks/useFetchBasePoints';
@@ -57,6 +38,34 @@ import { useAuth } from '~/contexts/AuthContext';
 
 interface BoardProps {
   gameId?: string;
+}
+
+// Helper function to update game state after a move is made
+function updateGameStateAfterMove(
+  updatedBasePoints: BasePoint[],
+  nextTurnIndex: number,
+  setBasePoints: (points: BasePoint[]) => void,
+  setCurrentTurnIndex: (index: number) => void,
+  setRestrictedSquares: (squares: number[]) => void,
+  setRestrictedSquaresInfo: (info: RestrictedSquareInfo[]) => void,
+  getLegalMoves: (piece: BasePoint, board: BasePoint[]) => Array<{x: number, y: number, canCapture: boolean}>
+) {
+  setBasePoints(updatedBasePoints);
+  
+  // Update turn to the next player
+  const newTurnIndex = nextTurnIndex % PLAYER_COLORS.length;
+  setCurrentTurnIndex(newTurnIndex);
+  
+  // Calculate restricted squares for the current player
+  const currentPlayerPieces = updatedBasePoints.filter(p => 
+    getTeamByColor(p.color) === (newTurnIndex % PLAYER_COLORS.length)
+  );
+  const { restrictedSquares, restrictedSquaresInfo: newRestrictedSquaresInfo } = calculateRestrictedSquares(
+    currentPlayerPieces,
+    updatedBasePoints
+  );
+  setRestrictedSquares(restrictedSquares);
+  setRestrictedSquaresInfo(newRestrictedSquaresInfo);
 }
 
 // Helper function to handle main line moves from historical positions
@@ -95,77 +104,40 @@ async function handleMainLineMove(
     
     // Update the base points to reflect the move
     const updatedBasePoints = [...basePoints()];
-    const pieceIndex = updatedBasePoints.findIndex(p => 
+    let pieceIndex = updatedBasePoints.findIndex(p => 
       p.x === nextMainLineMove.fromX && p.y === nextMainLineMove.fromY
     );
     
     if (pieceIndex !== -1) {
+      // Check if there's a piece at the target position and remove it (capture)
+      const targetPieceIndex = updatedBasePoints.findIndex(p => 
+        p.x === nextMainLineMove.toX && p.y === nextMainLineMove.toY && p.id !== updatedBasePoints[pieceIndex].id
+      );
+      
+      if (targetPieceIndex !== -1) {
+        updatedBasePoints.splice(targetPieceIndex, 1);
+        // Adjust pieceIndex if we removed an element before it in the array
+        if (targetPieceIndex < pieceIndex) {
+          pieceIndex--;
+        }
+      }
+      
       // Move the piece in the UI
       updatedBasePoints[pieceIndex] = {
         ...updatedBasePoints[pieceIndex],
         x: nextMainLineMove.toX,
         y: nextMainLineMove.toY
       };
-      setBasePoints(updatedBasePoints);
       
-      // Update turn to the next player
-      const newTurnIndex = (currentTurnIndex() + 1) % PLAYER_COLORS.length;
-      setCurrentTurnIndex(newTurnIndex);
-      
-      // Recalculate restricted squares for the new player
-      const currentPlayerPieces = updatedBasePoints.filter(p => {
-        const pieceColor = p.color?.toLowerCase();
-        const expectedColor = PLAYER_COLORS[newTurnIndex].toLowerCase();
-        const mappedColor = COLOR_TO_HEX[expectedColor as PlayerColor] || expectedColor;
-        return pieceColor && (pieceColor === expectedColor || pieceColor === mappedColor);
-      });
-      
-      const newRestrictedSquares: number[] = [];
-      const newRestrictedSquaresInfo: RestrictedSquareInfo[] = [];
-      
-      // Calculate restricted squares for current player's pieces
-      for (const piece of currentPlayerPieces) {
-        const moves = getLegalMoves(piece, updatedBasePoints);
-        
-        for (const move of moves) {
-          const { x, y } = move;
-          const index = y * BOARD_CONFIG.GRID_SIZE + x;
-          
-          if (!newRestrictedSquares.includes(index)) {
-            newRestrictedSquares.push(index);
-          }
-          
-          const existingInfo = newRestrictedSquaresInfo.find(info => 
-            info.x === x && info.y === y
-          );
-          
-          if (existingInfo) {
-            if (!existingInfo.restrictedBy) {
-              existingInfo.restrictedBy = [];
-            }
-            existingInfo.restrictedBy.push({
-              basePointId: piece.id.toString(),
-              basePointX: piece.x,
-              basePointY: piece.y
-            });
-          } else {
-            newRestrictedSquaresInfo.push({
-              index,
-              x,
-              y,
-              restrictedBy: [{
-                basePointId: piece.id.toString(),
-                basePointX: piece.x,
-                basePointY: piece.y
-              }]
-            });
-          }
-        }
-      }
-      
-      // Update the restricted squares state
-      setRestrictedSquares(newRestrictedSquares);
-      setRestrictedSquaresInfo(newRestrictedSquaresInfo);
+      updateGameStateAfterMove(
+        updatedBasePoints,
+        currentTurnIndex() + 1,
+        setBasePoints,
+        setCurrentTurnIndex,
+        setRestrictedSquares,
+        setRestrictedSquaresInfo,
+        getLegalMoves
+      );
     }
     
     // Return the next move to be added to history
@@ -423,9 +395,6 @@ const Board: Component<BoardProps> = (props) => {
     
     // Reset king in check state
     setKingInCheck(null);
-    
-    // Get all kings on the board
-    const allKings = allBasePoints.filter(bp => bp.pieceType === 'king');
     
     // Find the current player's king
     const currentPlayerKing = allBasePoints.find(bp => {
