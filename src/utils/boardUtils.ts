@@ -19,7 +19,7 @@ export interface RestrictedSquareInfo {
   originY?: number;
   pieceType?: string;
   team?: number;
-  restrictedBy?: RestrictedByInfo[];
+  restrictedBy: RestrictedByInfo[];
 }
 
 export interface RestrictedSquaresResult {
@@ -48,9 +48,7 @@ export function calculateRestrictedSquares(pieces: BasePoint[], boardState: Base
       };
 
       if (existingInfo) {
-        if (!existingInfo.restrictedBy) {
-          existingInfo.restrictedBy = [];
-        }
+        existingInfo.restrictedBy = existingInfo.restrictedBy || [];
         existingInfo.restrictedBy.push(restrictionInfo);
       } else {
         restrictedSquaresInfo.push({

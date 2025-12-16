@@ -1078,7 +1078,11 @@ const Board: Component<BoardProps> = (props) => {
       const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(currentPlayerPieces, updatedBasePoints);
       
       setRestrictedSquares(restrictedSquares);
-      setRestrictedSquaresInfo(restrictedSquaresInfo);
+      // Ensure restrictedBy is always defined by providing a default empty array
+      setRestrictedSquaresInfo(restrictedSquaresInfo.map(info => ({
+        ...info,
+        restrictedBy: info.restrictedBy || []
+      })));
       
       // Clear any previous errors
       setError('');
@@ -1186,51 +1190,6 @@ const Board: Component<BoardProps> = (props) => {
         }
       }
     }
-  };
-
-  /**
-   * Calculates restricted squares for the current player
-   */
-  const calculateRestrictedSquares = (pieces: BasePoint[], boardState: BasePoint[]) => {
-    const restrictedSquares: number[] = [];
-    const restrictedSquaresInfo: Array<{
-      index: number;
-      x: number;
-      y: number;
-      restrictedBy: Array<{ basePointId: string; basePointX: number; basePointY: number }>;
-    }> = [];
-
-    for (const piece of pieces) {
-      const moves = getLegalMoves(piece, boardState);
-      
-      for (const { x, y } of moves) {
-        const index = y * BOARD_CONFIG.GRID_SIZE + x;
-        
-        if (!restrictedSquares.includes(index)) {
-          restrictedSquares.push(index);
-        }
-        
-        const existingInfo = restrictedSquaresInfo.find(info => info.x === x && info.y === y);
-        const restrictionInfo = {
-          basePointId: String(piece.id),
-          basePointX: piece.x,
-          basePointY: piece.y
-        };
-        
-        if (existingInfo) {
-          existingInfo.restrictedBy.push(restrictionInfo);
-        } else {
-          restrictedSquaresInfo.push({
-            index,
-            x,
-            y,
-            restrictedBy: [restrictionInfo]
-          });
-        }
-      }
-    }
-
-    return { restrictedSquares, restrictedSquaresInfo };
   };
 
   /**

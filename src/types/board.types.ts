@@ -15,7 +15,7 @@ export interface RestrictedSquareInfo {
   originY?: number;
   pieceType?: string;
   team?: number;
-  restrictedBy?: RestrictedByInfo[];
+  restrictedBy: RestrictedByInfo[];
 }
 
 export interface Move {
