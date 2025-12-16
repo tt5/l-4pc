@@ -47,8 +47,7 @@ function updateGameStateAfterMove(
   setBasePoints: (points: BasePoint[]) => void,
   setCurrentTurnIndex: (index: number) => void,
   setRestrictedSquares: (squares: number[]) => void,
-  setRestrictedSquaresInfo: (info: RestrictedSquareInfo[]) => void,
-  getLegalMoves: (piece: BasePoint, board: BasePoint[]) => Array<{x: number, y: number, canCapture: boolean}>
+  setRestrictedSquaresInfo: (info: RestrictedSquareInfo[]) => void
 ) {
   setBasePoints(updatedBasePoints);
   
@@ -82,9 +81,7 @@ async function handleMainLineMove(
   setRestrictedSquares: (squares: number[]) => void,
   setRestrictedSquaresInfo: (info: RestrictedSquareInfo[]) => void,
   basePoints: () => BasePoint[],
-  currentTurnIndex: () => number,
-  getLegalMoves: (piece: BasePoint, board: BasePoint[]) => Array<{x: number, y: number, canCapture: boolean}>,
-  BOARD_CONFIG: { GRID_SIZE: number }
+  currentTurnIndex: () => number
 ): Promise<Move | null> {
   
   // Check if the current move matches the next main line move
@@ -135,8 +132,7 @@ async function handleMainLineMove(
         setBasePoints,
         setCurrentTurnIndex,
         setRestrictedSquares,
-        setRestrictedSquaresInfo,
-        getLegalMoves
+        setRestrictedSquaresInfo
       );
     }
     
@@ -770,8 +766,6 @@ const Board: Component<BoardProps> = (props) => {
   
   // Update the base points based on the current move history
   const updateBoardState = (moves: Move[]) => {
-    console.group('updateBoardState');
-    console.log('Starting board state update with moves:', moves);
     
     // Always start with a fresh copy of the initial board state when replaying moves
     // This ensures consistent move replay from the initial position
@@ -920,11 +914,6 @@ const Board: Component<BoardProps> = (props) => {
     { id: 63, x: 12, y: 3, userId: 'system', color: '#4CAF50', pieceType: 'pawn', team: 2, createdAtMs: Date.now() },
     { id: 64, x: 12, y: 10, userId: 'system', color: '#4CAF50', pieceType: 'pawn', team: 2, createdAtMs: Date.now() }
   ];
-
-  // Helper function to get initial base points
-  const fetchInitialBasePoints = (): Promise<BasePoint[]> => {
-    return Promise.resolve(JSON.parse(JSON.stringify(INITIAL_BASE_POINTS)));
-  };
 
   // Helper function to find the next move in the current branch
   const findNextMoveInBranch = (
@@ -1255,13 +1244,6 @@ const Board: Component<BoardProps> = (props) => {
       // 7. Force UI update and recalculate restricted squares with latest state
       await new Promise(resolve => setTimeout(resolve, 0));
       
-      const finalBoardState = basePoints();
-      const { restrictedSquares: finalSquares, restrictedSquaresInfo: finalSquaresInfo } = 
-        calculateRestrictedSquares(currentPlayerPieces, finalBoardState);
-      
-      setRestrictedSquares(finalSquares);
-      setRestrictedSquaresInfo(finalSquaresInfo);
-      
     } catch (error) {
       handleNavigationError(error);
     }
@@ -1301,46 +1283,22 @@ const Board: Component<BoardProps> = (props) => {
 
     // Set up mouse event listeners
     window.addEventListener('mouseup', handleGlobalMouseUp as EventListener);
+
+    resetBoardToInitialState();
     
-    try {
-      // Set initial position to (0, 0) if not set
-      // Call calculate-squares API to get initial restricted squares
-      try {
-        const response = await fetch('/api/calculate-squares', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            borderIndices: [],
-            currentPosition: createPoint(0,0),
-            destination: createPoint(0,0),
-            gameId: gameId()
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error(`API error: ${response.statusText}`);
-        }
-
-        const result = await response.json();
-        if (result.success) {
-          setRestrictedSquares(result.data.squares || []);
-          setRestrictedSquaresInfo(result.data.squaresWithOrigins || []);
-        }
-      } catch (error) {
-        console.error('Failed to fetch initial restricted squares:', error);
-        setError('Failed to load restricted squares. Please refresh the page.');
-        setRestrictedSquares([]);
-        setRestrictedSquaresInfo([]);
-      }
-      
-      // Base points fetch removed
-    } catch (error) {
-      if (error instanceof Error) {
-        console.error(`Failed to initialize game: ${error.message}`);
-      } else {
-        console.error('Failed to initialize game: Unknown error occurred');
-      }
-    }
+    // Get all pieces for the current player (assuming player 0 starts)
+    const currentPlayerPieces = basePoints().filter(p => 
+      getTeamByColor(p.color) === 1  // Red team is team 1
+    );
+    
+    // Calculate restricted squares using the local function
+    const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(
+      currentPlayerPieces,
+      basePoints()
+    );
+    
+    setRestrictedSquares(restrictedSquares);
+    setRestrictedSquaresInfo(restrictedSquaresInfo);
   });
 
 
@@ -1924,9 +1882,7 @@ const Board: Component<BoardProps> = (props) => {
             setRestrictedSquares,
             setRestrictedSquaresInfo,
             basePoints,
-            currentTurnIndex,
-            getLegalMoves,
-            BOARD_CONFIG
+            currentTurnIndex
           );
           
           if (nextMove) {
