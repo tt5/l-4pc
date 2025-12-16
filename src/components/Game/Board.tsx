@@ -1084,10 +1084,31 @@ const Board: Component<BoardProps> = (props) => {
 
   // Reset the board to its initial state
   const resetBoardToInitialState = () => {
+
+    setFullMoveHistory([]);
+    setCurrentMoveIndex(-1);
+    setMoveHistory([]);
+    setCurrentTurnIndex(0);
+    setCurrentBranchName(null);
+    setBranchPoints({});
+
     setBasePoints(JSON.parse(JSON.stringify(INITIAL_BASE_POINTS)));
     setCurrentMoveIndex(-1);
     setCurrentBranchName(null);
     setCurrentTurnIndex(0);
+    
+    const currentPlayerPieces = basePoints().filter(p => 
+      getTeamByColor(p.color) === 1  // Red team is team 1
+    );
+    
+    // Calculate restricted squares using the local function
+    const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(
+      currentPlayerPieces,
+      basePoints()
+    );
+    
+    setRestrictedSquares(restrictedSquares);
+    setRestrictedSquaresInfo(restrictedSquaresInfo);
   };
 
   /**
@@ -1285,20 +1306,6 @@ const Board: Component<BoardProps> = (props) => {
     window.addEventListener('mouseup', handleGlobalMouseUp as EventListener);
 
     resetBoardToInitialState();
-    
-    // Get all pieces for the current player (assuming player 0 starts)
-    const currentPlayerPieces = basePoints().filter(p => 
-      getTeamByColor(p.color) === 1  // Red team is team 1
-    );
-    
-    // Calculate restricted squares using the local function
-    const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(
-      currentPlayerPieces,
-      basePoints()
-    );
-    
-    setRestrictedSquares(restrictedSquares);
-    setRestrictedSquaresInfo(restrictedSquaresInfo);
   });
 
 
@@ -2409,45 +2416,9 @@ const Board: Component<BoardProps> = (props) => {
           onGoBack={handleGoBack}
           onGoForward={handleGoForward}
           onReset={async () => {
-            // Log the current move history before reset
-            console.log('Resetting board. Current move history:', JSON.stringify(fullMoveHistory(), null, 2));
-            
-            // Clear all state
-            setFullMoveHistory([]);
-            setCurrentMoveIndex(-1);
-            setMoveHistory([]);
-            setCurrentTurnIndex(0);
-            setCurrentBranchName(null);
-            setBranchPoints({});
-            
-            // Force a state update to ensure the state is cleared
-            await new Promise(resolve => setTimeout(resolve, 0));
-            
-            // Refresh the base points
-            await fetchBasePoints();
-            
-            // Force another state update
-            await new Promise(resolve => setTimeout(resolve, 0));
-            
-            // Refresh the restricted squares
-            const squaresResponse = await fetch('/api/calculate-squares', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                currentPosition: [0, 0],
-                destination: [0, 0],
-                gameId: gameId(),
-                branchName: currentBranchName() || null
-              })
-            });
 
-            if (squaresResponse.ok) {
-              const result = await squaresResponse.json();
-              if (result.success) {
-                setRestrictedSquares(result.data.squares || []);
-                setRestrictedSquaresInfo(result.data.squaresWithOrigins || []);
-              }
-            }
+            resetBoardToInitialState();
+            
           }}
         />
         
