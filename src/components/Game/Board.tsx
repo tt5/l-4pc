@@ -1075,61 +1075,10 @@ const Board: Component<BoardProps> = (props) => {
         return p.color && (p.color === expectedColor || p.color === hexColor);
       });
       
-      const newRestrictedSquares: number[] = [];
-      const newRestrictedSquaresInfo: Array<{
-        index: number;
-        x: number;
-        y: number;
-        restrictedBy: Array<{ 
-          basePointId: string; 
-          basePointX: number; 
-          basePointY: number; 
-          direction?: string;
-        }>;
-      }> = [];
+      const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(currentPlayerPieces, updatedBasePoints);
       
-      // Calculate restricted squares and their info
-      for (const piece of currentPlayerPieces) {
-        const moves = getLegalMoves(piece, currentBasePoints);
-        
-        for (const move of moves) {
-          const { x, y } = move;
-          const index = y * BOARD_CONFIG.GRID_SIZE + x;
-          
-          if (!newRestrictedSquares.includes(index)) {
-            newRestrictedSquares.push(index);
-          }
-          
-          // Find if we already have info for this square
-          const existingInfo = newRestrictedSquaresInfo.find(info => 
-            info.x === x && info.y === y
-          );
-          
-          if (existingInfo) {
-            existingInfo.restrictedBy.push({
-              basePointId: piece.id.toString(),
-              basePointX: piece.x,
-              basePointY: piece.y,
-              direction: undefined // Optional, so we can omit or set as undefined
-            });
-          } else {
-            newRestrictedSquaresInfo.push({
-              index,
-              x,
-              y,
-              restrictedBy: [{
-                basePointId: piece.id.toString(),
-                basePointX: piece.x,
-                basePointY: piece.y,
-                direction: undefined // Optional, so we can omit or set as undefined
-              }]
-            });
-          }
-        }
-      }
-      
-      setRestrictedSquares(newRestrictedSquares);
-      setRestrictedSquaresInfo(newRestrictedSquaresInfo);
+      setRestrictedSquares(restrictedSquares);
+      setRestrictedSquaresInfo(restrictedSquaresInfo);
       
       // Clear any previous errors
       setError('');
