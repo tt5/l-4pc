@@ -83,9 +83,13 @@ async function handleMainLineMove(
   currentTurnIndex: () => number
 ): Promise<Move | null> {
   console.log(`[handleMainLineMove]`)
+  console.log(`[handleMainLineMove] currentIndex: ${currentIndex}`)
+  console.log(`[handleMainLineMove] mainLineMoves: ${JSON.stringify(mainLineMoves())}`)
+  console.log(`[handleMainLineMove] mainLineMoves: ${JSON.stringify(mainLineMoves().map(m => ({moveNumber: m.moveNumber, fromX: m.fromX, fromY: m.fromY, toX: m.toX, toY: m.toY, branchName: m.branchName})))}`);
+  console.log(`[handleMainLineMove] ${startX}, ${startY} -> ${targetX}, ${targetY}`)
   
   // Check if the current move matches the next main line move
-  const nextMainLineMove = mainLineMoves()[currentIndex + 1];
+  const nextMainLineMove = mainLineMoves()[currentIndex];
   const isMainLineMove = nextMainLineMove && 
     nextMainLineMove.branchName === 'main' &&
     nextMainLineMove.fromX === startX &&
@@ -718,6 +722,7 @@ const Board: Component<BoardProps> = (props) => {
   // Track branch points and their associated branches
   const [branchPoints, setBranchPoints] = createSignal<Record<number, Array<{
     branchName: string;
+    parentBranch: string;
     firstMove: BranchMove;
   }>>>({});
 
@@ -1224,15 +1229,25 @@ const Board: Component<BoardProps> = (props) => {
    */
   const handleGoBack = async () => {
     console.log(`[handleGoBack]`)
-    console.log(`[handleGoBack] currentBranchName: ${currentBranchName()}`)
     console.log(`[handleGoBack] currentMoveIndex: ${currentMoveIndex()}`)
     console.log(`[handleGoBack] branchPoints: ${JSON.stringify(branchPoints())}`)
 
+    const branch = currentBranchName() || 'main';
 
-    const currentBranchPoints = branchPoints()[currentMoveIndex()-1] || [];
-    
-    console.log(`[handleGoBack] allBranchPoints: ${JSON.stringify(branchPoints)}`);
+    const currentBranchPoints = branchPoints()[currentMoveIndex()-1]
+      ?.filter(bp => bp.branchName === branch) || [];
+
     console.log(`[handleGoBack] currentBranchPoints: ${JSON.stringify(currentBranchPoints)}`);
+    
+    if (currentBranchPoints.length > 0) {
+      const firstBranchPoint = currentBranchPoints[0];
+      const parentBranch = firstBranchPoint.parentBranch;
+      if (parentBranch) {
+        setCurrentBranchName(parentBranch);
+      }
+    }
+    
+    console.log(`[handleGoBack] currentBranchName: ${currentBranchName()}`)
 
     const currentIndex = currentMoveIndex();
     const history = [...rebuildMoveHistory(currentBranchName() || 'main')]; // Create a copy of the move history array
@@ -1628,7 +1643,7 @@ const Board: Component<BoardProps> = (props) => {
     basePoints: () => BasePoint[],
     cleanupDragState: () => void
   ): Promise<boolean> => {
-    console.log('[Branch] Following main line move');
+    console.log('[followMainLineMove] Following main line move');
     setCurrentBranchName('main');
     
     // Find the rest of the main line moves to append
@@ -1637,7 +1652,7 @@ const Board: Component<BoardProps> = (props) => {
       .sort((a, b) => a.moveNumber - b.moveNumber);
       
     if (remainingMainLineMoves.length === 0) {
-      console.log('[Branch] No remaining main line moves to follow');
+      console.log('[followMainLineMove] No remaining main line moves to follow');
       return false;
     }
     
@@ -1909,7 +1924,7 @@ const Board: Component<BoardProps> = (props) => {
             cleanupDragState();
             return; // Move was handled by the helper function
           } else {
-            console.log(`[Branch] ❌ Move does not match main line at index ${currentIndex + 1}`);
+            console.log(`[handleGlobal] ❌ Move does not match main line at index ${currentIndex + 1}`);
 
             const nextMoveNumber = currentIndex + 2; // currentIndex is 0-based, moveNumber is 1-based
             
@@ -1994,7 +2009,8 @@ const Board: Component<BoardProps> = (props) => {
                 [currentIndex]: [
                   ...(prev[currentIndex] || []),
                   { 
-                    branchName: safeBranchName, 
+                    branchName: safeBranchName,
+                    parentBranch: parentBranch,  // Include parent branch information
                     firstMove: {
                       fromX: startX,
                       fromY: startY,
