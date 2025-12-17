@@ -1100,6 +1100,7 @@ const Board: Component<BoardProps> = (props) => {
     setCurrentTurnIndex(0);
     setCurrentBranchName(null);
     setBranchPoints({});
+    setMainLineMoves([]);
 
     setBasePoints(JSON.parse(JSON.stringify(INITIAL_BASE_POINTS)));
     
@@ -1892,7 +1893,8 @@ const Board: Component<BoardProps> = (props) => {
         // Check if we're making a move from a historical position (not the latest move)
       console.log(`[handleGlobalMouseUp]`)
         console.log(`[handleGlobalMouseUp] currentMoveIndex: ${currentMoveIndex()}`)
-        const isAtHistoricalPosition = currentMoveIndex() < moveHistory().length - 1;
+
+        const isAtHistoricalPosition = currentMoveIndex() < moveHistory().length;
         let isBranching = false;
         let branchName: string | null = null;
         
@@ -2064,6 +2066,7 @@ const Board: Component<BoardProps> = (props) => {
           setCurrentBranchName(branchName);
         }
         
+        console.log(`[handleGlobalMouseUp]${JSON.stringify(mainLineMoves())} mainLineMoves()`)
         // If this is a main line move, add it to mainLineMoves
         if (!isBranching && (!currentBranchName() || currentBranchName() === 'main')) {
           console.log(`[handleGlobalMouseUp] add to mainLineMoves`)
@@ -2072,6 +2075,7 @@ const Board: Component<BoardProps> = (props) => {
             return updated;
           });
         }
+        console.log(`[handleGlobalMouseUp]${JSON.stringify(mainLineMoves())} mainLineMoves()`)
         
         // Add the new move to the full history
         let newFullHistory;
