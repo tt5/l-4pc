@@ -1690,6 +1690,7 @@ const Board: Component<BoardProps> = (props) => {
     // Only take the first move in the branch
     const firstBranchMove = branchMovesToFollow[0];
     
+    /*
     // Batch all state updates together
     batch(() => {
       // 1. Update move history
@@ -1732,7 +1733,8 @@ const Board: Component<BoardProps> = (props) => {
         }
       }
     });
-    
+    */    
+    handleGoForward(); 
     return true; // Indicate success
   };
 
