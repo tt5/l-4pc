@@ -1067,10 +1067,11 @@ const Board: Component<BoardProps> = (props) => {
   const handleGoForward = async () => {
     console.log(`[handleGoForward]`)
     console.log(`[handleGoForward] currentMoveIndex: ${currentMoveIndex()}`)
+    console.log(`[handleGoForward] moveHistory: ${JSON.stringify(moveHistory())}`)
 
     const branch = currentBranchName() || 'main';
 
-    console.log(`[handleGoBack] currentBranchName: ${currentBranchName()}`)
+    console.log(`[handleGoForward] currentBranchName: ${currentBranchName()}`)
 
     const currentIndex = currentMoveIndex();
     const history = [...rebuildMoveHistory(currentBranchName() || 'main')]; // Create a copy of the move history array
@@ -1137,9 +1138,11 @@ const Board: Component<BoardProps> = (props) => {
     }
     
     console.log(`[handleGoBack] currentBranchName: ${currentBranchName()}`)
-
+    
     const currentIndex = currentMoveIndex();
     const history = [...rebuildMoveHistory(currentBranchName() || 'main')]; // Create a copy of the move history array
+    setMoveHistory(history);
+    console.log(`[handleGoBack] moveHistory: ${JSON.stringify(moveHistory())}`)
     
     if (history.length === 0 || currentIndex === 0) {
       return;
@@ -1676,64 +1679,8 @@ const Board: Component<BoardProps> = (props) => {
     }
     
     console.log(`[followExistingBranch] Found ${branchMoves.length} moves in branch '${matchedBranchName}'`);
+    console.log(`[followExistingBranch] handleGoForward`);
     
-    // Get the current move number from the main line at the branch point
-    const currentMove = fullMoveHistory()[currentIndex];
-    const currentMoveNumber = currentMove?.moveNumber || 0;
-    
-    // Adjust branch move numbers to be relative to game start
-    const branchMovesToFollow = branchMoves.map((move, index) => ({
-      ...move,
-      moveNumber: currentMoveNumber + index + 1
-    }));
-    
-    // Only take the first move in the branch
-    const firstBranchMove = branchMovesToFollow[0];
-    
-    /*
-    // Batch all state updates together
-    batch(() => {
-      // 1. Update move history
-      setMoveHistory(prev => [
-        ...prev.slice(0, currentIndex + 1),
-        ...branchMovesToFollow
-      ]);
-
-      // 2. Execute only the first move of the branch
-      if (firstBranchMove) {
-        const updatedBasePoints = [...basePoints()];
-        const pieceIndex = updatedBasePoints.findIndex(p => 
-          p.x === firstBranchMove.fromX && p.y === firstBranchMove.fromY
-        );
-        
-        if (pieceIndex !== -1) {
-          // Move the piece
-          updatedBasePoints[pieceIndex] = {
-            ...updatedBasePoints[pieceIndex],
-            x: firstBranchMove.toX,
-            y: firstBranchMove.toY
-          };
-          
-          // 3. Update board state
-          setBasePoints(updatedBasePoints);
-          
-          // 4. Update turn to the next player
-          const newTurnIndex = (currentTurnIndex() + 1) % PLAYER_COLORS.length;
-          setCurrentTurnIndex(newTurnIndex);
-          
-          // 5. Recalculate restricted squares for the new player
-          updateRestrictedSquares(
-            updatedBasePoints,
-            newTurnIndex,
-            setRestrictedSquares,
-            setRestrictedSquaresInfo,
-            getLegalMoves,
-            boardConfig
-          );
-        }
-      }
-    });
-    */    
     handleGoForward(); 
     return true; // Indicate success
   };
@@ -1806,6 +1753,7 @@ const Board: Component<BoardProps> = (props) => {
               //setMoveHistory(prev => [...prev, nextMove]);
               //setCurrentMoveIndex(prev => prev + 1);
               cleanupDragState();
+              console.log((`[handleGlobalMouseUp] handleGoForward (if isMainLineMove)`))
               handleGoForward();
               return; // Move was handled by the helper function
             } else {
