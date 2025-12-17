@@ -224,54 +224,17 @@ const Board: Component<BoardProps> = (props) => {
                 const latestMove = moves.reduce((latest: Move, current: Move) => 
                   current.id > latest.id ? current : latest
                 );
+
+                setMainLineMoves(moves.filter((move: Move) => !move.branchName || move.branchName === 'main'));
+                setCurrentBranchName(latestMove.branchName);
                 
-                let movesToApply: Move[] = [];
-                
-                // If we're on the main line, just show all main line moves
-                if (!latestMove.branchName || latestMove.branchName === 'main') {
-                  movesToApply = moves.filter((m: Move) => !m.branchName || m.branchName === 'main')
-                    .sort((a: Move, b: Move) => a.moveNumber - b.moveNumber);
-                } else {
-                  // If we're on a branch, find all main line moves up to the branch point
-                  const branchName = latestMove.branchName;
-                  // Include all moves with this branchName, regardless of isBranch flag
-                  const branchMoves = moves.filter((m: Move) => m.branchName === branchName);
-                  const branchStartMoveNumber = Math.min(...branchMoves.map((m: Move) => m.moveNumber));
-                  
-                  // Get all main line moves before the branch starts
-                  const mainLineMoves = moves
-                    .filter((m: Move) => (!m.branchName || m.branchName === 'main') && m.moveNumber < branchStartMoveNumber)
-                    .sort((a: Move, b: Move) => a.moveNumber - b.moveNumber);
-                  
-                  // Combine main line moves with the branch moves
-                  movesToApply = [...mainLineMoves, ...branchMoves]
-                    .sort((a, b) => {
-                      // Sort by moveNumber first, then put main line moves before branch moves
-                      if (a.moveNumber !== b.moveNumber) return a.moveNumber - b.moveNumber;
-                      return a.branchName && a.branchName !== 'main' ? 1 : -1; // Main line first, then branch
-                    });
-                }
-                
-                // Update the board state with the calculated moves
-                // Batch the state updates to prevent unnecessary re-renders
-                batch(() => {
-                  setMoveHistory(movesToApply);
-                  // Only update the index if it's not already set to the correct value
-                  const newIndex = movesToApply.length > 0 ? movesToApply.length - 1 : -1;
-                  if (currentMoveIndex() !== newIndex) {
-                    setCurrentMoveIndex(newIndex);
-                  }
-                  setCurrentTurnIndex(movesToApply.length % PLAYER_COLORS.length);
-                  updateBoardState(movesToApply);
-                });
+                // Initialize move history
+                const branchMoves = rebuildMoveHistory(latestMove.branchName);
+                setMoveHistory(branchMoves);
+                setCurrentMoveIndex(0);
               } else {
-                // No moves, reset to initial position
-                batch(() => {
-                  setMoveHistory([]);
-                  setCurrentMoveIndex(-1);
-                  setCurrentTurnIndex(0);
-                  setBasePoints([...INITIAL_BASE_POINTS]);
-                });
+                // If no moves, just reset to initial state
+                resetBoardToInitialState();
               }
               
               // Update last loaded state
