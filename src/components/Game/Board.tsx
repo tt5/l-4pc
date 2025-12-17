@@ -199,10 +199,12 @@ const Board: Component<BoardProps> = (props) => {
                 branchName?: string | null;
               }
               
-              // Transform moves to the format expected by updateBoardState
+              // Keep the original move format with fromX, fromY, toX, toY
               const moves = rawMoves.map((move: ApiMove) => ({
-                from: [move.fromX, move.fromY] as [number, number],
-                to: [move.toX, move.toY] as [number, number],
+                fromX: move.fromX,
+                fromY: move.fromY,
+                toX: move.toX,
+                toY: move.toY,
                 pieceType: move.pieceType,
                 userId: move.userId,
                 id: move.id,
@@ -1065,9 +1067,6 @@ const Board: Component<BoardProps> = (props) => {
   };
 
   const handleGoForward = async () => {
-    console.log(`[handleGoForward]`)
-    console.log(`[handleGoForward] currentMoveIndex: ${currentMoveIndex()}`)
-    console.log(`[handleGoForward] moveHistory: ${JSON.stringify(moveHistory())}`)
 
     const branch = currentBranchName() || 'main';
 
@@ -1118,9 +1117,6 @@ const Board: Component<BoardProps> = (props) => {
    * Handles going back one move in history
    */
   const handleGoBack = async () => {
-    console.log(`[handleGoBack]`)
-    console.log(`[handleGoBack] currentMoveIndex: ${currentMoveIndex()}`)
-    console.log(`[handleGoBack] branchPoints: ${JSON.stringify(branchPoints())}`)
 
     const branch = currentBranchName() || 'main';
 
@@ -1142,7 +1138,6 @@ const Board: Component<BoardProps> = (props) => {
     const currentIndex = currentMoveIndex();
     const history = [...rebuildMoveHistory(currentBranchName() || 'main')]; // Create a copy of the move history array
     setMoveHistory(history);
-    console.log(`[handleGoBack] moveHistory: ${JSON.stringify(moveHistory())}`)
     
     if (history.length === 0 || currentIndex === 0) {
       return;
@@ -1679,7 +1674,6 @@ const Board: Component<BoardProps> = (props) => {
     }
     
     console.log(`[followExistingBranch] Found ${branchMoves.length} moves in branch '${matchedBranchName}'`);
-    console.log(`[followExistingBranch] handleGoForward`);
     
     handleGoForward(); 
     return true; // Indicate success
@@ -1728,7 +1722,6 @@ const Board: Component<BoardProps> = (props) => {
       try {
 
         // Check if we're making a move from a historical position (not the latest move)
-        console.log(`[handleGlobalMouseUp]`)
         console.log(`[handleGlobalMouseUp] currentMoveIndex: ${currentMoveIndex()}`)
 
         const isAtHistoricalPosition = currentMoveIndex() < moveHistory().length;
@@ -1753,7 +1746,6 @@ const Board: Component<BoardProps> = (props) => {
               //setMoveHistory(prev => [...prev, nextMove]);
               //setCurrentMoveIndex(prev => prev + 1);
               cleanupDragState();
-              console.log((`[handleGlobalMouseUp] handleGoForward (if isMainLineMove)`))
               handleGoForward();
               return; // Move was handled by the helper function
             } else {
@@ -1897,7 +1889,6 @@ const Board: Component<BoardProps> = (props) => {
           setCurrentBranchName(branchName);
         }
         
-        console.log(`[handleGlobalMouseUp]${JSON.stringify(mainLineMoves())} mainLineMoves()`)
         // If this is a main line move, add it to mainLineMoves
         if (!isBranching && (!currentBranchName() || currentBranchName() === 'main')) {
           console.log(`[handleGlobalMouseUp] add to mainLineMoves`)
@@ -1906,7 +1897,6 @@ const Board: Component<BoardProps> = (props) => {
             return updated;
           });
         }
-        console.log(`[handleGlobalMouseUp]${JSON.stringify(mainLineMoves())} mainLineMoves()`)
         
         // Add the new move to the full history
         let newFullHistory;
