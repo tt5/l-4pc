@@ -66,21 +66,62 @@ function updateGameStateAfterMove(
   setRestrictedSquaresInfo(newRestrictedSquaresInfo);
 }
 
-// Helper function to handle main line moves from historical positions
-async function handleMainLineMove(
-  startX: number,
-  startY: number,
-  targetX: number,
-  targetY: number,
-  currentIndex: number,
-  mainLineMoves: () => Move[],
-  setCurrentBranchName: (name: string) => void,
-  setBasePoints: (points: BasePoint[]) => void,
-  setCurrentTurnIndex: (index: number) => void,
-  setRestrictedSquares: (squares: number[]) => void,
-  setRestrictedSquaresInfo: (info: RestrictedSquareInfo[]) => void,
-  basePoints: () => BasePoint[],
-  currentTurnIndex: () => number
+  // Helper function to apply a move to the board state
+  const applyMoveToBoard = (
+    basePoints: BasePoint[],
+    move: Move
+  ): { updatedBasePoints: BasePoint[]; capturedPiece: BasePoint | null } => {
+    const updatedBasePoints = [...basePoints];
+    const { fromX, fromY, toX, toY } = move;
+    let capturedPiece: BasePoint | null = null;
+    
+    // Find and move the piece
+    const pieceIndex = updatedBasePoints.findIndex(p => p.x === fromX && p.y === fromY);
+    
+    if (pieceIndex === -1) {
+      console.warn(`[applyMoveToBoard] No piece found at [${fromX},${fromY}] to move`);
+      return { updatedBasePoints, capturedPiece: null };
+    }
+
+    const piece = updatedBasePoints[pieceIndex];
+    console.log(`[applyMoveToBoard] Moving piece ${piece.id} (${piece.pieceType}) from [${fromX},${fromY}] to [${toX},${toY}]`);
+    
+    // If this move captures a piece, remove it
+    if (move.capturedPieceId) {
+      const capturedPieceIndex = updatedBasePoints.findIndex(p => p.id === move.capturedPieceId);
+      if (capturedPieceIndex !== -1) {
+        capturedPiece = updatedBasePoints[capturedPieceIndex];
+        console.log(`[applyMoveToBoard] Capturing piece ${capturedPiece.id} (${capturedPiece.pieceType}) at [${toX},${toY}]`);
+        updatedBasePoints.splice(capturedPieceIndex, 1);
+      }
+    }
+    
+    // Update the piece's position
+    updatedBasePoints[pieceIndex] = {
+      ...piece,
+      x: toX,
+      y: toY,
+      hasMoved: true
+    };
+
+    return { updatedBasePoints, capturedPiece };
+  };
+
+  // Helper function to handle main line moves from historical positions
+  async function handleMainLineMove(
+    startX: number,
+    startY: number,
+    targetX: number,
+    targetY: number,
+    currentIndex: number,
+    mainLineMoves: () => Move[],
+    setCurrentBranchName: (name: string) => void,
+    setBasePoints: (points: BasePoint[]) => void,
+    setCurrentTurnIndex: (index: number) => void,
+    setRestrictedSquares: (squares: number[]) => void,
+    setRestrictedSquaresInfo: (info: RestrictedSquareInfo[]) => void,
+    basePoints: () => BasePoint[],
+    currentTurnIndex: () => number
 ): Promise<Move | null> {
   console.log(`[handleMainLineMove]`)
   console.log(`[handleMainLineMove] currentIndex: ${currentIndex}`)
@@ -103,42 +144,18 @@ async function handleMainLineMove(
     // Update the current branch to main
     setCurrentBranchName('main');
     
-    // Update the base points to reflect the move
-    const updatedBasePoints = [...basePoints()];
-    let pieceIndex = updatedBasePoints.findIndex(p => 
-      p.x === nextMainLineMove.fromX && p.y === nextMainLineMove.fromY
-    );
+    // Update the base points to reflect the move using applyMoveToBoard
+    const { updatedBasePoints } = applyMoveToBoard(basePoints(), nextMainLineMove);
     
-    if (pieceIndex !== -1) {
-      // Check if there's a piece at the target position and remove it (capture)
-      const targetPieceIndex = updatedBasePoints.findIndex(p => 
-        p.x === nextMainLineMove.toX && p.y === nextMainLineMove.toY && p.id !== updatedBasePoints[pieceIndex].id
-      );
-      
-      if (targetPieceIndex !== -1) {
-        updatedBasePoints.splice(targetPieceIndex, 1);
-        // Adjust pieceIndex if we removed an element before it in the array
-        if (targetPieceIndex < pieceIndex) {
-          pieceIndex--;
-        }
-      }
-      
-      // Move the piece in the UI
-      updatedBasePoints[pieceIndex] = {
-        ...updatedBasePoints[pieceIndex],
-        x: nextMainLineMove.toX,
-        y: nextMainLineMove.toY
-      };
-      
-      updateGameStateAfterMove(
-        updatedBasePoints,
-        currentTurnIndex() + 1,
-        setBasePoints,
-        setCurrentTurnIndex,
-        setRestrictedSquares,
-        setRestrictedSquaresInfo
-      );
-    }
+    updateGameStateAfterMove(
+      updatedBasePoints,
+      currentTurnIndex() + 1,
+      setBasePoints,
+      setCurrentTurnIndex,
+      setRestrictedSquares,
+      setRestrictedSquaresInfo
+    );
+
     
     // Return the next move to be added to history
     return nextMainLineMove;
@@ -969,46 +986,6 @@ const Board: Component<BoardProps> = (props) => {
     return { nextIndex, nextMove };
   };
 
-  // Helper function to apply a move to the board state
-  const applyMoveToBoard = (
-    basePoints: BasePoint[],
-    move: Move
-  ): { updatedBasePoints: BasePoint[]; capturedPiece: BasePoint | null } => {
-    const updatedBasePoints = [...basePoints];
-    const { fromX, fromY, toX, toY } = move;
-    let capturedPiece: BasePoint | null = null;
-    
-    // Find and move the piece
-    const pieceIndex = updatedBasePoints.findIndex(p => p.x === fromX && p.y === fromY);
-    
-    if (pieceIndex === -1) {
-      console.warn(`[applyMoveToBoard] No piece found at [${fromX},${fromY}] to move`);
-      return { updatedBasePoints, capturedPiece: null };
-    }
-
-    const piece = updatedBasePoints[pieceIndex];
-    console.log(`[applyMoveToBoard] Moving piece ${piece.id} (${piece.pieceType}) from [${fromX},${fromY}] to [${toX},${toY}]`);
-    
-    // If this move captures a piece, remove it
-    if (move.capturedPieceId) {
-      const capturedPieceIndex = updatedBasePoints.findIndex(p => p.id === move.capturedPieceId);
-      if (capturedPieceIndex !== -1) {
-        capturedPiece = updatedBasePoints[capturedPieceIndex];
-        console.log(`[applyMoveToBoard] Capturing piece ${capturedPiece.id} (${capturedPiece.pieceType}) at [${toX},${toY}]`);
-        updatedBasePoints.splice(capturedPieceIndex, 1);
-      }
-    }
-    
-    // Update the piece's position
-    updatedBasePoints[pieceIndex] = {
-      ...piece,
-      x: toX,
-      y: toY,
-      hasMoved: true
-    };
-
-    return { updatedBasePoints, capturedPiece };
-  };
 
   // Handle going forward one move in history
   const handleGoForward = async () => {
@@ -1926,7 +1903,7 @@ const Board: Component<BoardProps> = (props) => {
             cleanupDragState();
             return; // Move was handled by the helper function
           } else {
-            console.log(`[handleGlobal] ❌ Move does not match main line at index ${currentIndex + 1}`);
+            console.log(`[handleGlobalMouseUp] ❌ Move does not match main line at index ${currentIndex + 1}`);
 
             const nextMoveNumber = currentIndex + 2; // currentIndex is 0-based, moveNumber is 1-based
             
