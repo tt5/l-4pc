@@ -986,88 +986,6 @@ const Board: Component<BoardProps> = (props) => {
     return { nextIndex, nextMove };
   };
 
-
-  // Handle going forward one move in history
-  const handleGoForward = async () => {
-    console.log('[Forward] Forward button pressed');
-    const currentIndex = currentMoveIndex();
-    const currentBranch = currentBranchName();
-    const history = rebuildMoveHistory(currentBranch)
-    console.log(`${JSON.stringify(history)}`)
-    
-    console.log(`[Forward] Current index: ${currentIndex}, Total moves: ${history.length}, Branch: ${currentBranch || 'main'}`);
-    
-    if (currentIndex >= history.length) {
-      console.log('[Forward] Already at the latest move, cannot go forward');
-      return;
-    }
-
-    const currentIndexMinusOne = currentIndex - 1;
-
-    const nextMoveInfo = findNextMoveInBranch(
-      history,
-      currentIndexMinusOne,
-      currentBranch || '',
-      branchPoints(),
-      () => currentIndexMinusOne
-    );
-    
-    if (!nextMoveInfo) return;
-    
-    const { nextIndex, nextMove } = nextMoveInfo;
-    
-    try {
-      const currentBasePoints = [...basePoints()];
-      
-      // Apply the move to get new board state
-      const { updatedBasePoints } = applyMoveToBoard(currentBasePoints, nextMove);
-      
-      // Update the board state and move index
-      setBasePoints(updatedBasePoints);
-      setCurrentMoveIndex(nextIndex);
-      console.log(`[Forward] Move index updated to ${nextIndex}`);
-      
-      // Update the current branch if this move is part of a branch
-      if (nextMove.branchName && nextMove.branchName !== currentBranch) {
-        setCurrentBranchName(nextMove.branchName);
-        console.log(`[Forward] Switched to branch: ${nextMove.branchName}`);
-      }
-      
-      // Update turn to the next player
-      const newTurnIndex = (nextIndex + 1) % PLAYER_COLORS.length;
-      setCurrentTurnIndex(newTurnIndex);
-      setCurrentMoveIndex(prev => prev + 1)
-      console.log(`[Forward] Turn updated to player ${newTurnIndex} (${PLAYER_COLORS[newTurnIndex]})`);
-      
-      // Recalculate legal moves for the current player
-      const currentPlayerPieces = currentBasePoints.filter(p => {
-        // Get the expected color for the current turn
-        const expectedColor = PLAYER_COLORS[newTurnIndex];
-        // Get the hex color for consistent comparison
-        const hexColor = getColorHex(expectedColor);
-        
-        // Compare with both the direct color and the hex color
-        return p.color && (p.color === expectedColor || p.color === hexColor);
-      });
-      
-      const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(currentPlayerPieces, updatedBasePoints);
-      
-      setRestrictedSquares(restrictedSquares);
-      // Ensure restrictedBy is always defined by providing a default empty array
-      setRestrictedSquaresInfo(restrictedSquaresInfo.map(info => ({
-        ...info,
-        restrictedBy: info.restrictedBy || []
-      })));
-      
-      // Clear any previous errors
-      setError('');
-      
-    } catch (error) {
-      console.error('Error in handleGoForward:', error);
-      setError('Failed to go forward. Please try again.');
-    }
-  };
-
   // Reset the board to its initial state
   const resetBoardToInitialState = () => {
 
@@ -1200,6 +1118,55 @@ const Board: Component<BoardProps> = (props) => {
     setCurrentTurnIndex(0);
     setRestrictedSquares([]);
     setRestrictedSquaresInfo([]);
+  };
+
+  const handleGoForward = async () => {
+    console.log(`[handleGoForward]`)
+    console.log(`[handleGoForward] currentMoveIndex: ${currentMoveIndex()}`)
+
+    const branch = currentBranchName() || 'main';
+
+    console.log(`[handleGoBack] currentBranchName: ${currentBranchName()}`)
+
+    const currentIndex = currentMoveIndex();
+    const history = [...rebuildMoveHistory(currentBranchName() || 'main')]; // Create a copy of the move history array
+    
+    const newIndex = currentIndex + 1;
+    
+    try {
+      // 1. Replay all moves up to the target index
+      const updatedBasePoints = replayMoves(history, newIndex-1);
+      
+      // 2. Update board state and move index
+      setBasePoints(updatedBasePoints);
+      setCurrentMoveIndex(newIndex);
+      
+      // 4. Update turn index (next player's turn)
+      const newTurnIndex = (newIndex) % PLAYER_COLORS.length;
+      setCurrentTurnIndex(newTurnIndex);
+      
+      // 5. Get current player's pieces
+      const playerColorName = PLAYER_COLORS[newTurnIndex].toLowerCase();
+      const currentPlayerPieces = updatedBasePoints.filter(p => 
+        p.color?.toLowerCase() === playerColorName || 
+        p.color?.toLowerCase() === getColorHex(playerColorName)?.toLowerCase()
+      );
+
+      // 6. Calculate and update restricted squares
+      const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(
+        currentPlayerPieces,
+        updatedBasePoints
+      );
+      
+      setRestrictedSquares(restrictedSquares);
+      setRestrictedSquaresInfo(restrictedSquaresInfo);
+      
+      // 7. Force UI update and recalculate restricted squares with latest state
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
+    } catch (error) {
+      handleNavigationError(error);
+    }
   };
 
   /**
