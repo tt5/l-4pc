@@ -1223,10 +1223,21 @@ const Board: Component<BoardProps> = (props) => {
    * Handles going back one move in history
    */
   const handleGoBack = async () => {
-    const currentIndex = currentMoveIndex();
-    const history = [...fullMoveHistory()]; // Create a copy of the move history array
+    console.log(`[handleGoBack]`)
+    console.log(`[handleGoBack] currentBranchName: ${currentBranchName()}`)
+    console.log(`[handleGoBack] currentMoveIndex: ${currentMoveIndex()}`)
+    console.log(`[handleGoBack] branchPoints: ${JSON.stringify(branchPoints())}`)
+
+
+    const currentBranchPoints = branchPoints()[currentMoveIndex()-1] || [];
     
-    if (history.length === 0 || currentIndex === -1) {
+    console.log(`[handleGoBack] allBranchPoints: ${JSON.stringify(branchPoints)}`);
+    console.log(`[handleGoBack] currentBranchPoints: ${JSON.stringify(currentBranchPoints)}`);
+
+    const currentIndex = currentMoveIndex();
+    const history = [...rebuildMoveHistory(currentBranchName() || 'main')]; // Create a copy of the move history array
+    
+    if (history.length === 0 || currentIndex === 0) {
       return;
     }
 
@@ -1244,9 +1255,7 @@ const Board: Component<BoardProps> = (props) => {
       updateBranchInfo(history, newIndex);
       
       // 4. Update turn index (next player's turn)
-      console.log(`[handleGoBack] newIndex: ${newIndex}`)
       const newTurnIndex = (newIndex) % PLAYER_COLORS.length;
-      console.log(`[handleGoBack] newTurnIndex: ${newTurnIndex}`)
       setCurrentTurnIndex(newTurnIndex);
       
       // 5. Get current player's pieces
@@ -1866,6 +1875,7 @@ const Board: Component<BoardProps> = (props) => {
       try {
 
         // Check if we're making a move from a historical position (not the latest move)
+      console.log(`[handleGlobalMouseUp]`)
         console.log(`[handleGlobalMouseUp] currentMoveIndex: ${currentMoveIndex()}`)
         const isAtHistoricalPosition = currentMoveIndex() < moveHistory().length - 1;
         let isBranching = false;
