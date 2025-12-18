@@ -58,23 +58,37 @@ export const MoveHistory = (props: MoveHistoryProps) => {
               const fromY = move.fromY;
               const toX = move.toX;
               const toY = move.toY;
-              const moveNumber = move.moveNumber ?? (index() + 1);
+              // Use 1-based indexing for display
+              const displayMoveNumber = index() + 1;
               const moveTime = move.timestamp ? new Date(move.timestamp).toLocaleTimeString() : 'Unknown time';
               if (fromX === undefined || fromY === undefined || toX === undefined || toY === undefined) {
                 console.warn('Move data is missing required coordinates', move);
               }
               
-              // Check if this is the current move by comparing move numbers
-              const isCurrentMove = move.moveNumber === (props.currentMoveIndex + 1);
-              console.log('Move:', {
-                moveNumber: move.moveNumber,
-                index: index(),
+              // Use the move's moveNumber if available, otherwise fall back to displayMoveNumber
+              // Note: moveNumber is 1-based, currentMoveIndex is 0-based
+              const moveNumber = move.moveNumber ?? displayMoveNumber;
+              const isCurrentMove = (moveNumber - 1) === props.currentMoveIndex;
+              
+              const moveClass = `${styles.moveItem} ${isCurrentMove ? styles.currentMove : ''}`;
+              
+              // Debug info
+              console.group(`Move ${displayMoveNumber}`);
+              console.log('Move data:', {
+                moveNumber,
+                isCurrentMove: isCurrentMove ? 'HIGHLIGHTED' : 'not current',
                 currentMoveIndex: props.currentMoveIndex,
-                isCurrentMove,
-                calculation: `${move.moveNumber} === (${props.currentMoveIndex} + 1)`
+                move: { from: [fromX, fromY], to: [toX, toY] },
+                timestamp: move.timestamp
               });
+              if (isCurrentMove) {
+                console.log('--- THIS MOVE IS CURRENTLY HIGHLIGHTED ---');
+              }
+              console.groupEnd();
+              
+              // Current move is now handled by moveClass
               return (
-                <div class={`${styles.moveItem} ${isCurrentMove ? styles.currentMove : ''}`}>
+                <div class={moveClass}>
                   <div 
                     class={styles.colorSwatch} 
                     style={{ 'background-color': move.color }}
