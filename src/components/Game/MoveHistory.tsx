@@ -16,9 +16,17 @@ type MoveHistoryProps = {
   moves: Move[];
   currentMoveIndex: number;
   currentPlayerColor: () => string;
+  branchPoints?: Record<number, Array<{
+    branchName: string;
+    parentBranch: string;
+    firstMove: any;
+  }>>;
 };
 
 export const MoveHistory = (props: MoveHistoryProps) => {
+  const hasBranches = (moveIndex: number) => {
+    return props.branchPoints && props.branchPoints[moveIndex]?.length > 0;
+  };
   const currentMove = () => props.moves[props.currentMoveIndex];
   
   return (
@@ -65,6 +73,9 @@ export const MoveHistory = (props: MoveHistoryProps) => {
                     </div>
                     <div class={styles.moveCoords}>
                       {String.fromCharCode(97 + fromX)}{fromY + 1} → {String.fromCharCode(97 + toX)}{toY + 1}
+                      {hasBranches(move.moveNumber ?? index()) && (
+                        <span class={styles.branchIndicator} title="Has alternative branches">↳</span>
+                      )}
                     </div>
                     {move.playerId && (
                       <div class={styles.movePlayer} title={move.playerId}>

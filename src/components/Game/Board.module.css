@@ -455,8 +455,26 @@
 
 .moveCoords {
   font-family: monospace;
-  font-size: 0.85em;
-  color: #555;
+  font-size: 0.9em;
+  color: #4a5568;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.branchIndicator {
+  color: #718096;
+  cursor: help;
+  font-size: 1.1em;
+  margin-left: 4px;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.branchIndicator:hover {
+  opacity: 1;
+  color: #4a90e2;
 }
 
 .moveItem span:first-child {
