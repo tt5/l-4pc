@@ -1780,6 +1780,15 @@ const Board: Component<BoardProps> = (props) => {
                 return; // Exit early since we've handled the branch following
               }
             }
+
+            console.log(`[handleGlobalMouseUp] before branching ${currentIndex} - ${currentBranchName()}`)
+            setMoveHistory(rebuildMoveHistory(currentBranchName()))
+            console.log(`[handleGlobalMouseUp] length: ${moveHistory().length} - ${JSON.stringify(moveHistory())}`)
+
+            if (currentMoveIndex() < moveHistory().length && currentBranchName() !== 'main') {
+              handleGoForward();
+              return;
+            }
             
             // If we get here, it's a new branch
             isBranching = true;
