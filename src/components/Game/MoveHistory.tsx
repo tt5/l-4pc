@@ -2,6 +2,7 @@ import { For, Show, createEffect, createMemo } from 'solid-js';
 import styles from './MoveHistory.module.css';
 
 type Move = {
+  id?: number | string;  // Add id as an optional property
   fromX: number;
   fromY: number;
   toX: number;
@@ -26,9 +27,11 @@ type MoveHistoryProps = {
 export const MoveHistory = (props: MoveHistoryProps) => {
   // Debug effect to log when props change
   createEffect(() => {
-    console.log('Moves updated:', JSON.stringify(props.moves, null, 2));
+    console.log('Moves updated:', props.moves.length, 'moves');
     console.log('Current move index:', props.currentMoveIndex);
-    console.log('Branch points:', JSON.stringify(props.branchPoints, null, 2));
+    if (props.currentMoveIndex >= 0 && props.currentMoveIndex < props.moves.length) {
+      console.log('Current move:', props.moves[props.currentMoveIndex]);
+    }
   });
 
   const hasBranches = (moveIndex: number) => {
@@ -61,8 +64,17 @@ export const MoveHistory = (props: MoveHistoryProps) => {
                 console.warn('Move data is missing required coordinates', move);
               }
               
+              // Check if this is the current move by comparing move numbers
+              const isCurrentMove = move.moveNumber === (props.currentMoveIndex + 1);
+              console.log('Move:', {
+                moveNumber: move.moveNumber,
+                index: index(),
+                currentMoveIndex: props.currentMoveIndex,
+                isCurrentMove,
+                calculation: `${move.moveNumber} === (${props.currentMoveIndex} + 1)`
+              });
               return (
-                <div class={styles.moveItem}>
+                <div class={`${styles.moveItem} ${isCurrentMove ? styles.currentMove : ''}`}>
                   <div 
                     class={styles.colorSwatch} 
                     style={{ 'background-color': move.color }}
