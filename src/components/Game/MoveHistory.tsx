@@ -55,19 +55,12 @@ export const MoveHistory = (props: MoveHistoryProps) => {
               const toY = move.toY;
               const moveNumber = move.moveNumber ?? (index() + 1);
               const moveTime = move.timestamp ? new Date(move.timestamp).toLocaleTimeString() : 'Unknown time';
-              const isNextMove = move.moveNumber === ((currentMove()?.moveNumber ?? -1) + 1);
-              
               if (fromX === undefined || fromY === undefined || toX === undefined || toY === undefined) {
                 console.warn('Move data is missing required coordinates', move);
               }
               
               return (
-                <div 
-                  class={`${styles.moveItem} ${isNextMove ? styles.nextMove : ''}`}
-                  data-move-number={moveNumber}
-                  data-move-index={index()}
-                  data-is-next-move={isNextMove}
-                >
+                <div class={styles.moveItem}>
                   <div 
                     class={styles.colorSwatch} 
                     style={{ 'background-color': move.color }}
