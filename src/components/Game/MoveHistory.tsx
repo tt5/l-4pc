@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js';
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
 import styles from './MoveHistory.module.css';
 
 type Move = {
@@ -26,6 +26,7 @@ type MoveHistoryProps = {
 
 export const MoveHistory = (props: MoveHistoryProps) => {
   const [prevMoveIndex, setPrevMoveIndex] = createSignal<number | null>(null);
+  const [expandedBranches, setExpandedBranches] = createSignal<Record<number, boolean>>({});
 
   // Effect to handle move highlighting
   createEffect(() => {
@@ -83,6 +84,30 @@ export const MoveHistory = (props: MoveHistoryProps) => {
   const isBranchPoint = (moveIndex: number, branchName: string) => {
     return props.branchPoints?.[moveIndex]?.some(b => b.branchName === branchName);
   };
+
+  // Toggle branch expansion
+  const toggleBranchExpansion = (moveIndex: number) => {
+    setExpandedBranches(prev => ({
+      ...prev,
+      [moveIndex]: !prev[moveIndex]
+    }));
+  };
+
+  // Format move coordinates for display
+  const formatMove = (move: { fromX: number; fromY: number; toX: number; toY: number }) => {
+    return `(${move.fromX},${move.fromY}) → (${move.toX},${move.toY})`;
+  };
+
+  // Auto-expand the current branch
+  createEffect(() => {
+    const index = props.currentMoveIndex;
+    if (index >= 0) {
+      setExpandedBranches(prev => ({
+        ...prev,
+        [index]: true
+      }));
+    }
+  });
   
   // Memoize the current move to prevent unnecessary re-renders
   const currentMove = createMemo(() => props.moves[props.currentMoveIndex]);
@@ -156,14 +181,49 @@ export const MoveHistory = (props: MoveHistoryProps) => {
                     {hasBranches(index()) && (
                       <div class={styles.branchInfo}>
                         <For each={getBranches(index())}>
-                          {(branch) => (
-                            <div class={styles.branchBadge}>
-                              Branch: {branch.branchName}
-                              {branch.parentBranch && branch.parentBranch !== 'main' && (
-                                <span class={styles.parentBranch}> from {branch.parentBranch}</span>
-                              )}
-                            </div>
-                          )}
+                          {(branch) => {
+                            const branchMove = {
+                              ...branch.firstMove,
+                              branchName: branch.branchName,
+                              parentBranch: branch.parentBranch
+                            };
+                            const isExpanded = expandedBranches()[index()];
+                            
+                            return (
+                              <div class={styles.branchContainer}>
+                                <div 
+                                  class={styles.branchHeader}
+                                  onClick={() => toggleBranchExpansion(index())}
+                                >
+                                  <span class={styles.branchBadge} title={branch.branchName}>
+                                    {branch.branchName === 'main' ? 'Main Line' : 
+                                     branch.branchName.includes('branch-') ? 'Branch' : branch.branchName}
+                                    {branch.parentBranch && branch.parentBranch !== 'main' && (
+                                      <span class={styles.parentBranch}>from {branch.parentBranch}</span>
+                                    )}
+                                  </span>
+                                  <span class={styles.branchMove}>
+                                    {formatMove(branch.firstMove)}
+                                  </span>
+                                  <span class={styles.expandIcon}>
+                                    {isExpanded ? '▼' : '▶'}
+                                  </span>
+                                </div>
+                                
+                                {isExpanded && (
+                                  <div class={styles.branchMoves}>
+                                    <div class={styles.branchMoveItem}>
+                                      <span class={styles.moveNumber}>{moveNumber + 1}.</span>
+                                      <span class={styles.moveCoords}>
+                                        {formatMove(branch.firstMove)}
+                                      </span>
+                                    </div>
+                                    {/* Additional branch moves could be rendered here */}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }}
                         </For>
                       </div>
                     )}

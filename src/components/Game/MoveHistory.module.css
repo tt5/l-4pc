@@ -132,17 +132,106 @@
 }
 
 /* Branch styles */
-.branchOption {
-  padding: 4px 8px;
-  margin-top: 4px;
-  background: #f1f5f9;
-  border-radius: 4px;
-  font-size: 0.85em;
-  color: #475569;
+.branchContainer {
+  margin: 4px 0;
+  border-left: 2px solid #e2e8f0;
+  padding-left: 12px;
+  transition: all 0.2s ease;
 }
 
-.branchName {
-  color: #3b82f6;
-  margin-left: 4px;
+.branchHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: #f8fafc;
+  margin: 2px 0;
+  transition: all 0.2s ease;
+}
+
+.branchHeader:hover {
+  background: #f1f5f9;
+}
+
+.branchBadge {
+  background: #e2e8f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.8em;
   font-weight: 500;
+  color: #334155;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.parentBranch {
+  font-size: 0.8em;
+  color: #64748b;
+  margin-left: 4px;
+  white-space: nowrap;
+}
+
+.branchMove {
+  flex-grow: 1;
+  font-family: 'Fira Code', 'Roboto Mono', monospace;
+  font-size: 0.85em;
+  color: #475569;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.expandIcon {
+  width: 16px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 0.8em;
+}
+
+.branchMoves {
+  margin: 4px 0 4px 8px;
+  border-left: 1px dashed #e2e8f0;
+  padding-left: 12px;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.branchMoveItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  background: #f8fafc;
+  border-radius: 4px;
+  margin: 2px 0;
+  font-size: 0.85em;
+}
+
+.branchMoveItem .moveCoords {
+  margin: 0;
+  font-size: 0.9em;
+  color: #334155;
+}
+
+/* Make branch badges more distinct in dark mode */
+:global(.dark) .branchBadge {
+  background: #334155;
+  color: #e2e8f0;
+}
+
+:global(.dark) .branchHeader {
+  background: #1e293b;
+}
+
+:global(.dark) .branchHeader:hover {
+  background: #334155;
+}
+
+:global(.dark) .branchMoveItem {
+  background: #1e293b;
+  color: #e2e8f0;
 }
