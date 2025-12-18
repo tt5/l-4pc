@@ -76,6 +76,14 @@ export const MoveHistory = (props: MoveHistoryProps) => {
     return props.branchPoints && props.branchPoints[moveIndex]?.length > 0;
   };
   
+  const getBranches = (moveIndex: number) => {
+    return props.branchPoints?.[moveIndex] || [];
+  };
+  
+  const isBranchPoint = (moveIndex: number, branchName: string) => {
+    return props.branchPoints?.[moveIndex]?.some(b => b.branchName === branchName);
+  };
+  
   // Memoize the current move to prevent unnecessary re-renders
   const currentMove = createMemo(() => props.moves[props.currentMoveIndex]);
   
@@ -141,15 +149,33 @@ export const MoveHistory = (props: MoveHistoryProps) => {
                   }}
                 >
                   <span class={styles.moveNumber}>{moveNumber}.</span>
-                  <span class={styles.moveDetails}>
-                    ({fromX},{fromY}) → ({toX},{toY})
-                  </span>
-                  <span class={styles.moveTime}>{moveTime}</span>
-                  {move.playerId && (
-                    <span class={styles.movePlayer} title={move.playerId}>
-                      Player: {move.playerId.substring(0, 6)}...
-                    </span>
-                  )}
+                  <div class={styles.moveDetails}>
+                    <div class={styles.moveCoords}>
+                      ({fromX},{fromY}) → ({toX},{toY})
+                    </div>
+                    {hasBranches(index()) && (
+                      <div class={styles.branchInfo}>
+                        <For each={getBranches(index())}>
+                          {(branch) => (
+                            <div class={styles.branchBadge}>
+                              Branch: {branch.branchName}
+                              {branch.parentBranch && branch.parentBranch !== 'main' && (
+                                <span class={styles.parentBranch}> from {branch.parentBranch}</span>
+                              )}
+                            </div>
+                          )}
+                        </For>
+                      </div>
+                    )}
+                  </div>
+                  <div class={styles.moveMeta}>
+                    <span class={styles.moveTime}>{moveTime}</span>
+                    {move.playerId && (
+                      <span class={styles.movePlayer} title={move.playerId}>
+                        Player: {move.playerId.substring(0, 6)}...
+                      </span>
+                    )}
+                  </div>
                 </div>
               );
             }}

@@ -96,6 +96,14 @@
   opacity: 0.8;
 }
 
+.moveDetails {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  min-width: 0;
+  gap: 4px;
+}
+
 .moveCoords {
   font-family: 'Fira Code', 'Roboto Mono', monospace;
   font-size: 0.9em;
