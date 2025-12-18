@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo } from 'solid-js';
+import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js';
 import styles from './MoveHistory.module.css';
 
 type Move = {
@@ -25,6 +25,44 @@ type MoveHistoryProps = {
 };
 
 export const MoveHistory = (props: MoveHistoryProps) => {
+  const [prevMoveIndex, setPrevMoveIndex] = createSignal<number | null>(null);
+
+  // Effect to handle move highlighting
+  createEffect(() => {
+    // Remove highlight from previous move
+    if (prevMoveIndex() !== null && prevMoveIndex() !== props.currentMoveIndex) {
+      const prevElement = document.querySelector<HTMLElement>(`[data-move-index="${prevMoveIndex()}"]`);
+      if (prevElement) {
+        prevElement.classList.remove(styles.currentMove);
+        prevElement.style.setProperty('background-color', 'transparent');
+        prevElement.style.setProperty('border', 'none');
+      }
+    }
+    
+    // Add highlight to current move
+    const currentElement = document.querySelector<HTMLElement>(`[data-move-index="${props.currentMoveIndex}"]`);
+    if (currentElement) {
+      currentElement.classList.add(styles.currentMove);
+      currentElement.style.setProperty('background-color', 'rgba(255, 0, 0, 0.3)');
+      currentElement.style.setProperty('border', '2px solid red');
+    }
+    
+    // Update previous move index
+    setPrevMoveIndex(props.currentMoveIndex);
+  });
+
+  // Cleanup on unmount
+  onCleanup(() => {
+    if (prevMoveIndex() !== null) {
+      const element = document.querySelector<HTMLElement>(`[data-move-index="${prevMoveIndex()}"]`);
+      if (element) {
+        element.classList.remove(styles.currentMove);
+        element.style.setProperty('background-color', 'transparent');
+        element.style.setProperty('border', 'none');
+      }
+    }
+  });
+
   // Debug effect to log when props change
   createEffect(() => {
     console.log('Moves updated:', props.moves.length, 'moves');
@@ -65,14 +103,17 @@ export const MoveHistory = (props: MoveHistoryProps) => {
                 console.warn('Move data is missing required coordinates', move);
               }
               
-              // Use the move's moveNumber if available, otherwise fall back to displayMoveNumber
-              // Note: moveNumber is 1-based, currentMoveIndex is 0-based
-              const moveNumber = move.moveNumber ?? displayMoveNumber;
-              const isCurrentMove = (moveNumber - 1) === props.currentMoveIndex;
+              // For display purposes, use displayMoveNumber
+              const moveNumber = displayMoveNumber;
               
-              const moveClass = `${styles.moveItem} ${isCurrentMove ? styles.currentMove : ''}`;
+              // Only highlight if this is the exact current move index
+              // Using index() directly since it's 0-based like currentMoveIndex
+              const isCurrentMove = index() === props.currentMoveIndex;
               
-              // Debug info
+              // Always include moveItem class, conditionally add currentMove
+              const moveClass = `${styles.moveItem}${isCurrentMove ? ` ${styles.currentMove}` : ''}`;
+              
+              // Debug info for individual move
               console.group(`Move ${displayMoveNumber}`);
               console.log('Move data:', {
                 moveNumber,
@@ -81,41 +122,34 @@ export const MoveHistory = (props: MoveHistoryProps) => {
                 move: { from: [fromX, fromY], to: [toX, toY] },
                 timestamp: move.timestamp
               });
-              if (isCurrentMove) {
-                console.log('--- THIS MOVE IS CURRENTLY HIGHLIGHTED ---');
-              }
               console.groupEnd();
               
-              // Current move is now handled by moveClass
               return (
-                <div class={moveClass}>
-                  <div 
-                    class={styles.colorSwatch} 
-                    style={{ 'background-color': move.color }}
-                    title={`Player: ${move.playerId || 'Unknown'}\nColor: ${move.color}`}
-                  />
-                  <div class={styles.moveDetails}>
-                    <div class={styles.moveHeader}>
-                      <span class={styles.moveNumber}>Move {moveNumber}</span>
-                      <span class={styles.moveTime}>{moveTime}</span>
-                    </div>
-                    <div class={styles.moveCoords}>
-                      {String.fromCharCode(97 + fromX)}{fromY + 1} → {String.fromCharCode(97 + toX)}{toY + 1}
-                      <For each={props.branchPoints?.[move.moveNumber ?? index()] || []}>
-                        {(branch) => (
-                          <div class={styles.branchOption}>
-                            <span class={styles.branchName}>{branch.branchName}: </span>
-                            {String.fromCharCode(97 + branch.firstMove.fromX)}{branch.firstMove.fromY + 1} → {String.fromCharCode(97 + branch.firstMove.toX)}{branch.firstMove.toY + 1}
-                          </div>
-                        )}
-                      </For>
-                    </div>
-                    {move.playerId && (
-                      <div class={styles.movePlayer} title={move.playerId}>
-                        Player: {move.playerId.substring(0, 6)}...
-                      </div>
-                    )}
-                  </div>
+                <div 
+                  class={styles.moveItem}
+                  data-move-index={index()}
+                  data-move-number={moveNumber}
+                  style={{
+                    padding: '4px',
+                    'border-radius': '4px',
+                    margin: '2px 0',
+                    'background-color': isCurrentMove ? 'rgba(255, 0, 0, 0.3)' : 'transparent',
+                    border: isCurrentMove ? '2px solid red' : 'none',
+                    display: 'flex',
+                    'align-items': 'center',
+                    gap: '8px'
+                  }}
+                >
+                  <span class={styles.moveNumber}>{moveNumber}.</span>
+                  <span class={styles.moveDetails}>
+                    ({fromX},{fromY}) → ({toX},{toY})
+                  </span>
+                  <span class={styles.moveTime}>{moveTime}</span>
+                  {move.playerId && (
+                    <span class={styles.movePlayer} title={move.playerId}>
+                      Player: {move.playerId.substring(0, 6)}...
+                    </span>
+                  )}
                 </div>
               );
             }}
