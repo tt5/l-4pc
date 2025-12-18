@@ -1,5 +1,5 @@
 import { For, Show, createSignal } from 'solid-js';
-import styles from './Board.module.css';
+import styles from './MoveHistory.module.css';
 
 type Move = {
   fromX: number;
