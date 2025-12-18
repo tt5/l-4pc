@@ -1,4 +1,4 @@
-import { For, Show } from 'solid-js';
+import { For, Show, createSignal } from 'solid-js';
 import styles from './Board.module.css';
 
 type Move = {
@@ -24,9 +24,16 @@ type MoveHistoryProps = {
 };
 
 export const MoveHistory = (props: MoveHistoryProps) => {
+  const [expandedBranch, setExpandedBranch] = createSignal<number | null>(null);
+  
   const hasBranches = (moveIndex: number) => {
     return props.branchPoints && props.branchPoints[moveIndex]?.length > 0;
   };
+  
+  const toggleBranch = (moveIndex: number) => {
+    setExpandedBranch(expandedBranch() === moveIndex ? null : moveIndex);
+  };
+  
   const currentMove = () => props.moves[props.currentMoveIndex];
   
   return (
@@ -74,7 +81,30 @@ export const MoveHistory = (props: MoveHistoryProps) => {
                     <div class={styles.moveCoords}>
                       {String.fromCharCode(97 + fromX)}{fromY + 1} → {String.fromCharCode(97 + toX)}{toY + 1}
                       {hasBranches(move.moveNumber ?? index()) && (
-                        <span class={styles.branchIndicator} title="Has alternative branches">↳</span>
+                        <>
+                          <span 
+                            class={styles.branchIndicator} 
+                            title="Show alternative moves"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleBranch(move.moveNumber ?? index());
+                            }}
+                          >
+                            ↳
+                          </span>
+                          {expandedBranch() === (move.moveNumber ?? index()) && (
+                            <div class={styles.branchDropdown}>
+                              <For each={props.branchPoints?.[move.moveNumber ?? index()] || []}>
+                                {(branch) => (
+                                  <div class={styles.branchOption}>
+                                    {String.fromCharCode(97 + branch.firstMove.fromX)}{branch.firstMove.fromY + 1} → {String.fromCharCode(97 + branch.firstMove.toX)}{branch.firstMove.toY + 1}
+                                    <span class={styles.branchName}>({branch.branchName})</span>
+                                  </div>
+                                )}
+                              </For>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                     {move.playerId && (
