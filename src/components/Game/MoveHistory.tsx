@@ -1,4 +1,4 @@
-import { For, Show, createSignal } from 'solid-js';
+import { For, Show, createEffect, createMemo } from 'solid-js';
 import styles from './MoveHistory.module.css';
 
 type Move = {
@@ -24,17 +24,19 @@ type MoveHistoryProps = {
 };
 
 export const MoveHistory = (props: MoveHistoryProps) => {
-  const [expandedBranch, setExpandedBranch] = createSignal<number | null>(null);
-  
+  // Debug effect to log when props change
+  createEffect(() => {
+    console.log('Moves updated:', JSON.stringify(props.moves, null, 2));
+    console.log('Current move index:', props.currentMoveIndex);
+    console.log('Branch points:', JSON.stringify(props.branchPoints, null, 2));
+  });
+
   const hasBranches = (moveIndex: number) => {
     return props.branchPoints && props.branchPoints[moveIndex]?.length > 0;
   };
   
-  const toggleBranch = (moveIndex: number) => {
-    setExpandedBranch(moveIndex);
-  };
-  
-  const currentMove = () => props.moves[props.currentMoveIndex];
+  // Memoize the current move to prevent unnecessary re-renders
+  const currentMove = createMemo(() => props.moves[props.currentMoveIndex]);
   
   return (
     <div class={styles.moveHistoryContainer}>
@@ -47,7 +49,7 @@ export const MoveHistory = (props: MoveHistoryProps) => {
           when={props.moves.length > 0} 
           fallback={<div>No moves yet</div>}
         >
-          <For each={[...props.moves].reverse()}>
+          <For each={props.moves}>
             {(move, index) => {
               const fromX = move.fromX;
               const fromY = move.fromY;

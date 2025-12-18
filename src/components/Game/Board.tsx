@@ -1037,6 +1037,7 @@ const Board: Component<BoardProps> = (props) => {
 
     const currentIndex = currentMoveIndex();
     const history = [...rebuildMoveHistory(currentBranchName() || 'main')]; // Create a copy of the move history array
+    setMoveHistory(history);
     
     const newIndex = currentIndex + 1;
     
