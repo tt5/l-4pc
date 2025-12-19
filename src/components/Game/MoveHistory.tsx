@@ -34,8 +34,6 @@ export const MoveHistory = (props: MoveHistoryProps) => {
       const prevElement = document.querySelector<HTMLElement>(`[data-move-index="${prevMoveIndex()}"]`);
       if (prevElement) {
         prevElement.classList.remove(styles.currentMove);
-        prevElement.style.setProperty('background-color', 'transparent');
-        prevElement.style.setProperty('border', 'none');
       }
     }
     
@@ -43,8 +41,6 @@ export const MoveHistory = (props: MoveHistoryProps) => {
     const currentElement = document.querySelector<HTMLElement>(`[data-move-index="${props.currentMoveIndex}"]`);
     if (currentElement) {
       currentElement.classList.add(styles.currentMove);
-      currentElement.style.setProperty('background-color', 'rgba(255, 0, 0, 0.3)');
-      currentElement.style.setProperty('border', '2px solid red');
     }
     
     // Update previous move index
@@ -57,8 +53,6 @@ export const MoveHistory = (props: MoveHistoryProps) => {
       const element = document.querySelector<HTMLElement>(`[data-move-index="${prevMoveIndex()}"]`);
       if (element) {
         element.classList.remove(styles.currentMove);
-        element.style.setProperty('background-color', 'transparent');
-        element.style.setProperty('border', 'none');
       }
     }
   });
@@ -127,19 +121,9 @@ export const MoveHistory = (props: MoveHistoryProps) => {
               
               return (
                 <div 
-                  class={styles.moveItem}
+                  class={`${styles.moveItem} ${isCurrentMove ? styles.currentMove : ''}`}
                   data-move-index={index()}
                   data-move-number={moveNumber}
-                  style={{
-                    padding: '4px',
-                    'border-radius': '4px',
-                    margin: '2px 0',
-                    'background-color': isCurrentMove ? 'rgba(255, 0, 0, 0.3)' : 'transparent',
-                    border: isCurrentMove ? '2px solid red' : 'none',
-                    display: 'flex',
-                    'align-items': 'center',
-                    gap: '8px'
-                  }}
                 >
                   <span class={styles.moveNumber}>{moveNumber}.</span>
                   <div class={styles.moveDetails}>
@@ -150,45 +134,16 @@ export const MoveHistory = (props: MoveHistoryProps) => {
                       <div class={styles.branchInfo}>
                         <For each={getBranches(index())}>
                           {(branch) => {
-                            const branchMove = {
-                              ...branch.firstMove,
-                              branchName: branch.branchName,
-                              parentBranch: branch.parentBranch
-                            };
-                            const isExpanded = expandedBranches()[index()];
-                            
                             return (
                               <div class={styles.branchContainer}>
-                                <div 
-                                  class={styles.branchHeader}
-                                  onClick={() => toggleBranchExpansion(index())}
-                                >
-                                  <span class={styles.branchBadge} title={branch.branchName}>
-                                    {branch.branchName === 'main' ? 'Main Line' : 
-                                     branch.branchName.includes('branch-') ? 'Branch' : branch.branchName}
-                                    {branch.parentBranch && branch.parentBranch !== 'main' && (
-                                      <span class={styles.parentBranch}>from {branch.parentBranch}</span>
-                                    )}
-                                  </span>
-                                  <span class={styles.branchMove}>
-                                    {formatMove(branch.firstMove)}
-                                  </span>
-                                  <span class={styles.expandIcon}>
-                                    {isExpanded ? '▼' : '▶'}
-                                  </span>
-                                </div>
-                                
-                                {isExpanded && (
-                                  <div class={styles.branchMoves}>
-                                    <div class={styles.branchMoveItem}>
-                                      <span class={styles.moveNumber}>{moveNumber + 1}.</span>
-                                      <span class={styles.moveCoords}>
-                                        {formatMove(branch.firstMove)}
-                                      </span>
-                                    </div>
-                                    {/* Additional branch moves could be rendered here */}
+                                <div class={styles.branchMoves}>
+                                  <div class={styles.branchMoveItem}>
+                                    <span class={styles.moveNumber}>{moveNumber}.</span>
+                                    <span class={styles.moveCoords}>
+                                      {formatMove(branch.firstMove)}
+                                    </span>
                                   </div>
-                                )}
+                                </div>
                               </div>
                             );
                           }}

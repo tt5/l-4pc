@@ -1264,15 +1264,49 @@ const Board: Component<BoardProps> = (props) => {
               return; // Exit early since we've handled the branch following
             }
 
-            console.log(`[handleGlobalMouseUp] before branching ${currentIndex} - ${currentBranchName()}`)
+            console.log(`[handleGlobalMouseUp] before branching ${currentIndex} -- ${currentBranchName()}`)
             setMoveHistory(rebuildMoveHistory(currentBranchName()))
-            console.log(`[handleGlobalMouseUp] length: ${moveHistory().length} - ${JSON.stringify(moveHistory())}`)
 
-            if (currentMoveIndex() < moveHistory().length && currentBranchName() !== 'main') {
+            console.log(`[HandleGlobalMouseUp] attempting move: (${startX}, ${startY}) -> (${targetX}, ${targetY})`)
+
+            const nextMove = moveHistory()[currentIndex];
+            console.log(`[handleGlobalMouseUp] nextMove in branch: ${nextMove.fromX}, ${nextMove.fromY} -> ${nextMove.toX}, ${nextMove.toY}`)
+
+            if (nextMove && nextMove.fromX === startX && nextMove.fromY === startY &&
+                nextMove.toX === targetX && nextMove.toY === targetY) {
+              console.log(`[handleGlobalMouseUp] follow branch`);
+              handleGoForward()
+              cleanupDragState();
+              isBranching = false;
+              return;
+            }
+
+            console.log(`[HandleGlobalMouseUp] branchPoints: ${JSON.stringify(branchPoints())}`)
+            const branchPointMoves = branchPoints()[currentIndex+1]
+              ?.filter(bp => bp.parentBranch === branchName)
+              .map(bp => bp.firstMove);
+            console.log(`[handleGlobalMouseUp] branchPointMoves: ${JSON.stringify(branchPointMoves)}`)
+
+            
+            const isBranchPointMove = branchPointMoves?.some(branchMove => {
+              return branchMove.fromX === startX &&
+                     branchMove.fromY === startY &&
+                     branchMove.toX === targetX &&
+                     branchMove.toY === targetY;
+            });
+
+            if (isBranchPointMove) {
+              console.log(`[handleGlobalMouseUp] ✅ Move matches branch point`);
+              setCurrentBranchName(branchName || 'main');
+              cleanupDragState();
               handleGoForward();
               return;
             }
             
+            console.log(`[handleGlobalMouseUp] ❌ Move does not match branch point`);
+
+            console.log(`[handleGlobalMouseUp] length: ${moveHistory().length} -- ${JSON.stringify(moveHistory())}`)
+
             // If we get here, it's a new branch
             isBranching = true;
             console.log("[handleGlobalMouseUp] branching")
