@@ -721,53 +721,9 @@ const Board: Component<BoardProps> = (props) => {
     return Array.from(positionMap.values());
   };
 
-  /**
-   * Updates branch information when navigating move history
-   */
-  const updateBranchInfo = (history: Move[], targetIndex: number) => {
-    if (targetIndex < 0) {
-      setCurrentBranchName(null);
-      return;
-    }
-
-    const targetMove = history[targetIndex];
-    setCurrentBranchName(targetMove.branchName || null);
-
-    // Check if we're returning to main line from a branch
-    const isReturningFromBranch = currentBranchName() && (!targetMove.branchName || targetMove.branchName === 'main');
-    
-    if (isReturningFromBranch) {
-      // Find next main line move after the target move
-      for (let i = targetIndex + 1; i < history.length; i++) {
-        const move = history[i];
-        if (!move.branchName || move.branchName === 'main') {
-          console.log('[updateBranchInfo] Returning to main line, next main line move is at index', i, { move });
-          setCurrentMainLineMove({ index: i, move });
-          break;
-        }
-      }
-    }
-  };
-
-  /**
-   * Handles errors during move history navigation
-   */
-  const handleNavigationError = (error: unknown) => {
-    console.error('[BackNav] Error during navigation:', error);
-    setError('Failed to navigate. Please try again.');
-    
-    // Reset to a known good state
-    setCurrentMoveIndex(-1);
-    setMoveHistory([]);
-    setBasePoints([...INITIAL_BASE_POINTS]);
-    setCurrentTurnIndex(0);
-    setRestrictedSquares([]);
-    setRestrictedSquaresInfo([]);
-  };
-
   const handleGoForward = async () => {
 
-    console.log(`[handleGoForward] currentBranchName: ${currentBranchName()}`)
+    console.log(`[handleGoForward] ${currentMoveIndex()} -- currentBranchName: ${currentBranchName()}`)
 
     const currentIndex = currentMoveIndex();
     const history = [...rebuildMoveHistory(currentBranchName() || 'main')]; // Create a copy of the move history array
@@ -775,40 +731,36 @@ const Board: Component<BoardProps> = (props) => {
     
     const newIndex = currentIndex + 1;
     
-    try {
-      // 1. Replay all moves up to the target index
-      const updatedBasePoints = replayMoves(history, newIndex-1);
-      
-      // 2. Update board state and move index
-      setBasePoints(updatedBasePoints);
-      setCurrentMoveIndex(newIndex);
-      
-      // 4. Update turn index (next player's turn)
-      const newTurnIndex = (newIndex) % PLAYER_COLORS.length;
-      setCurrentTurnIndex(newTurnIndex);
-      
-      // 5. Get current player's pieces
-      const playerColorName = PLAYER_COLORS[newTurnIndex].toLowerCase();
-      const currentPlayerPieces = updatedBasePoints.filter(p => 
-        p.color?.toLowerCase() === playerColorName || 
-        p.color?.toLowerCase() === getColorHex(playerColorName)?.toLowerCase()
-      );
+    // 1. Replay all moves up to the target index
+    const updatedBasePoints = replayMoves(history, newIndex-1);
+    
+    // 2. Update board state and move index
+    setBasePoints(updatedBasePoints);
+    setCurrentMoveIndex(newIndex);
+    
+    // 4. Update turn index (next player's turn)
+    const newTurnIndex = (newIndex) % PLAYER_COLORS.length;
+    setCurrentTurnIndex(newTurnIndex);
+    
+    // 5. Get current player's pieces
+    const playerColorName = PLAYER_COLORS[newTurnIndex].toLowerCase();
+    const currentPlayerPieces = updatedBasePoints.filter(p => 
+      p.color?.toLowerCase() === playerColorName || 
+      p.color?.toLowerCase() === getColorHex(playerColorName)?.toLowerCase()
+    );
 
-      // 6. Calculate and update restricted squares
-      const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(
-        currentPlayerPieces,
-        updatedBasePoints
-      );
+    // 6. Calculate and update restricted squares
+    const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(
+      currentPlayerPieces,
+      updatedBasePoints
+    );
+    
+    setRestrictedSquares(restrictedSquares);
+    setRestrictedSquaresInfo(restrictedSquaresInfo);
+    
+    // 7. Force UI update and recalculate restricted squares with latest state
+    await new Promise(resolve => setTimeout(resolve, 0));
       
-      setRestrictedSquares(restrictedSquares);
-      setRestrictedSquaresInfo(restrictedSquaresInfo);
-      
-      // 7. Force UI update and recalculate restricted squares with latest state
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-    } catch (error) {
-      handleNavigationError(error);
-    }
   };
 
   /**
@@ -843,43 +795,54 @@ const Board: Component<BoardProps> = (props) => {
 
     const newIndex = currentIndex - 1;
     
-    try {
-      // 1. Replay all moves up to the target index
-      const updatedBasePoints = replayMoves(history, newIndex-1);
-      
-      // 2. Update board state and move index
-      setBasePoints(updatedBasePoints);
-      setCurrentMoveIndex(newIndex);
-      
-      // 3. Update branch information
-      updateBranchInfo(history, newIndex);
-      
-      // 4. Update turn index (next player's turn)
-      const newTurnIndex = (newIndex) % PLAYER_COLORS.length;
-      setCurrentTurnIndex(newTurnIndex);
-      
-      // 5. Get current player's pieces
-      const playerColorName = PLAYER_COLORS[newTurnIndex].toLowerCase();
-      const currentPlayerPieces = updatedBasePoints.filter(p => 
-        p.color?.toLowerCase() === playerColorName || 
-        p.color?.toLowerCase() === getColorHex(playerColorName)?.toLowerCase()
-      );
+    // 1. Replay all moves up to the target index
+    const updatedBasePoints = replayMoves(history, newIndex-1);
+    
+    // 2. Update board state and move index
+    setBasePoints(updatedBasePoints);
+    setCurrentMoveIndex(newIndex);
+    
+    // 3. Update branch information
+    const targetMove = history[newIndex];
+    setCurrentBranchName(targetMove?.branchName || null);
 
-      // 6. Calculate and update restricted squares
-      const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(
-        currentPlayerPieces,
-        updatedBasePoints
-      );
-      
-      setRestrictedSquares(restrictedSquares);
-      setRestrictedSquaresInfo(restrictedSquaresInfo);
-      
-      // 7. Force UI update and recalculate restricted squares with latest state
-      await new Promise(resolve => setTimeout(resolve, 0));
-      
-    } catch (error) {
-      handleNavigationError(error);
+    // Check if we're returning to main line from a branch
+    const isReturningFromBranch = currentBranchName() && (!targetMove?.branchName || targetMove.branchName === 'main');
+    
+    if (isReturningFromBranch) {
+      // Find next main line move after the target move
+      for (let i = newIndex + 1; i < history.length; i++) {
+        const move = history[i];
+        if (!move.branchName || move.branchName === 'main') {
+          console.log('[updateBranchInfo] Returning to main line, next main line move is at index', i, { move });
+          setCurrentMainLineMove({ index: i, move });
+          break;
+        }
+      }
     }
+    
+    // 4. Update turn index (next player's turn)
+    const newTurnIndex = (newIndex) % PLAYER_COLORS.length;
+    setCurrentTurnIndex(newTurnIndex);
+    
+    // 5. Get current player's pieces
+    const playerColorName = PLAYER_COLORS[newTurnIndex].toLowerCase();
+    const currentPlayerPieces = updatedBasePoints.filter(p => 
+      p.color?.toLowerCase() === playerColorName || 
+      p.color?.toLowerCase() === getColorHex(playerColorName)?.toLowerCase()
+    );
+
+    // 6. Calculate and update restricted squares
+    const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(
+      currentPlayerPieces,
+      updatedBasePoints
+    );
+    
+    setRestrictedSquares(restrictedSquares);
+    setRestrictedSquaresInfo(restrictedSquaresInfo);
+    
+    // 7. Force UI update and recalculate restricted squares with latest state
+    await new Promise(resolve => setTimeout(resolve, 0));
   };
 
   const [hoveredSquare, setHoveredSquare] = createSignal<number | null>(null);
