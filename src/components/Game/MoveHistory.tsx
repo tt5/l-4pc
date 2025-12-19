@@ -8,7 +8,6 @@ type Move = {
   toX: number;
   toY: number;
   moveNumber?: number;
-  timestamp?: string | number;
   playerId?: string;
   color: string;
 };
@@ -131,7 +130,6 @@ export const MoveHistory = (props: MoveHistoryProps) => {
               const toY = move.toY;
               // Use 1-based indexing for display
               const displayMoveNumber = index() + 1;
-              const moveTime = move.timestamp ? new Date(move.timestamp).toLocaleTimeString() : 'Unknown time';
               if (fromX === undefined || fromY === undefined || toX === undefined || toY === undefined) {
                 console.warn('Move data is missing required coordinates', move);
               }
@@ -152,8 +150,7 @@ export const MoveHistory = (props: MoveHistoryProps) => {
                 moveNumber,
                 isCurrentMove: isCurrentMove ? 'HIGHLIGHTED' : 'not current',
                 currentMoveIndex: props.currentMoveIndex,
-                move: { from: [fromX, fromY], to: [toX, toY] },
-                timestamp: move.timestamp
+                move: { from: [fromX, fromY], to: [toX, toY] }
               });
               console.groupEnd();
               
@@ -228,14 +225,7 @@ export const MoveHistory = (props: MoveHistoryProps) => {
                       </div>
                     )}
                   </div>
-                  <div class={styles.moveMeta}>
-                    <span class={styles.moveTime}>{moveTime}</span>
-                    {move.playerId && (
-                      <span class={styles.movePlayer} title={move.playerId}>
-                        Player: {move.playerId.substring(0, 6)}...
-                      </span>
-                    )}
-                  </div>
+                  <div class={styles.moveMeta}></div>
                 </div>
               );
             }}
