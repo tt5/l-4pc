@@ -63,15 +63,6 @@ export const MoveHistory = (props: MoveHistoryProps) => {
     }
   });
 
-  // Debug effect to log when props change
-  createEffect(() => {
-    console.log('Moves updated:', props.moves.length, 'moves');
-    console.log('Current move index:', props.currentMoveIndex);
-    if (props.currentMoveIndex >= 0 && props.currentMoveIndex < props.moves.length) {
-      console.log('Current move:', props.moves[props.currentMoveIndex]);
-    }
-  });
-
   const hasBranches = (moveIndex: number) => {
     return props.branchPoints && props.branchPoints[moveIndex]?.length > 0;
   };
@@ -80,10 +71,6 @@ export const MoveHistory = (props: MoveHistoryProps) => {
     return props.branchPoints?.[moveIndex] || [];
   };
   
-  const isBranchPoint = (moveIndex: number, branchName: string) => {
-    return props.branchPoints?.[moveIndex]?.some(b => b.branchName === branchName);
-  };
-
   // Toggle branch expansion
   const toggleBranchExpansion = (moveIndex: number) => {
     setExpandedBranches(prev => ({
@@ -107,9 +94,6 @@ export const MoveHistory = (props: MoveHistoryProps) => {
       }));
     }
   });
-  
-  // Memoize the current move to prevent unnecessary re-renders
-  const currentMove = createMemo(() => props.moves[props.currentMoveIndex]);
   
   return (
     <div class={styles.moveHistoryContainer}>
@@ -140,19 +124,6 @@ export const MoveHistory = (props: MoveHistoryProps) => {
               // Only highlight if this is the exact current move index
               // Using index() directly since it's 0-based like currentMoveIndex
               const isCurrentMove = index() === props.currentMoveIndex;
-              
-              // Always include moveItem class, conditionally add currentMove
-              const moveClass = `${styles.moveItem}${isCurrentMove ? ` ${styles.currentMove}` : ''}`;
-              
-              // Debug info for individual move
-              console.group(`Move ${displayMoveNumber}`);
-              console.log('Move data:', {
-                moveNumber,
-                isCurrentMove: isCurrentMove ? 'HIGHLIGHTED' : 'not current',
-                currentMoveIndex: props.currentMoveIndex,
-                move: { from: [fromX, fromY], to: [toX, toY] }
-              });
-              console.groupEnd();
               
               return (
                 <div 
