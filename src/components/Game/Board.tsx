@@ -39,75 +39,6 @@ interface BoardProps {
   gameId?: string;
 }
 
-// Helper function to update game state after a move is made
-function updateGameStateAfterMove(
-  updatedBasePoints: BasePoint[],
-  nextTurnIndex: number,
-  setBasePoints: (points: BasePoint[]) => void,
-  setCurrentTurnIndex: (index: number) => void,
-  setRestrictedSquares: (squares: number[]) => void,
-  setRestrictedSquaresInfo: (info: RestrictedSquareInfo[]) => void
-) {
-  setBasePoints(updatedBasePoints);
-  
-  // Update turn to the next player
-  const newTurnIndex = nextTurnIndex % PLAYER_COLORS.length;
-  setCurrentTurnIndex(newTurnIndex);
-  
-  // Calculate restricted squares for the current player
-  const currentPlayerPieces = updatedBasePoints.filter(p => 
-    getTeamByColor(p.color) === (newTurnIndex % PLAYER_COLORS.length)
-  );
-  const { restrictedSquares, restrictedSquaresInfo: newRestrictedSquaresInfo } = calculateRestrictedSquares(
-    currentPlayerPieces,
-    updatedBasePoints
-  );
-  setRestrictedSquares(restrictedSquares);
-  setRestrictedSquaresInfo(newRestrictedSquaresInfo);
-}
-
-// Helper function to apply a move to the board state
-const applyMoveToBoard = (
-  basePoints: BasePoint[],
-  move: Move
-): { updatedBasePoints: BasePoint[]; capturedPiece: BasePoint | null } => {
-  const updatedBasePoints = [...basePoints];
-  const { fromX, fromY, toX, toY } = move;
-  let capturedPiece: BasePoint | null = null;
-  
-  // Find and move the piece
-  const pieceIndex = updatedBasePoints.findIndex(p => p.x === fromX && p.y === fromY);
-  
-  if (pieceIndex === -1) {
-    console.warn(`[applyMoveToBoard] No piece found at [${fromX},${fromY}] to move`);
-    return { updatedBasePoints, capturedPiece: null };
-  }
-
-  const piece = updatedBasePoints[pieceIndex];
-  console.log(`[applyMoveToBoard] Moving piece ${piece.id} (${piece.pieceType}) from [${fromX},${fromY}] to [${toX},${toY}]`);
-  
-  // If this move captures a piece, remove it
-  if (move.capturedPieceId) {
-    const capturedPieceIndex = updatedBasePoints.findIndex(p => p.id === move.capturedPieceId);
-    if (capturedPieceIndex !== -1) {
-      capturedPiece = updatedBasePoints[capturedPieceIndex];
-      console.log(`[applyMoveToBoard] Capturing piece ${capturedPiece.id} (${capturedPiece.pieceType}) at [${toX},${toY}]`);
-      updatedBasePoints.splice(capturedPieceIndex, 1);
-    }
-  }
-  
-  // Update the piece's position
-  updatedBasePoints[pieceIndex] = {
-    ...piece,
-    x: toX,
-    y: toY,
-    hasMoved: true
-  };
-
-  return { updatedBasePoints, capturedPiece };
-};
-
-
 const Board: Component<BoardProps> = (props) => {
   const auth = useAuth();
   const navigate = useNavigate();
@@ -142,10 +73,9 @@ const Board: Component<BoardProps> = (props) => {
     userId: string | null;
   }>({ gameId: null, userId: null });
   
-  // Track last loaded state changes
-
   // Load moves when game ID or user changes
   createEffect(() => {
+    console.log(`[Effect] load moves`)
     const currentGameId = gameId();
     const currentUser = auth.user();
     const lastState = lastLoadedState();
@@ -278,6 +208,7 @@ const Board: Component<BoardProps> = (props) => {
   });
 
   // Listen for move events
+  // This only logs
   createEffect(() => {
     const handleMoveMade = (move: Move) => {
       console.log(`[Effect move events] ${JSON.stringify(move)}`);
@@ -312,76 +243,6 @@ const Board: Component<BoardProps> = (props) => {
   // Track which squares have kings in check
   const [kingsInCheck, setKingsInCheck] = createSignal<{[key: string]: boolean}>({});
   
-  // Check if the current player's king is in check
-  const checkKingInCheck = (): void => {
-    const allBasePoints = basePoints();
-    const restrictedSquares = getRestrictedSquares();
-    const restrictedInfo = restrictedSquaresInfo();
-    const currentPlayer = currentPlayerColor();
-    
-    // Reset king in check state
-    setKingInCheck(null);
-    
-    // Find the current player's king
-    const currentPlayerKing = allBasePoints.find(bp => {
-      const isKing = bp.pieceType === 'king';
-      const currentPlayerHex = getColorHex(currentPlayer);
-      const matchesColor = bp.color.toLowerCase() === currentPlayerHex;
-      
-      return isKing && matchesColor;
-    });
-    
-    if (!currentPlayerKing) {
-      return;
-    }
-    
-    const kingIndex = currentPlayerKing.y * BOARD_CONFIG.GRID_SIZE + currentPlayerKing.x;
-    const kingTeam = getTeam(currentPlayerKing.color);
-    const isKingOnRestrictedSquare = restrictedSquares.includes(kingIndex);
-    
-    if (!isKingOnRestrictedSquare) {
-      return;
-    }
-    
-    // Get all restrictions on the king's square
-    const restrictions = restrictedInfo.filter(sq => sq.index === kingIndex);
-    
-    // Find all pieces that are restricting this square
-    const threateningPieces = [];
-    
-    for (const restriction of restrictions) {
-      for (const r of restriction.restrictedBy) {
-        // Find the piece that's causing this restriction
-        const attacker = allBasePoints.find(bp => 
-          bp.x === r.basePointX && 
-          bp.y === r.basePointY
-        );
-        
-        if (attacker) {
-          const attackerTeam = getTeam(attacker.color);
-          const isOpponent = attackerTeam !== kingTeam;
-          
-          if (isOpponent) {
-            threateningPieces.push({
-              ...attacker,
-              team: attackerTeam
-            });
-          }
-        }
-      }
-    }
-    
-    if (threateningPieces.length > 0) {
-      // King is in check
-      
-      setKingInCheck({
-        team: kingTeam,
-        position: [currentPlayerKing.x, currentPlayerKing.y]
-      });
-    } else {
-      // King is not in check
-    }
-  };
 
   // Helper function to check if a square is under attack by any piece of the given team
   const isSquareUnderAttack = (x: number, y: number, attackingTeam: number): boolean => {
@@ -695,82 +556,6 @@ const Board: Component<BoardProps> = (props) => {
   const [currentTurnIndex, setCurrentTurnIndex] = createSignal(0);
   const currentPlayerColor = () => PLAYER_COLORS[currentTurnIndex() % PLAYER_COLORS.length];
   
-  // Update the base points based on the current move history
-  const updateBoardState = (moves: Move[]) => {
-    
-    // Always start with a fresh copy of the initial board state when replaying moves
-    // This ensures consistent move replay from the initial position
-    const currentBasePoints = JSON.parse(JSON.stringify(INITIAL_BASE_POINTS));
-    
-    // Clear any lingering currentMove classes
-    document.querySelectorAll(`.${styles.currentMove}`).forEach(el => {
-      el.classList.remove(styles.currentMove);
-      el.setAttribute('data-is-current', 'false');
-    });
-    
-    // Create a map of positions to pieces
-    const positionMap = new Map<string, BasePoint>();
-    currentBasePoints.forEach((point: BasePoint) => {
-      positionMap.set(`${point.x},${point.y}`, { ...point });
-    });
-    
-    // Apply each move in sequence
-    moves.forEach((move, index) => {
-      // Use flat coordinate format
-      const fromX = move.fromX;
-      const fromY = move.fromY;
-      const toX = move.toX;
-      const toY = move.toY;
-      const pieceType = move.pieceType;
-      
-      const fromKey = `${fromX},${fromY}`;
-      const toKey = `${toX},${toY}`;
-      
-      // Skip if we don't have valid coordinates
-      if (fromX === undefined || fromY === undefined || toX === undefined || toY === undefined) {
-        return;
-      }
-      
-      // Find the piece being moved
-      const piece = positionMap.get(fromKey);
-      if (!piece) {
-        return; // Skip this move if source piece not found
-      }
-      // Check for capture first (before we move the piece)
-      if (positionMap.has(toKey)) {
-        const capturedPiece = positionMap.get(toKey);
-        if (capturedPiece) {
-          positionMap.delete(toKey);
-        }
-      }
-      
-      // Create a new piece object with updated position and type
-      const movedPiece: BasePoint = {
-        ...piece,
-        x: toX,
-        y: toY,
-        // Use the pieceType from the move if valid, otherwise keep the existing one
-        pieceType: (pieceType && isValidPieceType(pieceType)) ? pieceType : piece.pieceType,
-        hasMoved: true
-      };
-      
-      // Remove the piece from its old position
-      positionMap.delete(fromKey);
-      
-      // If there's a piece at the target position, remove it first (capture)
-      if (positionMap.has(toKey)) {
-        positionMap.delete(toKey);
-      }
-      
-      // Place the moved piece in the new position
-      positionMap.set(toKey, movedPiece);
-    });
-    
-    // Update the base points with the new positions
-    const updatedBasePoints = Array.from(positionMap.values());
-    setBasePoints(updatedBasePoints);
-  };
-  
   // Initial board setup - matches the reset-board.ts configuration
   const INITIAL_BASE_POINTS: BasePoint[] = [
     // Yellow pieces (top)
@@ -845,55 +630,6 @@ const Board: Component<BoardProps> = (props) => {
     { id: 63, x: 12, y: 3, userId: 'system', color: '#4CAF50', pieceType: 'pawn', team: 2, createdAtMs: Date.now() },
     { id: 64, x: 12, y: 10, userId: 'system', color: '#4CAF50', pieceType: 'pawn', team: 2, createdAtMs: Date.now() }
   ];
-
-  // Helper function to find the next move in the current branch
-  const findNextMoveInBranch = (
-    history: Move[],
-    currentIndex: number,
-    currentBranch: string | null,
-    _allBranchPoints: Record<number, any[]>,
-    _getCurrentMoveIndex: () => number
-  ): { nextIndex: number; nextMove: Move } | null => {
-    // Get the linear history for the current branch
-    const linearHistory = rebuildMoveHistory(currentBranch);
-    
-    if (linearHistory.length === 0) {
-      console.log('[findNextMoveInBranch] No moves found in current branch');
-      return null;
-    }
-    
-    // Find the current move in the linear history
-    const currentMove = currentIndex >= 0 && currentIndex < history.length 
-      ? history[currentIndex] 
-      : null;
-      
-    let currentLinearIndex = currentMove 
-      ? linearHistory.findIndex(m => m === currentMove)
-      : -1;
-
-    // If current move not found in linear history, start from beginning
-    if (currentLinearIndex === -1) {
-      currentLinearIndex = -1; // Will make nextIndex 0
-    }
-
-    const nextLinearIndex = currentLinearIndex + 1;
-    
-    if (nextLinearIndex >= linearHistory.length) {
-      console.log('[findNextMoveInBranch] Already at the latest move in this branch');
-      return null;
-    }
-
-    const nextMove = linearHistory[nextLinearIndex];
-    const nextIndex = history.indexOf(nextMove);
-    
-    if (nextIndex === -1) {
-      console.error('[findNextMoveInBranch] Could not find next move in full history');
-      return null;
-    }
-
-    console.log(`[findNextMoveInBranch] Found next move at index ${nextIndex} in branch '${currentBranch || 'main'}'`);
-    return { nextIndex, nextMove };
-  };
 
   // Reset the board to its initial state
   const resetBoardToInitialState = () => {
@@ -1030,8 +766,6 @@ const Board: Component<BoardProps> = (props) => {
   };
 
   const handleGoForward = async () => {
-
-    const branch = currentBranchName() || 'main';
 
     console.log(`[handleGoForward] currentBranchName: ${currentBranchName()}`)
 
@@ -1220,20 +954,23 @@ const Board: Component<BoardProps> = (props) => {
 
   // Check for king in check when restricted squares or base points change
   createEffect(() => {
-    checkKingInCheck();
-    
-    // Clear previous check highlights
-    setKingsInCheck({});
-    
-    // Check each king
+    console.log(`[Effect] check king in check`)
+  // Check all kings to see if they are in check
     const allBasePoints = basePoints();
     const restrictedSquares = getRestrictedSquares();
     const restrictedInfo = restrictedSquaresInfo();
     
+    // Reset check states
+    setKingInCheck(null);
+    const newKingsInCheck: {[key: string]: boolean} = {};
+    
+    // Check each king on the board
     allBasePoints
       .filter(bp => bp.pieceType === 'king')
       .forEach(king => {
         const kingIndex = king.y * BOARD_CONFIG.GRID_SIZE + king.x;
+        const kingTeam = getTeam(king.color);
+        
         if (restrictedSquares.includes(kingIndex)) {
           // Check if any opponent pieces are threatening this king
           const restrictions = restrictedInfo.filter(sq => sq.index === kingIndex);
@@ -1243,18 +980,28 @@ const Board: Component<BoardProps> = (props) => {
                 bp.x === r.basePointX && 
                 bp.y === r.basePointY
               );
-              return attacker && getTeam(attacker.color) !== getTeam(king.color);
+              return attacker && getTeam(attacker.color) !== kingTeam;
             })
           );
           
           if (isInCheck) {
-            setKingsInCheck(prev => ({
-              ...prev,
-              [`${king.x},${king.y}`]: true
-            }));
+            newKingsInCheck[`${king.x},${king.y}`] = true;
+            
+            // Update the current player's king check state if it's their turn
+            const currentPlayer = currentPlayerColor();
+            const currentPlayerHex = getColorHex(currentPlayer);
+            if (king.color.toLowerCase() === currentPlayerHex) {
+              setKingInCheck({
+                team: kingTeam,
+                position: [king.x, king.y]
+              });
+            }
           }
         }
       });
+      
+    // Update the kings in check state
+    setKingsInCheck(newKingsInCheck);
   });
 
 // Set up SSE for real-time updates
@@ -1306,39 +1053,6 @@ const Board: Component<BoardProps> = (props) => {
     }
   });
 
-  // Handle mouse move for dragging
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isDragging() || !pickedUpBasePoint()) return;
-
-    const board = boardRef;
-    if (!board) return;
-
-    const rect = board.getBoundingClientRect();
-    const gridX = Math.floor((e.clientX - rect.left) / (rect.width / BOARD_CONFIG.GRID_SIZE));
-    const gridY = Math.floor((e.clientY - rect.top) / (rect.height / BOARD_CONFIG.GRID_SIZE));
-
-    // Check if we're still within the grid
-    if (gridX < 0 || gridX >= BOARD_CONFIG.GRID_SIZE || gridY < 0 || gridY >= BOARD_CONFIG.GRID_SIZE) {
-      return;
-    }
-
-    const currentCell: [number, number] = [gridX, gridY];
-    
-    // Always update the hovered cell during drag
-    setHoveredCell(currentCell);
-    
-    // Get the current last hovered cell
-    const lastCell = lastHoveredCell();
-    
-    // If we don't have a last hovered cell or it's different from current cell
-    if (!lastCell || (lastCell[0] !== currentCell[0] || lastCell[1] !== currentCell[1])) {
-      // Only update the target position and UI, don't make API calls yet
-      setTargetPosition([...currentCell]);
-      updateBasePointUI(currentCell);
-      // Update the last hovered cell
-      setLastHoveredCell([...currentCell]);
-    }
-  };
 
   // Handle base point pickup
   const handleBasePointPickup = (point: Point) => {
@@ -1532,72 +1246,6 @@ const Board: Component<BoardProps> = (props) => {
     setBasePoints(newBasePoints);
     cleanupDragState();
     return true;
-  };
-
-  /**
-   * Updates the restricted squares based on the current board state
-   */
-  const updateRestrictedSquares = (
-    basePoints: BasePoint[],
-    currentPlayerIndex: number,
-    setRestrictedSquares: (squares: number[]) => void,
-    setRestrictedSquaresInfo: (info: RestrictedSquareInfo[]) => void,
-    getLegalMoves: (piece: BasePoint, board: BasePoint[]) => Array<{x: number, y: number, canCapture: boolean}>,
-    boardConfig: { GRID_SIZE: number }
-  ) => {
-    const currentPlayerPieces = basePoints.filter(p => {
-      const pieceColor = p.color?.toLowerCase();
-      const expectedColor = PLAYER_COLORS[currentPlayerIndex].toLowerCase();
-      const mappedColor = COLOR_TO_HEX[expectedColor as PlayerColor] || expectedColor;
-      return pieceColor && (pieceColor === expectedColor || pieceColor === mappedColor);
-    });
-    
-    const newRestrictedSquares: number[] = [];
-    const newRestrictedSquaresInfo: RestrictedSquareInfo[] = [];
-    
-    // Calculate restricted squares for current player's pieces
-    for (const piece of currentPlayerPieces) {
-      const moves = getLegalMoves(piece, basePoints);
-      
-      for (const move of moves) {
-        const { x, y } = move;
-        const index = y * boardConfig.GRID_SIZE + x;
-        
-        if (!newRestrictedSquares.includes(index)) {
-          newRestrictedSquares.push(index);
-        }
-        
-        const existingInfo = newRestrictedSquaresInfo.find(info => 
-          info.x === x && info.y === y
-        );
-        
-        if (existingInfo) {
-          if (!existingInfo.restrictedBy) {
-            existingInfo.restrictedBy = [];
-          }
-          existingInfo.restrictedBy.push({
-            basePointId: piece.id.toString(),
-            basePointX: piece.x,
-            basePointY: piece.y
-          });
-        } else {
-          newRestrictedSquaresInfo.push({
-            index,
-            x,
-            y,
-            restrictedBy: [{
-              basePointId: piece.id.toString(),
-              basePointX: piece.x,
-              basePointY: piece.y
-            }]
-          });
-        }
-      }
-    }
-    
-    // Update the restricted squares state
-    setRestrictedSquares(newRestrictedSquares);
-    setRestrictedSquaresInfo(newRestrictedSquaresInfo);
   };
 
   /**
@@ -2164,7 +1812,35 @@ const Board: Component<BoardProps> = (props) => {
       if (isDragging() && pickedUpBasePoint()) {
         mouseEvent.preventDefault();
         mouseEvent.stopPropagation();
-        handleMouseMove(mouseEvent);
+        
+        const board = boardRef;
+        if (!board) return;
+
+        const rect = board.getBoundingClientRect();
+        const gridX = Math.floor((mouseEvent.clientX - rect.left) / (rect.width / BOARD_CONFIG.GRID_SIZE));
+        const gridY = Math.floor((mouseEvent.clientY - rect.top) / (rect.height / BOARD_CONFIG.GRID_SIZE));
+
+        // Check if we're still within the grid
+        if (gridX < 0 || gridX >= BOARD_CONFIG.GRID_SIZE || gridY < 0 || gridY >= BOARD_CONFIG.GRID_SIZE) {
+          return;
+        }
+
+        const currentCell: [number, number] = [gridX, gridY];
+        
+        // Always update the hovered cell during drag
+        setHoveredCell(currentCell);
+        
+        // Get the current last hovered cell
+        const lastCell = lastHoveredCell();
+        
+        // If we don't have a last hovered cell or it's different from current cell
+        if (!lastCell || (lastCell[0] !== currentCell[0] || lastCell[1] !== currentCell[1])) {
+          // Only update the target position and UI, don't make API calls yet
+          setTargetPosition([...currentCell]);
+          updateBasePointUI(currentCell);
+          // Update the last hovered cell
+          setLastHoveredCell([...currentCell]);
+        }
       }
     };
 

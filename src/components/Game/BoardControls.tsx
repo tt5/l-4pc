@@ -50,25 +50,18 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
   };
 
   const handleGoBack = async () => {
-    console.log('[BoardControls] Back button clicked');
-    console.log(`[BoardControls] Current state - isGoingBack: ${isGoingBack()}, canGoBack: ${props.canGoBack}`);
     
     if (isGoingBack() || !props.canGoBack) {
       console.log('[BoardControls] Back action prevented - already going back or cannot go back');
       return;
     }
     
-    console.log('[BoardControls] Starting back navigation...');
-    const startTime = performance.now();
     setIsGoingBack(true);
     
     try {
       if (props.onGoBack) {
-        console.log('[BoardControls] Calling onGoBack callback');
         await props.onGoBack();
-        console.log('[BoardControls] Successfully went back one move');
       } else {
-        console.warn('[BoardControls] onGoBack callback is not defined');
       }
     } catch (error) {
       console.error('[BoardControls] Error going back:', error);
@@ -77,8 +70,6 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
         console.error(`[BoardControls] Error details: ${error.message}`, error.stack);
       }
     } finally {
-      const duration = (performance.now() - startTime).toFixed(2);
-      console.log(`[BoardControls] Back navigation completed in ${duration}ms`);
       setIsGoingBack(false);
     }
   };
@@ -100,6 +91,7 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
 
   return (
     <div class={styles.boardControls}>
+      <div>{props.gameId}</div>
       <div class={styles.navButtons}>
         <button 
           onClick={handleGoBack} 
