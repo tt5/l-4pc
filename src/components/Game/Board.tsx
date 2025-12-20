@@ -456,7 +456,6 @@ const Board: Component<BoardProps> = (props) => {
   } = useRestrictedSquares();
   
   // State variables
-  const [isSaving, setIsSaving] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [dragStartPosition, setDragStartPosition] = createSignal<[number, number] | null>(null);
   const [pickedUpBasePoint, setPickedUpBasePoint] = createSignal<[number, number] | null>(null);
@@ -474,8 +473,6 @@ const Board: Component<BoardProps> = (props) => {
   const [currentMoveIndex, setCurrentMoveIndex] = createSignal(-1);
   // Branch name for the current move (if any)
   const [currentBranchName, setCurrentBranchName] = createSignal<string | null>(null);
-  // Track the next main line move when returning from a branch
-  const [currentMainLineMove, setCurrentMainLineMove] = createSignal<{index: number, move: Move} | null>(null);
   
   // Type for simplified move coordinates in branch points
   interface BranchMove {
@@ -1402,7 +1399,7 @@ const Board: Component<BoardProps> = (props) => {
           const cellState = {
             isBasePoint: isBP,
             isSelected,
-            isHovered: !!(hoveredSquare() === index || (hoveredCell() && hoveredCell()![0] === x && hoveredCell()![1] === y)),
+            isHovered: !!((hoveredCell() && hoveredCell()![0] === x && hoveredCell()![1] === y)),
             isInCheck: isKingInCheck,
             isNonPlayable,
             id: basePoint?.id,
