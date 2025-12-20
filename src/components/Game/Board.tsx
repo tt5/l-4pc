@@ -848,22 +848,6 @@ const Board: Component<BoardProps> = (props) => {
     resetBoardToInitialState();
   });
 
-
-  // Handle square hover
-  const handleSquareHover = (index: number | null) => {
-    setHoveredSquare(index);
-    if (index === null) {
-      setError(null);
-    } else {
-      const validation = validateSquarePlacementLocal(index);
-      if (!validation.isValid) {
-        setError(validation.reason || 'Invalid placement');
-      } else {
-        setError(null);
-      }
-    }
-  };
-  
   // Effect to handle user changes
   createEffect(on(
     () => user(),
@@ -1073,7 +1057,6 @@ const Board: Component<BoardProps> = (props) => {
       currentMoveIndex: currentMoveIndex()
     };
   };
-
 
   // Handle mouse up anywhere on the document to complete dragging
   const handleGlobalMouseUp = async (e?: MouseEvent | Event) => {
@@ -1496,7 +1479,6 @@ const Board: Component<BoardProps> = (props) => {
             isBasePoint: isBP,
             isSelected,
             isHovered: !!(hoveredSquare() === index || (hoveredCell() && hoveredCell()![0] === x && hoveredCell()![1] === y)),
-            isSaving: isSaving(),
             isInCheck: isKingInCheck,
             isNonPlayable,
             id: basePoint?.id,
@@ -1513,15 +1495,12 @@ const Board: Component<BoardProps> = (props) => {
               pickedUpBasePoint={pickedUpBasePoint()}
               onHover={(hovered) => {
                 if (hovered) {
-                  handleSquareHover(index);
                   setHoveredCell([x, y]);
                 } else if (hoveredCell()?.[0] === x && hoveredCell()?.[1] === y) {
-                  handleSquareHover(null);
                   setHoveredCell(null);
                 }
               }}
               onBasePointPickup={handleBasePointPickup}
-              setBasePoints={setBasePoints}
             />
           );
         })}
@@ -1532,8 +1511,6 @@ const Board: Component<BoardProps> = (props) => {
         </div>
       )}
       </div>
-      
-      {/* Move History Sidebar */}
       <MoveHistory 
         moves={moveHistory()}
         currentMoveIndex={currentMoveIndex()}

@@ -9,7 +9,6 @@ interface CellState {
   isBasePoint: boolean;
   isSelected: boolean;
   isHovered: boolean;
-  isSaving: boolean;
   isInCheck?: boolean;
   isNonPlayable?: boolean; // Indicates if the square is in a non-playable corner
   id?: number; // ID of the piece
@@ -26,13 +25,12 @@ interface GridCellProps {
   onHover: (isHovered: boolean) => void;
   onClick?: () => void;  // Made optional with ?
   onBasePointPickup: (point: Point) => void;
-  onBasePointPlacement: (point: Point) => void;
   setBasePoints: (updater: (prev: BasePoint[]) => BasePoint[]) => void;
 }
 
 export const GridCell: Component<GridCellProps> = (props) => {
   const { state, x, y, isDragging: isDraggingProp, pickedUpBasePoint } = props;
-  const { isBasePoint, isSelected, isHovered, isSaving, id, color, pieceType } = state;
+  const { isBasePoint, isSelected, isHovered, id, color, pieceType } = state;
   
   const handleMouseDown = (e: MouseEvent) => {
     if (isBasePoint) {
@@ -43,18 +41,14 @@ export const GridCell: Component<GridCellProps> = (props) => {
 
   const handleMouseEnter = () => {
     props.onHover(true);
-    // Don't call onBasePointPlacement during drag - we'll handle it in handleGlobalMouseUp
   };
 
-  const handleMouseUp = () => {
-    // Don't call onBasePointPlacement here - we'll handle it in handleGlobalMouseUp
-  };
+  const handleMouseUp = () => {};
 
   const squareClass = () => {
     const classes = [styles.square];
     if (isBasePoint) classes.push(styles.basePoint);
     if (isSelected) classes.push(styles.selected);
-    if (isSaving && isHovered) classes.push(styles.loading);
     else if (isHovered && !state.isNonPlayable) {
       classes.push((!isSelected && !isBasePoint) ? styles['valid-hover'] : styles['invalid-hover']);
     }
