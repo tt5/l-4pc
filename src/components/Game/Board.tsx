@@ -204,22 +204,6 @@ const Board: Component<BoardProps> = (props) => {
     }
   });
 
-  // Listen for move events
-  // This only logs
-  createEffect(() => {
-    const handleMoveMade = (move: Move) => {
-      console.log(`[Effect move events] ${JSON.stringify(move)}`);
-    };
-
-    // Subscribe to move events
-    moveEventService.onMoveMade(handleMoveMade);
-
-    // Cleanup on unmount
-    onCleanup(() => {
-      moveEventService.offMoveMade(handleMoveMade);
-    });
-  });
-
   // Clean up drag state
   const cleanupDragState = () => {
     setIsDragging(false);
@@ -482,11 +466,10 @@ const Board: Component<BoardProps> = (props) => {
   const [isProcessingMove, setIsProcessingMove] = createSignal(false);
   const [hoveredCell, setHoveredCell] = createSignal<[number, number] | null>(null);
   
-  // Full move history from the server
   const [fullMoveHistory, setFullMoveHistory] = createSignal<Move[]>([]);
   // Track the main line moves (original game line without branches)
   const [mainLineMoves, setMainLineMoves] = createSignal<Move[]>([]);
-  // Current move history up to the current position
+  // Current move history up to the end of branch
   const [moveHistory, setMoveHistory] = createSignal<Move[]>([]);
   // Current position in the move history (for going back/forward)
   const [currentMoveIndex, setCurrentMoveIndex] = createSignal(-1);
@@ -803,21 +786,6 @@ const Board: Component<BoardProps> = (props) => {
     const targetMove = history[newIndex];
     setCurrentBranchName(targetMove?.branchName || null);
 
-    // Check if we're returning to main line from a branch
-    const isReturningFromBranch = currentBranchName() && (!targetMove?.branchName || targetMove.branchName === 'main');
-    
-    if (isReturningFromBranch) {
-      // Find next main line move after the target move
-      for (let i = newIndex + 1; i < history.length; i++) {
-        const move = history[i];
-        if (!move.branchName || move.branchName === 'main') {
-          console.log('[updateBranchInfo] Returning to main line, next main line move is at index', i, { move });
-          setCurrentMainLineMove({ index: i, move });
-          break;
-        }
-      }
-    }
-    
     // 4. Update turn index (next player's turn)
     const newTurnIndex = (newIndex) % PLAYER_COLORS.length;
     setCurrentTurnIndex(newTurnIndex);
@@ -1133,21 +1101,28 @@ const Board: Component<BoardProps> = (props) => {
     const [targetX, targetY] = target;
     const [startX, startY] = startPos;
     
-    // Only proceed if we actually moved to a new cell
-    if (startX !== targetX || startY !== targetY) {
-      const { isValid, pointToMove, error } = validateMove(startX, startY, targetX, targetY);
-      if (!isValid || !pointToMove) {
-        if (error) {
-          console.error('Move validation failed:', error);
-        }
-        cleanupDragState();
-        return;
+    // Handle case where there's no movement
+    if (startX === targetX && startY === targetY) {
+      console.log('No movement detected, cleaning up');
+      setIsProcessingMove(false);
+      cleanupDragState();
+      return;
+    }
+
+    // Validate the move
+    const { isValid, pointToMove, error } = validateMove(startX, startY, targetX, targetY);
+    if (!isValid || !pointToMove) {
+      if (error) {
+        console.error('Move validation failed:', error);
       }
-      
-      // Save the current state for potential rollback
-      const originalState = saveCurrentStateForRollback();
-      
-      try {
+      cleanupDragState();
+      return;
+    }
+    
+    // Save the current state for potential rollback
+    const originalState = saveCurrentStateForRollback();
+    
+    try {
 
         // Check if we're making a move from a historical position (not the latest move)
         console.log(`[handleGlobalMouseUp] currentMoveIndex: ${currentMoveIndex()}`)
@@ -1426,11 +1401,6 @@ const Board: Component<BoardProps> = (props) => {
         setIsProcessingMove(false);
         cleanupDragState();
       }
-    } else {
-      console.log('No movement detected, cleaning up');
-      setIsProcessingMove(false);
-      cleanupDragState();
-    }
   };
 
   /**
