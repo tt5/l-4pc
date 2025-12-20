@@ -17,7 +17,6 @@ import { calculateRestrictedSquares, type RestrictedSquareInfo } from '~/utils/b
 import { GridCell } from './GridCell';
 import { useRestrictedSquares } from '../../contexts/RestrictedSquaresContext';
 import { useFetchBasePoints } from '../../hooks/useFetchBasePoints';
-import { useSSE } from '../../hooks/useSSE';
 import BoardControls from './BoardControls';
 import { 
   type Point, 
@@ -964,56 +963,6 @@ const Board: Component<BoardProps> = (props) => {
     // Update the kings in check state
     setKingsInCheck(newKingsInCheck);
   });
-
-// Set up SSE for real-time updates
-  useSSE('/api/sse', (message) => {
-    // The point data might be in message.point or message.basePoint or the message itself
-    const point = message.point || message.basePoint || message;
-    
-    if (point && point.id) {
-      setBasePoints(prev => {
-        // Check if there's a base point at the target position that's different from the moving one
-        const capturedBasePoint = prev.find(bp => 
-          bp.x === point.x && 
-          bp.y === point.y && 
-          bp.id !== point.id
-        );
-        
-        // If we found a base point at the target position (a capture), remove it
-        if (capturedBasePoint) {
-          const filtered = prev.filter(bp => bp.id !== capturedBasePoint.id);
-          
-          // Now update the moving base point
-          const movingIndex = filtered.findIndex(bp => bp.id === point.id);
-          if (movingIndex !== -1) {
-            filtered[movingIndex] = {
-              ...filtered[movingIndex],
-              ...point
-            };
-          } else {
-            // If the moving base point doesn't exist yet, add it
-            filtered.push(point);
-          }
-          
-          return filtered;
-        }
-        
-        // If no capture, just update the base point normally
-        const index = prev.findIndex(bp => bp.id === point.id);
-        if (index !== -1) {
-          const newBasePoints = [...prev];
-          newBasePoints[index] = {
-            ...newBasePoints[index],
-            ...point
-          };
-          return newBasePoints;
-        }
-        
-        return prev;
-      });
-    }
-  });
-
 
   // Handle base point pickup
   const handleBasePointPickup = (point: Point) => {
