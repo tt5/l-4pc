@@ -1150,21 +1150,21 @@ const Board: Component<BoardProps> = (props) => {
             handleGoForward();
             return;
           } else {
-            console.log(`[handleGlobalMouseUp] ❌ Move does not match main line at index ${currentIndex}`);
-
             const currentBranches = branchPoints()[currentIndex] || [];
             
             // Find a matching branch for this move
             const matchingBranch = currentBranches.find(branch => {
+              const parentBranch = branch.parentBranch;
               const move = branch.firstMove;
-              return move.fromX === startX && 
+              return parentBranch === currentBranchName() &&
+                     move.fromX === startX && 
                      move.fromY === startY &&
                      move.toX === targetX && 
                      move.toY === targetY;
             });
             
             if (matchingBranch) {
-              console.log(`[handleGlobalMouseUp] followExistingBranch`);
+              console.log(`[handleGlobalMouseUp] branch`);
               
               const { branchName: matchedBranchName } = matchingBranch;
               setCurrentBranchName(matchedBranchName);
@@ -1180,8 +1180,6 @@ const Board: Component<BoardProps> = (props) => {
                 isBranching = false;
                 return; // Exit early on failure
               }
-              
-              console.log(`[handleGlobalMouseUp] Found ${branchMoves.length} moves in branch '${matchedBranchName}'`);
               
               handleGoForward();
               isBranching = false;
@@ -1205,12 +1203,9 @@ const Board: Component<BoardProps> = (props) => {
               return;
             }
 
-            console.log(`[HandleGlobalMouseUp] branchPoints: ${JSON.stringify(branchPoints())}`)
             const branchPointMoves = branchPoints()[currentIndex+1]
               ?.filter(bp => bp.parentBranch === branchName)
               .map(bp => bp.firstMove);
-            console.log(`[handleGlobalMouseUp] branchPointMoves: ${JSON.stringify(branchPointMoves)}`)
-
             
             const isBranchPointMove = branchPointMoves?.some(branchMove => {
               return branchMove.fromX === startX &&
@@ -1228,8 +1223,6 @@ const Board: Component<BoardProps> = (props) => {
             }
             
             console.log(`[handleGlobalMouseUp] ❌ Move does not match branch point`);
-
-            console.log(`[handleGlobalMouseUp] length: ${moveHistory().length} -- ${JSON.stringify(moveHistory())}`)
 
             // If we get here, it's a new branch
             isBranching = true;
@@ -1351,23 +1344,6 @@ const Board: Component<BoardProps> = (props) => {
         const currentBranchNameValue = currentBranchName();
         const linearHistory = rebuildMoveHistory(currentBranchNameValue);
         setMoveHistory(linearHistory);
-        //setCurrentMoveIndex(linearHistory.length);
-
-        //// Update turn to next player
-        //setCurrentTurnIndex(prev => (prev + 1) % PLAYER_COLORS.length);
-
-        // 3. Update the base points in the UI
-        const updatedBasePoints = basePoints().map(bp => 
-          bp.id === pointToMove.id
-            ? { ...bp, x: targetX, y: targetY }
-            : bp
-        );
-        // Updating base points in UI
-        setBasePoints(updatedBasePoints);
-
-        if (!pointToMove) {
-          throw new Error(`Base point not found at position (${startX}, ${startY})`);
-        }
 
         // Updating base point in database
         const result = await updateBasePoint(
