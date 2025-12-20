@@ -1427,10 +1427,10 @@ const Board: Component<BoardProps> = (props) => {
         const currentBranchNameValue = currentBranchName();
         const linearHistory = rebuildMoveHistory(currentBranchNameValue);
         setMoveHistory(linearHistory);
-        setCurrentMoveIndex(linearHistory.length);
+        //setCurrentMoveIndex(linearHistory.length);
 
-        // Update turn to next player
-        setCurrentTurnIndex(prev => (prev + 1) % PLAYER_COLORS.length);
+        //// Update turn to next player
+        //setCurrentTurnIndex(prev => (prev + 1) % PLAYER_COLORS.length);
 
         // 3. Update the base points in the UI
         const updatedBasePoints = basePoints().map(bp => 
@@ -1462,46 +1462,8 @@ const Board: Component<BoardProps> = (props) => {
           throw new Error(result.error || 'Failed to update base point');
         }
 
-        // 5. Calculate new restricted squares from the server
-        // Calling /api/calculate-squares
-        // Use the moveNumber from newMove which is already calculated correctly
-        const moveNumber = newMove.moveNumber;
+        handleGoForward()
 
-        try {
-          console.log(`[handleGlobalMouseUp] calculate-squares`)
-          const response = await fetch('/api/calculate-squares', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              currentPosition: [startX, startY],
-              destination: [targetX, targetY],
-              pieceType: pointToMove.pieceType,
-              moveNumber,
-              gameId: gameId(),
-              branchName: newMove.branchName || null
-            })
-          });
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error('API Error:', response.status, response.statusText, errorText);
-            throw new Error(`API error: ${response.status} ${response.statusText}`);
-          }
-
-          const result2 = await response.json();
-          
-          if (result2.success) {
-            // Update with server-calculated values
-            setRestrictedSquares(result2.data?.squares || []);
-            setRestrictedSquaresInfo(result2.data?.squaresWithOrigins || []);
-          } else {
-            console.warn('API call was not successful, using optimistic update');
-          }
-        } catch (apiError) {
-          console.error('Error in calculate-squares API call:', apiError);
-          // Continue with the optimistic update even if the API call fails
-          console.log('Continuing with optimistic update after API error');
-        }
       } catch (error) {
         // Handle errors and revert to original state
         console.error('Error during move:', error);
