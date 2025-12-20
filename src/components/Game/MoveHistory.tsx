@@ -65,30 +65,11 @@ export const MoveHistory = (props: MoveHistoryProps) => {
     return props.branchPoints?.[moveIndex] || [];
   };
   
-  // Toggle branch expansion
-  const toggleBranchExpansion = (moveIndex: number) => {
-    setExpandedBranches(prev => ({
-      ...prev,
-      [moveIndex]: !prev[moveIndex]
-    }));
-  };
-
   // Format move coordinates for display
   const formatMove = (move: { fromX: number; fromY: number; toX: number; toY: number }) => {
     return `(${move.fromX},${move.fromY}) → (${move.toX},${move.toY})`;
   };
 
-  // Auto-expand the current branch
-  createEffect(() => {
-    const index = props.currentMoveIndex;
-    if (index >= 0) {
-      setExpandedBranches(prev => ({
-        ...prev,
-        [index]: true
-      }));
-    }
-  });
-  
   return (
     <div class={styles.moveHistoryContainer}>
       <div class={`${styles.turnIndicator} ${styles[props.currentPlayerColor()]}`}>

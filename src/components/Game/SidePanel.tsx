@@ -25,10 +25,6 @@ const SidePanel: Component<SidePanelProps> = (props) => {
   const [isOpen, setIsOpen] = createSignal(false);
   let panelRef: HTMLDivElement | undefined;
   
-  const formatTime = (timestamp: number) => {
-    return new Date(timestamp).toLocaleTimeString();
-  };
-
   // Close panel when clicking outside
   const handleClickOutside = (event: MouseEvent) => {
     if (panelRef && !panelRef.contains(event.target as Node)) {
@@ -56,9 +52,6 @@ const SidePanel: Component<SidePanelProps> = (props) => {
     }
   });
 
-  const [notificationsState, setNotificationsState] = createSignal<Notification[]>([]);
-  const [totalBasePointsState, setTotalBasePointsState] = createSignal<number | null>(null);
-
   return (
     <div class={`${styles.sidePanel} ${isOpen() ? styles.open : ''}`} ref={panelRef}>
       <div class={styles.tabs}>
@@ -81,7 +74,6 @@ const SidePanel: Component<SidePanelProps> = (props) => {
           <div>
             <InfoTab 
               username={props.username}
-              totalBasePoints={totalBasePointsState()}
             />
           </div>
         ) : (

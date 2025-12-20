@@ -15,7 +15,6 @@ import { getLegalMoves, isValidPieceType, isSquareOccupied } from '~/utils/gameU
 import { calculateRestrictedSquares, type RestrictedSquareInfo } from '~/utils/boardUtils';
 import { GridCell } from './GridCell';
 import { useRestrictedSquares } from '../../contexts/RestrictedSquaresContext';
-import { useFetchBasePoints } from '../../hooks/useFetchBasePoints';
 import BoardControls from './BoardControls';
 import { 
   type Point, 
@@ -749,14 +748,8 @@ const Board: Component<BoardProps> = (props) => {
   const [lastHoveredCell, setLastHoveredCell] = createSignal<[number, number] | null>(null);
 
   
-  // Base points fetching
-  const { 
-    basePoints, 
-    fetchBasePoints,
-    setBasePoints
-  } = useFetchBasePoints({
-    user,
-  });
+  // Base points are managed by the client state
+  const [basePoints, setBasePoints] = createSignal<BasePoint[]>([]);
   
   // Initialize board on mount
   onMount(async () => {

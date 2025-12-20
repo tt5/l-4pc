@@ -25,7 +25,6 @@ interface GridCellProps {
   onHover: (isHovered: boolean) => void;
   onClick?: () => void;  // Made optional with ?
   onBasePointPickup: (point: Point) => void;
-  setBasePoints: (updater: (prev: BasePoint[]) => BasePoint[]) => void;
 }
 
 export const GridCell: Component<GridCellProps> = (props) => {
