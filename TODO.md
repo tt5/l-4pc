@@ -1,9 +1,15 @@
 # TODOS
 
-- calculate the legal moves on the client too
-- move history set color to move (fetched moves)
-- save the response from calculate-squares for every move
-- new branch move: set new basepoints in calculate-squares
 - pawn promotion
 - castling
 - en passant
+- load game
+- fen
+- fix notation
+- short branch names
+- don't replay always from start
+- keyboard control
+- responsive design
+- drag pieces ui
+- show last move
+- show next move(s) (arrow)

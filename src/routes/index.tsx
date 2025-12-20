@@ -18,9 +18,6 @@ export default function Home() {
         <A href="/game" class={styles.link}>
           Enter Game
         </A>
-        <A href="/api/admin/performance" class={styles.link}>
-          Performance Metrics
-        </A>
       </div>
     </div>
   );

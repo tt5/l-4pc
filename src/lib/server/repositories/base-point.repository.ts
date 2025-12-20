@@ -228,11 +228,7 @@ export class BasePointRepository {
         points.map(p => p.id)
       );
       
-      // Emit a single event with the count of deleted points
-      const { basePointEventService } = await import('~/lib/server/events/base-point-events');
-      const eventPoint = { ...firstPoint, count: points.length };
-      basePointEventService.emitDeleted(eventPoint);
-      
+      // Points deleted successfully
       await this.db.run('COMMIT');
     } catch (error) {
       await this.db.run('ROLLBACK');
@@ -611,11 +607,6 @@ export class BasePointRepository {
     try {
       // Delete the point
       await this.db.run('DELETE FROM base_points WHERE id = ?', [id]);
-      
-      // Emit the deletion event
-      const { basePointEventService } = await import('~/lib/server/events/base-point-events');
-      basePointEventService.emitDeleted(point);
-      
       await this.db.run('COMMIT');
       return point;
     } catch (error) {

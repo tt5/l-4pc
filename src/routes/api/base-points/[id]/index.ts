@@ -1,7 +1,6 @@
 import { getBasePointRepository, getMoveRepository } from '~/lib/server/db';
 import { withAuth } from '~/middleware/auth';
 import { createApiResponse, createErrorResponse, generateRequestId } from '~/utils/api';
-import { basePointEventService } from '~/lib/server/events/base-point-events';
 
 // Helper function to determine team based on color
 function getTeam(color: string): number {
@@ -317,9 +316,6 @@ export const PATCH = withAuth(async ({ request, params, user }) => {
       console.log(`[${requestId}] Successfully created move ${move.id}`);
       moveId = move.id;
     }
-    
-    // Emit the update event
-    basePointEventService.emitUpdated(updatedPoint);
     
     const responseData = {
       ...updatedPoint,

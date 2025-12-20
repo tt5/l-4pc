@@ -2,7 +2,6 @@ import { Component, createSignal, onCleanup, createEffect } from 'solid-js';
 import styles from './SidePanel.module.css';
 import InfoTab from './InfoTab';
 import SettingsTab from './SettingsTab';
-import { useSSE } from '../../hooks/useSSE';
 
 type Tab = 'info' | 'settings';
 
@@ -26,22 +25,6 @@ const SidePanel: Component<SidePanelProps> = (props) => {
   const [isOpen, setIsOpen] = createSignal(false);
   let panelRef: HTMLDivElement | undefined;
   
-  // Use the SSE hook
-  const { 
-    isConnected,
-    error,
-    notifications,
-    reconnect
-  } = useSSE('/api/sse');
-
-  // Log connection status changes
-  createEffect(() => {
-    console.log(`[SSE] Connection status: ${isConnected() ? 'Connected' : 'Disconnected'}`);
-    if (error()) {
-      console.error('[SSE] Error:', error());
-    }
-  });
-
   const formatTime = (timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString();
   };

@@ -1,7 +1,6 @@
 import { getBasePointRepository } from '~/lib/server/db';
 import { withAuth } from '~/middleware/auth';
 import { createApiResponse, createErrorResponse, generateRequestId } from '~/utils/api';
-import { basePointEventService } from '~/lib/server/events/base-point-events';
 
 type BasePointRequest = { x: number; y: number };
 
@@ -73,9 +72,6 @@ export const POST = withAuth(async ({ request, user }) => {
       data.y
     );
     
-    // Emit event after successful creation
-    basePointEventService.emitCreated(basePoint);
-    
     return createApiResponse({ basePoint }, { status: 201, requestId });
   } catch (error) {
     return handleApiError(error, requestId, 'POST /api/base-points');
@@ -91,16 +87,6 @@ export const DELETE = withAuth(async ({ user }) => {
     
     // Delete all base points for the current user
     await repository.deleteAllBasePointsForUser(userId);
-    
-    // Notify about the deletion with a dummy base point
-    // The client will handle the deletion of all points for this user
-    basePointEventService.emitDeleted({
-      id: -1, // Dummy ID since we're deleting all points
-      userId,
-      x: 0,
-      y: 0,
-      createdAtMs: Date.now()
-    });
     
     return createApiResponse({
       success: true,
