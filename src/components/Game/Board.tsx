@@ -8,29 +8,37 @@ import {
   on,
 } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
-import { getColorHex } from '~/utils/colorUtils';
-import { MoveHistory } from './MoveHistory';
-import { PLAYER_COLORS, type PlayerColor, normalizeColor, getCurrentPlayerColor, COLOR_TO_HEX, isInNonPlayableCorner, getTeamByColor } from '~/constants/game';
-import { getLegalMoves, isValidPieceType, isSquareOccupied } from '~/utils/gameUtils';
-import { calculateRestrictedSquares, type RestrictedSquareInfo } from '~/utils/boardUtils';
+
 import { GridCell } from './GridCell';
-import { useRestrictedSquares } from '../../contexts/RestrictedSquaresContext';
 import BoardControls from './BoardControls';
-import { 
-  type Point, 
-  type BasePoint,
-  type Move,
-} from '../../types/board';
-import { 
-  updateBasePoint,
-  indicesToPoints
-} from '../../utils/boardUtils';
-import styles from './Board.module.css';
+import { MoveHistory } from './MoveHistory';
 
-// Import shared board configuration
-import { BOARD_CONFIG, DEFAULT_GAME_ID, INITIAL_BASE_POINTS } from '~/constants/game';
 import { useAuth } from '~/contexts/AuthContext';
+import { useRestrictedSquares } from '../../contexts/RestrictedSquaresContext';
 
+import { getColorHex } from '~/utils/colorUtils';
+import { 
+  isValidPieceType,
+  isSquareBetween,
+  isSquareUnderAttack,
+  wouldResolveCheck,
+  validateSquarePlacement
+} from '~/utils/gameUtils';
+import { calculateRestrictedSquares, updateBasePoint} from '~/utils/boardUtils';
+
+import type { Point, BasePoint, Move } from '../../types/board';
+
+import { 
+  PLAYER_COLORS, 
+  normalizeColor, 
+  isInNonPlayableCorner, 
+  getTeamByColor,
+  BOARD_CONFIG, 
+  DEFAULT_GAME_ID, 
+  INITIAL_BASE_POINTS 
+} from '~/constants/game';
+
+import styles from './Board.module.css';
 
 interface BoardProps {
   gameId?: string;
@@ -124,7 +132,6 @@ const Board: Component<BoardProps> = (props) => {
                 branchName?: string | null;
               }
               
-              // Keep the original move format with fromX, fromY, toX, toY
               const moves = rawMoves.map((move: ApiMove) => ({
                 fromX: move.fromX,
                 fromY: move.fromY,
@@ -145,20 +152,11 @@ const Board: Component<BoardProps> = (props) => {
               setFullMoveHistory(moves);
 
               if (moves.length > 0) {
-                // Find the latest move to determine which branch we're on
-                const latestMove = moves.reduce((latest: Move, current: Move) => 
-                  current.id > latest.id ? current : latest
-                );
-
                 setMainLineMoves(moves.filter((move: Move) => !move.branchName || move.branchName === 'main'));
-                setCurrentBranchName(latestMove.branchName);
-                
-                // Initialize move history
-                const branchMoves = rebuildMoveHistory(latestMove.branchName);
-                setMoveHistory(branchMoves);
+                setCurrentBranchName('main');
+                setMoveHistory(rebuildMoveHistory('main'));
                 setCurrentMoveIndex(0);
               } else {
-                // If no moves, just reset to initial state
                 resetBoardToInitialState();
               }
               
@@ -222,239 +220,32 @@ const Board: Component<BoardProps> = (props) => {
   // Track which squares have kings in check
   const [kingsInCheck, setKingsInCheck] = createSignal<{[key: string]: boolean}>({});
   
-
-  // Helper function to check if a square is under attack by any piece of the given team
-  const isSquareUnderAttack = (x: number, y: number, attackingTeam: number): boolean => {
-    return basePoints().some(attacker => {
-      if (getTeam(attacker.color) !== attackingTeam) return false;
-      return canPieceAttack(attacker, x, y);
-    });
-  };
-
-  // Helper function to check if a piece can attack a specific square
-  const canPieceAttack = (piece: BasePoint, targetX: number, targetY: number): boolean => {
-    const dx = Math.abs(piece.x - targetX);
-    const dy = Math.abs(piece.y - targetY);
-    
-    // King movement (1 square in any direction)
-    if (piece.pieceType === 'king') {
-      return dx <= 1 && dy <= 1;
-    }
-    
-    // Queen movement (any number of squares in any direction)
-    if (piece.pieceType === 'queen') {
-      // Check if on same row, column, or diagonal
-      if (piece.x === targetX || piece.y === targetY || dx === dy) {
-        // Check if path is clear
-        return isPathClear(piece.x, piece.y, targetX, targetY);
-      }
-      return false;
-    }
-    
-    // Add other piece types as needed (rooks, bishops, knights, pawns)
-    
-    return false;
-  };
-
-  // Helper function to check if the path between two squares is clear
-  const isPathClear = (x1: number, y1: number, x2: number, y2: number): boolean => {
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const steps = Math.max(Math.abs(dx), Math.abs(dy));
-    
-    // For each square along the path (excluding start and end)
-    for (let i = 1; i < steps; i++) {
-      const x = x1 + Math.sign(dx) * i;
-      const y = y1 + Math.sign(dy) * i;
-      
-      // If we've reached the target square, the path is clear
-      if (x === x2 && y === y2) break;
-      
-      // If there's a piece in the way, the path is not clear
-      if (basePoints().some(p => p.x === x && p.y === y)) {
-        return false;
-      }
-    }
-    
-    return true;
-  };
-
-  // Helper function to check if a square is between two other squares in a straight line
-  const isSquareBetween = (from: BasePoint, to: BasePoint, x: number, y: number): boolean => {
-    // Check if all three points are in a straight line
-    const dx1 = to.x - from.x;
-    const dy1 = to.y - from.y;
-    const dx2 = x - from.x;
-    const dy2 = y - from.y;
-    
-    // If not in a straight line, return false
-    if (dx1 * dy2 !== dx2 * dy1) return false;
-    
-    // Check if (x,y) is between from and to
-    const isBetweenX = (from.x <= x && x <= to.x) || (from.x >= x && x >= to.x);
-    const isBetweenY = (from.y <= y && y <= to.y) || (from.y >= y && y >= to.y);
-    
-    return isBetweenX && isBetweenY && (x !== from.x || y !== from.y) && (x !== to.x || y !== to.y);
-  };
-
-  // Helper function to check if a move would resolve a check
-  const wouldResolveCheck = (from: Point, to: Point, color: string): boolean => {
-    const currentCheck = kingInCheck();
-    if (!currentCheck) return true;
-    
-    // Only enforce check resolution for the current player's team
-    if (getTeam(color) !== currentCheck.team) return true;
-    
-    const movingPiece = basePoints().find(bp => bp.x === from[0] && bp.y === from[1]);
-    if (!movingPiece) return false;
-
-    // If the piece being moved is the king, check if the new position is safe
-    if (movingPiece.pieceType === 'king') {
-      // For king moves, just check if the new position is under attack
-      return !isSquareUnderAttack(to[0], to[1], getTeam(color) === 1 ? 2 : 1);
-    }
-
-    // For other pieces, they must block or capture the attacking piece
-    const king = basePoints().find(bp => 
-      bp.pieceType === 'king' && 
-      getTeam(bp.color) === currentCheck.team
-    );
-    if (!king) return false;
-
-    // Get all squares that are attacking the king
-    const attackers = basePoints().filter(attacker => 
-      getTeam(attacker.color) !== currentCheck.team &&
-      canPieceAttack(attacker, king.x, king.y)
-    );
-
-    // If there are multiple attackers, only a king move can resolve check
-    if (attackers.length > 1) {
-      return false;
-    }
-
-    const attacker = attackers[0];
-    // Check if the move captures the attacker
-    if (to[0] === attacker.x && to[1] === attacker.y) {
-      // If the attacker is a king, allow capturing it even if in check
-      if (attacker.pieceType === 'king') {
-        return true;
-      }
-      // For other pieces, check if this capture resolves the check
-      return true;
-    }
-
-    // Check if the move blocks the attack
-    if (isSquareBetween(attacker, king, to[0], to[1])) {
-      return true;
-    }
-
-    return false;
-  };
-
-  // Helper function to validate square placement
+  // Use the imported validation function
   const validateSquarePlacementLocal = (index: number) => {
-    // Get the current user's base points
-    const userBasePoints = basePoints();
-    const pickedUp = pickedUpBasePoint();
-    
-    // Get the target position in world coordinates
-    const [gridX, gridY] = indicesToPoints([index])[0];
-    
-    // If we're moving a base point
-    if (pickedUp) {
-      const [startX, startY] = pickedUp;
-      const movingPiece = userBasePoints.find(bp => bp.x === startX && bp.y === startY);
-      
-      if (!movingPiece) {
-        return { isValid: false, reason: 'Piece not found' };
-      }
-
-      // First check if this is a valid capture move based on server response
-      const restrictionInfo = restrictedSquaresInfo().find(sq => sq.index === index);
-      const isRestrictedByPickedUp = restrictionInfo?.restrictedBy.some(
-        restriction => 
-          restriction.basePointX === pickedUp[0] && 
-          restriction.basePointY === pickedUp[1]
-      );
-
-      // If this is a restricted square (including captures), check if it's a valid move
-      if (isRestrictedByPickedUp) {
-        // Check if the move captures an enemy king
-        const targetPiece = basePoints().find(bp => bp.x === gridX && bp.y === gridY);
-        const isCapturingEnemyKing = targetPiece?.pieceType === 'king' && getTeam(targetPiece.color) !== getTeam(movingPiece.color);
-        
-        // If not capturing an enemy king, apply normal check rules
-        if (!isCapturingEnemyKing) {
-          // If the piece being moved is a king, check if the target square is under attack
-          if (movingPiece.pieceType === 'king') {
-            const opponentTeam = getTeam(movingPiece.color) === 1 ? 2 : 1;
-            if (isSquareUnderAttack(gridX, gridY, opponentTeam)) {
-              return {
-                isValid: false,
-                reason: 'Cannot move king into check'
-              };
-            }
-          }
-          
-          // If the current player's king is in check, verify the move resolves it
-          const currentCheck = kingInCheck();
-          if (currentCheck && getTeam(movingPiece.color) === currentCheck.team) {
-            if (!wouldResolveCheck([startX, startY], [gridX, gridY], movingPiece.color)) {
-              return { 
-                isValid: false, 
-                reason: 'You must move your king out of check, block the check, or capture the threatening piece' 
-              };
-            }
-          }
-        }
-        
-        return { isValid: true };
-      }
-
-      // If not a restricted square, check for friendly pieces
-      if (userBasePoints.some(bp => 
-        bp.x === gridX && 
-        bp.y === gridY && 
-        !(bp.x === pickedUp[0] && bp.y === pickedUp[1])
-      )) {
-        return { isValid: false, reason: 'You already have a base point here' };
-      }
-      
-      // If we get here, it's not a restricted square and not occupied by a friendly piece
-      return { 
-        isValid: false, 
-        reason: 'Base points can only be moved to squares they restrict' 
-      };
-    }
-    
-    // For new base points, check if the user already has a base point at the target position
-    if (userBasePoints.some(bp => bp.x === gridX && bp.y === gridY)) {
-      return { isValid: false, reason: 'You already have a base point here' };
-    }
-    
-    // For new base points, they can only be placed on restricted squares
-    if (!getRestrictedSquares().includes(index)) {
-      return { 
-        isValid: false, 
-        reason: 'Base points can only be placed on restricted squares' 
-      };
-    }
-    
-    return { isValid: true };
+    return validateSquarePlacement(
+      index,
+      basePoints,
+      basePoints(),
+      pickedUpBasePoint(),
+      restrictedSquaresInfo,
+      getRestrictedSquares,
+      kingInCheck,
+      getTeam,
+      isSquareUnderAttack,
+      wouldResolveCheck,
+      isSquareBetween
+    );
   };
-  // Refs
+
   let boardRef: HTMLDivElement | undefined;
   
-  // Hooks
   const { user } = useAuth();
   
-  // Get restricted squares from context
   const {
     restrictedSquares: getRestrictedSquares,
     setRestrictedSquares
   } = useRestrictedSquares();
   
-  // State variables
   const [error, setError] = createSignal<string | null>(null);
   const [dragStartPosition, setDragStartPosition] = createSignal<[number, number] | null>(null);
   const [pickedUpBasePoint, setPickedUpBasePoint] = createSignal<[number, number] | null>(null);
@@ -464,7 +255,6 @@ const Board: Component<BoardProps> = (props) => {
   const [hoveredCell, setHoveredCell] = createSignal<[number, number] | null>(null);
   
   const [fullMoveHistory, setFullMoveHistory] = createSignal<Move[]>([]);
-  // Track the main line moves (original game line without branches)
   const [mainLineMoves, setMainLineMoves] = createSignal<Move[]>([]);
   // Current move history up to the end of branch
   const [moveHistory, setMoveHistory] = createSignal<Move[]>([]);
@@ -493,15 +283,49 @@ const Board: Component<BoardProps> = (props) => {
   const generateBranchName = (moveNumber: number, parentBranch: string | null = null): string => {
     const timestamp = Date.now().toString(36).slice(-4);
     const branchSuffix = `branch-${moveNumber}-${timestamp}`;
-    return parentBranch ? `${parentBranch}/${branchSuffix}` : branchSuffix;
+    return parentBranch ? `${parentBranch.split('/').slice(-1)}/${branchSuffix}` : branchSuffix;
+  };
+
+  const buildFullBranchName = (branchPath: string | null): string => {
+    if (!branchPath) {
+      branchPath = 'main';
+    }
+    const branchPathFull = branchPath?.split('/') || [];
+    const branchPathShort = branchPathFull.slice(-2);
+    let reconstructedBranchName = branchPathShort[1]
+    let count = 10;
+    let newBranchPathShort = [branchPathShort[0], 'main'];
+    let newCurrentHistoryParent = [];
+    while (true) {
+      reconstructedBranchName = newBranchPathShort[0] + '/' + reconstructedBranchName
+      if (newBranchPathShort[0] === 'main') {
+        break
+      };
+
+      newCurrentHistoryParent = fullMoveHistory().filter(m => m.branchName?.endsWith(newBranchPathShort[0]));
+      if (newCurrentHistoryParent[0]) {
+        newBranchPathShort = newCurrentHistoryParent[0].branchName?.split('/') || [];
+      }
+
+      count = count-1;
+      if (count === 0) break;
+    }
+    if (reconstructedBranchName === 'main/undefined') {
+      reconstructedBranchName = 'main'
+    }
+    console.log(`[buildFullBranchName] ${reconstructedBranchName}`)
+
+    return reconstructedBranchName
   };
 
   // Rebuild move history for a given target branch, handling nested branches
   const rebuildMoveHistory = (targetBranch: string | null): Move[] => {
-    const branchPath = targetBranch?.split('/') || [];
-    
+
+    const branchPath = buildFullBranchName(targetBranch)?.split('/') || [];
+
     // Start with main line
     let currentHistory = fullMoveHistory().filter(m => !m.branchName || m.branchName === 'main');
+
     
     for (const branch of branchPath) {
       const branchMoves = fullMoveHistory().filter(m => 
@@ -626,7 +450,7 @@ const Board: Component<BoardProps> = (props) => {
     console.log(`[handleGoForward] ${currentMoveIndex()} -- currentBranchName: ${currentBranchName()}`)
 
     const currentIndex = currentMoveIndex();
-    const history = [...rebuildMoveHistory(currentBranchName() || 'main')]; // Create a copy of the move history array
+    const history = [...rebuildMoveHistory( currentBranchName() || 'main')]; // Create a copy of the move history array
     setMoveHistory(history);
     
     const newIndex = currentIndex + 1;
@@ -695,29 +519,23 @@ const Board: Component<BoardProps> = (props) => {
 
     const newIndex = currentIndex - 1;
     
-    // 1. Replay all moves up to the target index
     const updatedBasePoints = replayMoves(history, newIndex-1);
-    
-    // 2. Update board state and move index
     setBasePoints(updatedBasePoints);
+
     setCurrentMoveIndex(newIndex);
     
-    // 3. Update branch information
     const targetMove = history[newIndex];
     setCurrentBranchName(targetMove?.branchName || null);
 
-    // 4. Update turn index (next player's turn)
     const newTurnIndex = (newIndex) % PLAYER_COLORS.length;
     setCurrentTurnIndex(newTurnIndex);
     
-    // 5. Get current player's pieces
     const playerColorName = PLAYER_COLORS[newTurnIndex].toLowerCase();
     const currentPlayerPieces = updatedBasePoints.filter(p => 
       p.color?.toLowerCase() === playerColorName || 
       p.color?.toLowerCase() === getColorHex(playerColorName)?.toLowerCase()
     );
 
-    // 6. Calculate and update restricted squares
     const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(
       currentPlayerPieces,
       updatedBasePoints
@@ -726,11 +544,9 @@ const Board: Component<BoardProps> = (props) => {
     setRestrictedSquares(restrictedSquares);
     setRestrictedSquaresInfo(restrictedSquaresInfo);
     
-    // 7. Force UI update and recalculate restricted squares with latest state
     await new Promise(resolve => setTimeout(resolve, 0));
   };
 
-  const [hoveredSquare, setHoveredSquare] = createSignal<number | null>(null);
   const [kingInCheck, setKingInCheck] = createSignal<{team: 1 | 2, position: [number, number]} | null>(null);
   
   // Track restricted squares with their origin information
@@ -745,8 +561,8 @@ const Board: Component<BoardProps> = (props) => {
       direction?: string;
     }>;
   }>>([]);
-  const [lastHoveredCell, setLastHoveredCell] = createSignal<[number, number] | null>(null);
 
+  const [lastHoveredCell, setLastHoveredCell] = createSignal<[number, number] | null>(null);
   
   // Base points are managed by the client state
   const [basePoints, setBasePoints] = createSignal<BasePoint[]>([]);

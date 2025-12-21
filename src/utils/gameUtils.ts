@@ -1,5 +1,6 @@
 import { getTeamByColor, isInNonPlayableCorner, BOARD_CONFIG } from '~/constants/game';
 import type { BasePoint, PieceType } from '~/types/board';
+import type { RestrictedSquareInfo } from '../types/restrictedSquares';
 
 /**
  * Type guard for PieceType
@@ -100,11 +101,359 @@ function getSquaresInDirection(
 }
 
 /**
+ * Check if the path between two squares is clear of other pieces
+ * @param x1 - Starting X coordinate
+ * @param y1 - Starting Y coordinate
+ * @param x2 - Target X coordinate
+ * @param y2 - Target Y coordinate
+ * @param allBasePoints - Array of all base points on the board
+ * @returns True if the path is clear, false if there are pieces in the way
+ */
+export function isPathClear(
+  x1: number, 
+  y1: number, 
+  x2: number, 
+  y2: number,
+  allBasePoints: BasePoint[]
+): boolean {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const steps = Math.max(Math.abs(dx), Math.abs(dy));
+  
+  // For each square along the path (excluding start and end)
+  for (let i = 1; i < steps; i++) {
+    const x = x1 + Math.sign(dx) * i;
+    const y = y1 + Math.sign(dy) * i;
+    
+    // If we've reached the target square, the path is clear
+    if (x === x2 && y === y2) break;
+    
+    // If there's a piece in the way, the path is not clear
+    if (allBasePoints.some(p => p.x === x && p.y === y)) {
+      return false;
+    }
+  }
+  
+  return true;
+}
+
+/**
+ * Check if a piece can attack a specific square
+ * @param piece - The piece to check
+ * @param targetX - Target X coordinate
+ * @param targetY - Target Y coordinate
+ * @param allBasePoints - Array of all base points on the board
+ * @returns True if the piece can attack the target square
+ */
+export function canPieceAttack(
+  piece: BasePoint, 
+  targetX: number, 
+  targetY: number,
+  allBasePoints: BasePoint[]
+): boolean {
+  const dx = Math.abs(piece.x - targetX);
+  const dy = Math.abs(piece.y - targetY);
+  
+  // King movement (1 square in any direction)
+  if (piece.pieceType === 'king') {
+    return dx <= 1 && dy <= 1;
+  }
+  
+  // Queen movement (any number of squares in any direction)
+  if (piece.pieceType === 'queen') {
+    // Check if on same row, column, or diagonal
+    if (piece.x === targetX || piece.y === targetY || dx === dy) {
+      // Check if path is clear
+      return isPathClear(piece.x, piece.y, targetX, targetY, allBasePoints);
+    }
+    return false;
+  }
+  
+  // Add other piece types as needed (rooks, bishops, knights, pawns)
+  
+  return false;
+}
+
+/**
+ * Check if a square is between two other squares in a straight line
+ * @param from - The starting point
+ * @param to - The ending point
+ * @param x - X coordinate of the square to check
+ * @param y - Y coordinate of the square to check
+ * @returns True if the square is between from and to in a straight line (exclusive)
+ */
+export function isSquareBetween(
+  from: {x: number, y: number}, 
+  to: {x: number, y: number}, 
+  x: number, 
+  y: number
+): boolean {
+  // Check if all three points are in a straight line
+  const dx1 = to.x - from.x;
+  const dy1 = to.y - from.y;
+  const dx2 = x - from.x;
+  const dy2 = y - from.y;
+  
+  // If not in a straight line, return false
+  if (dx1 * dy2 !== dx2 * dy1) return false;
+  
+  // Check if (x,y) is between from and to (exclusive)
+  const isBetweenX = (from.x <= x && x <= to.x) || (from.x >= x && x >= to.x);
+  const isBetweenY = (from.y <= y && y <= to.y) || (from.y >= y && y >= to.y);
+  
+  return isBetweenX && isBetweenY && (x !== from.x || y !== from.y) && (x !== to.x || y !== to.y);
+}
+
+/**
+ * Check if a square is under attack by any piece of the given team
+ * @param x - X coordinate of the square to check
+ * @param y - Y coordinate of the square to check
+ * @param attackingTeam - The team number (1 or 2) that might be attacking
+ * @param allBasePoints - Array of all base points on the board
+ * @param getTeamFn - Function to get the team number from a color
+ * @returns True if the square is under attack by the specified team
+ */
+export function isSquareUnderAttack(
+  x: number, 
+  y: number, 
+  attackingTeam: number, 
+  allBasePoints: BasePoint[],
+  getTeamFn: (color: string) => number
+): boolean {
+  return allBasePoints.some(attacker => {
+    if (getTeamFn(attacker.color) !== attackingTeam) return false;
+    return canPieceAttack(attacker, x, y, allBasePoints);
+  });
+}
+
+/**
  * Calculate all legal moves for a given piece
  * @param basePoint - The piece to calculate moves for
  * @param allBasePoints - Array of all pieces on the board
  * @returns Array of legal moves with their coordinates and capture status
  */
+/**
+ * Check if a move would resolve a check
+ * @param from - Starting position [x, y]
+ * @param to - Target position [x, y]
+ * @param color - Color of the moving piece
+ * @param allBasePoints - Array of all pieces on the board
+ * @param getTeamFn - Function to get team from color
+ * @param isSquareUnderAttackFn - Function to check if a square is under attack
+ * @param isSquareBetweenFn - Function to check if a square is between two points
+ * @returns True if the move would resolve the check
+ */
+/**
+ * Check if a king is in check
+ * @param king - The king to check
+ * @param allBasePoints - All pieces on the board
+ * @param getTeamFn - Function to get team from color
+ * @returns True if the king is in check
+ */
+function isKingInCheck(
+  king: BasePoint, 
+  allBasePoints: BasePoint[],
+  getTeamFn: (color: string) => number
+): boolean {
+  const opponentTeam = getTeamFn(king.color) === 1 ? 2 : 1;
+  return allBasePoints.some(piece => {
+    if (piece.team !== opponentTeam) return false;
+    return canPieceAttack(piece, king.x, king.y, allBasePoints);
+  });
+}
+
+export function wouldResolveCheck(
+  from: [number, number],
+  to: [number, number],
+  color: string,
+  allBasePoints: BasePoint[],
+  getTeamFn: (color: string) => number,
+  isSquareUnderAttackFn: (x: number, y: number, team: number, points: BasePoint[], getTeam: (color: string) => number) => boolean,
+  isSquareBetweenFn: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean
+): boolean {
+  // Find the king of the current player's team
+  const currentTeam = getTeamFn(color);
+  const king = allBasePoints.find(p => p.pieceType === 'king' && p.team === currentTeam);
+  
+  // If no king found, can't be in check
+  if (!king) return true;
+  
+  // Check if the king is currently in check
+  const currentCheck = isKingInCheck(king, allBasePoints, getTeamFn);
+  if (!currentCheck) return true;
+  
+  // Only enforce check resolution for the current player's team
+  if (getTeamFn(color) !== currentTeam) return true;
+  
+  const movingPiece = allBasePoints.find(bp => bp.x === from[0] && bp.y === from[1]);
+  if (!movingPiece) return false;
+
+  // If the piece being moved is the king, check if the new position is safe
+  if (movingPiece.pieceType === 'king') {
+    // For king moves, just check if the new position is under attack
+    return !isSquareUnderAttackFn(to[0], to[1], getTeamFn(color) === 1 ? 2 : 1, allBasePoints, getTeamFn);
+  }
+
+  // Reuse the king variable that was already found at the start of the function
+  // If we got here, king should be defined since we already checked !king earlier
+
+  // Get all squares that are attacking the king
+  const attackers = allBasePoints.filter(attacker => 
+    getTeamFn(attacker.color) !== getTeamFn(color) &&
+    canPieceAttack(attacker, king.x, king.y, allBasePoints)
+  );
+
+  // If there are multiple attackers, only a king move can resolve check
+  if (attackers.length > 1) {
+    return false;
+  }
+
+  const attacker = attackers[0];
+  // Check if the move captures the attacker
+  if (to[0] === attacker.x && to[1] === attacker.y) {
+    // If the attacker is a king, allow capturing it even if in check
+    if (attacker.pieceType === 'king') {
+      return true;
+    }
+    // For other pieces, check if this capture resolves the check
+    return true;
+  }
+
+  // Check if the move blocks the attack
+  if (isSquareBetweenFn(attacker, king, to[0], to[1])) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Validates if a piece can be placed or moved to a specific square
+ * @param index - The index of the target square
+ * @param basePoints - Array of all base points on the board
+ * @param userBasePoints - Array of base points belonging to the current user
+ * @param pickedUp - The coordinates of the picked up piece [x, y] or null if placing a new piece
+ * @param restrictedSquaresInfo - Array of restricted squares information
+ * @param getRestrictedSquares - Function that returns array of restricted square indices
+ * @param kingInCheck - Function that returns the current check status
+ * @param getTeam - Function to get team from color
+ * @param isSquareUnderAttack - Function to check if a square is under attack
+ * @param wouldResolveCheck - Function to check if a move would resolve check
+ * @param isSquareBetween - Function to check if a square is between two other squares in a straight line
+ * @returns Object with validation result and optional reason for failure
+ */
+export function validateSquarePlacement(
+  index: number,
+  basePoints: () => BasePoint[],
+  userBasePoints: BasePoint[],
+  pickedUp: [number, number] | null,
+  restrictedSquaresInfo: () => RestrictedSquareInfo[],
+  getRestrictedSquares: () => number[],
+  kingInCheck: () => { team: number } | null,
+  getTeam: (color: string) => number,
+  isSquareUnderAttack: (x: number, y: number, team: number, points: BasePoint[], getTeamFn: (color: string) => number) => boolean,
+  wouldResolveCheck: (from: [number, number], to: [number, number], color: string, allBasePoints: BasePoint[], getTeamFn: (color: string) => number, isSquareUnderAttackFn: any, isSquareBetweenFn: any) => boolean,
+  isSquareBetween: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean
+): { isValid: boolean; reason?: string } {
+  // Get the target position in world coordinates
+  const gridX = index % 8;
+  const gridY = Math.floor(index / 8);
+    
+  // If we're moving a base point
+  if (pickedUp) {
+    const [startX, startY] = pickedUp;
+    const movingPiece = userBasePoints.find(bp => bp.x === startX && bp.y === startY);
+    
+    if (!movingPiece) {
+      return { isValid: false, reason: 'Piece not found' };
+    }
+
+    // First check if this is a valid capture move based on server response
+    const restrictionInfo = restrictedSquaresInfo().find(sq => {
+      const [sqX, sqY] = [sq.index % 8, Math.floor(sq.index / 8)];
+      return sqX === gridX && sqY === gridY;
+    });
+    
+    const isRestrictedByPickedUp = restrictionInfo?.restrictedBy?.some(
+      restriction => 
+        restriction.basePointX === pickedUp[0] && 
+        restriction.basePointY === pickedUp[1]
+    ) ?? false;
+
+    // If this is a restricted square (including captures), check if it's a valid move
+    if (isRestrictedByPickedUp) {
+      // Check if the move captures an enemy king
+      const targetPiece = basePoints().find(bp => bp.x === gridX && bp.y === gridY);
+      const isCapturingEnemyKing = targetPiece?.pieceType === 'king' && getTeam(targetPiece.color) !== getTeam(movingPiece.color);
+      
+      // If not capturing an enemy king, apply normal check rules
+      if (!isCapturingEnemyKing) {
+        // If the piece being moved is a king, check if the target square is under attack
+        if (movingPiece.pieceType === 'king') {
+          const opponentTeam = getTeam(movingPiece.color) === 1 ? 2 : 1;
+          if (isSquareUnderAttack(gridX, gridY, opponentTeam, basePoints(), getTeam)) {
+            return {
+              isValid: false,
+              reason: 'Cannot move king into check'
+            };
+          }
+        }
+        
+        // If the current player's king is in check, verify the move resolves it
+        const currentCheck = kingInCheck();
+        if (currentCheck && getTeam(movingPiece.color) === currentCheck.team) {
+          if (!wouldResolveCheck(
+            [startX, startY], 
+            [gridX, gridY], 
+            movingPiece.color,
+            basePoints(),
+            getTeam,
+            isSquareUnderAttack,
+            isSquareBetween
+          )) {
+            return { 
+              isValid: false, 
+              reason: 'You must move your king out of check, block the check, or capture the threatening piece' 
+            };
+          }
+        }
+      }
+      
+      return { isValid: true };
+    }
+
+    // If not a restricted square, check for friendly pieces
+    if (userBasePoints.some(bp => 
+      bp.x === gridX && 
+      bp.y === gridY && 
+      !(bp.x === pickedUp[0] && bp.y === pickedUp[1])
+    )) {
+      return { isValid: false, reason: 'You already have a base point here' };
+    }
+    
+    // If we get here, it's not a restricted square and not occupied by a friendly piece
+    return { 
+      isValid: false, 
+      reason: 'Base points can only be moved to squares they restrict' 
+    };
+  }
+  
+  // For new base points, check if the user already has a base point at the target position
+  if (userBasePoints.some(bp => bp.x === gridX && bp.y === gridY)) {
+    return { isValid: false, reason: 'You already have a base point here' };
+  }
+  
+  // For new base points, they can only be placed on restricted squares
+  if (!getRestrictedSquares().includes(index)) {
+    return { 
+      isValid: false, 
+      reason: 'Base points can only be placed on restricted squares' 
+    };
+  }
+  
+  return { isValid: true };
+}
+
 export function getLegalMoves(
   basePoint: BasePoint,
   allBasePoints: BasePoint[]

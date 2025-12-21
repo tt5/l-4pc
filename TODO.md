@@ -13,3 +13,4 @@
 - drag pieces ui
 - show last move
 - show next move(s) (arrow)
+- check detection not working
