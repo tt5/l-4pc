@@ -16,6 +16,7 @@ import { MoveHistory } from './MoveHistory';
 import { useAuth } from '~/contexts/AuthContext';
 import { useRestrictedSquares } from '../../contexts/RestrictedSquaresContext';
 
+import { generateFen4, parseFen4 } from '~/utils/fen4Utils';
 import { getColorHex } from '~/utils/colorUtils';
 import { 
   isValidPieceType,
@@ -278,6 +279,23 @@ const Board: Component<BoardProps> = (props) => {
     firstMove: BranchMove;
   }>>>({});
 
+  // Add this near other state declarations
+  const [fen4, setFen4] = createSignal<string>('');
+
+  // Add this effect to update FEN4 when position changes
+  createEffect(() => {
+    //const currentIndex = currentMoveIndex();
+    //const branch = currentBranchName();
+    const points = basePoints();
+    const turnIndex = currentTurnIndex();
+    
+    const newFen4 = generateFen4(points, turnIndex);
+    setFen4(newFen4);
+    console.log('FEN4 updated:', newFen4);
+  });
+
+  // Add these utility functions
+  const getCurrentFen4 = (): string => fen4();
 
   // Generate a branch name with optional parent branch path
   const generateBranchName = (moveNumber: number, parentBranch: string | null = null): string => {
@@ -285,6 +303,7 @@ const Board: Component<BoardProps> = (props) => {
     const branchSuffix = `branch-${moveNumber}-${timestamp}`;
     return parentBranch ? `${parentBranch.split('/').slice(-1)}/${branchSuffix}` : branchSuffix;
   };
+
 
   const buildFullBranchName = (branchPath: string | null): string => {
     if (!branchPath) {
