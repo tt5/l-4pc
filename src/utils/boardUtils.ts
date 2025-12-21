@@ -183,6 +183,37 @@ export const updateBasePoint = async (
     
     console.log('Sending updateBasePoint request with:', JSON.stringify(requestBody, null, 2));
 
+    // First create the move if we have a game context
+    if (gameId && fromX !== undefined && fromY !== undefined) {
+      const moveResponse = await fetch('/api/moves', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          gameId,
+          pieceType: 'piece', // This should be replaced with actual piece type
+          fromX,
+          fromY,
+          toX: x,
+          toY: y,
+          moveNumber,
+          isBranch: isNewBranch,
+          branchName: branchName ?? 'main'
+        })
+      });
+
+      if (!moveResponse.ok) {
+        const error = await moveResponse.text();
+        console.error('Failed to create move:', error);
+        throw new Error('Failed to record move');
+      }
+    }
+
+    /*
+    // Then update the base point position
     const response = await fetch(`/api/base-points/${id}`, {
       method: 'PATCH',
       headers: {
@@ -190,16 +221,7 @@ export const updateBasePoint = async (
         'Accept': 'application/json'
       },
       credentials: 'include',
-      body: JSON.stringify({ 
-        x, 
-        y, 
-        ...(moveNumber !== undefined && { moveNumber }),
-        branchName: branchName ?? 'main',  // Default to 'main' if null or undefined
-        ...(isNewBranch !== undefined && { isNewBranch }),
-        ...(gameId !== undefined && { gameId }),
-        fromX,  // Always include fromX
-        fromY   // Always include fromY
-      })
+      body: JSON.stringify({ x, y })
     });
 
     // Handle non-JSON responses
@@ -260,10 +282,11 @@ export const updateBasePoint = async (
         timestamp: Date.now()
       };
     }
+    */
     
     return {
       success: true,
-      data: basePoint,
+      //data: basePoint,
       timestamp: Date.now()
     };
   } catch (error) {
