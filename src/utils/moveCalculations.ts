@@ -1,8 +1,10 @@
 import { BasePoint } from '../types/board';
 import { MoveResult } from '../types/board.types';
-import { BOARD_CONFIG, COLOR_TO_HEX } from '../constants/game';
+import { BOARD_CONFIG, COLOR_TO_HEX, getTeamByColor } from '../constants/game';
 import { isInNonPlayableCorner } from '../constants/game';
 import { MOVE_PATTERNS, PIECE_MOVEMENT, PIECE_TYPES } from '../constants/movePatterns';
+import { isSquareUnderAttack } from '../utils/gameUtils';
+
 
 type CastlingKey = keyof typeof MOVE_PATTERNS.CASTLING;
 
@@ -14,29 +16,16 @@ const getPieceKey = (piece: BasePoint): string => {
   return `${piece.id}-${piece.pieceType}-${piece.team}`;
 };
 
-// Check if a square is under attack
-const isSquareUnderAttack = (
-  x: number,
-  y: number,
-  allBasePoints: BasePoint[],
-  currentTeam: number
-): boolean => {
-  return allBasePoints.some(piece => {
-    if (piece.team === currentTeam) return false;
-    
-    const moves = getLegalMoves(piece, allBasePoints);
-    return moves.some(move => move.x === x && move.y === y);
-  });
-};
-
 // Check if castling is possible
 export const canCastle = (
   king: BasePoint,
   allBasePoints: BasePoint[],
   castleType: string,  // Now accepts any string for the castling type
-  currentTeam: number
+  currentTeam: number,
+  getTeamFn: (color: string) => number = getTeamByColor
 ): boolean => {
-    console.log('Checking castling for:', { 
+
+  console.log('Checking castling for:', { 
     kingPos: { x: king.x, y: king.y },
     castleType,
     currentTeam
@@ -51,31 +40,46 @@ export const canCastle = (
 
   // Get the color name from the color code (case-insensitive)
   const getColorName = (colorCode: string): string => {
-    if (!colorCode) return '';
+    console.log('getColorName called with:', colorCode);
+    if (!colorCode) {
+      console.log('No color code provided');
+      return '';
+    }
     
     // Normalize to uppercase for comparison
     const normalizedCode = colorCode.toUpperCase();
+    console.log('Normalized color code:', normalizedCode);
     
     const colorMap: Record<string, string> = {
       '#F44336': 'RED',
       '#FFEB3B': 'YELLOW',
       '#2196F3': 'BLUE',
-      '#4CAF50': 'GREEN'
+      '#4CAF50': 'GREEN',
+      // Add direct color name mappings
+      'RED': 'RED',
+      'YELLOW': 'YELLOW',
+      'BLUE': 'BLUE',
+      'GREEN': 'GREEN'
     };
+    
+    console.log('Color map keys:', Object.keys(colorMap));
     
     // Try exact match first
     if (colorMap[normalizedCode]) {
+      console.log('Exact match found:', colorMap[normalizedCode]);
       return colorMap[normalizedCode];
     }
     
     // Try to find a match by value (in case the key is different)
     for (const [code, name] of Object.entries(colorMap)) {
       if (code.toUpperCase() === normalizedCode) {
+        console.log('Case-insensitive match found:', name);
         return name;
       }
     }
     
     console.log('Color code not found in map:', colorCode);
+    console.log('Available colors:', Object.entries(colorMap).map(([k, v]) => `${k} -> ${v}`).join(', '));
     return '';
   };
 
@@ -131,7 +135,7 @@ export const canCastle = (
 
   while (x !== endX || y !== endY) {
     if (isSquareOccupied(x, y, allBasePoints) || 
-        isSquareUnderAttack(x, y, allBasePoints, currentTeam)) {
+        isSquareUnderAttack(x, y, currentTeam, allBasePoints, getTeamFn)) {
       return false;
     }
     x += stepX || 0;
@@ -139,7 +143,7 @@ export const canCastle = (
   }
 
   // Check if king is in check or would move through check
-  if (isSquareUnderAttack(king.x, king.y, allBasePoints, currentTeam)) {
+  if (isSquareUnderAttack(king.x, king.y, currentTeam, allBasePoints, getTeamFn)) {
     return false;
   }
 
@@ -151,8 +155,8 @@ export const canCastle = (
   const kingX2 = king.x + 2 * kingStepX;
   const kingY2 = king.y + 2 * kingStepY;
 
-  if (isSquareUnderAttack(kingX1, kingY1, allBasePoints, currentTeam) ||
-      isSquareUnderAttack(kingX2, kingY2, allBasePoints, currentTeam)) {
+  if (isSquareUnderAttack(kingX1, kingY1, currentTeam, allBasePoints, getTeamFn) ||
+      isSquareUnderAttack(kingX2, kingY2, currentTeam, allBasePoints, getTeamFn)) {
     return false;
   }
 
@@ -326,109 +330,5 @@ export const updateMovedPieces = (piece: BasePoint, allBasePoints: BasePoint[]):
     
     // Also mark the piece itself as moved (for rooks and kings)
     movedPieces.add(key);
-  }
-};
-
-export const getLegalMoves = (
-  basePoint: BasePoint,
-  allBasePoints: BasePoint[]
-): MoveResult[] => {
-    console.log('Getting legal moves for piece:', {
-    id: basePoint.id,
-    type: basePoint.pieceType,
-    x: basePoint.x,
-    y: basePoint.y,
-    color: basePoint.color,
-    isKing: basePoint.pieceType === PIECE_TYPES.KING
-  });
-  const pieceType = basePoint.pieceType || PIECE_TYPES.PAWN;
-  const currentTeam = basePoint.team;
-  
-  switch (pieceType) {
-    case PIECE_TYPES.QUEEN:
-      return PIECE_MOVEMENT.QUEEN.flatMap(([dx, dy]) => 
-        getSquaresInDirection(basePoint.x, basePoint.y, dx, dy, allBasePoints, currentTeam)
-      );
-      
-    case PIECE_TYPES.KING: {
-      // Get standard king moves
-      const standardMoves = PIECE_MOVEMENT.KING
-        .map(([dx, dy]) => ({
-          x: basePoint.x + dx,
-          y: basePoint.y + dy,
-          dx,
-          dy,
-          isCastle: false
-        }))
-        .filter(({ x, y }) => !isInNonPlayableCorner(x, y))
-        .map(({ x, y, dx, dy }) => {
-          const targetPiece = allBasePoints.find(p => p.x === x && p.y === y);
-          const canCapture = targetPiece ? targetPiece.team !== currentTeam : false;
-          return { x, y, canCapture, isCastle: false };
-        })
-        .filter(({ x, y, canCapture }) => {
-          const targetPiece = allBasePoints.find(p => p.x === x && p.y === y);
-          return !targetPiece || targetPiece.team !== currentTeam;
-        });
-
-      // Add castling moves if available
-      const castlingMoves: MoveResult[] = [];
-      
-      // Get the color-specific castling keys
-      const color = basePoint.color?.toUpperCase() as keyof typeof MOVE_PATTERNS.CASTLING;
-      console.log('Checking castling for king at', { x: basePoint.x, y: basePoint.y, color });
-      if (color) {
-        const kingSideKey = `${color}_KING_SIDE` as const;
-        const queenSideKey = `${color}_QUEEN_SIDE` as const;
-        const castlingMovesObj = MOVE_PATTERNS.CASTLING as Record<string, readonly [number, number, boolean, number, number, number, number]>;
-        
-        // Check king-side castling
-        if (canCastle(basePoint, allBasePoints, kingSideKey, currentTeam)) {
-          const [dx] = castlingMovesObj[kingSideKey] || [0];
-          castlingMoves.push({
-            x: basePoint.x + dx,
-            y: basePoint.y,
-            canCapture: false,
-            isCastle: true,
-            castleType: kingSideKey
-          });
-        }
-        
-        // Check queen-side castling
-        if (canCastle(basePoint, allBasePoints, queenSideKey, currentTeam)) {
-          const [dx] = castlingMovesObj[queenSideKey] || [0];
-          castlingMoves.push({
-            x: basePoint.x + dx,
-            y: basePoint.y,
-            canCapture: false,
-            isCastle: true,
-            castleType: queenSideKey
-          });
-        }
-      } else {
-        console.log('King-side castling is NOT possible');
-      }
-
-      return [...standardMoves, ...castlingMoves];
-    }
-      
-    case PIECE_TYPES.BISHOP:
-      return PIECE_MOVEMENT.BISHOP.flatMap(([dx, dy]) => 
-        getSquaresInDirection(basePoint.x, basePoint.y, dx, dy, allBasePoints, currentTeam)
-      );
-      
-    case PIECE_TYPES.KNIGHT:
-      return calculateKnightMoves(basePoint, allBasePoints, currentTeam);
-      
-    case PIECE_TYPES.ROOK:
-      return PIECE_MOVEMENT.ROOK.flatMap(([dx, dy]) => 
-        getSquaresInDirection(basePoint.x, basePoint.y, dx, dy, allBasePoints, currentTeam)
-      );
-      
-    case PIECE_TYPES.PAWN:
-      return calculatePawnMoves(basePoint, allBasePoints, currentTeam);
-      
-    default:
-      return [];
   }
 };
