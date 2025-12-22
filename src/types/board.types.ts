@@ -25,10 +25,16 @@ export interface Move {
   toY: number;
   pieceType: PieceType;
   id: string;
+  basePointId?: string;
+  timestamp?: number;
+  playerId?: string;
+  color?: string;
   branchName?: string;
+  parentBranchName?: string | null;
   moveNumber: number;
   isCastle?: boolean;
   castleType?: string;
+  isBranch?: boolean;
 }
 
 export interface BoardProps {

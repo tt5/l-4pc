@@ -18,6 +18,7 @@ import { useRestrictedSquares } from '../../contexts/RestrictedSquaresContext';
 
 import { generateFen4, parseFen4 } from '~/utils/fen4Utils';
 import { getColorHex } from '~/utils/colorUtils';
+import { MOVE_PATTERNS } from '~/constants/movePatterns';
 import { 
   isValidPieceType,
   isSquareBetween,
@@ -27,7 +28,8 @@ import {
 } from '~/utils/gameUtils';
 import { calculateRestrictedSquares, updateBasePoint} from '~/utils/boardUtils';
 
-import type { Point, BasePoint, Move } from '../../types/board';
+import type { Point, BasePoint } from '../../types/board';
+import type { Move } from '../../types/board.types';
 
 import { 
   PLAYER_COLORS, 
@@ -1040,8 +1042,8 @@ const Board: Component<BoardProps> = (props) => {
         console.log(`[handleGlobalMouseUp] currentBranch: '${currentBranch}' branchMoveNumber: ${branchMoveNumber}`);
         
         const newMove: Move = {
-          id: Date.now(),
-          basePointId: pointToMove.id,
+          id: Date.now().toString(),
+          basePointId: pointToMove.id.toString(),
           fromX: startX,
           fromY: startY,
           toX: targetX,

@@ -9,7 +9,7 @@ type Move = {
   toY: number;
   moveNumber?: number;
   playerId?: string;
-  color: string;
+  color?: string;  // Made optional to match the Move type in board.types.ts
 };
 
 type MoveHistoryProps = {
