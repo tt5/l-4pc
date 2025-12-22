@@ -25,11 +25,11 @@ export const canCastle = (
   getTeamFn: (color: string) => number = getTeamByColor
 ): boolean => {
 
-  console.log('Checking castling for:', { 
+  console.log('Checking castling for:', JSON.stringify({ 
     kingPos: { x: king.x, y: king.y },
     castleType,
     currentTeam
-  });
+  }));
 
     // Check if king has moved - we'll rely on the movedPieces set
   const kingKey = getPieceKey(king);
@@ -86,7 +86,7 @@ export const canCastle = (
   // Extract color and side from castleType
   const [colorCode, ...sideParts] = castleType.split('_');
   const side = sideParts.join('_'); // This will handle "KING_SIDE" or "QUEEN_SIDE"
-  console.log('Processing castling:', { colorCode, side, castleType });
+  console.log('Processing castling:', JSON.stringify({ colorCode, side, castleType }));
   
   const colorName = getColorName(colorCode);
   
@@ -133,10 +133,11 @@ export const canCastle = (
   const endX = king.x + dx;
   const endY = king.y + dy;
 
-  console.log('Checking castling path from:', { x, y }, 'to:', { endX, endY });
-  
   while (x !== endX || y !== endY) {
+    console.log(`checking square ${x},${y}`);
     const occupied = isSquareOccupied(x, y, allBasePoints);
+
+    //TODO under Attack is wrong
     const underAttack = isSquareUnderAttack(x, y, currentTeam, allBasePoints, getTeamFn);
     console.log('Square:', { x, y, occupied, underAttack });
     
