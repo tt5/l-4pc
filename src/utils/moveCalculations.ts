@@ -242,8 +242,9 @@ export const updateMovedPieces = (piece: BasePoint, allBasePoints: BasePoint[]):
         
         // Mark both rooks as moved when the king moves
         [kingSideKey, queenSideKey].forEach(side => {
-          if (side in MOVE_PATTERNS.CASTLING) {
-            const [,,, rookX, rookY] = MOVE_PATTERNS.CASTLING[side];
+          const castlingMoves = MOVE_PATTERNS.CASTLING as Record<string, readonly [number, number, boolean, number, number, number, number]>;
+          if (side in castlingMoves) {
+            const [,,, rookX, rookY] = castlingMoves[side];
             const rook = allBasePoints.find(p => 
               p.pieceType === PIECE_TYPES.ROOK && 
               p.x === rookX && 
@@ -309,10 +310,11 @@ export const getLegalMoves = (
       if (color) {
         const kingSideKey = `${color}_KING_SIDE` as const;
         const queenSideKey = `${color}_QUEEN_SIDE` as const;
+        const castlingMovesObj = MOVE_PATTERNS.CASTLING as Record<string, readonly [number, number, boolean, number, number, number, number]>;
         
         // Check king-side castling
         if (canCastle(basePoint, allBasePoints, kingSideKey, currentTeam)) {
-          const [dx] = MOVE_PATTERNS.CASTLING[kingSideKey];
+          const [dx] = castlingMovesObj[kingSideKey] || [0];
           castlingMoves.push({
             x: basePoint.x + dx,
             y: basePoint.y,
@@ -324,7 +326,7 @@ export const getLegalMoves = (
         
         // Check queen-side castling
         if (canCastle(basePoint, allBasePoints, queenSideKey, currentTeam)) {
-          const [dx] = MOVE_PATTERNS.CASTLING[queenSideKey];
+          const [dx] = castlingMovesObj[queenSideKey] || [0];
           castlingMoves.push({
             x: basePoint.x + dx,
             y: basePoint.y,
