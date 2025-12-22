@@ -81,7 +81,7 @@ const Board: Component<BoardProps> = (props) => {
   
   // Load moves when game ID or user changes
   createEffect(() => {
-    console.log(`[Effect] load moves`)
+    //console.log(`[Effect] load moves`)
     const currentGameId = gameId();
     const currentUser = auth.user();
     const lastState = lastLoadedState();
@@ -396,7 +396,18 @@ const Board: Component<BoardProps> = (props) => {
     // Calculate restricted squares using the local function
     const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(
       currentPlayerPieces,
-      basePoints()
+      basePoints(),
+      { 
+        wouldResolveCheck: (
+          from: [number, number],
+          to: [number, number],
+          color: string,
+          allBasePoints: BasePoint[],
+          getTeamFn: (color: string) => number,
+          isSquareUnderAttackFn: (x: number, y: number, team: number, points: BasePoint[], getTeam: (color: string) => number) => boolean,
+          isSquareBetweenFn: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean
+        ) => wouldResolveCheck(from, to, color, allBasePoints, getTeamFn, isSquareUnderAttackFn, isSquareBetweenFn)
+      }
     );
     
     setRestrictedSquares(restrictedSquares);
@@ -534,7 +545,18 @@ const Board: Component<BoardProps> = (props) => {
     // 6. Calculate and update restricted squares
     const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(
       currentPlayerPieces,
-      updatedBasePoints
+      updatedBasePoints,
+      { 
+        wouldResolveCheck: (
+          from: [number, number],
+          to: [number, number],
+          color: string,
+          allBasePoints: BasePoint[],
+          getTeamFn: (color: string) => number,
+          isSquareUnderAttackFn: (x: number, y: number, team: number, points: BasePoint[], getTeam: (color: string) => number) => boolean,
+          isSquareBetweenFn: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean
+        ) => wouldResolveCheck(from, to, color, allBasePoints, getTeamFn, isSquareUnderAttackFn, isSquareBetweenFn)
+      }
     );
     
     setRestrictedSquares(restrictedSquares);
@@ -654,7 +676,7 @@ const Board: Component<BoardProps> = (props) => {
 
   // Check for king in check when restricted squares or base points change
   createEffect(() => {
-    console.log(`[Effect] check king in check`)
+    //console.log(`[Effect] check king in check`)
   // Check all kings to see if they are in check
     const allBasePoints = basePoints();
     const restrictedSquares = getRestrictedSquares();
