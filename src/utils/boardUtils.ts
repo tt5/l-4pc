@@ -27,13 +27,23 @@ export interface RestrictedSquaresResult {
   restrictedSquaresInfo: RestrictedSquareInfo[];
 }
 
-export function calculateRestrictedSquares(pieces: BasePoint[], boardState: BasePoint[]): RestrictedSquaresResult {
+export function calculateRestrictedSquares(
+  pieces: BasePoint[], 
+  boardState: BasePoint[],
+  options: {
+    isKingInCheck?: boolean;
+    wouldResolveCheck?: any;
+  } = {}
+): RestrictedSquaresResult {
   const restrictedSquares: number[] = [];
   const restrictedSquaresInfo: RestrictedSquareInfo[] = [];
 
   for (const piece of pieces) {
 
-    const moves = getLegalMoves(piece, boardState);
+    const moves = getLegalMoves(piece, boardState, {
+      isKingInCheck: options.isKingInCheck,
+      wouldResolveCheck: options.wouldResolveCheck
+    });
     console.log(`Moves for piece at (${piece.x},${piece.y}):`, JSON.stringify(moves));  // Add this line
     for (const { x, y } of moves) {
       const index = y * BOARD_CONFIG.GRID_SIZE + x;

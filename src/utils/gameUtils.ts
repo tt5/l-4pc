@@ -457,8 +457,21 @@ export function validateSquarePlacement(
 
 export function getLegalMoves(
   basePoint: BasePoint,
-  allBasePoints: BasePoint[]
+  allBasePoints: BasePoint[],
+  options: {
+    isKingInCheck?: boolean;
+    wouldResolveCheck?: (
+      from: [number, number],
+      to: [number, number],
+      color: string,
+      allBasePoints: BasePoint[],
+      getTeamFn: (color: string) => number,
+      isSquareUnderAttackFn: any,
+      isSquareBetweenFn: any
+    ) => boolean;
+  } = {}
 ): Array<{x: number, y: number, canCapture: boolean, isCastle?: boolean, castleType?: string}> {
+  const { isKingInCheck = false, wouldResolveCheck } = options;
   const pieceType = basePoint.pieceType || 'pawn'; // Default to pawn if not specified
   const team = getTeamByColor(basePoint.color);
   let possibleMoves: Array<{x: number, y: number, canCapture: boolean, isCastle?: boolean, castleType?: string}> = [];
@@ -541,7 +554,7 @@ export function getLegalMoves(
       const colorName = getColorName(color);
       if (!colorName) {
         console.log('Color not found for castling:', color);
-        return standardMoves; // Return standard moves without castling
+        possibleMoves = standardMoves; // Return standard moves without castling
       }
       
       // King-side castling (right for blue/green, up for red/yellow)
@@ -573,7 +586,7 @@ export function getLegalMoves(
       }
     }
     
-    return [...standardMoves, ...castlingMoves];
+    possibleMoves = [...standardMoves, ...castlingMoves];
   } else if (pieceType === 'pawn') {
     const moves: {x: number, y: number, canCapture: boolean}[] = [];
     
@@ -747,8 +760,26 @@ export function getLegalMoves(
       [-1, 0]   // left
     ];
     
-    return directions.flatMap(([dx, dy]) => 
+    possibleMoves = directions.flatMap(([dx, dy]) => 
       getSquaresInDirection(basePoint.x, basePoint.y, dx, dy, allBasePoints, team)
     );
   }
+
+  // Filter moves that would leave the king in check
+  if (isKingInCheck && wouldResolveCheck && pieceType !== 'king') {
+    const teamColor = basePoint.color;
+    possibleMoves = possibleMoves.filter(move => 
+      wouldResolveCheck(
+        [basePoint.x, basePoint.y],
+        [move.x, move.y],
+        teamColor,
+        allBasePoints,
+        getTeamByColor,
+        isSquareUnderAttack,
+        isSquareBetween
+      )
+    );
+  }
+  
+  return possibleMoves;
 }
