@@ -42,4 +42,8 @@ export interface MoveResult {
   x: number;
   y: number;
   canCapture: boolean;
+  isCastle?: boolean;
+  castleType?: 'KING_SIDE' | 'QUEEN_SIDE';
+  dx?: number;
+  dy?: number;
 }

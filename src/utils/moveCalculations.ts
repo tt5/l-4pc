@@ -4,6 +4,75 @@ import { BOARD_CONFIG } from '../constants/game';
 import { isInNonPlayableCorner } from '../constants/game';
 import { MOVE_PATTERNS, PIECE_MOVEMENT, PIECE_TYPES } from '../constants/movePatterns';
 
+// Track moved pieces for castling
+const movedPieces = new Set<string>();
+
+// Helper to get piece key for tracking
+const getPieceKey = (piece: BasePoint): string => {
+  return `${piece.id}-${piece.pieceType}-${piece.team}`;
+};
+
+// Check if a square is under attack
+const isSquareUnderAttack = (
+  x: number,
+  y: number,
+  allBasePoints: BasePoint[],
+  currentTeam: number
+): boolean => {
+  return allBasePoints.some(piece => {
+    if (piece.team === currentTeam) return false;
+    
+    const moves = getLegalMoves(piece, allBasePoints);
+    return moves.some(move => move.x === x && move.y === y);
+  });
+};
+
+// Check if castling is possible
+const canCastle = (
+  king: BasePoint,
+  allBasePoints: BasePoint[],
+  castleType: 'KING_SIDE' | 'QUEEN_SIDE',
+  currentTeam: number
+): boolean => {
+  // Check if king has moved
+  if (movedPieces.has(getPieceKey(king))) {
+    return false;
+  }
+
+  const [dx, , , rookX, rookY] = MOVE_PATTERNS.CASTLING[castleType];
+  const rook = allBasePoints.find(p => 
+    p.pieceType === PIECE_TYPES.ROOK && 
+    p.x === rookX && 
+    p.y === king.y &&
+    p.team === king.team
+  );
+
+  // Check if rook exists and hasn't moved
+  if (!rook || movedPieces.has(getPieceKey(rook))) {
+    return false;
+  }
+
+  // Check if squares between king and rook are empty and not under attack
+  const step = dx > 0 ? 1 : -1;
+  const endX = king.x + dx;
+  
+  for (let x = king.x + step; x !== endX; x += step) {
+    if (isSquareOccupied(x, king.y, allBasePoints) || 
+        isSquareUnderAttack(x, king.y, allBasePoints, currentTeam)) {
+      return false;
+    }
+  }
+
+  // Check if king is in check or would move through check
+  if (isSquareUnderAttack(king.x, king.y, allBasePoints, currentTeam) ||
+      isSquareUnderAttack(king.x + step, king.y, allBasePoints, currentTeam) ||
+      isSquareUnderAttack(king.x + 2 * step, king.y, allBasePoints, currentTeam)) {
+    return false;
+  }
+
+  return true;
+};
+
 const isSquareOccupied = (x: number, y: number, basePoints: BasePoint[]): boolean => {
   return basePoints.some(bp => bp.x === x && bp.y === y);
 };
@@ -127,6 +196,19 @@ export const calculateKnightMoves = (
     });
 };
 
+// Update piece moved status
+export const updateMovedPieces = (piece: BasePoint, allBasePoints: BasePoint[]): void => {
+  const key = getPieceKey(piece);
+  if (!movedPieces.has(key)) {
+    movedPieces.add(key);
+  }
+
+  // If a rook is captured, mark it as moved for castling purposes
+  if (piece.pieceType === PIECE_TYPES.ROOK) {
+    movedPieces.add(key);
+  }
+};
+
 export const getLegalMoves = (
   basePoint: BasePoint,
   allBasePoints: BasePoint[]
@@ -140,24 +222,55 @@ export const getLegalMoves = (
         getSquaresInDirection(basePoint.x, basePoint.y, dx, dy, allBasePoints, currentTeam)
       );
       
-    case PIECE_TYPES.KING:
-      return PIECE_MOVEMENT.KING
+    case PIECE_TYPES.KING: {
+      // Get standard king moves
+      const standardMoves = PIECE_MOVEMENT.KING
         .map(([dx, dy]) => ({
           x: basePoint.x + dx,
           y: basePoint.y + dy,
           dx,
-          dy
+          dy,
+          isCastle: false
         }))
         .filter(({ x, y }) => !isInNonPlayableCorner(x, y))
-        .map(({ x, y }) => {
+        .map(({ x, y, dx, dy }) => {
           const targetPiece = allBasePoints.find(p => p.x === x && p.y === y);
           const canCapture = targetPiece ? targetPiece.team !== currentTeam : false;
-          return { x, y, canCapture };
+          return { x, y, canCapture, isCastle: false };
         })
         .filter(({ x, y, canCapture }) => {
           const targetPiece = allBasePoints.find(p => p.x === x && p.y === y);
           return !targetPiece || targetPiece.team !== currentTeam;
         });
+
+      // Add castling moves if available
+      const castlingMoves: MoveResult[] = [];
+      if (!movedPieces.has(getPieceKey(basePoint))) {
+        if (canCastle(basePoint, allBasePoints, 'KING_SIDE', currentTeam)) {
+          const [dx] = MOVE_PATTERNS.CASTLING.KING_SIDE;
+          castlingMoves.push({
+            x: basePoint.x + dx,
+            y: basePoint.y,
+            canCapture: false,
+            isCastle: true,
+            castleType: 'KING_SIDE'
+          });
+        }
+        
+        if (canCastle(basePoint, allBasePoints, 'QUEEN_SIDE', currentTeam)) {
+          const [dx] = MOVE_PATTERNS.CASTLING.QUEEN_SIDE;
+          castlingMoves.push({
+            x: basePoint.x + dx,
+            y: basePoint.y,
+            canCapture: false,
+            isCastle: true,
+            castleType: 'QUEEN_SIDE'
+          });
+        }
+      }
+
+      return [...standardMoves, ...castlingMoves];
+    }
       
     case PIECE_TYPES.BISHOP:
       return PIECE_MOVEMENT.BISHOP.flatMap(([dx, dy]) => 

@@ -26,7 +26,12 @@ export const MOVE_PATTERNS = {
   KING: [
     [0, 1], [1, 1], [1, 0], [1, -1],
     [0, -1], [-1, -1], [-1, 0], [-1, 1]
-  ]
+  ],
+  // Castling moves: [dx, dy, isCastle, rookX, rookY, rookDx]
+  CASTLING: {
+    KING_SIDE: [2, 0, true, 7, 0, -1],   // King-side castling (short)
+    QUEEN_SIDE: [-2, 0, true, 0, 0, 1]   // Queen-side castling (long)
+  }
 } as const;
 
 export const PIECE_MOVEMENT = {
