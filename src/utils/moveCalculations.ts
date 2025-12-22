@@ -1,8 +1,10 @@
 import { BasePoint } from '../types/board';
 import { MoveResult } from '../types/board.types';
-import { BOARD_CONFIG } from '../constants/game';
+import { BOARD_CONFIG, COLOR_TO_HEX } from '../constants/game';
 import { isInNonPlayableCorner } from '../constants/game';
 import { MOVE_PATTERNS, PIECE_MOVEMENT, PIECE_TYPES } from '../constants/movePatterns';
+
+type CastlingKey = keyof typeof MOVE_PATTERNS.CASTLING;
 
 // Track moved pieces for castling
 const movedPieces = new Set<string>();
@@ -39,14 +41,63 @@ export const canCastle = (
     castleType,
     currentTeam
   });
-  // Check if king has moved
-  if (movedPieces.has(getPieceKey(king))) {
+
+    // Check if king has moved - we'll rely on the movedPieces set
+  const kingKey = getPieceKey(king);
+  if (movedPieces.has(kingKey)) {
+    console.log('King has moved, cannot castle');
     return false;
   }
 
-  // Get the castling configuration for this type
-  const castlingConfig = MOVE_PATTERNS.CASTLING[castleType as keyof typeof MOVE_PATTERNS.CASTLING];
-  if (!castlingConfig) return false;
+  // Get the color name from the color code (case-insensitive)
+  const getColorName = (colorCode: string): string => {
+    if (!colorCode) return '';
+    
+    // Normalize to uppercase for comparison
+    const normalizedCode = colorCode.toUpperCase();
+    
+    const colorMap: Record<string, string> = {
+      '#F44336': 'RED',
+      '#FFEB3B': 'YELLOW',
+      '#2196F3': 'BLUE',
+      '#4CAF50': 'GREEN'
+    };
+    
+    // Try exact match first
+    if (colorMap[normalizedCode]) {
+      return colorMap[normalizedCode];
+    }
+    
+    // Try to find a match by value (in case the key is different)
+    for (const [code, name] of Object.entries(colorMap)) {
+      if (code.toUpperCase() === normalizedCode) {
+        return name;
+      }
+    }
+    
+    console.log('Color code not found in map:', colorCode);
+    return '';
+  };
+
+  // Extract color and side from castleType
+  const [colorCode, ...sideParts] = castleType.split('_');
+  const side = sideParts.join('_'); // This will handle "KING_SIDE" or "QUEEN_SIDE"
+  console.log('Processing castling:', { colorCode, side, castleType });
+  
+  const colorName = getColorName(colorCode);
+  
+  if (!colorName) {
+    console.log('Invalid color code for castling. Code:', colorCode, 'Type:', typeof colorCode, 'Full castleType:', castleType);
+    return false;
+  }
+
+  const castlingKey = `${colorName}_${side}` as CastlingKey;
+  const castlingConfig = MOVE_PATTERNS.CASTLING[castlingKey];
+  
+  if (!castlingConfig) {
+    console.log('No castling config found for:', castlingKey);
+    return false;
+  }
 
   const [dx, dy, , rookX, rookY] = castlingConfig;
   
@@ -58,8 +109,13 @@ export const canCastle = (
     p.team === king.team
   );
 
-  // Check if rook exists and hasn't moved
-  if (!rook || movedPieces.has(getPieceKey(rook))) {
+  if (!rook) {
+    console.log('Rook not found at position:', { rookX, rookY });
+    return false;
+  }
+  const rookKey = getPieceKey(rook);
+  if (movedPieces.has(rookKey)) {
+    console.log('Rook has moved, cannot castle');
     return false;
   }
 
