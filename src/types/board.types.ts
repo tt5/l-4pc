@@ -27,6 +27,8 @@ export interface Move {
   id: string;
   branchName?: string;
   moveNumber: number;
+  isCastle?: boolean;
+  castleType?: string;
 }
 
 export interface BoardProps {

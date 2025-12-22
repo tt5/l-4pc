@@ -420,7 +420,19 @@ const Board: Component<BoardProps> = (props) => {
         continue;
       }
 
-      const { fromX, fromY, toX, toY, pieceType, id: moveId, moveNumber } = move;
+      const { 
+        fromX, 
+        fromY, 
+        toX, 
+        toY, 
+        pieceType, 
+        id: moveId, 
+        moveNumber, 
+        isCastle = false,
+        castleType = ''
+      } = move;
+      const isCastleMove = isCastle ?? false;
+      const castleTypeValue = castleType ?? '';
       
       // Validate move coordinates
       if ([fromX, fromY, toX, toY].some(coord => coord === undefined)) {
@@ -437,6 +449,31 @@ const Board: Component<BoardProps> = (props) => {
           move, index: i, moveNumber 
         });
         continue;
+      }
+
+      // Handle castling moves
+      if (isCastleMove && castleTypeValue) {
+        const castlingConfig = MOVE_PATTERNS.CASTLING[castleTypeValue as keyof typeof MOVE_PATTERNS.CASTLING];
+        if (!castlingConfig) {
+          console.error(`[replayMoves] Invalid castling type: ${castleType}`);
+          continue;
+        }
+        const [kingDx, kingDy, , rookX, rookY, rookDx, rookDy] = castlingConfig;
+        const rookFromKey = `${rookX},${rookY}`;
+        const rookToKey = `${rookX + rookDx},${rookY + rookDy}`;
+        const rook = positionMap.get(rookFromKey);
+        if (!rook) {
+          console.error(`[replayMoves] Rook not found at (${rookX},${rookY}) for castling`);
+          continue;
+        }
+        // Move the rook
+        positionMap.delete(rookFromKey);
+        positionMap.set(rookToKey, {
+          ...rook,
+          x: rookX + rookDx,
+          y: rookY + rookDy,
+          hasMoved: true
+        });
       }
 
       // Handle captures
