@@ -256,11 +256,23 @@ function isKingInCheck(
   allBasePoints: BasePoint[],
   getTeamFn: (color: string) => number
 ): boolean {
+  console.log('[DEBUG] isKingInCheck called for king at', JSON.stringify({ x: king.x, y: king.y, color: king.color }, null, 2));
+  console.log('[DEBUG] All pieces:', JSON.stringify(allBasePoints, null, 2));
   const opponentTeam = getTeamFn(king.color) === 1 ? 2 : 1;
-  return allBasePoints.some(piece => {
+  const isInCheck = allBasePoints.some(piece => {
     if (piece.team !== opponentTeam) return false;
-    return canPieceAttack(piece, king.x, king.y, allBasePoints);
+    const canAttack = canPieceAttack(piece, king.x, king.y, allBasePoints);
+    if (canAttack) {
+      console.log(`[King Check] King at (${king.x},${king.y}) is in check from ${piece.pieceType} at (${piece.x},${piece.y})`);
+    }
+    return canAttack;
   });
+  
+  if (!isInCheck) {
+    console.log(`[King Check] King at (${king.x},${king.y}) is NOT in check`);
+  }
+  
+  return isInCheck;
 }
 
 export function wouldResolveCheck(
@@ -272,27 +284,47 @@ export function wouldResolveCheck(
   isSquareUnderAttackFn: (x: number, y: number, team: number, points: BasePoint[], getTeam: (color: string) => number) => boolean,
   isSquareBetweenFn: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean
 ): boolean {
+  console.log('[DEBUG] wouldResolveCheck called with:', JSON.stringify({
+    from,
+    to,
+    color,
+    allBasePoints
+  }, null, 2));
+  console.log(`[King Check] Checking if move (${from[0]},${from[1]}) -> (${to[0]},${to[1]}) would resolve check`);
   // Find the king of the current player's team
   const currentTeam = getTeamFn(color);
   const king = allBasePoints.find(p => p.pieceType === 'king' && p.team === currentTeam);
   
   // If no king found, can't be in check
-  if (!king) return true;
+  if (!king) {
+    console.log('[King Check] No king found for team', currentTeam);
+    return true;
+  }
   
   // Check if the king is currently in check
   const currentCheck = isKingInCheck(king, allBasePoints, getTeamFn);
-  if (!currentCheck) return true;
+  if (!currentCheck) {
+    console.log(`[King Check] King at (${king.x},${king.y}) is not in check, move is allowed`);
+    return true;
+  }
   
   // Only enforce check resolution for the current player's team
-  if (getTeamFn(color) !== currentTeam) return true;
+  if (getTeamFn(color) !== currentTeam) {
+    console.log(`[King Check] Not enforcing check for non-current team`);
+    return true;
+  }
   
   const movingPiece = allBasePoints.find(bp => bp.x === from[0] && bp.y === from[1]);
-  if (!movingPiece) return false;
+  if (!movingPiece) {
+    console.log(`[King Check] No piece found at (${from[0]},${from[1]})`);
+    return false;
+  }
 
   // If the piece being moved is the king, check if the new position is safe
   if (movingPiece.pieceType === 'king') {
-    // For king moves, just check if the new position is under attack
-    return !isSquareUnderAttackFn(to[0], to[1], getTeamFn(color) === 1 ? 2 : 1, allBasePoints, getTeamFn);
+    const newPositionSafe = !isSquareUnderAttackFn(to[0], to[1], getTeamFn(color) === 1 ? 2 : 1, allBasePoints, getTeamFn);
+    console.log(`[King Check] Moving king to (${to[0]},${to[1]}) - position is ${newPositionSafe ? 'safe' : 'under attack'}`);
+    return newPositionSafe;
   }
 
   // Reuse the king variable that was already found at the start of the function
@@ -304,8 +336,14 @@ export function wouldResolveCheck(
     canPieceAttack(attacker, king.x, king.y, allBasePoints)
   );
 
+  console.log(`[King Check] Found ${attackers.length} attackers targeting the king at (${king.x},${king.y})`);
+  attackers.forEach((attacker, i) => {
+    console.log(`[King Check] Attacker ${i+1}: ${attacker.pieceType} at (${attacker.x},${attacker.y})`);
+  });
+
   // If there are multiple attackers, only a king move can resolve check
   if (attackers.length > 1) {
+    console.log(`[King Check] Multiple attackers detected, only king moves can resolve check`);
     return false;
   }
 
@@ -314,14 +352,18 @@ export function wouldResolveCheck(
   if (to[0] === attacker.x && to[1] === attacker.y) {
     // If the attacker is a king, allow capturing it even if in check
     if (attacker.pieceType === 'king') {
+      console.log(`[King Check] Move captures enemy king at (${attacker.x},${attacker.y}) - check resolved`);
       return true;
     }
     // For other pieces, check if this capture resolves the check
+    console.log(`[King Check] Move captures attacker (${attacker.pieceType}) at (${attacker.x},${attacker.y}) - check resolved`);
     return true;
   }
 
   // Check if the move blocks the attack
-  if (isSquareBetweenFn(attacker, king, to[0], to[1])) {
+  const blocksAttack = isSquareBetweenFn(attacker, king, to[0], to[1]);
+  if (blocksAttack) {
+    console.log(`[King Check] Move to (${to[0]},${to[1]}) blocks the attack from (${attacker.x},${attacker.y})`);
     return true;
   }
 
@@ -471,6 +513,12 @@ export function getLegalMoves(
     ) => boolean;
   } = {}
 ): Array<{x: number, y: number, canCapture: boolean, isCastle?: boolean, castleType?: string}> {
+  console.log(`[DEBUG] getLegalMoves called for piece: ${JSON.stringify({
+    piece: basePoint.pieceType,
+    at: { x: basePoint.x, y: basePoint.y },
+    color: basePoint.color,
+    options
+  }, null, 2)}`);
   const { isKingInCheck = false, wouldResolveCheck } = options;
   const pieceType = basePoint.pieceType || 'pawn'; // Default to pawn if not specified
   const team = getTeamByColor(basePoint.color);
@@ -553,7 +601,7 @@ export function getLegalMoves(
     if (color) {
       const colorName = getColorName(color);
       if (!colorName) {
-        console.log('Color not found for castling:', color);
+        console.log(`Color not found for castling: ${JSON.stringify(color, null, 2)}`);
         possibleMoves = standardMoves; // Return standard moves without castling
       }
       
@@ -768,8 +816,15 @@ export function getLegalMoves(
   // Filter moves that would leave the king in check
   if (isKingInCheck && wouldResolveCheck && pieceType !== 'king') {
     const teamColor = basePoint.color;
-    possibleMoves = possibleMoves.filter(move => 
-      wouldResolveCheck(
+    console.log(JSON.stringify({
+      type: 'King Check - Filtering moves',
+      pieceType,
+      position: { x: basePoint.x, y: basePoint.y },
+      message: 'Checking for check resolution'
+    }, null, 2));
+    
+    possibleMoves = possibleMoves.filter(move => {
+      const resolvesCheck = wouldResolveCheck(
         [basePoint.x, basePoint.y],
         [move.x, move.y],
         teamColor,
@@ -777,8 +832,33 @@ export function getLegalMoves(
         getTeamByColor,
         isSquareUnderAttack,
         isSquareBetween
-      )
-    );
+      );
+      
+      if (!resolvesCheck) {
+        console.log(JSON.stringify({
+          type: 'King Check - Invalid Move',
+          from: { x: basePoint.x, y: basePoint.y },
+          to: { x: move.x, y: move.y },
+          reason: 'Would not resolve check'
+        }, null, 2));
+      } else {
+        console.log(JSON.stringify({
+          type: 'King Check - Valid Move',
+          from: { x: basePoint.x, y: basePoint.y },
+          to: { x: move.x, y: move.y },
+          status: 'Would resolve check'
+        }, null, 2));
+      }
+      
+      return resolvesCheck;
+    });
+    
+    console.log(JSON.stringify({
+      type: 'King Check - Move Count',
+      pieceType,
+      position: { x: basePoint.x, y: basePoint.y },
+      legalMovesCount: possibleMoves.length
+    }, null, 2));
   }
   
   return possibleMoves;

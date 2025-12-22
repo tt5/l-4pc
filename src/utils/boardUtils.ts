@@ -35,6 +35,11 @@ export function calculateRestrictedSquares(
     wouldResolveCheck?: any;
   } = {}
 ): RestrictedSquaresResult {
+  console.log('[DEBUG] calculateRestrictedSquares called with:', {
+    piecesCount: pieces.length,
+    boardStateCount: boardState.length,
+    options
+  });
   const restrictedSquares: number[] = [];
   const restrictedSquaresInfo: RestrictedSquareInfo[] = [];
 
