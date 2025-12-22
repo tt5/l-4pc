@@ -43,8 +43,12 @@ export function calculateRestrictedSquares(
   const restrictedSquares: number[] = [];
   const restrictedSquaresInfo: RestrictedSquareInfo[] = [];
 
+  console.log('[DEBUG] calculateRestrictedSquares - wouldResolveCheck is a function:', typeof options.wouldResolveCheck === 'function');
+  console.log('[DEBUG] calculateRestrictedSquares - isKingInCheck:', options.isKingInCheck);
+  
   for (const piece of pieces) {
-
+    console.log(`[DEBUG] Getting legal moves for ${piece.pieceType} at (${piece.x},${piece.y})`);
+    
     const moves = getLegalMoves(piece, boardState, {
       isKingInCheck: options.isKingInCheck,
       wouldResolveCheck: options.wouldResolveCheck

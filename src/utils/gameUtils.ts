@@ -284,35 +284,33 @@ export function wouldResolveCheck(
   isSquareUnderAttackFn: (x: number, y: number, team: number, points: BasePoint[], getTeam: (color: string) => number) => boolean,
   isSquareBetweenFn: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean
 ): boolean {
-  console.log('[DEBUG] wouldResolveCheck called with:', JSON.stringify({
-    from,
-    to,
-    color,
-    allBasePoints
-  }, null, 2));
-  console.log(`[King Check] Checking if move (${from[0]},${from[1]}) -> (${to[0]},${to[1]}) would resolve check`);
-  // Find the king of the current player's team
   const currentTeam = getTeamFn(color);
-  const king = allBasePoints.find(p => p.pieceType === 'king' && p.team === currentTeam);
+  console.log(`[King Check] Checking move for team ${currentTeam} (color: ${color})`);
+
+  // Find the king of the current player's team
+  const king = allBasePoints.find(p => {
+    const isKing = p.pieceType === 'king' && getTeamFn(p.color) === currentTeam;
+    if (isKing) {
+      console.log(`[King Check] Found king at (${p.x},${p.y}) for team ${currentTeam}`);
+    }
+    return isKing;
+  });
   
   // If no king found, can't be in check
   if (!king) {
-    console.log('[King Check] No king found for team', currentTeam);
+    console.log(`[King Check] No king found for team ${currentTeam}`);
     return true;
   }
   
   // Check if the king is currently in check
+  console.log(`[King Check] Checking if king at (${king.x},${king.y}) is in check`);
   const currentCheck = isKingInCheck(king, allBasePoints, getTeamFn);
   if (!currentCheck) {
     console.log(`[King Check] King at (${king.x},${king.y}) is not in check, move is allowed`);
     return true;
   }
   
-  // Only enforce check resolution for the current player's team
-  if (getTeamFn(color) !== currentTeam) {
-    console.log(`[King Check] Not enforcing check for non-current team`);
-    return true;
-  }
+  console.log(`[King Check] King at (${king.x},${king.y}) is in check, verifying move...`);
   
   const movingPiece = allBasePoints.find(bp => bp.x === from[0] && bp.y === from[1]);
   if (!movingPiece) {
