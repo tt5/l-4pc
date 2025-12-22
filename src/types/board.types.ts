@@ -43,7 +43,11 @@ export interface MoveResult {
   y: number;
   canCapture: boolean;
   isCastle?: boolean;
-  castleType?: 'KING_SIDE' | 'QUEEN_SIDE';
+  castleType?: string;
+  rookX?: number;
+  rookY?: number;
+  rookNewX?: number;
+  rookNewY?: number;
   dx?: number;
   dy?: number;
 }

@@ -31,7 +31,7 @@ const isSquareUnderAttack = (
 const canCastle = (
   king: BasePoint,
   allBasePoints: BasePoint[],
-  castleType: 'KING_SIDE' | 'QUEEN_SIDE',
+  castleType: string,  // Now accepts any string for the castling type
   currentTeam: number
 ): boolean => {
   // Check if king has moved
@@ -39,11 +39,17 @@ const canCastle = (
     return false;
   }
 
-  const [dx, , , rookX, rookY] = MOVE_PATTERNS.CASTLING[castleType];
+  // Get the castling configuration for this type
+  const castlingConfig = MOVE_PATTERNS.CASTLING[castleType as keyof typeof MOVE_PATTERNS.CASTLING];
+  if (!castlingConfig) return false;
+
+  const [dx, dy, , rookX, rookY] = castlingConfig;
+  
+  // Find the rook for this castling move
   const rook = allBasePoints.find(p => 
     p.pieceType === PIECE_TYPES.ROOK && 
     p.x === rookX && 
-    p.y === king.y &&
+    p.y === rookY &&
     p.team === king.team
   );
 
@@ -52,21 +58,40 @@ const canCastle = (
     return false;
   }
 
-  // Check if squares between king and rook are empty and not under attack
-  const step = dx > 0 ? 1 : -1;
-  const endX = king.x + dx;
+  // Determine the direction of castling (horizontal or vertical)
+  const stepX = dx !== 0 ? (dx > 0 ? 1 : -1) : 0;
+  const stepY = dy !== 0 ? (dy > 0 ? 1 : -1) : 0;
   
-  for (let x = king.x + step; x !== endX; x += step) {
-    if (isSquareOccupied(x, king.y, allBasePoints) || 
-        isSquareUnderAttack(x, king.y, allBasePoints, currentTeam)) {
+  // Check squares between king and rook are empty and not under attack
+  let x = king.x + stepX;
+  let y = king.y + stepY;
+  const endX = king.x + dx;
+  const endY = king.y + dy;
+
+  while (x !== endX || y !== endY) {
+    if (isSquareOccupied(x, y, allBasePoints) || 
+        isSquareUnderAttack(x, y, allBasePoints, currentTeam)) {
       return false;
     }
+    x += stepX || 0;
+    y += stepY || 0;
   }
 
   // Check if king is in check or would move through check
-  if (isSquareUnderAttack(king.x, king.y, allBasePoints, currentTeam) ||
-      isSquareUnderAttack(king.x + step, king.y, allBasePoints, currentTeam) ||
-      isSquareUnderAttack(king.x + 2 * step, king.y, allBasePoints, currentTeam)) {
+  if (isSquareUnderAttack(king.x, king.y, allBasePoints, currentTeam)) {
+    return false;
+  }
+
+  // Check the squares the king moves through
+  const kingStepX = stepX !== 0 ? stepX : 0;
+  const kingStepY = stepY !== 0 ? stepY : 0;
+  const kingX1 = king.x + kingStepX;
+  const kingY1 = king.y + kingStepY;
+  const kingX2 = king.x + 2 * kingStepX;
+  const kingY2 = king.y + 2 * kingStepY;
+
+  if (isSquareUnderAttack(kingX1, kingY1, allBasePoints, currentTeam) ||
+      isSquareUnderAttack(kingX2, kingY2, allBasePoints, currentTeam)) {
     return false;
   }
 
@@ -199,12 +224,45 @@ export const calculateKnightMoves = (
 // Update piece moved status
 export const updateMovedPieces = (piece: BasePoint, allBasePoints: BasePoint[]): void => {
   const key = getPieceKey(piece);
+  
+  // Mark the piece as moved
   if (!movedPieces.has(key)) {
     movedPieces.add(key);
   }
-
+  
   // If a rook is captured, mark it as moved for castling purposes
-  if (piece.pieceType === PIECE_TYPES.ROOK) {
+  if (piece.pieceType === PIECE_TYPES.ROOK || piece.pieceType === PIECE_TYPES.KING) {
+    // For castling, we need to mark both the king and the rook as moved
+    if (piece.pieceType === PIECE_TYPES.KING) {
+      // When king moves, mark both king and both rooks as moved
+      const color = piece.color?.toUpperCase() as keyof typeof MOVE_PATTERNS.CASTLING;
+      if (color) {
+        const kingSideKey = `${color}_KING_SIDE` as const;
+        const queenSideKey = `${color}_QUEEN_SIDE` as const;
+        
+        // Mark both rooks as moved when the king moves
+        [kingSideKey, queenSideKey].forEach(side => {
+          if (side in MOVE_PATTERNS.CASTLING) {
+            const [,,, rookX, rookY] = MOVE_PATTERNS.CASTLING[side];
+            const rook = allBasePoints.find(p => 
+              p.pieceType === PIECE_TYPES.ROOK && 
+              p.x === rookX && 
+              p.y === rookY &&
+              p.team === piece.team
+            );
+            
+            if (rook) {
+              const rookKey = getPieceKey(rook);
+              if (!movedPieces.has(rookKey)) {
+                movedPieces.add(rookKey);
+              }
+            }
+          }
+        });
+      }
+    }
+    
+    // Also mark the piece itself as moved (for rooks and kings)
     movedPieces.add(key);
   }
 };
@@ -245,26 +303,34 @@ export const getLegalMoves = (
 
       // Add castling moves if available
       const castlingMoves: MoveResult[] = [];
-      if (!movedPieces.has(getPieceKey(basePoint))) {
-        if (canCastle(basePoint, allBasePoints, 'KING_SIDE', currentTeam)) {
-          const [dx] = MOVE_PATTERNS.CASTLING.KING_SIDE;
+      
+      // Get the color-specific castling keys
+      const color = basePoint.color?.toUpperCase() as keyof typeof MOVE_PATTERNS.CASTLING;
+      if (color) {
+        const kingSideKey = `${color}_KING_SIDE` as const;
+        const queenSideKey = `${color}_QUEEN_SIDE` as const;
+        
+        // Check king-side castling
+        if (canCastle(basePoint, allBasePoints, kingSideKey, currentTeam)) {
+          const [dx] = MOVE_PATTERNS.CASTLING[kingSideKey];
           castlingMoves.push({
             x: basePoint.x + dx,
             y: basePoint.y,
             canCapture: false,
             isCastle: true,
-            castleType: 'KING_SIDE'
+            castleType: kingSideKey
           });
         }
         
-        if (canCastle(basePoint, allBasePoints, 'QUEEN_SIDE', currentTeam)) {
-          const [dx] = MOVE_PATTERNS.CASTLING.QUEEN_SIDE;
+        // Check queen-side castling
+        if (canCastle(basePoint, allBasePoints, queenSideKey, currentTeam)) {
+          const [dx] = MOVE_PATTERNS.CASTLING[queenSideKey];
           castlingMoves.push({
             x: basePoint.x + dx,
             y: basePoint.y,
             canCapture: false,
             isCastle: true,
-            castleType: 'QUEEN_SIDE'
+            castleType: queenSideKey
           });
         }
       }
