@@ -461,6 +461,7 @@ export function getLegalMoves(
 ): Array<{x: number, y: number, canCapture: boolean, isCastle?: boolean, castleType?: string}> {
   const pieceType = basePoint.pieceType || 'pawn'; // Default to pawn if not specified
   const team = getTeamByColor(basePoint.color);
+  let possibleMoves: Array<{x: number, y: number, canCapture: boolean, isCastle?: boolean, castleType?: string}> = [];
   
   if (pieceType === 'queen') {
     // Queen moves any number of squares in any direction
@@ -492,8 +493,8 @@ export function getLegalMoves(
     ].map(([dx, dy]) => {
       const x = basePoint.x + dx;
       const y = basePoint.y + dy;
-      
-      // Skip if out of bounds
+
+      // Check if the move is within board bounds
       if (x < 0 || x >= BOARD_CONFIG.GRID_SIZE || y < 0 || y >= BOARD_CONFIG.GRID_SIZE) {
         return null;
       }
@@ -515,15 +516,37 @@ export function getLegalMoves(
         canCapture,
         isCastle: false
       };
-    }).filter(Boolean);
+    }).filter((move): move is { x: number; y: number; canCapture: boolean; isCastle: boolean } => move !== null);
 
     // Add castling moves if available
-    const castlingMoves = [];
+    const castlingMoves: Array<{x: number, y: number, canCapture: boolean, isCastle: boolean, castleType: string}> = [];
     const color = basePoint.color?.toUpperCase();
     
+    // Get color name from hex code
+    const getColorName = (hexColor: string): string => {
+      const colorMap: Record<string, string> = {
+        '#F44336': 'RED',
+        '#FFEB3B': 'YELLOW',
+        '#2196F3': 'BLUE',
+        '#4CAF50': 'GREEN',
+        'RED': 'RED',
+        'YELLOW': 'YELLOW',
+        'BLUE': 'BLUE',
+        'GREEN': 'GREEN'
+      };
+      return colorMap[hexColor] || '';
+    };
+    
     if (color) {
+      const colorName = getColorName(color);
+      if (!colorName) {
+        console.log('Color not found for castling:', color);
+        return standardMoves; // Return standard moves without castling
+      }
+      
       // King-side castling (right for blue/green, up for red/yellow)
-      if (canCastle(basePoint, allBasePoints, `${color}_KING_SIDE`, team)) {
+      const kingSideCastleType = `${colorName}_KING_SIDE`;
+      if (canCastle(basePoint, allBasePoints, kingSideCastleType, team)) {
         const dx = color === '#2196F3' || color === '#4CAF50' ? 2 : 0;
         const dy = color === '#F44336' || color === '#FFEB3B' ? -2 : 0;
         castlingMoves.push({
@@ -536,7 +559,8 @@ export function getLegalMoves(
       }
       
       // Queen-side castling (left for blue/green, down for red/yellow)
-      if (canCastle(basePoint, allBasePoints, `${color}_QUEEN_SIDE`, team)) {
+      const queenSideCastleType = `${colorName}_QUEEN_SIDE`;
+      if (canCastle(basePoint, allBasePoints, queenSideCastleType, team)) {
         const dx = color === '#2196F3' || color === '#4CAF50' ? -2 : 0;
         const dy = color === '#F44336' || color === '#FFEB3B' ? 2 : 0;
         castlingMoves.push({
@@ -548,16 +572,8 @@ export function getLegalMoves(
         });
       }
     }
-
-    // Filter out null values and explicitly type the result
-    const validStandardMoves = standardMoves.filter((move): move is {
-      x: number;
-      y: number;
-      canCapture: boolean;
-      isCastle: boolean;
-    } => move !== null);
     
-    return [...validStandardMoves, ...castlingMoves];
+    return [...standardMoves, ...castlingMoves];
   } else if (pieceType === 'pawn') {
     const moves: {x: number, y: number, canCapture: boolean}[] = [];
     

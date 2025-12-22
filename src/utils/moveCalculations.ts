@@ -133,9 +133,15 @@ export const canCastle = (
   const endX = king.x + dx;
   const endY = king.y + dy;
 
+  console.log('Checking castling path from:', { x, y }, 'to:', { endX, endY });
+  
   while (x !== endX || y !== endY) {
-    if (isSquareOccupied(x, y, allBasePoints) || 
-        isSquareUnderAttack(x, y, currentTeam, allBasePoints, getTeamFn)) {
+    const occupied = isSquareOccupied(x, y, allBasePoints);
+    const underAttack = isSquareUnderAttack(x, y, currentTeam, allBasePoints, getTeamFn);
+    console.log('Square:', { x, y, occupied, underAttack });
+    
+    if (occupied || underAttack) {
+      console.log('Castling blocked at:', { x, y, occupied, underAttack });
       return false;
     }
     x += stepX || 0;
@@ -143,7 +149,10 @@ export const canCastle = (
   }
 
   // Check if king is in check or would move through check
-  if (isSquareUnderAttack(king.x, king.y, currentTeam, allBasePoints, getTeamFn)) {
+  const kingUnderAttack = isSquareUnderAttack(king.x, king.y, currentTeam, allBasePoints, getTeamFn);
+  console.log('King under attack:', kingUnderAttack);
+  if (kingUnderAttack) {
+    console.log('Cannot castle while in check');
     return false;
   }
 
@@ -154,9 +163,19 @@ export const canCastle = (
   const kingY1 = king.y + kingStepY;
   const kingX2 = king.x + 2 * kingStepX;
   const kingY2 = king.y + 2 * kingStepY;
+  
+  console.log('King path squares:', [
+    { x: king.x, y: king.y },
+    { x: kingX1, y: kingY1 },
+    { x: kingX2, y: kingY2 }
+  ]);
+  
+  const kingPath1UnderAttack = isSquareUnderAttack(kingX1, kingY1, currentTeam, allBasePoints, getTeamFn);
+  const kingPath2UnderAttack = isSquareUnderAttack(kingX2, kingY2, currentTeam, allBasePoints, getTeamFn);
+  console.log('King path under attack:', { kingPath1UnderAttack, kingPath2UnderAttack });
 
-  if (isSquareUnderAttack(kingX1, kingY1, currentTeam, allBasePoints, getTeamFn) ||
-      isSquareUnderAttack(kingX2, kingY2, currentTeam, allBasePoints, getTeamFn)) {
+  if (kingPath1UnderAttack || kingPath2UnderAttack) {
+    console.log('Cannot castle through or into check');
     return false;
   }
 
