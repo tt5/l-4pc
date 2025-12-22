@@ -28,7 +28,7 @@ const isSquareUnderAttack = (
 };
 
 // Check if castling is possible
-const canCastle = (
+export const canCastle = (
   king: BasePoint,
   allBasePoints: BasePoint[],
   castleType: string,  // Now accepts any string for the castling type

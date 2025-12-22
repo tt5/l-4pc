@@ -1,4 +1,5 @@
 import { getTeamByColor, isInNonPlayableCorner, BOARD_CONFIG } from '~/constants/game';
+import { canCastle } from './moveCalculations';
 import type { BasePoint, PieceType } from '~/types/board';
 import type { RestrictedSquareInfo } from '../types/restrictedSquares';
 
@@ -457,7 +458,7 @@ export function validateSquarePlacement(
 export function getLegalMoves(
   basePoint: BasePoint,
   allBasePoints: BasePoint[]
-): {x: number, y: number, canCapture: boolean}[] {
+): Array<{x: number, y: number, canCapture: boolean, isCastle?: boolean, castleType?: string}> {
   const pieceType = basePoint.pieceType || 'pawn'; // Default to pawn if not specified
   const team = getTeamByColor(basePoint.color);
   
@@ -478,8 +479,8 @@ export function getLegalMoves(
       getSquaresInDirection(basePoint.x, basePoint.y, dx, dy, allBasePoints, team)
     );
   } else if (pieceType === 'king') {
-    // King moves one square in any direction
-    const directions = [
+    // Standard king moves (1 square in any direction)
+    const standardMoves = [
       [0, 1],   // up
       [1, 0],   // right
       [0, -1],  // down
@@ -488,15 +489,13 @@ export function getLegalMoves(
       [1, -1],  // down-right
       [-1, -1], // down-left
       [-1, 1]   // up-left
-    ];
-    
-    return directions.flatMap(([dx, dy]) => {
+    ].map(([dx, dy]) => {
       const x = basePoint.x + dx;
       const y = basePoint.y + dy;
       
       // Skip if out of bounds
       if (x < 0 || x >= BOARD_CONFIG.GRID_SIZE || y < 0 || y >= BOARD_CONFIG.GRID_SIZE) {
-        return [];
+        return null;
       }
       
       // Check if the square is occupied
@@ -504,18 +503,61 @@ export function getLegalMoves(
       
       // If occupied by a teammate, can't move there
       if (targetPiece && getTeamByColor(targetPiece.color) === team) {
-        return [];
+        return null;
       }
       
       // If occupied by an enemy, can capture
       const canCapture = targetPiece ? getTeamByColor(targetPiece.color) !== team : false;
       
-      return [{
+      return {
         x,
         y,
-        canCapture
-      }];
-    });
+        canCapture,
+        isCastle: false
+      };
+    }).filter(Boolean);
+
+    // Add castling moves if available
+    const castlingMoves = [];
+    const color = basePoint.color?.toUpperCase();
+    
+    if (color) {
+      // King-side castling (right for blue/green, up for red/yellow)
+      if (canCastle(basePoint, allBasePoints, `${color}_KING_SIDE`, team)) {
+        const dx = color === '#2196F3' || color === '#4CAF50' ? 2 : 0;
+        const dy = color === '#F44336' || color === '#FFEB3B' ? -2 : 0;
+        castlingMoves.push({
+          x: basePoint.x + dx,
+          y: basePoint.y + dy,
+          canCapture: false,
+          isCastle: true,
+          castleType: 'KING_SIDE'
+        });
+      }
+      
+      // Queen-side castling (left for blue/green, down for red/yellow)
+      if (canCastle(basePoint, allBasePoints, `${color}_QUEEN_SIDE`, team)) {
+        const dx = color === '#2196F3' || color === '#4CAF50' ? -2 : 0;
+        const dy = color === '#F44336' || color === '#FFEB3B' ? 2 : 0;
+        castlingMoves.push({
+          x: basePoint.x + dx,
+          y: basePoint.y + dy,
+          canCapture: false,
+          isCastle: true,
+          castleType: 'QUEEN_SIDE'
+        });
+      }
+    }
+
+    // Filter out null values and explicitly type the result
+    const validStandardMoves = standardMoves.filter((move): move is {
+      x: number;
+      y: number;
+      canCapture: boolean;
+      isCastle: boolean;
+    } => move !== null);
+    
+    return [...validStandardMoves, ...castlingMoves];
   } else if (pieceType === 'pawn') {
     const moves: {x: number, y: number, canCapture: boolean}[] = [];
     
