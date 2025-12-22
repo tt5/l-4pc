@@ -34,6 +34,11 @@ const canCastle = (
   castleType: string,  // Now accepts any string for the castling type
   currentTeam: number
 ): boolean => {
+    console.log('Checking castling for:', { 
+    kingPos: { x: king.x, y: king.y },
+    castleType,
+    currentTeam
+  });
   // Check if king has moved
   if (movedPieces.has(getPieceKey(king))) {
     return false;
@@ -272,6 +277,14 @@ export const getLegalMoves = (
   basePoint: BasePoint,
   allBasePoints: BasePoint[]
 ): MoveResult[] => {
+    console.log('Getting legal moves for piece:', {
+    id: basePoint.id,
+    type: basePoint.pieceType,
+    x: basePoint.x,
+    y: basePoint.y,
+    color: basePoint.color,
+    isKing: basePoint.pieceType === PIECE_TYPES.KING
+  });
   const pieceType = basePoint.pieceType || PIECE_TYPES.PAWN;
   const currentTeam = basePoint.team;
   
@@ -307,6 +320,7 @@ export const getLegalMoves = (
       
       // Get the color-specific castling keys
       const color = basePoint.color?.toUpperCase() as keyof typeof MOVE_PATTERNS.CASTLING;
+      console.log('Checking castling for king at', { x: basePoint.x, y: basePoint.y, color });
       if (color) {
         const kingSideKey = `${color}_KING_SIDE` as const;
         const queenSideKey = `${color}_QUEEN_SIDE` as const;
@@ -335,6 +349,8 @@ export const getLegalMoves = (
             castleType: queenSideKey
           });
         }
+      } else {
+        console.log('King-side castling is NOT possible');
       }
 
       return [...standardMoves, ...castlingMoves];

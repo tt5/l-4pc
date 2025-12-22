@@ -32,7 +32,9 @@ export function calculateRestrictedSquares(pieces: BasePoint[], boardState: Base
   const restrictedSquaresInfo: RestrictedSquareInfo[] = [];
 
   for (const piece of pieces) {
+
     const moves = getLegalMoves(piece, boardState);
+    console.log(`Moves for piece at (${piece.x},${piece.y}):`, JSON.stringify(moves));  // Add this line
     for (const { x, y } of moves) {
       const index = y * BOARD_CONFIG.GRID_SIZE + x;
       
@@ -61,7 +63,9 @@ export function calculateRestrictedSquares(pieces: BasePoint[], boardState: Base
     }
   }
 
-  return { restrictedSquares, restrictedSquaresInfo };
+  const result = { restrictedSquares, restrictedSquaresInfo };
+  console.log('Calculated restricted squares:', JSON.stringify(result));  // Add this line
+  return result;
 }
 
 
