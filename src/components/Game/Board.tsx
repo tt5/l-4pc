@@ -24,7 +24,8 @@ import {
   isSquareBetween,
   isSquareUnderAttack,
   wouldResolveCheck,
-  validateSquarePlacement
+  validateSquarePlacement,
+  isKingInCheck
 } from '~/utils/gameUtils';
 import { calculateRestrictedSquares, updateBasePoint} from '~/utils/boardUtils';
 
@@ -376,9 +377,33 @@ const Board: Component<BoardProps> = (props) => {
   const [currentTurnIndex, setCurrentTurnIndex] = createSignal(0);
   const currentPlayerColor = () => PLAYER_COLORS[currentTurnIndex() % PLAYER_COLORS.length];
 
+  // Update king check status based on current board state
+  const updateKingCheckStatus = (boardState: BasePoint[]) => {
+    // Find all kings on the board
+    const kings = boardState.filter(p => p.pieceType === 'king');
+    
+    for (const king of kings) {
+      const isInCheck = isKingInCheck(
+        king,
+        boardState,
+        getTeamByColor
+      );
+      
+      if (isInCheck) {
+        setKingInCheck({
+          team: getTeamByColor(king.color) as 1 | 2,
+          position: [king.x, king.y]
+        });
+        return; // Stop at the first king in check (should only be one per team)
+      }
+    }
+    
+    // If we get here, no kings are in check
+    setKingInCheck(null);
+  };
+
   // Reset the board to its initial state
   const resetBoardToInitialState = () => {
-
     setFullMoveHistory([]);
     setCurrentMoveIndex(0);
     setMoveHistory([]);
@@ -387,16 +412,20 @@ const Board: Component<BoardProps> = (props) => {
     setBranchPoints({});
     setMainLineMoves([]);
 
-    setBasePoints(JSON.parse(JSON.stringify(INITIAL_BASE_POINTS)));
+    const initialBasePoints = JSON.parse(JSON.stringify(INITIAL_BASE_POINTS));
+    setBasePoints(initialBasePoints);
     
-    const currentPlayerPieces = basePoints().filter(p => 
+    // Update king check status after resetting the board
+    updateKingCheckStatus(initialBasePoints);
+    
+    const currentPlayerPieces = initialBasePoints.filter((p: BasePoint) => 
       getTeamByColor(p.color) === 1  // Red team is team 1
     );
     
     // Calculate restricted squares using the local function
     const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(
       currentPlayerPieces,
-      basePoints(),
+      initialBasePoints,
       { 
         wouldResolveCheck: (
           from: [number, number],
@@ -531,6 +560,9 @@ const Board: Component<BoardProps> = (props) => {
     setBasePoints(updatedBasePoints);
     setCurrentMoveIndex(newIndex);
     
+    // Update king check status after the move
+    updateKingCheckStatus(updatedBasePoints);
+    
     // 4. Update turn index (next player's turn)
     const newTurnIndex = (newIndex) % PLAYER_COLORS.length;
     setCurrentTurnIndex(newTurnIndex);
@@ -603,6 +635,9 @@ const Board: Component<BoardProps> = (props) => {
     setBasePoints(updatedBasePoints);
 
     setCurrentMoveIndex(newIndex);
+    
+    // Update king check status after the move
+    updateKingCheckStatus(updatedBasePoints);
     
     const targetMove = history[newIndex];
     setCurrentBranchName(targetMove?.branchName || null);
@@ -789,13 +824,18 @@ const Board: Component<BoardProps> = (props) => {
     }
 
     // Optimistically update the UI
-    setBasePoints(prev => 
-      prev.map(bp => 
+    setBasePoints(prev => {
+      const newBasePoints = prev.map(bp => 
         bp.id === pointToMove.id 
           ? { ...bp, x: targetX, y: targetY } 
           : bp
-      )
-    );
+      );
+      
+      // Update king check status after the move
+      updateKingCheckStatus(newBasePoints);
+      
+      return newBasePoints;
+    });
 
     // Update the drag start position to the new position
     setDragStartPosition([targetX, targetY]);
@@ -1165,6 +1205,7 @@ const Board: Component<BoardProps> = (props) => {
         // Handle errors and revert to original state
         console.error('Error during move:', error);
         setBasePoints(originalState.basePoints);
+        updateKingCheckStatus(originalState.basePoints);
         setRestrictedSquares(originalState.restrictedSquares);
         setRestrictedSquaresInfo(originalState.restrictedSquaresInfo);
         setError(error instanceof Error ? error.message : 'Failed to place base point');

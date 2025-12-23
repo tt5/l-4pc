@@ -285,7 +285,7 @@ export function isSquareUnderAttack(
  * @param getTeamFn - Function to get team from color
  * @returns True if the king is in check
  */
-function isKingInCheck(
+export function isKingInCheck(
   king: BasePoint, 
   allBasePoints: BasePoint[],
   getTeamFn: (color: string) => number
