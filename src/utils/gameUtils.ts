@@ -566,6 +566,7 @@ export function getLegalMoves(
   } = options;
 
   const pieceType = basePoint.pieceType || 'pawn'; // Default to pawn if not specified
+  console.log(`--- getLegalMoves --- ${pieceType}`)
   const team = getTeamByColor(basePoint.color);
   let possibleMoves: Array<{x: number, y: number, canCapture: boolean, isCastle?: boolean, castleType?: string}> = [];
   

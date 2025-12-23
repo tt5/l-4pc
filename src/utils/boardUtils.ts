@@ -47,21 +47,21 @@ export function calculateRestrictedSquares(
     getTeamFn?: (color: string) => number;
   } = {}
 ): RestrictedSquaresResult {
+
+  console.log(`=== calculateRestrictedSquares ===`)
   
   const restrictedSquares: number[] = [];
   const restrictedSquaresInfo: RestrictedSquareInfo[] = [];
   const getTeam = options.getTeamFn || getTeamByColor;
-  const currentTeam = pieces[0] ? getTeam(pieces[0].color) : null;
 
   // Get the current player's king from their pieces
   const currentKing = pieces.find(p => p.pieceType === 'king');
+  console.log(`currentKing: ${JSON.stringify(currentKing)}`)
 
   // Check if the current player's king is in check
   const kingInCheck = currentKing ? 
     isKingInCheck(currentKing, boardState, getTeam) : 
     false;
-
-  console.log(`[DEBUG] King is in check: ${kingInCheck} for team ${currentTeam}`);
 
   for (const piece of pieces) {
     
@@ -73,7 +73,7 @@ export function calculateRestrictedSquares(
       getTeamFn: options.getTeamFn || getTeamByColor
     });
     
-    console.log(`Moves for ${piece.pieceType} at (${piece.x},${piece.y}):`, JSON.stringify(moves));
+    //console.log(`Moves for ${piece.pieceType} at (${piece.x},${piece.y}):`, JSON.stringify(moves));
     
     for (const { x, y, canCapture } of moves) {
       const index = y * BOARD_CONFIG.GRID_SIZE + x;
