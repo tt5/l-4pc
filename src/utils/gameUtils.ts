@@ -301,7 +301,6 @@ export function isKingInCheck(
   const opponentTeam = getTeamFn(king.color) === 1 ? 2 : 1;
   let isInCheck = false;
   
-  const kingColorName = normalizeColor(king.color)?.toUpperCase() || king.color;
   // Check each opponent piece to see if it attacks the king
   for (const piece of allBasePoints) {
     const pieceTeam = getTeamFn(piece.color);
@@ -314,14 +313,9 @@ export function isKingInCheck(
     const canAttack = canPieceAttack(piece, king.x, king.y, allBasePoints, getTeamFn);
     
     if (canAttack) {
-      console.log(`[King Check] KING IN CHECK! ${piece.pieceType} at (${piece.x},${piece.y}) can attack ${kingColorName} king at (${king.x},${king.y})`);
       isInCheck = true;
       break;
     }
-  }
-  
-  if (!isInCheck) {
-    console.log(`[King Check] ${kingColorName} King at (${king.x},${king.y}) is NOT in check`);
   }
   
   return isInCheck;
@@ -337,14 +331,10 @@ export function wouldResolveCheck(
   isSquareBetweenFn: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean
 ): boolean {
   const currentTeam = getTeamFn(color);
-  console.log(`[King Check] Checking move for team ${currentTeam} (color: ${color})`);
 
   // Find the king of the current player (exact color match)
   const king = allBasePoints.find(p => {
     const isKing = p.pieceType === 'king' && p.color === color;
-    if (isKing) {
-      console.log(`[King Check] Found king at (${p.x},${p.y}) for color ${color}`);
-    }
     return isKing;
   });
   
@@ -592,9 +582,9 @@ export function getLegalMoves(
       [-1, 1]   // up-left
     ];
     
-    possibleMoves.push(...directions.flatMap(([dx, dy]) => 
+    possibleMoves = directions.flatMap(([dx, dy]) => 
       getSquaresInDirection(basePoint.x, basePoint.y, dx, dy, allBasePoints, team)
-    ));
+    );
   } else if (pieceType === 'king') {
     // Standard king moves (1 square in any direction)
     const standardMoves = [
@@ -689,7 +679,7 @@ export function getLegalMoves(
       }
     }
     
-    possibleMoves.push(...standardMoves, ...castlingMoves);
+    possibleMoves = [...standardMoves, ...castlingMoves];
   } else if (pieceType === 'pawn') {
     const moves: {x: number, y: number, canCapture: boolean}[] = [];
     
@@ -795,7 +785,7 @@ export function getLegalMoves(
       }
     }
     
-    possibleMoves.push(...moves);
+    possibleMoves = [...moves];
   } else if (pieceType === 'bishop') {
     // Bishop moves any number of squares diagonally
     const directions = [
@@ -805,9 +795,9 @@ export function getLegalMoves(
       [-1, 1]   // up-left
     ];
     
-    possibleMoves.push(...directions.flatMap(([dx, dy]) => 
+    possibleMoves = [...directions.flatMap(([dx, dy]) => 
       getSquaresInDirection(basePoint.x, basePoint.y, dx, dy, allBasePoints, team)
-    ));
+    )];
   } else if (pieceType === 'knight') {
     // Knight moves in an L-shape: 2 squares in one direction and then 1 square perpendicular
     const moves = [
@@ -821,7 +811,7 @@ export function getLegalMoves(
       [-1, 2]   // left 1, up 2
     ];
 
-    possibleMoves.push(...moves
+    possibleMoves = [...moves
       .map(([dx, dy]) => {
         const x = basePoint.x + dx;
         const y = basePoint.y + dy;
@@ -853,7 +843,7 @@ export function getLegalMoves(
           canCapture
         };
       })
-      .filter(Boolean) as {x: number, y: number, canCapture: boolean}[]);
+      .filter(Boolean) as {x: number, y: number, canCapture: boolean}[]];
   } else {
     // Default movement for any other piece type (like rook)
     const directions = [
@@ -863,17 +853,15 @@ export function getLegalMoves(
       [-1, 0]   // left
     ];
     
-    possibleMoves.push(...directions.flatMap(([dx, dy]) => 
+    possibleMoves = [...directions.flatMap(([dx, dy]) => 
       getSquaresInDirection(basePoint.x, basePoint.y, dx, dy, allBasePoints, team)
-    ));
+    )];
   }
 
-  console.log(`before FILTERING ${JSON.stringify(possibleMoves)}`)
   // Filter moves that would leave the king in check
   // the wouldResolveCheck condition in if checks if the function exists
   if (isKingInCheck && wouldResolveCheck && pieceType !== 'king') {
     const playerColor = basePoint.color;
-    console.log(`FILTERING ${JSON.stringify(possibleMoves)}`)
     
     possibleMoves = possibleMoves.filter(move => {
       const resolvesCheck = wouldResolveCheck(
@@ -886,31 +874,8 @@ export function getLegalMoves(
         isSquareBetween
       );
       
-      if (!resolvesCheck) {
-        console.log(JSON.stringify({
-          type: 'King Check - Invalid Move',
-          from: { x: basePoint.x, y: basePoint.y },
-          to: { x: move.x, y: move.y },
-          reason: 'Would not resolve check'
-        }, null, 2));
-      } else {
-        console.log(JSON.stringify({
-          type: 'King Check - Valid Move',
-          from: { x: basePoint.x, y: basePoint.y },
-          to: { x: move.x, y: move.y },
-          status: 'Would resolve check'
-        }, null, 2));
-      }
-      
       return resolvesCheck;
     });
-    
-    console.log(JSON.stringify({
-      type: 'King Check - Move Count',
-      pieceType,
-      position: { x: basePoint.x, y: basePoint.y },
-      legalMovesCount: possibleMoves.length
-    }, null, 2));
   }
   
   return possibleMoves;

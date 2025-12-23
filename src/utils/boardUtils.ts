@@ -47,11 +47,6 @@ export function calculateRestrictedSquares(
     getTeamFn?: (color: string) => number;
   } = {}
 ): RestrictedSquaresResult {
-  console.log('[DEBUG] calculateRestrictedSquares called with:', {
-    piecesCount: pieces.length,
-    boardStateCount: boardState.length,
-    options
-  });
   
   const restrictedSquares: number[] = [];
   const restrictedSquaresInfo: RestrictedSquareInfo[] = [];
@@ -69,7 +64,6 @@ export function calculateRestrictedSquares(
   console.log(`[DEBUG] King is in check: ${kingInCheck} for team ${currentTeam}`);
 
   for (const piece of pieces) {
-    console.log(`[DEBUG] Getting legal moves for ${piece.pieceType} at (${piece.x},${piece.y})`);
     
     const moves = getLegalMoves(piece, boardState, {
       isKingInCheck: kingInCheck,
