@@ -58,11 +58,8 @@ export function calculateRestrictedSquares(
   const getTeam = options.getTeamFn || getTeamByColor;
   const currentTeam = pieces[0] ? getTeam(pieces[0].color) : null;
 
-  // Get the current player's king
-  const currentKing = boardState.find(p => 
-    p.pieceType === 'king' && 
-    getTeam(p.color) === currentTeam
-  );
+  // Get the current player's king from their pieces
+  const currentKing = pieces.find(p => p.pieceType === 'king');
 
   // Check if the current player's king is in check
   const kingInCheck = currentKing ? 

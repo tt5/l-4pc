@@ -1,4 +1,4 @@
-import { getTeamByColor, isInNonPlayableCorner, BOARD_CONFIG } from '~/constants/game';
+import { getTeamByColor, isInNonPlayableCorner, BOARD_CONFIG, normalizeColor } from '~/constants/game';
 import { canCastle } from './moveCalculations';
 import type { BasePoint, PieceType } from '~/types/board';
 import type { RestrictedSquareInfo } from '../types/restrictedSquares';
@@ -32,11 +32,11 @@ export const COLOR_MAP: Record<string, string> = {
 };
 
 /**
- * Normalizes color input to handle different color formats
- * @param color - The color to normalize (can be color name or hex value)
- * @returns The normalized color in hex format
+ * Converts color names to hex values
+ * @param color - The color to convert (can be color name or hex value)
+ * @returns The color in hex format, or the original string if not found in COLOR_MAP
  */
-export function normalizeColor(color: string): string {
+export function colorToHex(color: string): string {
   if (!color) return '';
   const lowerColor = color.toLowerCase();
   return COLOR_MAP[lowerColor] || color;
@@ -301,6 +301,7 @@ export function isKingInCheck(
   const opponentTeam = getTeamFn(king.color) === 1 ? 2 : 1;
   let isInCheck = false;
   
+  const kingColorName = normalizeColor(king.color)?.toUpperCase() || king.color;
   // Check each opponent piece to see if it attacks the king
   for (const piece of allBasePoints) {
     const pieceTeam = getTeamFn(piece.color);
@@ -313,14 +314,14 @@ export function isKingInCheck(
     const canAttack = canPieceAttack(piece, king.x, king.y, allBasePoints, getTeamFn);
     
     if (canAttack) {
-      console.log(`[King Check] KING IN CHECK! ${piece.pieceType} at (${piece.x},${piece.y}) can attack ${getTeamFn(king.color) === 1 ? 'YELLOW' : 'BLUE'} king at (${king.x},${king.y})`);
+      console.log(`[King Check] KING IN CHECK! ${piece.pieceType} at (${piece.x},${piece.y}) can attack ${kingColorName} king at (${king.x},${king.y})`);
       isInCheck = true;
       break;
     }
   }
   
   if (!isInCheck) {
-    console.log(`[King Check] ${getTeamFn(king.color) === 1 ? 'YELLOW' : 'BLUE'} King at (${king.x},${king.y}) is NOT in check`);
+    console.log(`[King Check] ${kingColorName} King at (${king.x},${king.y}) is NOT in check`);
   }
   
   return isInCheck;
