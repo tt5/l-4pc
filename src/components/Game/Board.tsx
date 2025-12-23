@@ -618,7 +618,11 @@ const Board: Component<BoardProps> = (props) => {
 
     const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(
       currentPlayerPieces,
-      updatedBasePoints
+      updatedBasePoints,
+      { 
+        isKingInCheck: kingInCheck()?.team === getTeamByColor(playerColorName),
+        wouldResolveCheck: wouldResolveCheck
+      }
     );
     
     setRestrictedSquares(restrictedSquares);

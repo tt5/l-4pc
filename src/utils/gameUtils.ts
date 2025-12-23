@@ -154,6 +154,8 @@ export function canPieceAttack(
 ): boolean {
   const dx = Math.abs(piece.x - targetX);
   const dy = Math.abs(piece.y - targetY);
+  const xDir = Math.sign(targetX - piece.x);
+  const yDir = Math.sign(targetY - piece.y);
   
   // King movement (1 square in any direction)
   if (piece.pieceType === 'king') {
@@ -162,15 +164,47 @@ export function canPieceAttack(
   
   // Queen movement (any number of squares in any direction)
   if (piece.pieceType === 'queen') {
-    // Check if on same row, column, or diagonal
     if (piece.x === targetX || piece.y === targetY || dx === dy) {
-      // Check if path is clear
       return isPathClear(piece.x, piece.y, targetX, targetY, allBasePoints);
     }
     return false;
   }
-  
-  // Add other piece types as needed (rooks, bishops, knights, pawns)
+
+  // Rook movement (any number of squares horizontally or vertically)
+  if (piece.pieceType === 'rook') {
+    if (piece.x === targetX || piece.y === targetY) {
+      return isPathClear(piece.x, piece.y, targetX, targetY, allBasePoints);
+    }
+    return false;
+  }
+
+  // Bishop movement (any number of squares diagonally)
+  if (piece.pieceType === 'bishop') {
+    if (dx === dy) {
+      return isPathClear(piece.x, piece.y, targetX, targetY, allBasePoints);
+    }
+    return false;
+  }
+
+  // Knight movement (L-shape)
+  if (piece.pieceType === 'knight') {
+    return (dx === 2 && dy === 1) || (dx === 1 && dy === 2);
+  }
+
+  // Pawn movement (diagonal capture only)
+  if (piece.pieceType === 'pawn') {
+    // For pawns, we only check diagonal captures (1 square forward-diagonal)
+    // The direction depends on the pawn's color/team
+    const targetPiece = allBasePoints.find(p => p.x === targetX && p.y === targetY);
+    if (targetPiece && Math.abs(piece.x - targetX) === 1) {
+      // For red team (assuming team 1 moves up)
+      if (piece.team === 1 && targetY === piece.y - 1) return true;
+      // For blue team (assuming team 2 moves down)
+      if (piece.team === 2 && targetY === piece.y + 1) return true;
+      // Add other team directions as needed
+    }
+    return false;
+  }
   
   return false;
 }
@@ -256,20 +290,38 @@ function isKingInCheck(
   allBasePoints: BasePoint[],
   getTeamFn: (color: string) => number
 ): boolean {
-  console.log('[DEBUG] isKingInCheck called for king at', JSON.stringify({ x: king.x, y: king.y, color: king.color }, null, 2));
-  console.log('[DEBUG] All pieces:', JSON.stringify(allBasePoints, null, 2));
+  console.log('[DEBUG] isKingInCheck called for king at', JSON.stringify({ x: king.x, y: king.y, color: king.color, team: getTeamFn(king.color) }, null, 2));
+  
   const opponentTeam = getTeamFn(king.color) === 1 ? 2 : 1;
-  const isInCheck = allBasePoints.some(piece => {
-    if (piece.team !== opponentTeam) return false;
-    const canAttack = canPieceAttack(piece, king.x, king.y, allBasePoints);
-    if (canAttack) {
-      console.log(`[King Check] King at (${king.x},${king.y}) is in check from ${piece.pieceType} at (${piece.x},${piece.y})`);
+  console.log(`[King Check] Checking for attacks from team ${opponentTeam} against king at (${king.x},${king.y})`);
+  
+  let isInCheck = false;
+  
+  // Check each opponent piece to see if it attacks the king
+  for (const piece of allBasePoints) {
+    const pieceTeam = getTeamFn(piece.color);
+    
+    // Skip pieces that aren't opponents or are the king itself
+    if (pieceTeam !== opponentTeam || (piece.x === king.x && piece.y === king.y)) {
+      continue;
     }
-    return canAttack;
-  });
+    
+    console.log(`[King Check] Checking if ${piece.pieceType} at (${piece.x},${piece.y}) can attack king`);
+    const canAttack = canPieceAttack(piece, king.x, king.y, allBasePoints);
+    
+    if (canAttack) {
+      console.log(`[King Check] KING IN CHECK! ${piece.pieceType} at (${piece.x},${piece.y}) can attack king at (${king.x},${king.y})`);
+      isInCheck = true;
+      break;
+    } else {
+      console.log(`[King Check] ${piece.pieceType} at (${piece.x},${piece.y}) cannot attack king`);
+    }
+  }
   
   if (!isInCheck) {
     console.log(`[King Check] King at (${king.x},${king.y}) is NOT in check`);
+  } else {
+    console.log(`[King Check] King at (${king.x},${king.y}) is in check!`);
   }
   
   return isInCheck;
