@@ -339,11 +339,11 @@ export function wouldResolveCheck(
   const currentTeam = getTeamFn(color);
   console.log(`[King Check] Checking move for team ${currentTeam} (color: ${color})`);
 
-  // Find the king of the current player's team
+  // Find the king of the current player (exact color match)
   const king = allBasePoints.find(p => {
-    const isKing = p.pieceType === 'king' && getTeamFn(p.color) === currentTeam;
+    const isKing = p.pieceType === 'king' && p.color === color;
     if (isKing) {
-      console.log(`[King Check] Found king at (${p.x},${p.y}) for team ${currentTeam}`);
+      console.log(`[King Check] Found king at (${p.x},${p.y}) for color ${color}`);
     }
     return isKing;
   });
@@ -566,12 +566,6 @@ export function getLegalMoves(
     getTeamFn?: (color: string) => number;
   } = {}
 ): Array<{x: number, y: number, canCapture: boolean, isCastle?: boolean, castleType?: string}> {
-  console.log(`[DEBUG] getLegalMoves called for piece: ${JSON.stringify({
-    piece: basePoint.pieceType,
-    at: { x: basePoint.x, y: basePoint.y },
-    color: basePoint.color,
-    options
-  }, null, 2)}`);
 
   const { 
     isKingInCheck = false, 
@@ -598,9 +592,9 @@ export function getLegalMoves(
       [-1, 1]   // up-left
     ];
     
-    return directions.flatMap(([dx, dy]) => 
+    possibleMoves.push(...directions.flatMap(([dx, dy]) => 
       getSquaresInDirection(basePoint.x, basePoint.y, dx, dy, allBasePoints, team)
-    );
+    ));
   } else if (pieceType === 'king') {
     // Standard king moves (1 square in any direction)
     const standardMoves = [
@@ -695,7 +689,7 @@ export function getLegalMoves(
       }
     }
     
-    possibleMoves = [...standardMoves, ...castlingMoves];
+    possibleMoves.push(...standardMoves, ...castlingMoves);
   } else if (pieceType === 'pawn') {
     const moves: {x: number, y: number, canCapture: boolean}[] = [];
     
@@ -801,7 +795,7 @@ export function getLegalMoves(
       }
     }
     
-    return moves;
+    possibleMoves.push(...moves);
   } else if (pieceType === 'bishop') {
     // Bishop moves any number of squares diagonally
     const directions = [
@@ -811,9 +805,9 @@ export function getLegalMoves(
       [-1, 1]   // up-left
     ];
     
-    return directions.flatMap(([dx, dy]) => 
+    possibleMoves.push(...directions.flatMap(([dx, dy]) => 
       getSquaresInDirection(basePoint.x, basePoint.y, dx, dy, allBasePoints, team)
-    );
+    ));
   } else if (pieceType === 'knight') {
     // Knight moves in an L-shape: 2 squares in one direction and then 1 square perpendicular
     const moves = [
@@ -827,7 +821,7 @@ export function getLegalMoves(
       [-1, 2]   // left 1, up 2
     ];
 
-    return moves
+    possibleMoves.push(...moves
       .map(([dx, dy]) => {
         const x = basePoint.x + dx;
         const y = basePoint.y + dy;
@@ -859,7 +853,7 @@ export function getLegalMoves(
           canCapture
         };
       })
-      .filter(Boolean) as {x: number, y: number, canCapture: boolean}[]; // Remove null values and assert type
+      .filter(Boolean) as {x: number, y: number, canCapture: boolean}[]);
   } else {
     // Default movement for any other piece type (like rook)
     const directions = [
@@ -869,26 +863,23 @@ export function getLegalMoves(
       [-1, 0]   // left
     ];
     
-    possibleMoves = directions.flatMap(([dx, dy]) => 
+    possibleMoves.push(...directions.flatMap(([dx, dy]) => 
       getSquaresInDirection(basePoint.x, basePoint.y, dx, dy, allBasePoints, team)
-    );
+    ));
   }
 
+  console.log(`before FILTERING ${JSON.stringify(possibleMoves)}`)
   // Filter moves that would leave the king in check
+  // the wouldResolveCheck condition in if checks if the function exists
   if (isKingInCheck && wouldResolveCheck && pieceType !== 'king') {
-    const teamColor = basePoint.color;
-    console.log(JSON.stringify({
-      type: 'King Check - Filtering moves',
-      pieceType,
-      position: { x: basePoint.x, y: basePoint.y },
-      message: 'Checking for check resolution'
-    }, null, 2));
+    const playerColor = basePoint.color;
+    console.log(`FILTERING ${JSON.stringify(possibleMoves)}`)
     
     possibleMoves = possibleMoves.filter(move => {
       const resolvesCheck = wouldResolveCheck(
         [basePoint.x, basePoint.y],
         [move.x, move.y],
-        teamColor,
+        playerColor,
         allBasePoints,
         getTeamByColor,
         isSquareUnderAttack,

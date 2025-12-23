@@ -79,7 +79,7 @@ export function calculateRestrictedSquares(
       getTeamFn: options.getTeamFn || getTeamByColor
     });
     
-    console.log(`Moves for ${piece.pieceType} at (${piece.x},${piece.y}):`, moves);
+    console.log(`Moves for ${piece.pieceType} at (${piece.x},${piece.y}):`, JSON.stringify(moves));
     
     for (const { x, y, canCapture } of moves) {
       const index = y * BOARD_CONFIG.GRID_SIZE + x;
