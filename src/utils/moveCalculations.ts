@@ -137,8 +137,8 @@ export const canCastle = (
     console.log(`checking square ${x},${y}`);
     const occupied = isSquareOccupied(x, y, allBasePoints);
 
-    //TODO under Attack is wrong
-    const underAttack = isSquareUnderAttack(x, y, currentTeam, allBasePoints, getTeamFn);
+    const opponentTeam = currentTeam === 1 ? 2 : 1;
+    const underAttack = isSquareUnderAttack(x, y, opponentTeam, allBasePoints, getTeamFn);
     console.log('Square:', { x, y, occupied, underAttack });
     
     if (occupied || underAttack) {
@@ -147,37 +147,6 @@ export const canCastle = (
     }
     x += stepX || 0;
     y += stepY || 0;
-  }
-
-  // Check if king is in check or would move through check
-  const kingUnderAttack = isSquareUnderAttack(king.x, king.y, currentTeam, allBasePoints, getTeamFn);
-  console.log('King under attack:', kingUnderAttack);
-  if (kingUnderAttack) {
-    console.log('Cannot castle while in check');
-    return false;
-  }
-
-  // Check the squares the king moves through
-  const kingStepX = stepX !== 0 ? stepX : 0;
-  const kingStepY = stepY !== 0 ? stepY : 0;
-  const kingX1 = king.x + kingStepX;
-  const kingY1 = king.y + kingStepY;
-  const kingX2 = king.x + 2 * kingStepX;
-  const kingY2 = king.y + 2 * kingStepY;
-  
-  console.log('King path squares:', [
-    { x: king.x, y: king.y },
-    { x: kingX1, y: kingY1 },
-    { x: kingX2, y: kingY2 }
-  ]);
-  
-  const kingPath1UnderAttack = isSquareUnderAttack(kingX1, kingY1, currentTeam, allBasePoints, getTeamFn);
-  const kingPath2UnderAttack = isSquareUnderAttack(kingX2, kingY2, currentTeam, allBasePoints, getTeamFn);
-  console.log('King path under attack:', { kingPath1UnderAttack, kingPath2UnderAttack });
-
-  if (kingPath1UnderAttack || kingPath2UnderAttack) {
-    console.log('Cannot castle through or into check');
-    return false;
   }
 
   return true;
