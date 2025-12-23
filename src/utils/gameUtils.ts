@@ -561,6 +561,9 @@ export function getLegalMoves(
       isSquareUnderAttackFn: any,
       isSquareBetweenFn: any
     ) => boolean;
+    isSquareUnderAttack?: (x: number, y: number, team: number, points: BasePoint[], getTeamFn: (color: string) => number) => boolean;
+    isSquareBetween?: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean;
+    getTeamFn?: (color: string) => number;
   } = {}
 ): Array<{x: number, y: number, canCapture: boolean, isCastle?: boolean, castleType?: string}> {
   console.log(`[DEBUG] getLegalMoves called for piece: ${JSON.stringify({
@@ -569,7 +572,15 @@ export function getLegalMoves(
     color: basePoint.color,
     options
   }, null, 2)}`);
-  const { isKingInCheck = false, wouldResolveCheck } = options;
+
+  const { 
+    isKingInCheck = false, 
+    wouldResolveCheck,
+    isSquareUnderAttack,
+    isSquareBetween,
+    getTeamFn = getTeamByColor
+  } = options;
+
   const pieceType = basePoint.pieceType || 'pawn'; // Default to pawn if not specified
   const team = getTeamByColor(basePoint.color);
   let possibleMoves: Array<{x: number, y: number, canCapture: boolean, isCastle?: boolean, castleType?: string}> = [];

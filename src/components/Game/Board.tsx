@@ -27,7 +27,8 @@ import {
   validateSquarePlacement,
   isKingInCheck
 } from '~/utils/gameUtils';
-import { calculateRestrictedSquares, updateBasePoint} from '~/utils/boardUtils';
+import { getTeamByColor } from '~/constants/game';
+import { calculateRestrictedSquares, updateBasePoint } from '~/utils/boardUtils';
 
 import type { Point, BasePoint } from '../../types/board';
 import type { Move } from '../../types/board.types';
@@ -36,7 +37,6 @@ import {
   PLAYER_COLORS, 
   normalizeColor, 
   isInNonPlayableCorner, 
-  getTeamByColor,
   BOARD_CONFIG, 
   DEFAULT_GAME_ID, 
   INITIAL_BASE_POINTS 
@@ -381,6 +381,7 @@ const Board: Component<BoardProps> = (props) => {
   const updateKingCheckStatus = (boardState: BasePoint[]) => {
     // Find all kings on the board
     const kings = boardState.filter(p => p.pieceType === 'king');
+    let checkFound = false;
     
     for (const king of kings) {
       const isInCheck = isKingInCheck(
@@ -394,12 +395,15 @@ const Board: Component<BoardProps> = (props) => {
           team: getTeamByColor(king.color) as 1 | 2,
           position: [king.x, king.y]
         });
-        return; // Stop at the first king in check (should only be one per team)
+        checkFound = true;
+        // Continue checking other kings to ensure we don't miss any checks
       }
     }
     
-    // If we get here, no kings are in check
-    setKingInCheck(null);
+    // If no kings are in check, clear the check state
+    if (!checkFound) {
+      setKingInCheck(null);
+    }
   };
 
   // Reset the board to its initial state
@@ -423,10 +427,14 @@ const Board: Component<BoardProps> = (props) => {
     );
     
     // Calculate restricted squares using the local function
+    const currentKingInCheck = kingInCheck();
+    const isCurrentKingInCheck = currentKingInCheck !== null && currentKingInCheck.team === 1; // Check if current team's king is in check
+    
     const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(
       currentPlayerPieces,
       initialBasePoints,
       { 
+        isKingInCheck: isCurrentKingInCheck,
         wouldResolveCheck: (
           from: [number, number],
           to: [number, number],
@@ -435,7 +443,12 @@ const Board: Component<BoardProps> = (props) => {
           getTeamFn: (color: string) => number,
           isSquareUnderAttackFn: (x: number, y: number, team: number, points: BasePoint[], getTeam: (color: string) => number) => boolean,
           isSquareBetweenFn: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean
-        ) => wouldResolveCheck(from, to, color, allBasePoints, getTeamFn, isSquareUnderAttackFn, isSquareBetweenFn)
+        ) => wouldResolveCheck(from, to, color, allBasePoints, getTeamFn, isSquareUnderAttackFn, isSquareBetweenFn),
+        isSquareUnderAttack: (x: number, y: number, team: number, points: BasePoint[], teamFn: (color: string) => number) => 
+          isSquareUnderAttack(x, y, team, points, teamFn),
+        isSquareBetween: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => 
+          isSquareBetween(from, to, x, y),
+        getTeamFn: getTeamByColor
       }
     );
     
@@ -575,10 +588,15 @@ const Board: Component<BoardProps> = (props) => {
     );
 
     // 6. Calculate and update restricted squares
+    const currentKingInCheck = kingInCheck();
+    const isCurrentKingInCheck = currentKingInCheck !== null && 
+      getTeamByColor(PLAYER_COLORS[currentTurnIndex() % PLAYER_COLORS.length]) === currentKingInCheck.team;
+      
     const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(
       currentPlayerPieces,
       updatedBasePoints,
       { 
+        isKingInCheck: isCurrentKingInCheck,
         wouldResolveCheck: (
           from: [number, number],
           to: [number, number],
@@ -587,7 +605,12 @@ const Board: Component<BoardProps> = (props) => {
           getTeamFn: (color: string) => number,
           isSquareUnderAttackFn: (x: number, y: number, team: number, points: BasePoint[], getTeam: (color: string) => number) => boolean,
           isSquareBetweenFn: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean
-        ) => wouldResolveCheck(from, to, color, allBasePoints, getTeamFn, isSquareUnderAttackFn, isSquareBetweenFn)
+        ) => wouldResolveCheck(from, to, color, allBasePoints, getTeamFn, isSquareUnderAttackFn, isSquareBetweenFn),
+        isSquareUnderAttack: (x: number, y: number, team: number, points: BasePoint[], teamFn: (color: string) => number) => 
+          isSquareUnderAttack(x, y, team, points, teamFn),
+        isSquareBetween: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => 
+          isSquareBetween(from, to, x, y),
+        getTeamFn: getTeamByColor
       }
     );
     
@@ -651,12 +674,36 @@ const Board: Component<BoardProps> = (props) => {
       p.color?.toLowerCase() === getColorHex(playerColorName)?.toLowerCase()
     );
 
+    // Get current king check status
+    const currentKingInCheck = kingInCheck();
+    console.log('[DEBUG] Current king check status:', currentKingInCheck);
+    console.log('[DEBUG] Current player color:', playerColorName);
+    console.log('[DEBUG] Current player team:', getTeamByColor(playerColorName));
+
+    const isCurrentKingInCheck = currentKingInCheck !== null && 
+      currentKingInCheck.team === getTeamByColor(playerColorName);
+      
+    console.log('[DEBUG] isCurrentKingInCheck:', isCurrentKingInCheck);
+    
     const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(
       currentPlayerPieces,
       updatedBasePoints,
       { 
-        isKingInCheck: kingInCheck()?.team === getTeamByColor(playerColorName),
-        wouldResolveCheck: wouldResolveCheck
+        isKingInCheck: isCurrentKingInCheck,
+        wouldResolveCheck: (
+          from: [number, number],
+          to: [number, number],
+          color: string,
+          allBasePoints: BasePoint[],
+          getTeamFn: (color: string) => number,
+          isSquareUnderAttackFn: (x: number, y: number, team: number, points: BasePoint[], getTeam: (color: string) => number) => boolean,
+          isSquareBetweenFn: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean
+        ) => wouldResolveCheck(from, to, color, allBasePoints, getTeamFn, isSquareUnderAttackFn, isSquareBetweenFn),
+        isSquareUnderAttack: (x: number, y: number, team: number, points: BasePoint[], teamFn: (color: string) => number) => 
+          isSquareUnderAttack(x, y, team, points, teamFn),
+        isSquareBetween: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => 
+          isSquareBetween(from, to, x, y),
+        getTeamFn: getTeamByColor
       }
     );
     

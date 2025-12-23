@@ -1,8 +1,8 @@
-import { BOARD_CONFIG } from '../constants/game';
+import { BOARD_CONFIG, getTeamByColor } from '../constants/game';
 import { createPoint, Point, BasePoint, Direction, BasePoint as BasePointType } from '../types/board';
 import { createSignal, createEffect, onCleanup, onMount, batch, Accessor } from 'solid-js';
 import type { ApiResponse } from './api';
-import { getLegalMoves } from './gameUtils';
+import { getLegalMoves, isKingInCheck } from './gameUtils';
 
 export interface RestrictedByInfo {
   basePointId: string;
@@ -27,12 +27,24 @@ export interface RestrictedSquaresResult {
   restrictedSquaresInfo: RestrictedSquareInfo[];
 }
 
+// In boardUtils.ts, update the calculateRestrictedSquares function
 export function calculateRestrictedSquares(
   pieces: BasePoint[], 
   boardState: BasePoint[],
   options: {
     isKingInCheck?: boolean;
-    wouldResolveCheck?: any;
+    wouldResolveCheck?: (
+      from: [number, number],
+      to: [number, number],
+      color: string,
+      allBasePoints: BasePoint[],
+      getTeamFn: (color: string) => number,
+      isSquareUnderAttackFn: any,
+      isSquareBetweenFn: any
+    ) => boolean;
+    isSquareUnderAttack?: (x: number, y: number, team: number, points: BasePoint[], getTeamFn: (color: string) => number) => boolean;
+    isSquareBetween?: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean;
+    getTeamFn?: (color: string) => number;
   } = {}
 ): RestrictedSquaresResult {
   console.log('[DEBUG] calculateRestrictedSquares called with:', {
@@ -40,21 +52,39 @@ export function calculateRestrictedSquares(
     boardStateCount: boardState.length,
     options
   });
+  
   const restrictedSquares: number[] = [];
   const restrictedSquaresInfo: RestrictedSquareInfo[] = [];
+  const getTeam = options.getTeamFn || getTeamByColor;
+  const currentTeam = pieces[0] ? getTeam(pieces[0].color) : null;
 
-  console.log('[DEBUG] calculateRestrictedSquares - wouldResolveCheck is a function:', typeof options.wouldResolveCheck === 'function');
-  console.log('[DEBUG] calculateRestrictedSquares - isKingInCheck:', options.isKingInCheck);
-  
+  // Get the current player's king
+  const currentKing = boardState.find(p => 
+    p.pieceType === 'king' && 
+    getTeam(p.color) === currentTeam
+  );
+
+  // Check if the current player's king is in check
+  const kingInCheck = currentKing ? 
+    isKingInCheck(currentKing, boardState, getTeam) : 
+    false;
+
+  console.log(`[DEBUG] King is in check: ${kingInCheck} for team ${currentTeam}`);
+
   for (const piece of pieces) {
     console.log(`[DEBUG] Getting legal moves for ${piece.pieceType} at (${piece.x},${piece.y})`);
     
     const moves = getLegalMoves(piece, boardState, {
-      isKingInCheck: options.isKingInCheck,
-      wouldResolveCheck: options.wouldResolveCheck
+      isKingInCheck: kingInCheck,
+      wouldResolveCheck: options.wouldResolveCheck,
+      isSquareUnderAttack: options.isSquareUnderAttack,
+      isSquareBetween: options.isSquareBetween,
+      getTeamFn: options.getTeamFn || getTeamByColor
     });
-    console.log(`Moves for piece at (${piece.x},${piece.y}):`, JSON.stringify(moves));  // Add this line
-    for (const { x, y } of moves) {
+    
+    console.log(`Moves for ${piece.pieceType} at (${piece.x},${piece.y}):`, moves);
+    
+    for (const { x, y, canCapture } of moves) {
       const index = y * BOARD_CONFIG.GRID_SIZE + x;
       
       if (!restrictedSquares.includes(index)) {
@@ -76,17 +106,15 @@ export function calculateRestrictedSquares(
           index,
           x,
           y,
-          restrictedBy: [restrictionInfo]
+          restrictedBy: [restrictionInfo],
+          canCapture
         });
       }
     }
   }
 
-  const result = { restrictedSquares, restrictedSquaresInfo };
-  console.log('Calculated restricted squares:', JSON.stringify(result));  // Add this line
-  return result;
+  return { restrictedSquares, restrictedSquaresInfo };
 }
-
 
 type FetchBasePointsOptions = {
   user: () => any;
