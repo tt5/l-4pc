@@ -13,4 +13,6 @@
 - drag pieces ui
 - show last move
 - show next move(s) (arrow)
+
 - check detection not working
+  because colors are wrong. yellow and red are swapped?
