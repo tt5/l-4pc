@@ -445,8 +445,8 @@ export function validateSquarePlacement(
   isSquareBetween: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean
 ): { isValid: boolean; reason?: string } {
   // Get the target position in world coordinates
-  const gridX = index % 14;
-  const gridY = Math.floor(index / 14);
+  const gridX = index % BOARD_CONFIG.GRID_SIZE;
+  const gridY = Math.floor(index / BOARD_CONFIG.GRID_SIZE);
     
   // If we're moving a base point
   if (pickedUp) {
@@ -459,7 +459,7 @@ export function validateSquarePlacement(
 
     // First check if this is a valid capture move based on server response
     const restrictionInfo = restrictedSquaresInfo().find(sq => {
-      const [sqX, sqY] = [sq.index % 14, Math.floor(sq.index / 14)];
+      const [sqX, sqY] = [sq.index % BOARD_CONFIG.GRID_SIZE, Math.floor(sq.index / BOARD_CONFIG.GRID_SIZE)];
       return sqX === gridX && sqY === gridY;
     });
     
