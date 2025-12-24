@@ -413,7 +413,7 @@ export function isPiecePinned(
   // Find the king of the same color
   const king = allBasePoints.find(p => 
     p.pieceType === 'king' && 
-    p.team === getTeamFn(piece.color)
+    p.color === piece.color
   );
   
   if (!king) {
@@ -437,14 +437,18 @@ export function isPiecePinned(
   const dx = king.x - piece.x;
   const dy = king.y - piece.y;
 
-  // Log alignment check
+  // Log alignment check with more detailed information
   console.log(JSON.stringify({
     ...log,
     action: 'check_alignment',
-    kingPos: {x: king.x, y: king.y},
-    piecePos: {x: piece.x, y: piece.y},
+    kingPos: {x: king.x, y: king.y, type: king.pieceType, color: king.color},
+    piecePos: {x: piece.x, y: piece.y, type: piece.pieceType, color: piece.color},
     dx,
-    dy
+    dy,
+    distance: Math.sqrt(dx*dx + dy*dy),
+    isSameFile: dx === 0,
+    isSameRank: dy === 0,
+    isDiagonal: Math.abs(dx) === Math.abs(dy)
   }));
 
   // Check if piece is aligned with king (same rank, file, or diagonal)
@@ -482,7 +486,7 @@ export function isPiecePinned(
   const stepX = dx === 0 ? 0 : dx > 0 ? 1 : -1;
   const stepY = dy === 0 ? 0 : dy > 0 ? 1 : -1;
 
-  // Log pin direction
+  // Log pin direction with more context
   console.log(JSON.stringify({
     ...log,
     action: 'pin_direction',
@@ -490,10 +494,26 @@ export function isPiecePinned(
     directionType: 
       stepX === 0 ? 'vertical' : 
       stepY === 0 ? 'horizontal' : 
-      'diagonal'
+      'diagonal',
+    kingDirection: [stepX, stepY],
+    oppositeDirection: [-stepX, -stepY],
+    kingDistance: Math.abs(dx) + Math.abs(dy)
   }));
 
-  // Look for an attacking piece in the opposite direction
+  // Log the direction we're checking for potential pinners
+  console.log(JSON.stringify({
+    ...log,
+    action: 'checking_direction',
+    direction: [-stepX, -stepY],
+    directionType: 
+      stepX === 0 ? 'vertical' : 
+      stepY === 0 ? 'horizontal' : 
+      'diagonal',
+    startPos: {x: piece.x, y: piece.y},
+    searchDirection: 'away from king'
+  }));
+
+  // Look for an attacking piece in the opposite direction (away from king)
   let x = piece.x - stepX;
   let y = piece.y - stepY;
   let steps = 0;
@@ -525,6 +545,16 @@ export function isPiecePinned(
       }
 
       // If we find an enemy piece that can attack through this line, it's a pin
+      // Log the potential pinner we found
+      console.log(JSON.stringify({
+        ...log,
+        action: 'potential_pinner_found',
+        square: {x: square.x, y: square.y, type: square.pieceType, color: square.color, team: getTeamFn(square.color)},
+        isFriendly: getTeamFn(square.color) === getTeamFn(piece.color),
+        direction: [stepX, stepY],
+        distanceFromPiece: Math.abs(square.x - piece.x) + Math.abs(square.y - piece.y)
+      }));
+
       const canAttack = canPieceAttackThroughLine(square, piece, king, allBasePoints, getTeamFn);
       
       if (canAttack) {
