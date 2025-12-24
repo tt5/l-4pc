@@ -1,4 +1,8 @@
 import { getTeamByColor, isInNonPlayableCorner, BOARD_CONFIG, normalizeColor } from '~/constants/game';
+
+type CastleColor = 'RED' | 'YELLOW' | 'BLUE' | 'GREEN';
+type CastleType = `${CastleColor}_${'KING_SIDE' | 'QUEEN_SIDE'}`;
+import { MOVE_PATTERNS } from '~/constants/movePatterns';
 import { canCastle } from './moveCalculations';
 import type { BasePoint, PieceType } from '~/types/board';
 import type { RestrictedSquareInfo } from '../types/restrictedSquares';
@@ -630,32 +634,27 @@ export function getLegalMoves(
     const color = basePoint.color?.toUpperCase();
     
     // Get color name from hex code
-    const getColorName = (hexColor: string): string => {
-      const colorMap: Record<string, string> = {
+    const getColorName = (hexColor: string): CastleColor | undefined => {
+      const colorMap: Record<string, CastleColor> = {
         '#F44336': 'RED',
         '#FFEB3B': 'YELLOW',
         '#2196F3': 'BLUE',
-        '#4CAF50': 'GREEN',
-        'RED': 'RED',
-        'YELLOW': 'YELLOW',
-        'BLUE': 'BLUE',
-        'GREEN': 'GREEN'
+        '#4CAF50': 'GREEN'
       };
-      return colorMap[hexColor] || '';
+      return colorMap[hexColor.toUpperCase()];
     };
     
     if (color) {
       const colorName = getColorName(color);
       if (!colorName) {
         console.log(`Color not found for castling: ${JSON.stringify(color, null, 2)}`);
-        possibleMoves = standardMoves; // Return standard moves without castling
+        return standardMoves; // Return standard moves without castling
       }
       
-      // King-side castling (right for blue/green, up for red/yellow)
-      const kingSideCastleType = `${colorName}_KING_SIDE`;
+      // King-side castling
+      const kingSideCastleType: CastleType = `${colorName}_KING_SIDE`;
       if (canCastle(basePoint, allBasePoints, kingSideCastleType, team)) {
-        const dx = color === '#2196F3' || color === '#4CAF50' ? 2 : 0;
-        const dy = color === '#F44336' || color === '#FFEB3B' ? -2 : 0;
+        const [dx, dy] = MOVE_PATTERNS.CASTLING[kingSideCastleType];
         castlingMoves.push({
           x: basePoint.x + dx,
           y: basePoint.y + dy,
@@ -664,12 +663,10 @@ export function getLegalMoves(
           castleType: 'KING_SIDE'
         });
       }
-      
-      // Queen-side castling (left for blue/green, down for red/yellow)
-      const queenSideCastleType = `${colorName}_QUEEN_SIDE`;
+      // Queen-side castling
+      const queenSideCastleType: CastleType = `${colorName}_QUEEN_SIDE`;
       if (canCastle(basePoint, allBasePoints, queenSideCastleType, team)) {
-        const dx = color === '#2196F3' || color === '#4CAF50' ? -2 : 0;
-        const dy = color === '#F44336' || color === '#FFEB3B' ? 2 : 0;
+        const [dx, dy] = MOVE_PATTERNS.CASTLING[queenSideCastleType];
         castlingMoves.push({
           x: basePoint.x + dx,
           y: basePoint.y + dy,
@@ -678,6 +675,8 @@ export function getLegalMoves(
           castleType: 'QUEEN_SIDE'
         });
       }
+
+      
     }
     
     possibleMoves = [...standardMoves, ...castlingMoves];
