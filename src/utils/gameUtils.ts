@@ -281,37 +281,72 @@ function canPieceAttackThroughLine(
   getTeamFn: (color: string) => number
 ): boolean {
   const log = {
-    attacker: {x: attacker.x, y: attacker.y, type: attacker.pieceType},
-    pinnedPiece: {x: pinnedPiece.x, y: pinnedPiece.y, type: pinnedPiece.pieceType},
-    king: {x: king.x, y: king.y}
+    attacker: {x: attacker.x, y: attacker.y, type: attacker.pieceType, color: attacker.color},
+    pinnedPiece: {x: pinnedPiece.x, y: pinnedPiece.y, type: pinnedPiece.pieceType, color: pinnedPiece.color},
+    king: {x: king.x, y: king.y, color: king.color},
+    timestamp: new Date().toISOString()
   };
+
+  console.log(JSON.stringify({
+    ...log,
+    action: 'attack_check_start',
+    message: 'Checking if piece can attack through line'
+  }));
+
   const attackerType = attacker.pieceType;
+  
+  // Calculate direction from pinned piece to king
   const dx = Math.sign(king.x - pinnedPiece.x);
   const dy = Math.sign(king.y - pinnedPiece.y);
 
-  // Calculate the direction from the attacker to the pinned piece
-  const attackDx = Math.sign(pinnedPiece.x - attacker.x);
-  const attackDy = Math.sign(pinnedPiece.y - attacker.y);
+  // Log directions
+  console.log(JSON.stringify({
+    ...log,
+    action: 'direction_check',
+    kingDirection: {dx, dy},
+    pinnedToKing: {dx: king.x - pinnedPiece.x, dy: king.y - pinnedPiece.y}
+  }));
 
   // Check if attacker is on the same line as the pin
   const isOnPinLine = 
     (dx === 0 && attacker.x === pinnedPiece.x) || // Vertical line
     (dy === 0 && attacker.y === pinnedPiece.y) || // Horizontal line
-    (Math.abs(dx) === Math.abs(dy) && 
+    (dx !== 0 && dy !== 0 && 
      Math.abs(attacker.x - pinnedPiece.x) === Math.abs(attacker.y - pinnedPiece.y)); // Diagonal line
 
   if (!isOnPinLine) {
-    console.log(JSON.stringify({...log, reason: 'not_on_pin_line', dx, dy, attackDx, attackDy}));
+    console.log(JSON.stringify({
+      ...log,
+      action: 'attack_check_end',
+      reason: 'not_on_pin_line',
+      result: false,
+      pinDirection: {dx, dy},
+      attackerPosition: {x: attacker.x, y: attacker.y}
+    }));
     return false;
   }
 
   // Check if attacker is on the opposite side of the pinned piece from the king
-  const isOppositeSide = 
-    (dx !== 0 && attackDx === -dx) ||
-    (dy !== 0 && attackDy === -dy);
+  let isOppositeSide = false;
+  if (dx === 0) { // Vertical line
+    isOppositeSide = (attacker.y - pinnedPiece.y) * dy < 0;
+  } else if (dy === 0) { // Horizontal line
+    isOppositeSide = (attacker.x - pinnedPiece.x) * dx < 0;
+  } else { // Diagonal line
+    const attackerDx = attacker.x - pinnedPiece.x;
+    const attackerDy = attacker.y - pinnedPiece.y;
+    isOppositeSide = (attackerDx * dx < 0) && (attackerDy * dy < 0);
+  }
 
   if (!isOppositeSide) {
-    console.log(JSON.stringify({...log, reason: 'not_opposite_side', dx, dy, attackDx, attackDy}));
+    console.log(JSON.stringify({
+      ...log,
+      action: 'attack_check_end',
+      reason: 'not_opposite_side',
+      result: false,
+      pinDirection: {dx, dy},
+      attackerPosition: {x: attacker.x, y: attacker.y}
+    }));
     return false;
   }
 
@@ -321,23 +356,31 @@ function canPieceAttackThroughLine(
   
   if (attackerType === 'queen') {
     canAttack = true;
-    reason = 'queen_can_attack';
+    reason = 'queen_can_attack_any_direction';
   } else if (attackerType === 'rook' && (dx === 0 || dy === 0)) {
     canAttack = true;
-    reason = 'rook_can_attack';
+    reason = 'rook_can_attack_rank_or_file';
   } else if (attackerType === 'bishop' && dx !== 0 && dy !== 0) {
     canAttack = true;
-    reason = 'bishop_can_attack';
+    reason = 'bishop_can_attack_diagonal';
+  } else if (attackerType === 'pawn') {
+    // Pawns can only attack diagonally forward
+    const isDiagonal = dx !== 0 && dy !== 0;
+    const isForwardForPawn = (attacker.color === king.color) ? 
+      (pinnedPiece.y > attacker.y) : (pinnedPiece.y < attacker.y);
+    canAttack = isDiagonal && isForwardForPawn;
+    reason = canAttack ? 'pawn_can_attack_diagonal_forward' : 'pawn_cannot_attack_this_direction';
   } else {
-    reason = 'invalid_attacker_type';
+    reason = 'invalid_attacker_type_or_direction';
   }
-  
+
   console.log(JSON.stringify({
     ...log,
+    action: 'attack_check_end',
     reason,
-    canAttack,
+    result: canAttack,
     attackerType,
-    direction: {dx, dy}
+    pinDirection: {dx, dy}
   }));
   
   return canAttack;
