@@ -314,9 +314,11 @@ export function isKingInCheck(
       continue;
     }
     
+    console.log(`Checking if ${piece.pieceType} at (${piece.x},${piece.y}) can attack king at (${king.x},${king.y})`);
     const canAttack = canPieceAttack(piece, king.x, king.y, allBasePoints, getTeamFn);
     
     if (canAttack) {
+      console.log(`King is in check from ${piece.pieceType} at (${piece.x},${piece.y})`);
       isInCheck = true;
       break;
     }
@@ -443,8 +445,8 @@ export function validateSquarePlacement(
   isSquareBetween: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean
 ): { isValid: boolean; reason?: string } {
   // Get the target position in world coordinates
-  const gridX = index % 8;
-  const gridY = Math.floor(index / 8);
+  const gridX = index % 14;
+  const gridY = Math.floor(index / 14);
     
   // If we're moving a base point
   if (pickedUp) {
@@ -457,7 +459,7 @@ export function validateSquarePlacement(
 
     // First check if this is a valid capture move based on server response
     const restrictionInfo = restrictedSquaresInfo().find(sq => {
-      const [sqX, sqY] = [sq.index % 8, Math.floor(sq.index / 8)];
+      const [sqX, sqY] = [sq.index % 14, Math.floor(sq.index / 14)];
       return sqX === gridX && sqY === gridY;
     });
     
@@ -478,10 +480,11 @@ export function validateSquarePlacement(
         // If the piece being moved is a king, check if the target square is under attack
         if (movingPiece.pieceType === 'king') {
           const opponentTeam = getTeam(movingPiece.color) === 1 ? 2 : 1;
+
           if (isSquareUnderAttack(gridX, gridY, opponentTeam, basePoints(), getTeam)) {
             return {
               isValid: false,
-              reason: 'Cannot move king into check'
+              reason: `Cannot move king into check ${gridX}, ${gridY} ${movingPiece.color}`
             };
           }
         }
