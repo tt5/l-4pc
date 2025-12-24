@@ -33,25 +33,25 @@ export function createEngineWebSocketServer(port: number = 8080) {
                 data: analysis
               }));
             };
-            engine.updatePosition(data.fen || 'startpos');
+            engine.setPosition(data.fen || 'startpos');
             engine.startInfiniteAnalysis();
             break;
 
           case 'updatePosition':
             await initialize();
-            engine.updatePosition(data.fen || 'startpos');
+            engine.setPosition(data.fen || 'startpos');
             break;
 
           case 'makeMove':
             await initialize();
-            engine.updatePosition({
+            engine.setPosition({
               fen: data.fen,
               moves: [...(data.moveHistory || []), data.move]
             });
             break;
 
           case 'stopAnalysis':
-            engine.stopInfiniteAnalysis();
+            engine.stop();
             break;
         }
       } catch (error) {
@@ -65,7 +65,7 @@ export function createEngineWebSocketServer(port: number = 8080) {
 
     ws.on('close', () => {
       console.log('Client disconnected');
-      engine.stopInfiniteAnalysis();
+      engine.stop();
     });
   });
 
@@ -74,7 +74,7 @@ export function createEngineWebSocketServer(port: number = 8080) {
 }
 
 // Start the server if this file is run directly
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 8080;
   createEngineWebSocketServer(port);
 }
