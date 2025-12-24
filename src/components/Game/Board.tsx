@@ -511,9 +511,12 @@ const Board: Component<BoardProps> = (props) => {
       // Handle castling moves
       if (isCastleMove && castleTypeValue) {
         console.log(`[replayMoves] Castling move: ${moveId}`);
-        const castlingConfig = MOVE_PATTERNS.CASTLING[castleTypeValue as keyof typeof MOVE_PATTERNS.CASTLING];
+        // Get the color from the piece being moved (should be a king)
+        const color = piece.color?.toUpperCase() || '';
+        const fullCastleType = `${color}_${castleTypeValue}` as keyof typeof MOVE_PATTERNS.CASTLING;
+        const castlingConfig = MOVE_PATTERNS.CASTLING[fullCastleType];
         if (!castlingConfig) {
-          console.error(`[replayMoves] Invalid castling type: ${castleType}`);
+          console.error(`[replayMoves] Invalid castling type: ${fullCastleType}`);
           continue;
         }
         const [kingDx, kingDy, , rookX, rookY, rookDx, rookDy] = castlingConfig;
