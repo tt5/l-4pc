@@ -280,16 +280,67 @@ function canPieceAttackThroughLine(
   allBasePoints: BasePoint[],
   getTeamFn: (color: string) => number
 ): boolean {
+  const log = {
+    attacker: {x: attacker.x, y: attacker.y, type: attacker.pieceType},
+    pinnedPiece: {x: pinnedPiece.x, y: pinnedPiece.y, type: pinnedPiece.pieceType},
+    king: {x: king.x, y: king.y}
+  };
   const attackerType = attacker.pieceType;
   const dx = Math.sign(king.x - pinnedPiece.x);
   const dy = Math.sign(king.y - pinnedPiece.y);
 
-  // Check if attacker can attack through this line
-  if (attackerType === 'queen') return true;
-  if (attackerType === 'rook' && (dx === 0 || dy === 0)) return true;
-  if (attackerType === 'bishop' && dx !== 0 && dy !== 0) return true;
+  // Calculate the direction from the attacker to the pinned piece
+  const attackDx = Math.sign(pinnedPiece.x - attacker.x);
+  const attackDy = Math.sign(pinnedPiece.y - attacker.y);
+
+  // Check if attacker is on the same line as the pin
+  const isOnPinLine = 
+    (dx === 0 && attacker.x === pinnedPiece.x) || // Vertical line
+    (dy === 0 && attacker.y === pinnedPiece.y) || // Horizontal line
+    (Math.abs(dx) === Math.abs(dy) && 
+     Math.abs(attacker.x - pinnedPiece.x) === Math.abs(attacker.y - pinnedPiece.y)); // Diagonal line
+
+  if (!isOnPinLine) {
+    console.log(JSON.stringify({...log, reason: 'not_on_pin_line', dx, dy, attackDx, attackDy}));
+    return false;
+  }
+
+  // Check if attacker is on the opposite side of the pinned piece from the king
+  const isOppositeSide = 
+    (dx !== 0 && attackDx === -dx) ||
+    (dy !== 0 && attackDy === -dy);
+
+  if (!isOppositeSide) {
+    console.log(JSON.stringify({...log, reason: 'not_opposite_side', dx, dy, attackDx, attackDy}));
+    return false;
+  }
+
+  // Check if attacker's piece type can attack through this line
+  let canAttack = false;
+  let reason = '';
   
-  return false;
+  if (attackerType === 'queen') {
+    canAttack = true;
+    reason = 'queen_can_attack';
+  } else if (attackerType === 'rook' && (dx === 0 || dy === 0)) {
+    canAttack = true;
+    reason = 'rook_can_attack';
+  } else if (attackerType === 'bishop' && dx !== 0 && dy !== 0) {
+    canAttack = true;
+    reason = 'bishop_can_attack';
+  } else {
+    reason = 'invalid_attacker_type';
+  }
+  
+  console.log(JSON.stringify({
+    ...log,
+    reason,
+    canAttack,
+    attackerType,
+    direction: {dx, dy}
+  }));
+  
+  return canAttack;
 }
 
 /**
@@ -304,20 +355,24 @@ export function isPiecePinned(
   allBasePoints: BasePoint[],
   getTeamFn: (color: string) => number
 ): { isPinned: boolean; pinDirection?: [number, number] } {
+  const log = { piece: {x: piece.x, y: piece.y, type: piece.pieceType} };
   // Find the king of the same color
   const king = allBasePoints.find(p => 
     p.pieceType === 'king' && 
     p.team === getTeamFn(piece.color)
   );
   
-  if (!king) return { isPinned: false };
-
+  if (!king) {
+    console.log(JSON.stringify({...log, reason: 'no_king'}));
+    return { isPinned: false };
+  }
   // Calculate direction from piece to king
   const dx = king.x - piece.x;
   const dy = king.y - piece.y;
   
   // If not aligned with king, not pinned
   if (dx !== 0 && dy !== 0 && Math.abs(dx) !== Math.abs(dy)) {
+    console.log(JSON.stringify({...log, reason: 'not_aligned', dx, dy}));
     return { isPinned: false };
   }
 
@@ -333,14 +388,29 @@ export function isPiecePinned(
     if (square) {
       // If we find a friendly piece first, no pin
       if (getTeamFn(square.color) === getTeamFn(piece.color)) {
+        console.log(JSON.stringify({...log, reason: 'friendly_blocker', blocker: {x: square.x, y: square.y, type: square.pieceType}}));
         return { isPinned: false };
       }
       // If we find an enemy piece that can attack through this line, it's a pin
-      if (canPieceAttackThroughLine(square, piece, king, allBasePoints, getTeamFn)) {
+      const canAttack = canPieceAttackThroughLine(square, piece, king, allBasePoints, getTeamFn);
+      if (canAttack) {
+        console.log(JSON.stringify({
+          ...log,
+          reason: 'pin_found',
+          attacker: {x: square.x, y: square.y, type: square.pieceType},
+          direction: [stepX, stepY],
+          isPinned: true
+        }));
         return { 
           isPinned: true, 
           pinDirection: [stepX, stepY] as [number, number] 
         };
+      } else {
+        console.log(JSON.stringify({
+          ...log,
+          reason: 'attacker_cant_pin',
+          attacker: {x: square.x, y: square.y, type: square.pieceType}
+        }));
       }
       break;
     }
@@ -939,13 +1009,35 @@ export function getLegalMoves(
     )];
   }
 
-  // Filter moves that would leave the king in check
-  // the wouldResolveCheck condition in if checks if the function exists
+  // First check if the piece is pinned
+  const { isPinned, pinDirection } = isPiecePinned(basePoint, allBasePoints, getTeamFn);
+
+  // If pinned, only allow moves along the pin line
+  if (isPinned) {
+    const pinDir = pinDirection!;
+    possibleMoves = possibleMoves.filter(move => {
+      // Knights can't move if pinned
+      if (basePoint.pieceType === 'knight') {
+        return false;
+      }
+      const dx = move.x - basePoint.x;
+      const dy = move.y - basePoint.y;
+      
+      // Allow moves along the pin line
+      return (dx === 0 && pinDir[0] === 0) ||  // Vertical pin
+             (dy === 0 && pinDir[1] === 0) ||  // Horizontal pin
+             (dx !== 0 && dy !== 0 && Math.abs(dx / dy) === 1 &&  // Diagonal pin
+              Math.sign(dx) === Math.sign(pinDir[0]) && 
+              Math.sign(dy) === Math.sign(pinDir[1]));
+    });
+  }
+
+  // Then filter moves that would leave the king in check
   if (isKingInCheck && wouldResolveCheck && pieceType !== 'king') {
     const playerColor = basePoint.color;
     
     possibleMoves = possibleMoves.filter(move => {
-      const resolvesCheck = wouldResolveCheck(
+      return wouldResolveCheck(
         [basePoint.x, basePoint.y],
         [move.x, move.y],
         playerColor,
@@ -954,33 +1046,9 @@ export function getLegalMoves(
         isSquareUnderAttack,
         isSquareBetween
       );
-      
-      return resolvesCheck;
     });
   }
 
-  const { isPinned, pinDirection } = isPiecePinned(basePoint, allBasePoints, getTeamFn);
-
-  if (!isPinned) {
-    return possibleMoves;
-  }
-
-  // We know pinDirection is defined here because isPinned is true
-  const pinDir = pinDirection!;
-
-  // For pinned pieces, only allow moves along the pin line
-  return possibleMoves.filter(move => {
-    // Knights can't move if pinned
-    if (basePoint.pieceType === 'knight') {
-      return false;
-    }
-    const dx = move.x - basePoint.x;
-    const dy = move.y - basePoint.y;
-    
-    // Allow moves along the pin line
-    return (dx === 0 && pinDir[0] === 0) ||  // Vertical pin
-           (dy === 0 && pinDir[1] === 0) ||  // Horizontal pin
-           (dx !== 0 && dy !== 0 && Math.abs(dx / dy) === 1);  // Diagonal pin
-  });
+  return possibleMoves;
   
 }
