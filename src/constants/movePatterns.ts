@@ -30,20 +30,20 @@ export const MOVE_PATTERNS = {
   // Castling moves: [dx, dy, isCastle, rookX, rookY, rookDx, rookDy]
   CASTLING: {
     // Red (bottom) - horizontal castling
-    RED_KING_SIDE: [2, 0, true, 10, 13, 2, 0],
-    RED_QUEEN_SIDE: [-2, 0, true, 3, 13, -3, 0],
+    RED_KING_SIDE: [2, 0, true, 10, 13, -2, 0],
+    RED_QUEEN_SIDE: [-2, 0, true, 3, 13, 3, 0],
     
     // Yellow (top) - horizontal castling
-    YELLOW_KING_SIDE: [-2, 0, true, 3, 0, 2, 0],
-    YELLOW_QUEEN_SIDE: [2, 0, true, 10, 0, -3, 0],
+    YELLOW_KING_SIDE: [-2, 0, true, 3, 0, -2, 0],
+    YELLOW_QUEEN_SIDE: [2, 0, true, 10, 0, 3, 0],
     
     // Blue (left) - vertical castling
-    BLUE_KING_SIDE: [0, 2, true, 0, 10, 0, 2],
-    BLUE_QUEEN_SIDE: [0, -2, true, 0, 3, 0, -3],
+    BLUE_KING_SIDE: [0, 2, true, 0, 10, 0, -2],
+    BLUE_QUEEN_SIDE: [0, -2, true, 0, 3, 0, 3],
     
     // Green (right) - vertical castling
-    GREEN_KING_SIDE: [0, -2, true, 13, 3, 0, 2],
-    GREEN_QUEEN_SIDE: [0, 2, true, 13, 10, 0, -3]
+    GREEN_KING_SIDE: [0, -2, true, 13, 3, 0, -2],
+    GREEN_QUEEN_SIDE: [0, 2, true, 13, 10, 0, 3]
   }
 } as const;
 
