@@ -355,7 +355,18 @@ export function isPiecePinned(
   allBasePoints: BasePoint[],
   getTeamFn: (color: string) => number
 ): { isPinned: boolean; pinDirection?: [number, number] } {
-  const log = { piece: {x: piece.x, y: piece.y, type: piece.pieceType} };
+  const log = { 
+    piece: {x: piece.x, y: piece.y, type: piece.pieceType, color: piece.color},
+    timestamp: new Date().toISOString()
+  };
+
+  // Log function start
+  console.log(JSON.stringify({
+    ...log,
+    action: 'check_pin_start',
+    message: 'Starting pin check for piece'
+  }));
+
   // Find the king of the same color
   const king = allBasePoints.find(p => 
     p.pieceType === 'king' && 
@@ -363,43 +374,123 @@ export function isPiecePinned(
   );
   
   if (!king) {
-    console.log(JSON.stringify({...log, reason: 'no_king'}));
+    console.log(JSON.stringify({
+      ...log,
+      action: 'pin_check_end',
+      reason: 'no_king_found',
+      result: 'not_pinned'
+    }));
     return { isPinned: false };
   }
+
+  // Log king found
+  console.log(JSON.stringify({
+    ...log,
+    action: 'king_found',
+    king: {x: king.x, y: king.y, color: king.color}
+  }));
+
   // Calculate direction from piece to king
   const dx = king.x - piece.x;
   const dy = king.y - piece.y;
+
+  // Log alignment check
+  console.log(JSON.stringify({
+    ...log,
+    action: 'check_alignment',
+    kingPos: {x: king.x, y: king.y},
+    piecePos: {x: piece.x, y: piece.y},
+    dx,
+    dy
+  }));
+
+  // Check if piece is aligned with king (same rank, file, or diagonal)
+  const isAligned = dx === 0 || dy === 0 || Math.abs(dx) === Math.abs(dy);
   
-  // If not aligned with king, not pinned
-  if (dx !== 0 && dy !== 0 && Math.abs(dx) !== Math.abs(dy)) {
-    console.log(JSON.stringify({...log, reason: 'not_aligned', dx, dy}));
+  if (!isAligned) {
+    console.log(JSON.stringify({
+      ...log,
+      action: 'pin_check_end',
+      reason: 'not_aligned_with_king',
+      result: 'not_pinned',
+      dx,
+      dy,
+      alignmentType: 'none'
+    }));
     return { isPinned: false };
   }
+  
+  // Log alignment type
+  const alignmentType = dx === 0 ? 'vertical' : 
+                      dy === 0 ? 'horizontal' : 
+                      Math.abs(dx) === Math.abs(dy) ? 'diagonal' : 'none';
+  
+  console.log(JSON.stringify({
+    ...log,
+    action: 'alignment_check',
+    alignment: {
+      type: alignmentType,
+      dx,
+      dy,
+      isAligned: true
+    }
+  }));
 
   const stepX = dx === 0 ? 0 : dx > 0 ? 1 : -1;
   const stepY = dy === 0 ? 0 : dy > 0 ? 1 : -1;
 
+  // Log pin direction
+  console.log(JSON.stringify({
+    ...log,
+    action: 'pin_direction',
+    direction: [stepX, stepY],
+    directionType: 
+      stepX === 0 ? 'vertical' : 
+      stepY === 0 ? 'horizontal' : 
+      'diagonal'
+  }));
+
   // Look for an attacking piece in the opposite direction
   let x = piece.x - stepX;
   let y = piece.y - stepY;
+  let steps = 0;
 
   while (x >= 0 && x < BOARD_CONFIG.GRID_SIZE && y >= 0 && y < BOARD_CONFIG.GRID_SIZE) {
+    steps++;
     const square = allBasePoints.find(p => p.x === x && p.y === y);
+    
     if (square) {
+      // Log square found
+      console.log(JSON.stringify({
+        ...log,
+        action: 'square_found',
+        step: steps,
+        square: {x: square.x, y: square.y, type: square.pieceType, color: square.color},
+        isFriendly: getTeamFn(square.color) === getTeamFn(piece.color)
+      }));
+
       // If we find a friendly piece first, no pin
       if (getTeamFn(square.color) === getTeamFn(piece.color)) {
-        console.log(JSON.stringify({...log, reason: 'friendly_blocker', blocker: {x: square.x, y: square.y, type: square.pieceType}}));
+        console.log(JSON.stringify({
+          ...log,
+          action: 'pin_check_end',
+          reason: 'friendly_blocker',
+          blocker: {x: square.x, y: square.y, type: square.pieceType},
+          result: 'not_pinned'
+        }));
         return { isPinned: false };
       }
+
       // If we find an enemy piece that can attack through this line, it's a pin
       const canAttack = canPieceAttackThroughLine(square, piece, king, allBasePoints, getTeamFn);
+      
       if (canAttack) {
         console.log(JSON.stringify({
           ...log,
-          reason: 'pin_found',
+          action: 'pin_found',
           attacker: {x: square.x, y: square.y, type: square.pieceType},
           direction: [stepX, stepY],
-          isPinned: true
+          result: 'pinned'
         }));
         return { 
           isPinned: true, 
@@ -408,15 +499,26 @@ export function isPiecePinned(
       } else {
         console.log(JSON.stringify({
           ...log,
-          reason: 'attacker_cant_pin',
+          action: 'attacker_cannot_pin',
+          reason: 'attacker_cannot_attack_through_line',
           attacker: {x: square.x, y: square.y, type: square.pieceType}
         }));
       }
       break;
     }
+
     x -= stepX;
     y -= stepY;
   }
+
+  // If we get here, no pin was found
+  console.log(JSON.stringify({
+    ...log,
+    action: 'pin_check_end',
+    reason: 'no_attacker_found',
+    result: 'not_pinned',
+    steps_checked: steps
+  }));
 
   return { isPinned: false };
 }
