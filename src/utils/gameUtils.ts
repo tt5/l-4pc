@@ -273,6 +273,84 @@ export function isSquareUnderAttack(
   });
 }
 
+function canPieceAttackThroughLine(
+  attacker: BasePoint,
+  pinnedPiece: BasePoint,
+  king: BasePoint,
+  allBasePoints: BasePoint[],
+  getTeamFn: (color: string) => number
+): boolean {
+  const attackerType = attacker.pieceType;
+  const dx = Math.sign(king.x - pinnedPiece.x);
+  const dy = Math.sign(king.y - pinnedPiece.y);
+
+  // Check if attacker can attack through this line
+  if (attackerType === 'queen') return true;
+  if (attackerType === 'rook' && (dx === 0 || dy === 0)) return true;
+  if (attackerType === 'bishop' && dx !== 0 && dy !== 0) return true;
+  
+  return false;
+}
+
+/**
+ * Checks if a piece is pinned to its king
+ * @param piece - The piece to check
+ * @param allBasePoints - All pieces on the board
+ * @param getTeamFn - Function to get team from color
+ * @returns Object with pin status and direction if pinned
+ */
+export function isPiecePinned(
+  piece: BasePoint,
+  allBasePoints: BasePoint[],
+  getTeamFn: (color: string) => number
+): { isPinned: boolean; pinDirection?: [number, number] } {
+  // Find the king of the same color
+  const king = allBasePoints.find(p => 
+    p.pieceType === 'king' && 
+    p.team === getTeamFn(piece.color)
+  );
+  
+  if (!king) return { isPinned: false };
+
+  // Calculate direction from piece to king
+  const dx = king.x - piece.x;
+  const dy = king.y - piece.y;
+  
+  // If not aligned with king, not pinned
+  if (dx !== 0 && dy !== 0 && Math.abs(dx) !== Math.abs(dy)) {
+    return { isPinned: false };
+  }
+
+  const stepX = dx === 0 ? 0 : dx > 0 ? 1 : -1;
+  const stepY = dy === 0 ? 0 : dy > 0 ? 1 : -1;
+
+  // Look for an attacking piece in the opposite direction
+  let x = piece.x - stepX;
+  let y = piece.y - stepY;
+
+  while (x >= 0 && x < BOARD_CONFIG.GRID_SIZE && y >= 0 && y < BOARD_CONFIG.GRID_SIZE) {
+    const square = allBasePoints.find(p => p.x === x && p.y === y);
+    if (square) {
+      // If we find a friendly piece first, no pin
+      if (getTeamFn(square.color) === getTeamFn(piece.color)) {
+        return { isPinned: false };
+      }
+      // If we find an enemy piece that can attack through this line, it's a pin
+      if (canPieceAttackThroughLine(square, piece, king, allBasePoints, getTeamFn)) {
+        return { 
+          isPinned: true, 
+          pinDirection: [stepX, stepY] as [number, number] 
+        };
+      }
+      break;
+    }
+    x -= stepX;
+    y -= stepY;
+  }
+
+  return { isPinned: false };
+}
+
 /**
  * Calculate all legal moves for a given piece
  * @param basePoint - The piece to calculate moves for
@@ -880,6 +958,29 @@ export function getLegalMoves(
       return resolvesCheck;
     });
   }
+
+  const { isPinned, pinDirection } = isPiecePinned(basePoint, allBasePoints, getTeamFn);
+
+  if (!isPinned) {
+    return possibleMoves;
+  }
+
+  // We know pinDirection is defined here because isPinned is true
+  const pinDir = pinDirection!;
+
+  // For pinned pieces, only allow moves along the pin line
+  return possibleMoves.filter(move => {
+    // Knights can't move if pinned
+    if (basePoint.pieceType === 'knight') {
+      return false;
+    }
+    const dx = move.x - basePoint.x;
+    const dy = move.y - basePoint.y;
+    
+    // Allow moves along the pin line
+    return (dx === 0 && pinDir[0] === 0) ||  // Vertical pin
+           (dy === 0 && pinDir[1] === 0) ||  // Horizontal pin
+           (dx !== 0 && dy !== 0 && Math.abs(dx / dy) === 1);  // Diagonal pin
+  });
   
-  return possibleMoves;
 }
