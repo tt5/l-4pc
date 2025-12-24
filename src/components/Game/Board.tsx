@@ -18,6 +18,7 @@ import { useRestrictedSquares } from '../../contexts/RestrictedSquaresContext';
 
 import { generateFen4, parseFen4 } from '~/utils/fen4Utils';
 import { getColorHex } from '~/utils/colorUtils';
+import { getLegalMoves } from '~/utils/gameUtils';
 import { MOVE_PATTERNS } from '~/constants/movePatterns';
 import { 
   isValidPieceType,
@@ -470,6 +471,7 @@ const Board: Component<BoardProps> = (props) => {
     // Replay each move up to the target index
     for (let i = 0; i <= endIndex; i++) {
       const move = moves[i];
+      console.log(`[replayMoves] Move ${i}:`, JSON.stringify(move));
       if (!move) {
         console.warn(`[replayMoves] Missing move at index ${i}`);
         continue;
@@ -487,7 +489,7 @@ const Board: Component<BoardProps> = (props) => {
         castleType = ''
       } = move;
       const isCastleMove = isCastle ?? false;
-      const castleTypeValue = castleType ?? '';
+      const castleTypeValue = (castleType === 'KING_SIDE' || castleType === 'QUEEN_SIDE') ? castleType : null;
       
       // Validate move coordinates
       if ([fromX, fromY, toX, toY].some(coord => coord === undefined)) {
@@ -508,6 +510,7 @@ const Board: Component<BoardProps> = (props) => {
 
       // Handle castling moves
       if (isCastleMove && castleTypeValue) {
+        console.log(`[replayMoves] Castling move: ${moveId}`);
         const castlingConfig = MOVE_PATTERNS.CASTLING[castleTypeValue as keyof typeof MOVE_PATTERNS.CASTLING];
         if (!castlingConfig) {
           console.error(`[replayMoves] Invalid castling type: ${castleType}`);
@@ -544,7 +547,9 @@ const Board: Component<BoardProps> = (props) => {
         x: toX!,
         y: toY!,
         pieceType: (pieceType && isValidPieceType(pieceType)) ? pieceType : piece.pieceType,
-        hasMoved: true
+        hasMoved: true,
+        isCastle: isCastleMove,
+        castleType: castleTypeValue
       };
 
       positionMap.delete(fromKey);
@@ -923,9 +928,26 @@ const Board: Component<BoardProps> = (props) => {
       };
     }
 
+    // Get the legal moves for this piece to check if it's a castling move
+    const legalMoves = getLegalMoves(pointToMove, basePoints(), {
+      isKingInCheck: kingInCheck()?.team === getTeamByColor(pointToMove.color),
+      wouldResolveCheck,
+      isSquareUnderAttack,
+      isSquareBetween,
+      getTeamFn: getTeamByColor
+    });
+    // Check if this is a castling move
+    const castlingMove = legalMoves.find(
+      move => move.x === targetX && 
+            move.y === targetY && 
+            move.isCastle
+    );
+
     return { 
       isValid: true, 
-      pointToMove 
+      pointToMove,
+      isCastle: castlingMove?.isCastle || false,
+      castleType: castlingMove?.castleType
     };
   };
 
@@ -994,7 +1016,7 @@ const Board: Component<BoardProps> = (props) => {
     }
 
     // Validate the move
-    const { isValid, pointToMove, error } = validateMove(startX, startY, targetX, targetY);
+    const { isValid, pointToMove, error, isCastle, castleType } = validateMove(startX, startY, targetX, targetY);
     if (!isValid || !pointToMove) {
       if (error) {
         console.error('Move validation failed:', error);
@@ -1169,9 +1191,10 @@ const Board: Component<BoardProps> = (props) => {
           moveNumber: branchMoveNumber,  // Use the branch-aware move number
           isBranch: isBranching,
           pieceType: pointToMove.pieceType,
-          isCastle: pointToMove.isCastle,
-          castleType: pointToMove.castleType
+          isCastle: isCastle || false,
+          castleType: (castleType === 'KING_SIDE' || castleType === 'QUEEN_SIDE') ? castleType : null
         };
+        console.log(`[handleGlobalMouseUp] newMove: ${JSON.stringify(newMove)}`)
 
         console.log(`[handleGlobalMouseUp] moveNumber: ${newMove.moveNumber}`)
         
