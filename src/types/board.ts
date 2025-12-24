@@ -25,6 +25,8 @@ export interface BasePoint {
   team: 1 | 2; // 1 for team 1 (red/yellow), 2 for team 2 (blue/green)
   createdAtMs: number;
   hasMoved?: boolean; // Tracks if the piece has moved from its starting position
+  isCastle?: boolean; // Indicates if this is a castling move
+  castleType?: 'KING_SIDE' | 'QUEEN_SIDE' | null; // Type of castling (king-side or queen-side)
 }
 
 export interface Item {

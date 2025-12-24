@@ -1168,7 +1168,9 @@ const Board: Component<BoardProps> = (props) => {
           parentBranchName: currentBranch === 'main' ? null : currentBranch.split('/').slice(0, -1).join('/') || null,
           moveNumber: branchMoveNumber,  // Use the branch-aware move number
           isBranch: isBranching,
-          pieceType: pointToMove.pieceType
+          pieceType: pointToMove.pieceType,
+          isCastle: pointToMove.isCastle,
+          castleType: pointToMove.castleType
         };
 
         console.log(`[handleGlobalMouseUp] moveNumber: ${newMove.moveNumber}`)

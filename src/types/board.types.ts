@@ -33,7 +33,7 @@ export interface Move {
   parentBranchName?: string | null;
   moveNumber: number;
   isCastle?: boolean;
-  castleType?: string;
+  castleType?: string | null;
   isBranch?: boolean;
 }
 
