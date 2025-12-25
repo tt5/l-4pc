@@ -11,6 +11,8 @@ interface CellState {
   isHovered: boolean;
   isInCheck?: boolean;
   isNonPlayable?: boolean; // Indicates if the square is in a non-playable corner
+  isBestMoveFrom?: boolean; // Indicates if this is the 'from' square of the best move
+  isBestMoveTo?: boolean;   // Indicates if this is the 'to' square of the best move
   id?: number; // ID of the piece
   color?: string; // Optional color for the base point
   pieceType?: string; // Type of the piece (e.g., 'pawn', 'queen')
@@ -59,6 +61,12 @@ export const GridCell: Component<GridCellProps> = (props) => {
     }
     if (state.isNonPlayable) {
       classes.push(styles.nonPlayable);
+    }
+    if (state.isBestMoveFrom) {
+      classes.push(styles.bestMoveFrom);
+    }
+    if (state.isBestMoveTo) {
+      classes.push(styles.bestMoveTo);
     }
     return classes.join(' ');
   };

@@ -302,7 +302,20 @@
 }
 
 .square.basePoint.inCheck {
-  box-shadow: 0 0 0 3px #f44336;
+  box-shadow: 0 0 15px red !important;
+}
+
+.square.basePoint.bestMoveFrom {
+  background-color: rgba(35, 155, 86, 0.7) !important;
+  box-shadow: 0 0 10px rgba(35, 155, 86, 0.5);
+}
+
+.square.basePoint.bestMoveTo {
+  background-color: rgba(35, 155, 86, 0.4) !important;
+  box-shadow: 0 0 10px rgba(35, 155, 86, 0.5);
+}
+
+.square.basePoint {
   z-index: 4;
 }
 
