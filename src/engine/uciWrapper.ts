@@ -39,7 +39,19 @@ export class UCIEngine {
         const info: Record<string, string> = {};
         let scoreType: string | null = null;
         let scoreValue: string | null = null;
+        let pv: string[] = [];
         
+        // Extract PV if it exists
+        const pvIndex = parts.indexOf('pv');
+        if (pvIndex !== -1) {
+          pv = parts.slice(pvIndex + 1);
+          // Update bestMove to be the first move in PV
+          if (pv.length > 0) {
+            this.currentBestMove = pv[0];
+          }
+        }
+        
+        // Process other info fields
         for (let i = 1; i < parts.length; i++) {
           if (i + 1 < parts.length && !parts[i].startsWith('pv')) {
             info[parts[i]] = parts[i + 1];
@@ -62,16 +74,11 @@ export class UCIEngine {
           }
         }
         
-        const pvIndex = parts.indexOf('pv');
-        if (pvIndex !== -1) {
-          this.currentPv = parts.slice(pvIndex + 1);
-        }
-        
-        // Emit analysis update
+        // Emit analysis update with the current PV and best move
         this.onAnalysisUpdate?.({
           depth: this.currentDepth,
           score: this.currentScore,
-          pv: this.currentPv,
+          pv: pv,
           bestMove: this.currentBestMove
         });
       }

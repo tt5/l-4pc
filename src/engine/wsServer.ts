@@ -46,11 +46,11 @@ export function createEngineWebSocketServer(port: number = 8080) {
             // Set the position using move history if available
             if (data.moveHistory && data.moveHistory.length > 0) {
               engine.setPosition({
-                fen: data.fen || 'startpos',
+                fen: 'startpos',
                 moves: data.moveHistory
               });
             } else {
-              engine.setPosition(data.fen || 'startpos');
+              engine.setPosition('startpos');
             }
             engine.startInfiniteAnalysis();
             break;
@@ -64,11 +64,11 @@ export function createEngineWebSocketServer(port: number = 8080) {
             // Set the position using move history if available
             if (data.moveHistory && data.moveHistory.length > 0) {
               engine.setPosition({
-                fen: data.fen || 'startpos',
+                fen: 'startpos',
                 moves: data.moveHistory
               });
             } else {
-              engine.setPosition(data.fen || 'startpos');
+              engine.setPosition('startpos');
             }
             engine.startInfiniteAnalysis();
             break;
@@ -76,7 +76,7 @@ export function createEngineWebSocketServer(port: number = 8080) {
           case 'makeMove':
             await initialize();
             engine.setPosition({
-              fen: data.fen,
+              fen: 'startpos',
               moves: [...(data.moveHistory || []), data.move]
             });
             break;
