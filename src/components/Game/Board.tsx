@@ -17,7 +17,7 @@ import { useAuth } from '~/contexts/AuthContext';
 import { useRestrictedSquares } from '../../contexts/RestrictedSquaresContext';
 
 import { generateFen4, parseFen4 } from '~/utils/fen4Utils';
-import { UCIEngine } from '~/engine/uciWrapper';
+import { createEngineClient } from '~/engine/wsClient';
 import { getColorHex } from '~/utils/colorUtils';
 import { getLegalMoves } from '~/utils/gameUtils';
 import { MOVE_PATTERNS } from '~/constants/movePatterns';
@@ -55,9 +55,31 @@ const Board: Component<BoardProps> = (props) => {
   const navigate = useNavigate();
   const [gameId, setGameId] = createSignal<string>(props.gameId || DEFAULT_GAME_ID);
   
-  // Initialize the chess engine
-  const engine = new UCIEngine();
+  // Initialize the WebSocket client for the chess engine
+  const engine = createEngineClient();
   const [isEngineReady, setIsEngineReady] = createSignal(false);
+  const [isEngineThinking, setIsEngineThinking] = createSignal(false);
+  
+  // Connect to the WebSocket server when the component mounts
+  onMount(() => {
+    engine.connect();
+    
+    // Set up a listener for connection status
+    createEffect(() => {
+      if (engine.isConnected()) {
+        console.log('Engine connected');
+        setIsEngineReady(true);
+      } else {
+        console.log('Engine disconnected');
+        setIsEngineReady(false);
+      }
+    });
+    
+    // Clean up the WebSocket connection when the component unmounts
+    onCleanup(() => {
+      engine.disconnect();
+    });
+  });
   
   // Fetch the latest game ID when the component mounts
   onMount(async () => {
@@ -301,7 +323,7 @@ const Board: Component<BoardProps> = (props) => {
     
     // Update engine with new FEN if it's initialized
     if (isEngineReady()) {
-      engine.setPosition(newFen4);
+      engine.updatePosition(newFen4);
     }
   });
 
@@ -381,10 +403,10 @@ const Board: Component<BoardProps> = (props) => {
       el.setAttribute('data-is-current', 'false');
     });
     
-    // Clean up engine
-    if (engine && typeof engine.quit === 'function') {
+    // Clean up engine connection
+    if (engine) {
       try {
-        engine.quit();
+        engine.disconnect();
       } catch (error) {
         console.error('Error while cleaning up engine:', error);
       }
@@ -777,13 +799,47 @@ const Board: Component<BoardProps> = (props) => {
 
     // Initialize engine
     try {
-      if (engine && typeof engine.init === 'function') {
-        await engine.init();
-        console.log('Engine initialized');
-        setIsEngineReady(true);
-        // Set initial position - create a mutable copy of INITIAL_BASE_POINTS
-        const initialFen = generateFen4(JSON.parse(JSON.stringify(INITIAL_BASE_POINTS)), 0);
-        engine.setPosition(initialFen);
+      if (engine && isEngineReady() && 
+          typeof engine.startAnalysis === 'function' && 
+          typeof engine.stopAnalysis === 'function') {
+        // Handle engine move
+        const handleEngineMove = async () => {
+          if (!isEngineReady()) return;
+          
+          setIsEngineThinking(true);
+          
+          try {
+            // Start analysis with the current FEN
+            const currentFen = generateFen4(boardState(), currentTurnIndex());
+            engine.startAnalysis(currentFen);
+            
+            // Listen for the best move from the engine
+            const bestMove = await new Promise<string>((resolve) => {
+              const checkForBestMove = () => {
+                const analysis = engine.analysis();
+                if (analysis?.bestMove) {
+                  resolve(analysis.bestMove);
+                } else {
+                  setTimeout(checkForBestMove, 100);
+                }
+              };
+              checkForBestMove();
+            });
+            
+            if (bestMove) {
+              // Process the engine's move
+              const from = bestMove.substring(0, 2);
+              const to = bestMove.substring(2, 4);
+              handleMove(from, to);
+            }
+          } catch (error) {
+            console.error('Engine error:', error);
+          } finally {
+            engine.stopAnalysis();
+            setIsEngineThinking(false);
+          }
+        };
+        resetBoardToInitialState();
       }
     } catch (error) {
       console.error('Failed to initialize engine:', error);
