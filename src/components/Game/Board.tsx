@@ -69,6 +69,54 @@ const Board: Component<BoardProps> = (props) => {
       if (engine.isConnected()) {
         console.log('Engine connected');
         setIsEngineReady(true);
+        
+        // Start continuous analysis when connected
+        let analysisInterval: number;
+        
+        const startAnalysis = () => {
+          // Stop any existing analysis first
+          if (analysisInterval) {
+            clearInterval(analysisInterval);
+          }
+          
+          // Start new analysis
+          const analyzePosition = () => {
+            if (!engine.isConnected()) return;
+            
+            try {
+              const currentFen = generateFen4(basePoints(), currentTurnIndex());
+              engine.startAnalysis(currentFen);
+              
+              // Log analysis updates
+              const analysis = engine.analysis();
+              if (analysis?.bestMove) {
+                console.log('Engine analysis:', {
+                  bestMove: analysis.bestMove,
+                  score: analysis.score,
+                  depth: analysis.depth,
+                  pv: analysis.pv?.slice(0, 3) // Show first few moves of principal variation
+                });
+              }
+            } catch (error) {
+              console.error('Engine analysis error:', error);
+            }
+          };
+          
+          // Run analysis immediately and then every 2 seconds
+          analyzePosition();
+          analysisInterval = window.setInterval(analyzePosition, 2000);
+          
+          // Cleanup interval on effect cleanup
+          return () => {
+            if (analysisInterval) {
+              clearInterval(analysisInterval);
+            }
+          };
+        };
+        
+        // Start the analysis
+        startAnalysis();
+        
       } else {
         console.log('Engine disconnected');
         setIsEngineReady(false);
@@ -827,10 +875,18 @@ const Board: Component<BoardProps> = (props) => {
             });
             
             if (bestMove) {
-              // Process the engine's move
+              // Log the engine's move in a more visible way
               const from = bestMove.substring(0, 2);
               const to = bestMove.substring(2, 4);
-              handleMove(from, to);
+              // Log to console with styling to make it stand out
+              console.log(
+                '%cENGINE MOVE%c %s → %s',
+                'background: #4a4a4a; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
+                '',
+                from.toUpperCase(),
+                to.toUpperCase()
+              );
+              console.log('Full bestMove string:', bestMove);
             }
           } catch (error) {
             console.error('Engine error:', error);

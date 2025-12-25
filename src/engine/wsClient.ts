@@ -27,10 +27,17 @@ export function createEngineClient() {
         try {
           const data = JSON.parse(event.data);
           if (data.type === 'analysisUpdate') {
+            console.log('Engine: Received analysis', {
+              bestMove: data.data?.bestMove,
+              depth: data.data?.depth,
+              score: data.data?.score
+            });
             setAnalysis(data.data);
+          } else {
+            console.log('Engine: Received message', data);
           }
         } catch (err) {
-          console.error('Error parsing WebSocket message:', err);
+          console.error('Engine: Error parsing message:', err, 'Raw:', event.data);
         }
       };
       
@@ -52,19 +59,36 @@ export function createEngineClient() {
   
   const startAnalysis = (fen: string) => {
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      console.error('WebSocket is not connected');
-      return;
+      console.error('Engine: WebSocket not connected');
+      return false;
     }
     
-    ws.send(JSON.stringify({
-      type: 'startAnalysis',
-      data: { fen }
-    }));
+    try {
+      console.log('Engine: Starting analysis for FEN', fen);
+      ws.send(JSON.stringify({
+        type: 'startAnalysis',
+        data: { fen }
+      }));
+      return true;
+    } catch (error) {
+      console.error('Engine: Failed to send analysis request:', error);
+      return false;
+    }
   };
   
   const stopAnalysis = () => {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    ws.send(JSON.stringify({ type: 'stopAnalysis' }));
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      console.log('Engine: Not connected, cannot stop analysis');
+      return false;
+    }
+    try {
+      console.log('Engine: Stopping analysis');
+      ws.send(JSON.stringify({ type: 'stopAnalysis' }));
+      return true;
+    } catch (error) {
+      console.error('Engine: Failed to stop analysis:', error);
+      return false;
+    }
   };
   
   const makeMove = (fen: string, move: string, moveHistory: string[] = []) => {

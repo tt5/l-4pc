@@ -25,30 +25,20 @@ export const canCastle = (
   getTeamFn: (color: string) => number = getTeamByColor
 ): boolean => {
 
-  console.log('Checking castling for:', JSON.stringify({ 
-    kingPos: { x: king.x, y: king.y },
-    castleType,
-    currentTeam
-  }));
-
     // Check if king has moved - we'll rely on the movedPieces set
   const kingKey = getPieceKey(king);
   if (movedPieces.has(kingKey)) {
-    console.log('King has moved, cannot castle');
     return false;
   }
 
   // Get the color name from the color code (case-insensitive)
   const getColorName = (colorCode: string): string => {
-    console.log('getColorName called with:', colorCode);
     if (!colorCode) {
-      console.log('No color code provided');
       return '';
     }
     
     // Normalize to uppercase for comparison
     const normalizedCode = colorCode.toUpperCase();
-    console.log('Normalized color code:', normalizedCode);
     
     const colorMap: Record<string, string> = {
       '#F44336': 'RED',
@@ -62,36 +52,29 @@ export const canCastle = (
       'GREEN': 'GREEN'
     };
     
-    console.log('Color map keys:', Object.keys(colorMap));
     
     // Try exact match first
     if (colorMap[normalizedCode]) {
-      console.log('Exact match found:', colorMap[normalizedCode]);
       return colorMap[normalizedCode];
     }
     
     // Try to find a match by value (in case the key is different)
     for (const [code, name] of Object.entries(colorMap)) {
       if (code.toUpperCase() === normalizedCode) {
-        console.log('Case-insensitive match found:', name);
         return name;
       }
     }
     
-    console.log('Color code not found in map:', colorCode);
-    console.log('Available colors:', Object.entries(colorMap).map(([k, v]) => `${k} -> ${v}`).join(', '));
     return '';
   };
 
   // Extract color and side from castleType
   const [colorCode, ...sideParts] = castleType.split('_');
   const side = sideParts.join('_'); // This will handle "KING_SIDE" or "QUEEN_SIDE"
-  console.log('Processing castling:', JSON.stringify({ colorCode, side, castleType }));
   
   const colorName = getColorName(colorCode);
   
   if (!colorName) {
-    console.log('Invalid color code for castling. Code:', colorCode, 'Type:', typeof colorCode, 'Full castleType:', castleType);
     return false;
   }
 
@@ -99,7 +82,6 @@ export const canCastle = (
   const castlingConfig = MOVE_PATTERNS.CASTLING[castlingKey];
   
   if (!castlingConfig) {
-    console.log('No castling config found for:', castlingKey);
     return false;
   }
 
@@ -114,12 +96,10 @@ export const canCastle = (
   );
 
   if (!rook) {
-    console.log('Rook not found at position:', { rookX, rookY });
     return false;
   }
   const rookKey = getPieceKey(rook);
   if (movedPieces.has(rookKey)) {
-    console.log('Rook has moved, cannot castle');
     return false;
   }
 
@@ -134,15 +114,12 @@ export const canCastle = (
   const endY = king.y + dy;
 
   while (x !== endX || y !== endY) {
-    console.log(`checking square ${x},${y}`);
     const occupied = isSquareOccupied(x, y, allBasePoints);
 
     const opponentTeam = currentTeam === 1 ? 2 : 1;
     const underAttack = isSquareUnderAttack(x, y, opponentTeam, allBasePoints, getTeamFn);
-    console.log('Square:', { x, y, occupied, underAttack });
     
     if (occupied || underAttack) {
-      console.log('Castling blocked at:', { x, y, occupied, underAttack });
       return false;
     }
     x += stepX || 0;

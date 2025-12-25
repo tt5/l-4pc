@@ -48,15 +48,12 @@ export function calculateRestrictedSquares(
   } = {}
 ): RestrictedSquaresResult {
 
-  console.log(`=== calculateRestrictedSquares ===`)
-  
   const restrictedSquares: number[] = [];
   const restrictedSquaresInfo: RestrictedSquareInfo[] = [];
   const getTeam = options.getTeamFn || getTeamByColor;
 
   // Get the current player's king from their pieces
   const currentKing = pieces.find(p => p.pieceType === 'king');
-  console.log(`currentKing: ${JSON.stringify(currentKing)}`)
 
   // Check if the current player's king is in check
   const kingInCheck = currentKing ? 
@@ -72,8 +69,6 @@ export function calculateRestrictedSquares(
       isSquareBetween: options.isSquareBetween,
       getTeamFn: options.getTeamFn || getTeamByColor
     });
-    
-    //console.log(`Moves for ${piece.pieceType} at (${piece.x},${piece.y}):`, JSON.stringify(moves));
     
     for (const { x, y, canCapture } of moves) {
       const index = y * BOARD_CONFIG.GRID_SIZE + x;
@@ -223,8 +218,6 @@ export const updateBasePoint = async (
       fromY
     };
     
-    console.log('Sending updateBasePoint request with:', JSON.stringify(requestBody, null, 2));
-
     // First create the move if we have a game context
     if (gameId && fromX !== undefined && fromY !== undefined) {
       const moveResponse = await fetch('/api/moves', {
@@ -249,7 +242,6 @@ export const updateBasePoint = async (
 
       if (!moveResponse.ok) {
         const error = await moveResponse.text();
-        console.error('Failed to create move:', error);
         throw new Error('Failed to record move');
       }
     }
