@@ -810,7 +810,7 @@ const Board: Component<BoardProps> = (props) => {
           
           try {
             // Start analysis with the current FEN
-            const currentFen = generateFen4(boardState(), currentTurnIndex());
+            const currentFen = generateFen4(basePoints(), currentTurnIndex());
             engine.startAnalysis(currentFen);
             
             // Listen for the best move from the engine
