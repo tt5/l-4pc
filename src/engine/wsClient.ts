@@ -28,14 +28,16 @@ export function createEngineClient() {
         try {
           const data = JSON.parse(event.data);
           if (data.type === 'analysisUpdate') {
-            console.log('Engine: Received analysis', {
-              bestMove: data.data?.bestMove,
+            console.log('Engine: Analysis Update', {
               depth: data.data?.depth,
-              score: data.data?.score
+              score: data.data?.score,
+              bestMove: data.data?.bestMove || 'No move found',
+              pv: data.data?.pv?.join(' ') || 'No principal variation',
+              rawData: data.data  // Include full data for debugging
             });
             setAnalysis(data.data);
           } else {
-            console.log('Engine: Received message', data);
+            console.log('Engine: Received message', { type: data.type, data: data.data });
           }
         } catch (err) {
           console.error('Engine: Error parsing message:', err, 'Raw:', event.data);
