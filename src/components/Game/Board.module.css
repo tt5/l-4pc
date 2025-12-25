@@ -306,13 +306,15 @@
 }
 
 .square.basePoint.bestMoveFrom {
-  background-color: rgba(35, 155, 86, 0.7) !important;
-  box-shadow: 0 0 10px rgba(35, 155, 86, 0.5);
+  background-color: rgb(255, 238, 3) !important;
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.911);
+  border: 3px solid black;
 }
 
-.square.basePoint.bestMoveTo {
-  background-color: rgba(35, 155, 86, 0.4) !important;
-  box-shadow: 0 0 10px rgba(35, 155, 86, 0.5);
+.square.bestMoveTo {
+  background-color: rgb(255, 238, 3) !important;
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.911);
+  border: 3px solid black;
 }
 
 .square.basePoint {
