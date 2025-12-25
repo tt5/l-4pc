@@ -28,14 +28,22 @@ export function createEngineClient() {
         try {
           const data = JSON.parse(event.data);
           if (data.type === 'analysisUpdate') {
+            // Extract best move from PV if bestMove is null
+            const pv = data.data?.pv || [];
+            const bestMove = data.data?.bestMove || (pv.length > 0 ? pv[0] : null);
+            
             console.log('Engine: Analysis Update', {
               depth: data.data?.depth,
               score: data.data?.score,
-              bestMove: data.data?.bestMove || 'No move found',
-              pv: data.data?.pv?.join(' ') || 'No principal variation',
-              rawData: data.data  // Include full data for debugging
+              bestMove: bestMove || 'No move found',
+              pv: pv.join(' ') || 'No principal variation'
             });
-            setAnalysis(data.data);
+
+            // Update analysis with the extracted best move
+            setAnalysis({
+              ...data.data,
+              bestMove: bestMove
+            });
           } else {
             console.log('Engine: Received message', { type: data.type, data: data.data });
           }
