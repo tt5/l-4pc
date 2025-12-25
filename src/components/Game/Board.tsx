@@ -131,8 +131,9 @@ const Board: Component<BoardProps> = (props) => {
             // Small delay to let the board state settle
             setTimeout(() => {
               try {
-                // Verify FEN hasn't changed during the delay
-                if (currentFen === generateFen4(basePoints(), currentTurnIndex())) {
+                if (currentFen === generateFen4(basePoints(), currentTurnIndex())
+                  && moveHistory().length > 0
+                ) {
                   engine.startAnalysis(currentFen, uciMoveHistory);
                 }
               } catch (error) {
@@ -407,11 +408,6 @@ const Board: Component<BoardProps> = (props) => {
     
     const newFen4 = generateFen4(points, turnIndex);
     setFen4(newFen4);
-    
-    // Update engine with new FEN if it's initialized
-    if (isEngineReady()) {
-      engine.updatePosition(newFen4);
-    }
   });
 
   // Add these utility functions
