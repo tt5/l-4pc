@@ -1623,6 +1623,21 @@ const Board: Component<BoardProps> = (props) => {
           // Check if this cell has a king in check
           const isKingInCheck = basePoint?.pieceType === 'king' && kingsInCheck()[`${x},${y}`];
           
+          // Get the current best move from analysis
+          const bestMove = analysis()?.bestMove;
+          let isBestMoveFrom = false;
+          let isBestMoveTo = false;
+          
+          if (bestMove) {
+            // Parse the best move (format: 'a1-b2')
+            const [from, to] = bestMove.split('-');
+            const squareName = String.fromCharCode(97 + x) + (BOARD_CONFIG.GRID_SIZE - y);
+            
+            // Check if this cell is the 'from' or 'to' square of the best move
+            isBestMoveFrom = from === squareName;
+            isBestMoveTo = to === squareName;
+          }
+          
           // Update the cell state to include the new hover state and base point properties
           const cellState = {
             isBasePoint: isBP,
@@ -1630,6 +1645,8 @@ const Board: Component<BoardProps> = (props) => {
             isHovered: !!((hoveredCell() && hoveredCell()![0] === x && hoveredCell()![1] === y)),
             isInCheck: isKingInCheck,
             isNonPlayable,
+            isBestMoveFrom,
+            isBestMoveTo,
             id: basePoint?.id,
             color: basePoint?.color,
             pieceType: basePoint?.pieceType
