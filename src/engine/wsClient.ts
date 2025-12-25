@@ -13,6 +13,7 @@ export function createEngineClient() {
   const [error, setError] = createSignal<Error | null>(null);
   
   let ws: WebSocket | null = null;
+  let lastFen: string | null = null; // Track the last sent FEN
   
   const connect = (url: string = 'ws://localhost:8080') => {
     try {
@@ -58,13 +59,20 @@ export function createEngineClient() {
   };
   
   const startAnalysis = (fen: string) => {
+    // Don't resend the same FEN
+    if (fen === lastFen) {
+      console.log('Engine: FEN unchanged, skipping analysis request');
+      return false;
+    }
+    
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       console.error('Engine: WebSocket not connected');
       return false;
     }
     
     try {
-      console.log('Engine: Starting analysis for FEN', fen);
+      console.log('Engine: Starting analysis for new FEN');
+      lastFen = fen; // Update the last sent FEN
       ws.send(JSON.stringify({
         type: 'startAnalysis',
         data: { fen }
