@@ -44,7 +44,25 @@ export class UCIEngine {
         // Extract PV if it exists
         const pvIndex = parts.indexOf('pv');
         if (pvIndex !== -1) {
-          pv = parts.slice(pvIndex + 1);
+          pv = [];
+          let scoreFound = false;
+          
+          // Extract PV moves until we hit 'score' or end of array
+          for (let i = pvIndex + 1; i < parts.length; i++) {
+            if (parts[i] === 'score') {
+              // Look for score value after 'score'
+              if (i + 1 < parts.length) {
+                const rawScore = parseFloat(parts[i + 1]);
+                if (!isNaN(rawScore)) {
+                  this.currentScore = rawScore;  // Use the raw score directly
+                  scoreFound = true;
+                }
+              }
+              break;
+            }
+            pv.push(parts[i]);
+          }
+          
           // Update bestMove to be the first move in PV
           if (pv.length > 0) {
             this.currentBestMove = pv[0];
@@ -67,10 +85,13 @@ export class UCIEngine {
         
         // Handle score
         if (scoreType && scoreValue) {
+          const score = parseInt(scoreValue, 10);
           if (scoreType === 'cp') {
-            this.currentScore = parseInt(scoreValue, 10) / 100;
+            // For centipawns, divide by 100 and negate if it's from the opponent's perspective
+            this.currentScore = score / 100;
           } else if (scoreType === 'mate') {
-            this.currentScore = parseInt(scoreValue, 10) * 1000; // Arbitrary large value for mate
+            // For mate scores, use a large value with the correct sign
+            this.currentScore = (score > 0 ? 10000 : -10000) + (score > 0 ? -score : score);
           }
         }
         

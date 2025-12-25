@@ -60,6 +60,20 @@ const Board: Component<BoardProps> = (props) => {
   const [isEngineReady, setIsEngineReady] = createSignal(false);
   const [isEngineThinking, setIsEngineThinking] = createSignal(false);
   
+  // Track the last move count to prevent duplicate analysis
+  const [lastMoveCount, setLastMoveCount] = createSignal(0);
+
+  /*
+  // Reset move count when starting a new game
+  const handleNewGame = () => {
+    setLastMoveCount(0);
+    // Call the original new game handler if it exists
+    if (typeof props.onNewGame === 'function') {
+      props.onNewGame();
+    }
+  };
+  */
+
   // Connect to the WebSocket server when the component mounts
   onMount(() => {
     engine.connect();
@@ -871,9 +885,24 @@ const Board: Component<BoardProps> = (props) => {
           if (!engine || !isEngineReady()) return;
 
           try {
+            const currentMoves = moveHistory();
+            const currentMoveCount = currentMoves.length;
+            
+            // Only proceed if there's exactly one more move than before
+            if (currentMoveCount !== lastMoveCount() + 1) {
+              console.log('Skipping engine move - no new move or too many moves');
+              return;
+            }
+
+            // Update the last move count
+            setLastMoveCount(currentMoveCount);
+
             // Convert move history to UCI format
-            const uciMoveHistory = moveHistory().map(moveToUCI);
+            const uciMoveHistory = currentMoves.map(moveToUCI);
             const currentFen = generateFen4(basePoints(), currentTurnIndex());
+            
+            console.log('Starting engine analysis with FEN:', currentFen);
+            console.log('Move history:', uciMoveHistory);
             
             // Start analysis with the current FEN and move history
             engine.startAnalysis(currentFen, uciMoveHistory);
@@ -885,13 +914,19 @@ const Board: Component<BoardProps> = (props) => {
                 resolve(move);
               };
               engine.on('bestmove', onBestMove);
+              
+              // Set a timeout to prevent hanging if no response
+              setTimeout(() => {
+                engine.off('bestmove', onBestMove);
+                console.warn('Engine move timeout');
+                resolve('');
+              }, 10000); // 10 second timeout
             });
             
             if (bestMove) {
               // Log the engine's move in a more visible way
               const from = bestMove.substring(0, 2);
               const to = bestMove.substring(2, 4);
-              // Log to console with styling to make it stand out
               console.log(
                 '%cENGINE MOVE%c %s → %s',
                 'background: #4a4a4a; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
@@ -1219,7 +1254,7 @@ const Board: Component<BoardProps> = (props) => {
             nextMainLineMove.toY === targetY;
           
           if (isMainLineMove) {
-            console.log(`[handleGlobalMouseUp] ✅ Move matches main line at index ${currentIndex}`)
+            console.log(`[handleGlobalMouseUp] Move matches main line at index ${currentIndex}`)
             setCurrentBranchName('main');
             cleanupDragState();
             handleGoForward();
@@ -1290,14 +1325,14 @@ const Board: Component<BoardProps> = (props) => {
             });
 
             if (isBranchPointMove) {
-              console.log(`[handleGlobalMouseUp] ✅ Move matches branch point`);
+              console.log(`[handleGlobalMouseUp] Move matches branch point`);
               setCurrentBranchName(branchName || 'main');
               cleanupDragState();
               handleGoForward();
               return;
             }
             
-            console.log(`[handleGlobalMouseUp] ❌ Move does not match branch point`);
+            console.log(`[handleGlobalMouseUp] Move does not match branch point`);
 
             // If we get here, it's a new branch
             isBranching = true;
