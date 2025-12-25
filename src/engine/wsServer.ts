@@ -27,19 +27,50 @@ export function createEngineWebSocketServer(port: number = 8080) {
         switch (type) {
           case 'startAnalysis':
             await initialize();
+            // Stop any ongoing analysis first
+            if (engine) {
+              engine.stopInfiniteAnalysis();
+            }
+            
+            // Set up analysis update handler
             engine.onAnalysisUpdate = (analysis) => {
               ws.send(JSON.stringify({
                 type: 'analysisUpdate',
-                data: analysis
+                data: {
+                  ...analysis,
+                  fen: data.fen
+                }
               }));
             };
-            engine.setPosition(data.fen || 'startpos');
+            
+            // Set the position using move history if available
+            if (data.moveHistory && data.moveHistory.length > 0) {
+              engine.setPosition({
+                fen: data.fen || 'startpos',
+                moves: data.moveHistory
+              });
+            } else {
+              engine.setPosition(data.fen || 'startpos');
+            }
             engine.startInfiniteAnalysis();
             break;
 
           case 'updatePosition':
             await initialize();
-            engine.setPosition(data.fen || 'startpos');
+            if (engine) {
+              engine.stopInfiniteAnalysis();
+            }
+            
+            // Set the position using move history if available
+            if (data.moveHistory && data.moveHistory.length > 0) {
+              engine.setPosition({
+                fen: data.fen || 'startpos',
+                moves: data.moveHistory
+              });
+            } else {
+              engine.setPosition(data.fen || 'startpos');
+            }
+            engine.startInfiniteAnalysis();
             break;
 
           case 'makeMove':

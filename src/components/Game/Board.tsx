@@ -79,27 +79,34 @@ const Board: Component<BoardProps> = (props) => {
             clearInterval(analysisInterval);
           }
           
-          // Start new analysis
+          // Function to convert internal move format to UCI format
+          const moveToUCI = (move: Move): string => {
+            const fromFile = String.fromCharCode(97 + move.fromX);
+            const fromRank = (14 - move.fromY).toString();
+            const toFile = String.fromCharCode(97 + move.toX);
+            const toRank = (14 - move.toY).toString();
+            return `${fromFile}${fromRank}${toFile}${toRank}`;
+          };
+
+          // Function to analyze the current position
           const analyzePosition = () => {
-            if (!engine.isConnected()) return;
+            if (!isEngineReady()) return;
             
-            try {
-              const currentFen = generateFen4(basePoints(), currentTurnIndex());
-              engine.startAnalysis(currentFen);
-              
-              // Log analysis updates
-              const analysis = engine.analysis();
-              if (analysis?.bestMove) {
-                console.log('Engine analysis:', {
-                  bestMove: analysis.bestMove,
-                  score: analysis.score,
-                  depth: analysis.depth,
-                  pv: analysis.pv?.slice(0, 3) // Show first few moves of principal variation
-                });
+            // Convert move history to UCI format
+            const uciMoveHistory = moveHistory().map(moveToUCI);
+            const currentFen = generateFen4(basePoints(), currentTurnIndex());
+            
+            // Small delay to let the board state settle
+            setTimeout(() => {
+              try {
+                // Verify FEN hasn't changed during the delay
+                if (currentFen === generateFen4(basePoints(), currentTurnIndex())) {
+                  engine.startAnalysis(currentFen, uciMoveHistory);
+                }
+              } catch (error) {
+                console.error('Engine analysis error:', error);
               }
-            } catch (error) {
-              console.error('Engine analysis error:', error);
-            }
+            }, 50);
           };
           
           // Run analysis immediately and then every 2 seconds
@@ -846,32 +853,38 @@ const Board: Component<BoardProps> = (props) => {
     window.addEventListener('mouseup', handleGlobalMouseUp as EventListener);
 
     // Initialize engine
+    // Function to convert internal move format to UCI format
+    const moveToUCI = (move: Move): string => {
+      const fromFile = String.fromCharCode(97 + move.fromX);
+      const fromRank = (14 - move.fromY).toString();
+      const toFile = String.fromCharCode(97 + move.toX);
+      const toRank = (14 - move.toY).toString();
+      return fromFile + fromRank + toFile + toRank;
+    };
+
     try {
       if (engine && isEngineReady() && 
           typeof engine.startAnalysis === 'function' && 
           typeof engine.stopAnalysis === 'function') {
         // Handle engine move
         const handleEngineMove = async () => {
-          if (!isEngineReady()) return;
-          
-          setIsEngineThinking(true);
-          
+          if (!engine || !isEngineReady()) return;
+
           try {
-            // Start analysis with the current FEN
+            // Convert move history to UCI format
+            const uciMoveHistory = moveHistory().map(moveToUCI);
             const currentFen = generateFen4(basePoints(), currentTurnIndex());
-            engine.startAnalysis(currentFen);
+            
+            // Start analysis with the current FEN and move history
+            engine.startAnalysis(currentFen, uciMoveHistory);
             
             // Listen for the best move from the engine
             const bestMove = await new Promise<string>((resolve) => {
-              const checkForBestMove = () => {
-                const analysis = engine.analysis();
-                if (analysis?.bestMove) {
-                  resolve(analysis.bestMove);
-                } else {
-                  setTimeout(checkForBestMove, 100);
-                }
+              const onBestMove = (move: string) => {
+                engine.off('bestmove', onBestMove);
+                resolve(move);
               };
-              checkForBestMove();
+              engine.on('bestmove', onBestMove);
             });
             
             if (bestMove) {
