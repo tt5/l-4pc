@@ -17,7 +17,7 @@ import { useAuth } from '~/contexts/AuthContext';
 import { useRestrictedSquares } from '../../contexts/RestrictedSquaresContext';
 
 import { generateFen4, parseFen4 } from '~/utils/fen4Utils';
-import { engine } from '~/engine/run';
+import { UCIEngine } from '~/engine/uciWrapper';
 import { getColorHex } from '~/utils/colorUtils';
 import { getLegalMoves } from '~/utils/gameUtils';
 import { MOVE_PATTERNS } from '~/constants/movePatterns';
@@ -54,6 +54,10 @@ const Board: Component<BoardProps> = (props) => {
   const auth = useAuth();
   const navigate = useNavigate();
   const [gameId, setGameId] = createSignal<string>(props.gameId || DEFAULT_GAME_ID);
+  
+  // Initialize the chess engine
+  const engine = new UCIEngine();
+  const [isEngineReady, setIsEngineReady] = createSignal(false);
   
   // Fetch the latest game ID when the component mounts
   onMount(async () => {
@@ -296,7 +300,7 @@ const Board: Component<BoardProps> = (props) => {
     setFen4(newFen4);
     
     // Update engine with new FEN if it's initialized
-    if (engine?.isReady?.()) {
+    if (isEngineReady()) {
       engine.setPosition(newFen4);
     }
   });
@@ -379,7 +383,11 @@ const Board: Component<BoardProps> = (props) => {
     
     // Clean up engine
     if (engine && typeof engine.quit === 'function') {
-      engine.quit().catch(console.error);
+      try {
+        engine.quit();
+      } catch (error) {
+        console.error('Error while cleaning up engine:', error);
+      }
     }
   });
   
@@ -772,12 +780,14 @@ const Board: Component<BoardProps> = (props) => {
       if (engine && typeof engine.init === 'function') {
         await engine.init();
         console.log('Engine initialized');
-        // Set initial position
-        const initialFen = generateFen4(INITIAL_BASE_POINTS, 0);
+        setIsEngineReady(true);
+        // Set initial position - create a mutable copy of INITIAL_BASE_POINTS
+        const initialFen = generateFen4(JSON.parse(JSON.stringify(INITIAL_BASE_POINTS)), 0);
         engine.setPosition(initialFen);
       }
     } catch (error) {
       console.error('Failed to initialize engine:', error);
+      setIsEngineReady(false);
     }
 
     resetBoardToInitialState();
