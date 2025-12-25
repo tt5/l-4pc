@@ -5,7 +5,7 @@ type EventMap = {
   [event: string]: EventCallback[];
 };
 
-type AnalysisUpdate = {
+export type AnalysisUpdate = {
   depth: number;
   score: number;
   pv: string[];
@@ -65,11 +65,17 @@ export function createEngineClient() {
             // Update analysis with the extracted best move
             const analysisData = {
               ...data.data,
-              bestMove: bestMove
+              bestMove: bestMove,
+              score: displayScore,
+              depth: data.data?.depth || 0,
+              pv: pvString
             };
             setAnalysis(analysisData);
             
-            // Emit bestmove event with the best move
+            // Emit analysis event with the full analysis data
+            emit('analysis', analysisData);
+            
+            // Also emit bestmove event with just the best move
             if (bestMove) {
               emit('bestmove', bestMove);
             }

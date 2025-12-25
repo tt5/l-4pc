@@ -59,6 +59,24 @@ const Board: Component<BoardProps> = (props) => {
   const engine = createEngineClient();
   const [isEngineReady, setIsEngineReady] = createSignal(false);
   const [isEngineThinking, setIsEngineThinking] = createSignal(false);
+  const [analysis, setAnalysis] = createSignal<{score: string; depth: number; bestMove: string} | null>(null);
+  
+  // Listen for analysis updates from the engine
+  onMount(() => {
+    const handleAnalysis = (update: any) => {
+      setAnalysis({
+        score: update.score,
+        depth: update.depth,
+        bestMove: update.bestMove
+      });
+    };
+    
+    engine.on('analysis', handleAnalysis);
+    
+    return () => {
+      engine.off('analysis', handleAnalysis);
+    };
+  });
   
   // Track the last move count to prevent duplicate analysis
   const [lastMoveCount, setLastMoveCount] = createSignal(0);
@@ -1636,6 +1654,11 @@ const Board: Component<BoardProps> = (props) => {
           );
         })}
       </div>
+        <div>
+          <div>Eval: {analysis()?.score}</div>
+          <div>Depth: {analysis()?.depth}</div>
+          <div>Best: {analysis()?.bestMove}</div>
+        </div>
       {error() && (
         <div class={styles.error} classList={{ [styles.visible]: !!error() }}>
           {error()}
