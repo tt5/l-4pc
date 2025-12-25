@@ -17,6 +17,7 @@ import { useAuth } from '~/contexts/AuthContext';
 import { useRestrictedSquares } from '../../contexts/RestrictedSquaresContext';
 
 import { generateFen4, parseFen4 } from '~/utils/fen4Utils';
+import { engine } from '~/engine/run';
 import { getColorHex } from '~/utils/colorUtils';
 import { getLegalMoves } from '~/utils/gameUtils';
 import { MOVE_PATTERNS } from '~/constants/movePatterns';
@@ -288,14 +289,16 @@ const Board: Component<BoardProps> = (props) => {
 
   // Add this effect to update FEN4 when position changes
   createEffect(() => {
-    //const currentIndex = currentMoveIndex();
-    //const branch = currentBranchName();
     const points = basePoints();
     const turnIndex = currentTurnIndex();
     
     const newFen4 = generateFen4(points, turnIndex);
     setFen4(newFen4);
-    console.log('FEN4 updated:', newFen4);
+    
+    // Update engine with new FEN if it's initialized
+    if (engine?.isReady?.()) {
+      engine.setPosition(newFen4);
+    }
   });
 
   // Add these utility functions
@@ -373,6 +376,11 @@ const Board: Component<BoardProps> = (props) => {
       el.classList.remove(styles.currentMove);
       el.setAttribute('data-is-current', 'false');
     });
+    
+    // Clean up engine
+    if (engine && typeof engine.quit === 'function') {
+      engine.quit().catch(console.error);
+    }
   });
   
   const [currentTurnIndex, setCurrentTurnIndex] = createSignal(0);
@@ -758,6 +766,19 @@ const Board: Component<BoardProps> = (props) => {
 
     // Set up mouse event listeners
     window.addEventListener('mouseup', handleGlobalMouseUp as EventListener);
+
+    // Initialize engine
+    try {
+      if (engine && typeof engine.init === 'function') {
+        await engine.init();
+        console.log('Engine initialized');
+        // Set initial position
+        const initialFen = generateFen4(INITIAL_BASE_POINTS, 0);
+        engine.setPosition(initialFen);
+      }
+    } catch (error) {
+      console.error('Failed to initialize engine:', error);
+    }
 
     resetBoardToInitialState();
   });
