@@ -280,14 +280,7 @@ function canPieceAttackThroughLine(
   allBasePoints: BasePoint[],
   getTeamFn: (color: string) => number
 ): boolean {
-  const log = {
-    attacker: {x: attacker.x, y: attacker.y, type: attacker.pieceType, color: attacker.color},
-    pinnedPiece: {x: pinnedPiece.x, y: pinnedPiece.y, type: pinnedPiece.pieceType, color: pinnedPiece.color},
-    king: {x: king.x, y: king.y, color: king.color},
-    timestamp: new Date().toISOString()
-  };
-
-  const attackerType = attacker.pieceType;
+  console.log(`Checking if ${attacker.pieceType} at (${attacker.x},${attacker.y}) can attack through line to king at (${king.x},${king.y})`);
   
   // Calculate direction from pinned piece to king
   const dx = Math.sign(king.x - pinnedPiece.x);
@@ -301,6 +294,7 @@ function canPieceAttackThroughLine(
      Math.abs(attacker.x - pinnedPiece.x) === Math.abs(attacker.y - pinnedPiece.y)); // Diagonal line
 
   if (!isOnPinLine) {
+    console.log('Attacker not on pin line');
     return false;
   }
 
@@ -317,34 +311,52 @@ function canPieceAttackThroughLine(
   }
 
   if (!isOppositeSide) {
+    console.log('Attacker not on opposite side of pinned piece');
     return false;
   }
 
+  // Check for pieces between the attacker and the pinned piece
+  const stepX = Math.sign(pinnedPiece.x - attacker.x);
+  const stepY = Math.sign(pinnedPiece.y - attacker.y);
+  let checkX = attacker.x + stepX;
+  let checkY = attacker.y + stepY;
+  
+  while (checkX !== pinnedPiece.x || checkY !== pinnedPiece.y) {
+    if (allBasePoints.some(p => p.x === checkX && p.y === checkY)) {
+      console.log(`Piece found at (${checkX},${checkY}) between attacker and pinned piece`);
+      return false;
+    }
+    checkX += stepX;
+    checkY += stepY;
+  }
+
   // Check if attacker's piece type can attack through this line
-  let canAttack = false;
-  let reason = '';
+  const attackerType = attacker.pieceType;
   
   if (attackerType === 'queen') {
-    canAttack = true;
-    reason = 'queen_can_attack_any_direction';
+    console.log('Queen can attack any direction');
+    return true;
   } else if (attackerType === 'rook' && (dx === 0 || dy === 0)) {
-    canAttack = true;
-    reason = 'rook_can_attack_rank_or_file';
+    console.log('Rook can attack along rank or file');
+    return true;
   } else if (attackerType === 'bishop' && dx !== 0 && dy !== 0) {
-    canAttack = true;
-    reason = 'bishop_can_attack_diagonal';
+    console.log('Bishop can attack diagonally');
+    return true;
   } else if (attackerType === 'pawn') {
-    // Pawns can only attack diagonally forward
+    // Pawns can only attack one square diagonally forward
     const isDiagonal = dx !== 0 && dy !== 0;
     const isForwardForPawn = (attacker.color === king.color) ? 
       (pinnedPiece.y > attacker.y) : (pinnedPiece.y < attacker.y);
-    canAttack = isDiagonal && isForwardForPawn;
-    reason = canAttack ? 'pawn_can_attack_diagonal_forward' : 'pawn_cannot_attack_this_direction';
-  } else {
-    reason = 'invalid_attacker_type_or_direction';
+    const isAdjacent = Math.abs(attacker.x - pinnedPiece.x) === 1 && 
+                      Math.abs(attacker.y - pinnedPiece.y) === 1;
+    
+    const canAttack = isDiagonal && isForwardForPawn && isAdjacent;
+    console.log(`Pawn attack check: diagonal=${isDiagonal}, forward=${isForwardForPawn}, adjacent=${isAdjacent}, canAttack=${canAttack}`);
+    return canAttack;
   }
 
-  return canAttack;
+  console.log(`Piece type ${attackerType} cannot attack through this line`);
+  return false;
 }
 
 /**
@@ -359,11 +371,6 @@ export function isPiecePinned(
   allBasePoints: BasePoint[],
   getTeamFn: (color: string) => number
 ): { isPinned: boolean; pinDirection?: [number, number] } {
-  const log = { 
-    piece: {x: piece.x, y: piece.y, type: piece.pieceType, color: piece.color},
-    timestamp: new Date().toISOString()
-  };
-
   // Find the king of the same color
   const king = allBasePoints.find(p => 
     p.pieceType === 'king' && 
@@ -385,11 +392,6 @@ export function isPiecePinned(
     return { isPinned: false };
   }
   
-  // Log alignment type
-  const alignmentType = dx === 0 ? 'vertical' : 
-                      dy === 0 ? 'horizontal' : 
-                      Math.abs(dx) === Math.abs(dy) ? 'diagonal' : 'none';
-  
   const stepX = dx === 0 ? 0 : dx > 0 ? 1 : -1;
   const stepY = dy === 0 ? 0 : dy > 0 ? 1 : -1;
 
@@ -407,37 +409,41 @@ export function isPiecePinned(
   // Look for an attacking piece in the opposite direction (away from king)
   let x = piece.x - stepX;
   let y = piece.y - stepY;
-  let steps = 0;
+  let foundAttacker = false;
+
+  console.log(`Checking for pin: piece=${piece.pieceType} at (${piece.x},${piece.y}), king at (${king.x},${king.y})`);
+  console.log(`Searching for attackers from (${x},${y}) in direction (${-stepX},${-stepY})`);
 
   while (x >= 0 && x < BOARD_CONFIG.GRID_SIZE && y >= 0 && y < BOARD_CONFIG.GRID_SIZE) {
-    steps++;
-    const square = allBasePoints.find(p => p.x === x && p.y === y);
+    const pieceInLine = allBasePoints.find(p => p.x === x && p.y === y);
     
-    if (square) {
-      // If we find a friendly piece first, no pin
-      if (getTeamFn(square.color) === getTeamFn(piece.color)) {
-        return { isPinned: false };
-      }
-
-      // If we find an enemy piece that can attack through this line, it's a pin
-
-      const canAttack = canPieceAttackThroughLine(square, piece, king, allBasePoints, getTeamFn);
+    if (pieceInLine) {
+      console.log(`Found ${pieceInLine.pieceType} at (${x},${y})`);
       
-      if (canAttack) {
-        return { 
-          isPinned: true, 
-          pinDirection: [stepX, stepY] as [number, number] 
-        };
-      } else {
+      if (getTeamFn(pieceInLine.color) !== getTeamFn(piece.color)) {
+        const canAttack = canPieceAttackThroughLine(pieceInLine, piece, king, allBasePoints, getTeamFn);
+        console.log(`Enemy ${pieceInLine.pieceType} at (${x},${y}) can${canAttack ? '' : "'t"} attack through line`);
+        if (canAttack) {
+          foundAttacker = true;
+        }
       }
       break;
     }
-
+    
     x -= stepX;
     y -= stepY;
   }
 
-  return { isPinned: false };
+  if (!foundAttacker) {
+    console.log('No valid attacker found - not pinned');
+    return { isPinned: false };
+  }
+
+  console.log(`Piece at (${piece.x},${piece.y}) is pinned!`);
+  return { 
+    isPinned: true, 
+    pinDirection: [stepX, stepY] as [number, number] 
+  };
 }
 
 /**
