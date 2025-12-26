@@ -393,6 +393,17 @@ export function isPiecePinned(
   const stepX = dx === 0 ? 0 : dx > 0 ? 1 : -1;
   const stepY = dy === 0 ? 0 : dy > 0 ? 1 : -1;
 
+  // Check for any pieces between the piece and the king
+  let checkX = piece.x + stepX;
+  let checkY = piece.y + stepY;
+  while (checkX !== king.x || checkY !== king.y) {
+    if (allBasePoints.some(p => p.x === checkX && p.y === checkY)) {
+      return { isPinned: false }; // There's a piece between, so not pinned
+    }
+    checkX += stepX;
+    checkY += stepY;
+  }
+
   // Look for an attacking piece in the opposite direction (away from king)
   let x = piece.x - stepX;
   let y = piece.y - stepY;

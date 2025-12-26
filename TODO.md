@@ -1,14 +1,12 @@
 # TODOS
 
+- king can't capture pieces
+- fix pins (too many)
 - pawn promotion
 - en passant
-- load game
-- fen
+- save/load game
 - notation
 - don't replay always from start
 - keyboard control
 - design
-- drag pieces ui
 - show last move
-- show next move(s) (arrow)
-- engine
