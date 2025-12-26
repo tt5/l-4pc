@@ -51,6 +51,15 @@ interface BoardProps {
 }
 
 const Board: Component<BoardProps> = (props) => {
+  // Function to convert internal move format to UCI format
+  const moveToUCI = (move: Move): string => {
+    const fromFile = String.fromCharCode(97 + move.fromX);
+    const fromRank = (14 - move.fromY).toString();
+    const toFile = String.fromCharCode(97 + move.toX);
+    const toRank = (14 - move.toY).toString();
+    return `${fromFile}${fromRank}${toFile}${toRank}`;
+  };
+
   const auth = useAuth();
   const navigate = useNavigate();
   const [gameId, setGameId] = createSignal<string>(props.gameId || DEFAULT_GAME_ID);
@@ -111,30 +120,18 @@ const Board: Component<BoardProps> = (props) => {
             clearInterval(analysisInterval);
           }
           
-          // Function to convert internal move format to UCI format
-          const moveToUCI = (move: Move): string => {
-            const fromFile = String.fromCharCode(97 + move.fromX);
-            const fromRank = (14 - move.fromY).toString();
-            const toFile = String.fromCharCode(97 + move.toX);
-            const toRank = (14 - move.toY).toString();
-            return `${fromFile}${fromRank}${toFile}${toRank}`;
-          };
-
           // Function to analyze the current position
           const analyzePosition = () => {
             if (!isEngineReady()) return;
             
             // Convert move history to UCI format
             const uciMoveHistory = moveHistory().map(moveToUCI);
-            const currentFen = generateFen4(basePoints(), currentTurnIndex());
             
             // Small delay to let the board state settle
             setTimeout(() => {
               try {
-                if (currentFen === generateFen4(basePoints(), currentTurnIndex())
-                  && moveHistory().length > 0
-                ) {
-                  engine.startAnalysis(currentFen, uciMoveHistory);
+                if (uciMoveHistory.length > 0) {
+                  engine.startAnalysis(uciMoveHistory);
                 }
               } catch (error) {
                 console.error('Engine analysis error:', error);
@@ -758,7 +755,12 @@ const Board: Component<BoardProps> = (props) => {
     
     // 7. Force UI update and recalculate restricted squares with latest state
     await new Promise(resolve => setTimeout(resolve, 0));
-      
+    
+    // Trigger analysis after moving forward
+    if (isEngineReady()) {
+      const uciMoveHistory = history.slice(0, newIndex).map(moveToUCI);
+      engine.startAnalysis(uciMoveHistory);
+    }
   };
 
   /**
@@ -822,6 +824,12 @@ const Board: Component<BoardProps> = (props) => {
     const isCurrentKingInCheck = currentKingInCheck !== null && 
       currentKingInCheck.team === getTeamByColor(playerColorName);
       
+    // Trigger analysis after going back
+    if (isEngineReady()) {
+      const uciMoveHistory = history.slice(0, newIndex).map(moveToUCI);
+      engine.startAnalysis(uciMoveHistory);
+    }
+      
     console.log('[DEBUG] isCurrentKingInCheck:', isCurrentKingInCheck);
     
     const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(
@@ -881,15 +889,6 @@ const Board: Component<BoardProps> = (props) => {
     window.addEventListener('mouseup', handleGlobalMouseUp as EventListener);
 
     // Initialize engine
-    // Function to convert internal move format to UCI format
-    const moveToUCI = (move: Move): string => {
-      const fromFile = String.fromCharCode(97 + move.fromX);
-      const fromRank = (14 - move.fromY).toString();
-      const toFile = String.fromCharCode(97 + move.toX);
-      const toRank = (14 - move.toY).toString();
-      return fromFile + fromRank + toFile + toRank;
-    };
-
     try {
       if (engine && isEngineReady() && 
           typeof engine.startAnalysis === 'function' && 
@@ -918,8 +917,8 @@ const Board: Component<BoardProps> = (props) => {
             console.log('Starting engine analysis with FEN:', currentFen);
             console.log('Move history:', uciMoveHistory);
             
-            // Start analysis with the current FEN and move history
-            engine.startAnalysis(currentFen, uciMoveHistory);
+            // Start analysis with the move history
+            engine.startAnalysis(uciMoveHistory);
             
             // Listen for the best move from the engine
             const bestMove = await new Promise<string>((resolve) => {

@@ -103,14 +103,14 @@ export function createEngineClient() {
     }
   };
   
-  const startAnalysis = (fen: string, moveHistory: string[] = []) => {
-    // Don't resend the same FEN and move history
-    const currentState = JSON.stringify({ fen, moveHistory });
+  const startAnalysis = (moveHistory: string[] = []) => {
+    // Don't resend the same move history
+    const currentState = JSON.stringify(moveHistory);
     if (currentState === lastFen) {
       return false;
     }
     
-    console.log('Starting analysis for FEN:', fen, 'with moves:', moveHistory);
+    console.log('Starting analysis with moves:', moveHistory);
     
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       console.error('Engine: WebSocket not connected');
@@ -122,7 +122,6 @@ export function createEngineClient() {
       ws.send(JSON.stringify({
         type: 'startAnalysis',
         data: { 
-          fen,
           moveHistory
         }
       }));

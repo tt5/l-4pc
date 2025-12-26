@@ -22,6 +22,12 @@ export function createEngineWebSocketServer(port: number = 8080) {
     ws.on('message', async (message) => {
       try {
         const { type, data } = JSON.parse(message.toString());
+        
+        // Ensure FEN is completely removed from analysis data
+        if (data && type === 'startAnalysis') {
+          delete data.fen;
+        }
+        
         console.log('Received message:', type, data);
 
         switch (type) {
@@ -36,10 +42,7 @@ export function createEngineWebSocketServer(port: number = 8080) {
             engine.onAnalysisUpdate = (analysis) => {
               ws.send(JSON.stringify({
                 type: 'analysisUpdate',
-                data: {
-                  ...analysis,
-                  fen: data.fen
-                }
+                data: analysis
               }));
             };
             
