@@ -268,8 +268,12 @@ export function isSquareUnderAttack(
   getTeamFn: (color: string) => number
 ): boolean {
   return allBasePoints.some(attacker => {
+    // Skip if this is a piece on the target square (can't attack its own square)
+    if (attacker.x === x && attacker.y === y) {
+      return false;
+    }
     if (getTeamFn(attacker.color) !== attackingTeam) return false;
-    return canPieceAttack(attacker, x, y, allBasePoints);
+    return canPieceAttack(attacker, x, y, allBasePoints, getTeamFn);
   });
 }
 
@@ -756,22 +760,43 @@ export function getLegalMoves(
       
       // Check if the square is occupied
       const targetPiece = allBasePoints.find(bp => bp.x === x && bp.y === y);
+      const isCapture = targetPiece && getTeamByColor(targetPiece.color) !== team;
+      
+      // Log king in check capture attempt
+      if (isKingInCheck && isCapture) {
+        console.log(`King in check trying to capture at (${x},${y})`, {
+          targetPiece: targetPiece ? { ...targetPiece, pieceType: targetPiece.pieceType } : null,
+          isSquareUnderAttack: isSquareUnderAttack ? isSquareUnderAttack(x, y, team, allBasePoints, getTeamByColor) : 'not checked',
+          allAttackers: isSquareUnderAttack ? allBasePoints.filter(p => 
+            getTeamByColor(p.color) !== team && canPieceAttack(p, x, y, allBasePoints, getTeamByColor)
+          ).map(p => ({x: p.x, y: p.y, type: p.pieceType})) : []
+        });
+      }
       
       // If occupied by a teammate, can't move there
       if (targetPiece && getTeamByColor(targetPiece.color) === team) {
         return null;
       }
       
-      // If occupied by an enemy, can capture
-      const canCapture = targetPiece ? getTeamByColor(targetPiece.color) !== team : false;
-      
       return {
         x,
         y,
-        canCapture,
+        canCapture: isCapture,
         isCastle: false
       };
-    }).filter((move): move is { x: number; y: number; canCapture: boolean; isCastle: boolean } => move !== null);
+    }).filter((move): move is { x: number; y: number; canCapture: boolean; isCastle: boolean } => {
+      if (!move) return false;
+      
+      // If this is a capture attempt while in check, log why it might be filtered out
+      if (isKingInCheck && move.canCapture) {
+        const targetPiece = allBasePoints.find(p => p.x === move.x && p.y === move.y);
+        if (targetPiece && isSquareUnderAttack && isSquareUnderAttack(move.x, move.y, team, allBasePoints, getTeamByColor)) {
+          console.log(`Preventing king capture at (${move.x},${move.y}) because square is under attack by other pieces`);
+        }
+      }
+      
+      return true;
+    });
 
     // Add castling moves if available
     const castlingMoves: Array<{x: number, y: number, canCapture: boolean, isCastle: boolean, castleType: string}> = [];
