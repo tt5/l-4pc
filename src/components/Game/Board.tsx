@@ -70,21 +70,43 @@ const Board: Component<BoardProps> = (props) => {
   const [isEngineThinking, setIsEngineThinking] = createSignal(false);
   const [isAnalyzing, setIsAnalyzing] = createSignal(false);
   const [analysis, setAnalysis] = createSignal<{score: string; depth: number; bestMove: string} | null>(null);
+  const [lastAnalyzedMoves, setLastAnalyzedMoves] = createSignal<string[]>([]);
+  const analysisInProgress = { current: false };
   
   // Centralized function to handle engine analysis
   const startEngineAnalysis = async (moves: string[]) => {
-    if (!isEngineReady() || isAnalyzing()) {
-      console.log('[Engine] Skipping analysis - engine not ready or already analyzing');
+    const movesStr = JSON.stringify(moves);
+    const lastMovesStr = JSON.stringify(lastAnalyzedMoves());
+    
+    if (!isEngineReady()) {
+      console.log('[Engine] Skipping analysis - engine not ready');
+      return;
+    }
+    
+    if (analysisInProgress.current) {
+      console.log('[Engine] Skipping analysis - already analyzing');
+      return;
+    }
+    
+    // Skip if we're already analyzing these exact moves
+    if (movesStr === lastMovesStr) {
+      console.log('[Engine] Skipping analysis - same moves as last analysis');
       return;
     }
     
     console.log('[Engine] Starting analysis with moves:', moves);
+    analysisInProgress.current = true;
+    setLastAnalyzedMoves(moves);
     setIsAnalyzing(true);
+    
     try {
       await engine.startAnalysis(moves);
     } catch (error) {
       console.error('[Engine] Error during analysis:', error);
+      // Reset last analyzed moves on error to ensure we can retry
+      setLastAnalyzedMoves([]);
     } finally {
+      analysisInProgress.current = false;
       setIsAnalyzing(false);
     }
   };
@@ -130,24 +152,7 @@ const Board: Component<BoardProps> = (props) => {
         console.log('Engine connected');
         setIsEngineReady(true);
         
-        // Function to analyze the current position
-        const analyzePosition = () => {
-          if (!isEngineReady()) return;
-          
-          // Convert move history to UCI format
-          const uciMoveHistory = moveHistory().map(moveToUCI);
-          
-          // Small delay to let the board state settle
-          setTimeout(() => {
-            try {
-              if (uciMoveHistory.length > 0) {
-                startEngineAnalysis(uciMoveHistory);
-              }
-            } catch (error) {
-              console.error('Engine analysis error:', error);
-            }
-          }, 50);
-        };
+        // Use the analyzePosition function defined at the component level
         
         // Initial analysis
         analyzePosition();
@@ -160,6 +165,7 @@ const Board: Component<BoardProps> = (props) => {
     
     // Clean up the WebSocket connection when the component unmounts
     onCleanup(() => {
+      analysisInProgress.current = false;
       engine.disconnect();
     });
   });
@@ -762,6 +768,25 @@ const Board: Component<BoardProps> = (props) => {
   // Track if we're currently handling a go back operation
   const isHandlingGoBack = { current: false };
 
+  // Function to analyze position with proper guards
+  const analyzePosition = () => {
+    if (!isEngineReady() || isHandlingGoBack.current) return;
+    
+    // Convert move history to UCI format
+    const uciMoveHistory = moveHistory().map(moveToUCI);
+    
+    // Small delay to let the board state settle
+    setTimeout(() => {
+      try {
+        if (uciMoveHistory.length > 0) {
+          startEngineAnalysis(uciMoveHistory);
+        }
+      } catch (error) {
+        console.error('Engine analysis error:', error);
+      }
+    }, 50);
+  };
+
   /**
    * Handles going back one move in history
    */
@@ -771,29 +796,22 @@ const Board: Component<BoardProps> = (props) => {
 
     try {
       const branch = currentBranchName() || 'main';
-
-      const currentBranchPoints = branchPoints()[currentMoveIndex()-1]
-        ?.filter(bp => bp.branchName === branch) || [];
-
-      console.log(`[handleGoBack] currentBranchPoints: ${JSON.stringify(currentBranchPoints)}`);
-      
-      if (currentBranchPoints.length > 0) {
-        const firstBranchPoint = currentBranchPoints[0];
-        const parentBranch = firstBranchPoint.parentBranch;
-        if (parentBranch) {
-          setCurrentBranchName(parentBranch);
-        }
-      }
-      
-      console.log(`[handleGoBack] currentBranchName: ${currentBranchName()}`)
-      
       const currentIndex = currentMoveIndex();
-      const history = [...rebuildMoveHistory(currentBranchName() || 'main')]; // Create a copy of the move history array
       
-      if (history.length === 0 || currentIndex === 0) {
-        return;
+      if (currentIndex === 0) {
+        return; // Already at the start of the game
       }
 
+      // Get the current branch points before any state changes
+      const currentBranchPoints = branchPoints()[currentIndex-1]?.filter(bp => bp.branchName === branch) || [];
+      const parentBranch = currentBranchPoints[0]?.parentBranch;
+      
+      if (parentBranch) {
+        setCurrentBranchName(parentBranch);
+      }
+      
+      // Rebuild the history for the correct branch
+      const history = [...rebuildMoveHistory(parentBranch || branch)];
       const newIndex = currentIndex - 1;
       
       // Batch all state updates together
@@ -807,10 +825,9 @@ const Board: Component<BoardProps> = (props) => {
         const targetMove = history[newIndex];
         setCurrentBranchName(targetMove?.branchName || null);
         
-        const newTurnIndex = (newIndex) % PLAYER_COLORS.length;
+        const newTurnIndex = newIndex % PLAYER_COLORS.length;
         setCurrentTurnIndex(newTurnIndex);
         
-        // Update king check status after the move
         updateKingCheckStatus(updatedBasePoints);
         
         const playerColorName = PLAYER_COLORS[newTurnIndex].toLowerCase();
@@ -819,16 +836,9 @@ const Board: Component<BoardProps> = (props) => {
           p.color?.toLowerCase() === getColorHex(playerColorName)?.toLowerCase()
         );
 
-        // Get current king check status
         const currentKingInCheck = kingInCheck();
-        console.log('[DEBUG] Current king check status:', currentKingInCheck);
-        console.log('[DEBUG] Current player color:', playerColorName);
-        console.log('[DEBUG] Current player team:', getTeamByColor(playerColorName));
-
         const isCurrentKingInCheck = currentKingInCheck !== null && 
           currentKingInCheck.team === getTeamByColor(playerColorName);
-          
-        console.log('[DEBUG] isCurrentKingInCheck:', isCurrentKingInCheck);
         
         const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(
           currentPlayerPieces,
@@ -859,9 +869,8 @@ const Board: Component<BoardProps> = (props) => {
       // Trigger analysis after all state updates are complete
       const uciMoveHistory = history.slice(0, newIndex).map(moveToUCI);
       console.log('[handleGoBack] Starting analysis with moves:', uciMoveHistory);
-      startEngineAnalysis(uciMoveHistory);
+      await startEngineAnalysis(uciMoveHistory);
       
-      await new Promise(resolve => setTimeout(resolve, 0));
     } finally {
       isHandlingGoBack.current = false;
     }
