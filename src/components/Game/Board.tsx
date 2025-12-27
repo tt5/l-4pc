@@ -111,48 +111,27 @@ const Board: Component<BoardProps> = (props) => {
         console.log('Engine connected');
         setIsEngineReady(true);
         
-        // Start continuous analysis when connected
-        let analysisInterval: number;
-        
-        const startAnalysis = () => {
-          // Stop any existing analysis first
-          if (analysisInterval) {
-            clearInterval(analysisInterval);
-          }
+        // Function to analyze the current position
+        const analyzePosition = () => {
+          if (!isEngineReady()) return;
           
-          // Function to analyze the current position
-          const analyzePosition = () => {
-            if (!isEngineReady()) return;
-            
-            // Convert move history to UCI format
-            const uciMoveHistory = moveHistory().map(moveToUCI);
-            
-            // Small delay to let the board state settle
-            setTimeout(() => {
-              try {
-                if (uciMoveHistory.length > 0) {
-                  engine.startAnalysis(uciMoveHistory);
-                }
-              } catch (error) {
-                console.error('Engine analysis error:', error);
+          // Convert move history to UCI format
+          const uciMoveHistory = moveHistory().map(moveToUCI);
+          
+          // Small delay to let the board state settle
+          setTimeout(() => {
+            try {
+              if (uciMoveHistory.length > 0) {
+                engine.startAnalysis(uciMoveHistory);
               }
-            }, 50);
-          };
-          
-          // Run analysis immediately and then every 2 seconds
-          analyzePosition();
-          analysisInterval = window.setInterval(analyzePosition, 2000);
-          
-          // Cleanup interval on effect cleanup
-          return () => {
-            if (analysisInterval) {
-              clearInterval(analysisInterval);
+            } catch (error) {
+              console.error('Engine analysis error:', error);
             }
-          };
+          }, 50);
         };
         
-        // Start the analysis
-        startAnalysis();
+        // Initial analysis
+        analyzePosition();
         
       } else {
         console.log('Engine disconnected');
