@@ -697,43 +697,52 @@ const Board: Component<BoardProps> = (props) => {
   };
 
   const handleDeleteCurrentMove = async () => {
+    console.log('[Delete] Delete button clicked');
     const currentIndex = currentMoveIndex();
-    if (currentIndex < 0 || currentIndex >= moveHistory().length) return;
+    if (currentIndex < 0 || currentIndex >= moveHistory().length) {
+      console.log('[Delete] No move to delete');
+      return;
+    }
 
-    // Create a new move history without the current move
+    const currentMove = moveHistory()[currentIndex];
+    
+    // First try to delete on the server if we have a move ID
+    if (currentMove?.id) {
+      try {
+        console.log(`[Delete] Attempting to delete move ${currentMove.id} at index ${currentIndex}`);
+        const response = await fetch(`/api/moves/${currentMove.id}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => 'No error details');
+          console.error(`[Delete] Server error: ${response.status} - ${errorText}`);
+          throw new Error(`Server returned ${response.status}`);
+        }
+        console.log(`[Delete] Successfully deleted move ${currentMove.id}`);
+      } catch (error) {
+        console.error('[Delete] Failed to delete move:', error instanceof Error ? error.message : String(error));
+        // Don't update local state if server deletion fails
+        return;
+      }
+    }
+
+    // If we get here, server deletion succeeded or wasn't needed
     const newMoveHistory = [...moveHistory()];
     newMoveHistory.splice(currentIndex, 1);
 
-    // Reset the board to initial state
+    // Reset and replay moves
     resetBoardToInitialState();
-
-    // Replay all moves up to the previous move
     const movesToReplay = newMoveHistory.slice(0, currentIndex);
     const replayedPieces = replayMoves(movesToReplay, movesToReplay.length - 1);
+    
+    // Update local state
     setBasePoints(replayedPieces);
-
-    // Update the move history and adjust the current move index
     setMoveHistory(newMoveHistory);
     setCurrentMoveIndex(Math.max(-1, currentIndex - 1));
-
-    // If there's a game ID, update the server
-    if (props.gameId) {
-      try {
-        const moveToDelete = moveHistory()[currentIndex];
-        if (moveToDelete?.id) {
-          await fetch(`/api/moves/${moveToDelete.id}`, {
-            method: 'DELETE',
-            headers: {
-              'Content-Type': 'application/json',
-            }
-          });
-        } else {
-          console.warn('Cannot delete move: Missing move ID');
-        }
-      } catch (error) {
-        console.error('Failed to delete move on server:', error);
-      }
-    }
   };
 
   const handleGoForward = async () => {
