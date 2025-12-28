@@ -698,13 +698,20 @@ const Board: Component<BoardProps> = (props) => {
 
   const handleDeleteCurrentMove = async () => {
     console.log('[Delete] Delete button clicked');
-    const currentIndex = currentMoveIndex();
     const history = moveHistory();
+    // Ensure we're pointing to the last move if current index is out of bounds
+    let currentIndex = currentMoveIndex();
+    
+    // If currentIndex is out of bounds, adjust it to point to the last move
+    if (currentIndex >= history.length) {
+      currentIndex = Math.max(0, history.length - 1);
+      console.log(`[Delete] Adjusted currentIndex from ${currentMoveIndex()} to ${currentIndex}`);
+    }
     
     console.log(`[Delete] Current index: ${currentIndex}, History length: ${history.length}`);
     console.log(`[Delete] Move history:`, JSON.stringify(history, null, 2));
     
-    if (currentIndex < 0 || currentIndex >= history.length) {
+    if (currentIndex < 0 || currentIndex >= history.length || history.length === 0) {
       console.log(`[Delete] No move to delete - Index ${currentIndex} is out of bounds for history length ${history.length}`);
       return;
     }
