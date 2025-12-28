@@ -68,6 +68,24 @@
   border-color: #dee2e6;
 }
 
+.actionButtons {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.deleteButton {
+  border: 1px solid #dc3545;
+  color: #dc3545;
+  background-color: #fff;
+}
+
+.deleteButton:hover:not(:disabled) {
+  background-color: #dc3545;
+  color: white;
+}
+
 .backButton::before {
   content: '⏪';
   margin-right: 5px;

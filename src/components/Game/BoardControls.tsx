@@ -6,9 +6,11 @@ type BoardControlsProps = {
   onReset?: () => void;
   onGoBack?: () => Promise<void>;
   onGoForward?: () => Promise<void>;
+  onDeleteCurrentMove?: () => Promise<void>;
   gameId?: string;
   canGoBack?: boolean;
   canGoForward?: boolean;
+  canDeleteCurrentMove?: boolean;
 };
 
 const BoardControls: Component<BoardControlsProps> = (props) => {
@@ -16,6 +18,7 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
   const [isResetting, setIsResetting] = createSignal(false);
   const [isGoingBack, setIsGoingBack] = createSignal(false);
   const [isGoingForward, setIsGoingForward] = createSignal(false);
+  const [isDeleting, setIsDeleting] = createSignal(false);
 
   const handleResetBoard = async () => {
     const currentUser = user();
@@ -110,14 +113,37 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
           {isGoingForward() ? '...' : 'Forward ⏩'}
         </button>
       </div>
-      <button 
-        onClick={handleResetBoard} 
-        disabled={isResetting()}
-        class={`${styles.controlButton} ${styles.resetButton}`}
-        title="Reset the game board to its initial state"
-      >
-        {isResetting() ? 'Resetting...' : 'Reset Board'}
-      </button>
+      <div class={styles.actionButtons}>
+        <button 
+          onClick={handleResetBoard} 
+          disabled={isResetting()}
+          class={`${styles.controlButton} ${styles.resetButton}`}
+          title="Reset the game board to its initial state"
+        >
+          {isResetting() ? 'Resetting...' : 'Reset Board'}
+        </button>
+        {props.canDeleteCurrentMove && (
+          <button
+            onClick={async (e) => {
+              e.preventDefault();
+              if (isDeleting() || !props.onDeleteCurrentMove) return;
+              setIsDeleting(true);
+              try {
+                await props.onDeleteCurrentMove();
+              } catch (error) {
+                console.error('Error deleting move:', error);
+              } finally {
+                setIsDeleting(false);
+              }
+            }}
+            disabled={isDeleting() || !props.canDeleteCurrentMove}
+            class={`${styles.controlButton} ${styles.deleteButton}`}
+            title="Delete current move and all subsequent moves"
+          >
+            {isDeleting() ? 'Deleting...' : 'Delete Move'}
+          </button>
+        )}
+      </div>
     </div>
   );
 };

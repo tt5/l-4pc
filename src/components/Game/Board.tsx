@@ -696,12 +696,51 @@ const Board: Component<BoardProps> = (props) => {
     return Array.from(positionMap.values());
   };
 
-  const handleGoForward = async () => {
+  const handleDeleteCurrentMove = async () => {
+    const currentIndex = currentMoveIndex();
+    if (currentIndex < 0 || currentIndex >= moveHistory().length) return;
 
+    // Create a new move history without the current move
+    const newMoveHistory = [...moveHistory()];
+    newMoveHistory.splice(currentIndex, 1);
+
+    // Reset the board to initial state
+    resetBoardToInitialState();
+
+    // Replay all moves up to the previous move
+    const movesToReplay = newMoveHistory.slice(0, currentIndex);
+    const replayedPieces = replayMoves(movesToReplay, movesToReplay.length - 1);
+    setBasePoints(replayedPieces);
+
+    // Update the move history and adjust the current move index
+    setMoveHistory(newMoveHistory);
+    setCurrentMoveIndex(Math.max(-1, currentIndex - 1));
+
+    // If there's a game ID, update the server
+    if (props.gameId) {
+      try {
+        const moveToDelete = moveHistory()[currentIndex];
+        if (moveToDelete?.id) {
+          await fetch(`/api/moves/${moveToDelete.id}`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          });
+        } else {
+          console.warn('Cannot delete move: Missing move ID');
+        }
+      } catch (error) {
+        console.error('Failed to delete move on server:', error);
+      }
+    }
+  };
+
+  const handleGoForward = async () => {
     console.log(`[handleGoForward] ${currentMoveIndex()} -- currentBranchName: ${currentBranchName()}`)
 
     const currentIndex = currentMoveIndex();
-    const history = [...rebuildMoveHistory( currentBranchName() || 'main')]; // Create a copy of the move history array
+    const history = [...rebuildMoveHistory(currentBranchName() || 'main')]; // Create a copy of the move history array
     setMoveHistory(history);
     
     const newIndex = currentIndex + 1;
@@ -1603,9 +1642,11 @@ const Board: Component<BoardProps> = (props) => {
           gameId={gameId()}
           canGoBack={currentMoveIndex() >= 0}
           canGoForward={currentMoveIndex() < moveHistory().length}
+          canDeleteCurrentMove={currentMoveIndex() >= 0 && moveHistory().length > 0}
           onGoBack={handleGoBack}
           onGoForward={handleGoForward}
           onReset={resetBoardToInitialState}
+          onDeleteCurrentMove={handleDeleteCurrentMove}
         />
         
         <div class={styles.grid}>
