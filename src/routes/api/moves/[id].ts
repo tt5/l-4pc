@@ -37,25 +37,14 @@ export const DELETE = withAuth(async (event: APIEvent) => {
     const moveRepo = await getMoveRepository();
     
     // First find the move by coordinates and move number
-    const move = await moveRepo.db.get<{id: number}>(
-      `SELECT id FROM moves 
-       WHERE game_id = ? 
-         AND from_x = ? 
-         AND from_y = ? 
-         AND to_x = ? 
-         AND to_y = ? 
-         AND move_number = ? 
-       ORDER BY created_at_ms DESC 
-       LIMIT 1`,
-      [
-        coordinates.gameId,
-        coordinates.fromX,
-        coordinates.fromY,
-        coordinates.toX,
-        coordinates.toY,
-        coordinates.moveNumber
-      ]
-    );
+    const move = await moveRepo.findExistingMove({
+      gameId: coordinates.gameId,
+      fromX: coordinates.fromX,
+      fromY: coordinates.fromY,
+      toX: coordinates.toX,
+      toY: coordinates.toY,
+      moveNumber: coordinates.moveNumber
+    });
     
     if (!move) {
       return json(
@@ -65,6 +54,18 @@ export const DELETE = withAuth(async (event: APIEvent) => {
           requestId
         },
         { status: 404 }
+      );
+    }
+    
+    // Ensure we have a valid move ID
+    if (typeof move.id === 'undefined') {
+      return json(
+        { 
+          success: false, 
+          error: 'Invalid move ID',
+          requestId
+        },
+        { status: 400 }
       );
     }
     
