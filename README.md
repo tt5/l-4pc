@@ -9,5 +9,10 @@ and (in another terminal)
 - [ ] pawn promotion
 - [ ] rotate board
 - [ ] algebraic notation
-- [ ] delete move
+- [x] delete move
 - [ ] promote branch
+- [ ] layout settings (board size, etc.)
+- [ ] keyboard controls
+- [ ] save/load game
+- [ ] export/import pgn4
+- [ ] start from fen4, show fen4
