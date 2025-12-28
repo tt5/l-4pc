@@ -196,6 +196,99 @@ export class MoveRepository {
     }
   }
 
+  async getMoveAndDescendants(moveId: number): Promise<number[]> {
+    try {
+      // First get the move to find its game and branch info
+      const move = await this.db.get<{game_id: string, branch_name: string, move_number: number}>(
+        `SELECT game_id, branch_name, move_number FROM moves WHERE id = ?`,
+        [moveId]
+      );
+
+      if (!move) {
+        return [];
+      }
+
+      // Get all moves in the same branch with equal or higher move_number
+      // and any moves in branches that start from those moves
+      const moves = await this.db.all<{id: number}[]>(`
+        WITH RECURSIVE move_tree AS (
+          -- Start with the specified move
+          SELECT id, branch_name, move_number
+          FROM moves 
+          WHERE id = ?
+          
+          UNION ALL
+          
+          -- Get all moves in the same branch after our move
+          SELECT m.id, m.branch_name, m.move_number
+          FROM moves m
+          JOIN move_tree mt ON 
+            m.game_id = ? AND 
+            m.branch_name = mt.branch_name AND 
+            m.move_number > mt.move_number
+          
+          UNION ALL
+          
+          -- Get all moves in branches that start from our move or its descendants
+          SELECT m.id, m.branch_name, m.move_number
+          FROM moves m
+          JOIN move_tree mt ON 
+            m.game_id = ? AND 
+            m.parent_branch_name = mt.branch_name AND 
+            m.move_number > mt.move_number
+        )
+        SELECT id FROM move_tree
+      `, [moveId, move.game_id, move.game_id]);
+
+      return moves.map(m => m.id);
+    } catch (error) {
+      console.error('[Move] ❌ Error getting move and descendants:', error);
+      throw error;
+    }
+  }
+
+  async deleteMoveAndDescendants(moveId: number): Promise<{deletedCount: number, gameId: string}> {
+    const transaction = await this.db.transaction();
+    
+    try {
+      // First get all moves to delete
+      const moveIdsToDelete = await this.getMoveAndDescendants(moveId);
+      
+      if (moveIdsToDelete.length === 0) {
+        return { deletedCount: 0, gameId: '' };
+      }
+
+      // Get the game ID for the first move (all moves should belong to the same game)
+      const moveInfo = await this.db.get<{game_id: string}>(
+        'SELECT game_id FROM moves WHERE id = ?',
+        [moveId]
+      );
+
+      if (!moveInfo) {
+        throw new Error('Move not found');
+      }
+
+      // Create placeholders for the IN clause
+      const placeholders = moveIdsToDelete.map(() => '?').join(',');
+      
+      // Delete all related moves in a single transaction
+      const result = await transaction.run(
+        `DELETE FROM moves WHERE id IN (${placeholders})`,
+        moveIdsToDelete
+      );
+
+      await transaction.commit();
+      return { 
+        deletedCount: result.changes || 0,
+        gameId: moveInfo.game_id
+      };
+    } catch (error) {
+      await transaction.rollback();
+      console.error('[Move] ❌ Error deleting move and descendants:', error);
+      throw error;
+    }
+  }
+
   async getMovesForGame(gameId: string, branchName: string | null, maxMoveNumber?: number): Promise<Move[]> {
     const query = `
       SELECT 
