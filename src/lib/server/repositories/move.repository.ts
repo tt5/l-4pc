@@ -208,73 +208,38 @@ export class MoveRepository {
         return [];
       }
 
-      // Get all moves in the same branch with equal or higher move_number
-      // and any moves in branches that are descendants of those moves
-      const moves = await this.db.all<{id: number}[]>(`
-        WITH RECURSIVE move_tree AS (
-          -- Start with the specified move
-          SELECT 
-            id, 
-            branch_name, 
-            move_number,
-            branch_name as branch_path,
-            '' as parent_branch
-          FROM moves 
-          WHERE id = ?
-          
-          UNION ALL
-          
-          -- Get all moves in the same branch after our move
-          SELECT 
-            m.id, 
-            m.branch_name, 
-            m.move_number,
-            m.branch_name as branch_path,
-            '' as parent_branch
-          FROM moves m
-          JOIN move_tree mt ON 
-            m.game_id = ? AND 
-            m.branch_name = mt.branch_name AND 
-            m.move_number > mt.move_number
-          
-          UNION ALL
-          
-          -- Get all moves in direct child branches
-          SELECT 
-            m.id, 
-            m.branch_name, 
-            m.move_number,
-            m.branch_name as branch_path,
-            -- Extract parent branch name (everything before the last '/')
-            CASE 
-              WHEN m.branch_name LIKE '%/%' 
-              THEN substr(m.branch_name, 1, instr(m.branch_name, '/', -1) - 1)
-              ELSE ''
-            END as parent_branch
-          FROM moves m
-          WHERE m.game_id = ?
-          AND (
-            -- Direct child branches
-            (m.branch_name LIKE '%/%' AND 
-             m.branch_name IN (
-               SELECT DISTINCT branch_name 
-               FROM moves 
-               WHERE game_id = ? 
-               AND branch_name LIKE mt.branch_path || '/%'
-               AND branch_name NOT LIKE mt.branch_path || '/%/%'
-             )
-            )
-            OR
-            -- Deeper nested branches (handled in next iteration)
-            (m.branch_name LIKE mt.branch_path || '/%/%')
-          )
-          AND m.move_number > mt.move_number
-          AND m.id NOT IN (SELECT id FROM move_tree)
-        )
-        SELECT id FROM move_tree
-      `, [moveId, move.game_id, move.game_id, move.game_id]);
+      // First, get all moves in the same branch with equal or higher move_number
+      const sameBranchMoves = await this.db.all<{id: number}[]>(
+        `SELECT id FROM moves 
+         WHERE game_id = ? 
+         AND branch_name = ? 
+         AND move_number >= ?`,
+        [move.game_id, move.branch_name, move.move_number]
+      );
 
-      return moves.map(m => m.id);
+      // Then find all child branches
+      const childBranches = await this.db.all<{id: number, branch_name: string}[]>(
+        `SELECT id, branch_name 
+         FROM moves 
+         WHERE game_id = ? 
+         AND branch_name LIKE ? || '/%' 
+         AND move_number >= ?`,
+        [move.game_id, move.branch_name, move.move_number]
+      );
+
+      // Collect all move IDs
+      const moveIds = new Set(sameBranchMoves.map(m => m.id));
+      
+      // Process child branches recursively
+      for (const branch of childBranches) {
+        if (!moveIds.has(branch.id)) {
+          const childMoves = await this.getMoveAndDescendants(branch.id);
+          childMoves.forEach(id => moveIds.add(id));
+        }
+      }
+
+      return Array.from(moveIds);
+
     } catch (error) {
       console.error('[Move] ❌ Error getting move and descendants:', error);
       throw error;
