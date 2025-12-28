@@ -719,15 +719,28 @@ const Board: Component<BoardProps> = (props) => {
     const currentMove = history[currentIndex];
     console.log(`[Delete] Current move to delete:`, JSON.stringify(currentMove, null, 2));
     
-    // First try to delete on the server if we have a move ID
-    if (currentMove?.id) {
+    // First try to delete on the server if we have the required data
+    if (currentMove?.fromX !== undefined && currentMove?.fromY !== undefined && 
+        currentMove?.toX !== undefined && currentMove?.toY !== undefined && 
+        currentMove?.moveNumber !== undefined && props.gameId) {
+      
+      const moveData = {
+        gameId: props.gameId,
+        fromX: currentMove.fromX,
+        fromY: currentMove.fromY,
+        toX: currentMove.toX,
+        toY: currentMove.toY,
+        moveNumber: currentMove.moveNumber
+      };
+      
       try {
-        console.log(`[Delete] Attempting to delete move ${currentMove.id} at index ${currentIndex}`);
-        const response = await fetch(`/api/moves/${currentMove.id}`, {
+        console.log(`[Delete] Attempting to delete move at index ${currentIndex} with data:`, moveData);
+        const response = await fetch('/api/moves/delete', {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
-          }
+          },
+          body: JSON.stringify(moveData)
         });
         
         if (!response.ok) {
@@ -735,7 +748,9 @@ const Board: Component<BoardProps> = (props) => {
           console.error(`[Delete] Server error: ${response.status} - ${errorText}`);
           throw new Error(`Server returned ${response.status}`);
         }
-        console.log(`[Delete] Successfully deleted move ${currentMove.id}`);
+        
+        const result = await response.json();
+        console.log(`[Delete] Successfully deleted ${result.deletedCount} moves`);
       } catch (error) {
         console.error('[Delete] Failed to delete move:', error instanceof Error ? error.message : String(error));
         // Don't update local state if server deletion fails
