@@ -765,6 +765,31 @@ const Board: Component<BoardProps> = (props) => {
     newMoveHistory.splice(currentIndex, 1);
     console.log(`[Delete] After deletion - New history length: ${newMoveHistory.length}`);
 
+    // Update fullMoveHistory to remove the deleted move and its descendants
+    setFullMoveHistory(prevFullHistory => {
+      // If the move has a branch name, we need to remove all moves in that branch
+      if (currentMove.branchName) {
+        const currentBranchName = currentMove.branchName;
+        // Remove all moves that are in the same branch or a sub-branch
+        return prevFullHistory.filter(move => {
+          return !move.branchName?.startsWith(currentBranchName + (currentBranchName.endsWith('/') ? '' : '/')) &&
+            !(move.branchName === currentBranchName && move.moveNumber >= currentMove.moveNumber);
+        });
+      } else {
+        // For main line moves, just remove the specific move
+        return prevFullHistory.filter(move => 
+          !(!move.branchName && move.moveNumber === currentMove.moveNumber)
+        );
+      }
+    });
+
+    // Also update mainLineMoves if the deleted move was in the main line
+    if (!currentMove.branchName) {
+      setMainLineMoves(prevMainLine => 
+        prevMainLine.filter(move => move.moveNumber !== currentMove.moveNumber)
+      );
+    }
+
     // Reset and replay moves
     console.log(`[Delete] Resetting board and replaying ${currentIndex} moves`);
     resetBoardToInitialState();
