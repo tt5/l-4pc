@@ -699,12 +699,18 @@ const Board: Component<BoardProps> = (props) => {
   const handleDeleteCurrentMove = async () => {
     console.log('[Delete] Delete button clicked');
     const currentIndex = currentMoveIndex();
-    if (currentIndex < 0 || currentIndex >= moveHistory().length) {
-      console.log('[Delete] No move to delete');
+    const history = moveHistory();
+    
+    console.log(`[Delete] Current index: ${currentIndex}, History length: ${history.length}`);
+    console.log(`[Delete] Move history:`, JSON.stringify(history, null, 2));
+    
+    if (currentIndex < 0 || currentIndex >= history.length) {
+      console.log(`[Delete] No move to delete - Index ${currentIndex} is out of bounds for history length ${history.length}`);
       return;
     }
 
-    const currentMove = moveHistory()[currentIndex];
+    const currentMove = history[currentIndex];
+    console.log(`[Delete] Current move to delete:`, JSON.stringify(currentMove, null, 2));
     
     // First try to delete on the server if we have a move ID
     if (currentMove?.id) {
@@ -731,15 +737,22 @@ const Board: Component<BoardProps> = (props) => {
     }
 
     // If we get here, server deletion succeeded or wasn't needed
-    const newMoveHistory = [...moveHistory()];
+    const newMoveHistory = [...history];
+    console.log(`[Delete] Before deletion - History length: ${newMoveHistory.length}`);
+    
     newMoveHistory.splice(currentIndex, 1);
+    console.log(`[Delete] After deletion - New history length: ${newMoveHistory.length}`);
 
     // Reset and replay moves
+    console.log(`[Delete] Resetting board and replaying ${currentIndex} moves`);
     resetBoardToInitialState();
     const movesToReplay = newMoveHistory.slice(0, currentIndex);
+    console.log(`[Delete] Moves to replay:`, movesToReplay);
+    
     const replayedPieces = replayMoves(movesToReplay, movesToReplay.length - 1);
     
     // Update local state
+    console.log(`[Delete] Updating state - New move index: ${Math.max(-1, currentIndex - 1)}`);
     setBasePoints(replayedPieces);
     setMoveHistory(newMoveHistory);
     setCurrentMoveIndex(Math.max(-1, currentIndex - 1));
