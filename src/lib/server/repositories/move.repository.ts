@@ -248,13 +248,15 @@ export class MoveRepository {
   }
 
   async deleteMoveAndDescendants(moveId: number): Promise<{deletedCount: number, gameId: string}> {
-    const transaction = await this.db.transaction();
-    
     try {
+      // Start transaction
+      await this.db.run('BEGIN TRANSACTION');
+      
       // First get all moves to delete
       const moveIdsToDelete = await this.getMoveAndDescendants(moveId);
       
       if (moveIdsToDelete.length === 0) {
+        await this.db.run('ROLLBACK');
         return { deletedCount: 0, gameId: '' };
       }
 
@@ -265,25 +267,31 @@ export class MoveRepository {
       );
 
       if (!moveInfo) {
+        await this.db.run('ROLLBACK');
         throw new Error('Move not found');
       }
 
       // Create placeholders for the IN clause
       const placeholders = moveIdsToDelete.map(() => '?').join(',');
       
-      // Delete all related moves in a single transaction
-      const result = await transaction.run(
+      // Delete all related moves
+      const result = await this.db.run(
         `DELETE FROM moves WHERE id IN (${placeholders})`,
         moveIdsToDelete
       );
 
-      await transaction.commit();
+      await this.db.run('COMMIT');
       return { 
         deletedCount: result.changes || 0,
         gameId: moveInfo.game_id
       };
     } catch (error) {
-      await transaction.rollback();
+      // Rollback on any error
+      try {
+        await this.db.run('ROLLBACK');
+      } catch (rollbackError) {
+        console.error('[Move] ❌ Error during rollback:', rollbackError);
+      }
       console.error('[Move] ❌ Error deleting move and descendants:', error);
       throw error;
     }
