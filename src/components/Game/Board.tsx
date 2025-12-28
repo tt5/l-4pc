@@ -790,6 +790,29 @@ const Board: Component<BoardProps> = (props) => {
       );
     }
 
+    // Clean up branchPoints when a move is deleted
+    setBranchPoints(prevBranchPoints => {
+      const newBranchPoints = { ...prevBranchPoints };
+      
+      // Remove any branch points that reference the deleted move's branch
+      Object.keys(newBranchPoints).forEach(moveNumber => {
+        const branchPoint = newBranchPoints[Number(moveNumber)];
+        if (branchPoint) {
+          newBranchPoints[Number(moveNumber)] = branchPoint.filter(bp => 
+            // Keep branch points that don't match the deleted move's branch
+            !currentMove.branchName || 
+            (bp.branchName !== currentMove.branchName && 
+             !bp.branchName.startsWith(currentMove.branchName + (currentMove.branchName.endsWith('/') ? '' : '/')))
+          );
+        }
+      });
+
+      // If this move was a branch point, remove it
+      delete newBranchPoints[currentMove.moveNumber];
+
+      return newBranchPoints;
+    });
+
     // Reset and replay moves
     console.log(`[Delete] Resetting board and replaying ${currentIndex} moves`);
     resetBoardToInitialState();
