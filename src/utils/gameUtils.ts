@@ -920,13 +920,13 @@ export function getLegalMoves(
           x: currentEnPassantTarget.x,
           y: currentEnPassantTarget.y,
           canCapture: true,
+          isEnPassant: true,
           capturedPiece: {
             x: captureX,
             y: captureY,
             color: currentEnPassantTarget.color,
             pieceType: 'pawn'
-          },
-          isEnPassant: false
+          }
         });
       }
     }
@@ -1003,64 +1003,46 @@ export function getLegalMoves(
     // For horizontally moving pawns (Blue and Green)
     else {
       captureOffsets = [
-        // Combine standard moves, en passant moves, and capture moves
         { dx: dx, dy: -1 },  // Diagonal up
         { dx: dx, dy: 1 }    // Diagonal down
       ];
     }
     
-    const allMoves = [...moves];
-    
-    // Add en passant moves if any exist
-    if (possibleMoves && possibleMoves.length > 0) {
-      allMoves.push(...possibleMoves);
-    }
+    // Combine standard moves with any en passant moves we found earlier
+    possibleMoves = [...moves, ...possibleMoves];
     
     // Add capture moves
     for (const offset of captureOffsets) {
-      const targetX = basePoint.x + offset.dx;
-      const targetY = basePoint.y + offset.dy;
+      const captureX = basePoint.x + offset.dx;
+      const captureY = basePoint.y + offset.dy;
+      
+      // Skip if the target square is in a non-playable corner
+      if (isInNonPlayableCorner(captureX, captureY)) {
+        continue;
+      }
       
       // Check if target square is within bounds
-      if (targetX >= 0 && targetX < BOARD_CONFIG.GRID_SIZE && 
-          targetY >= 0 && targetY < BOARD_CONFIG.GRID_SIZE) {
+      if (captureX >= 0 && captureX < BOARD_CONFIG.GRID_SIZE && 
+          captureY >= 0 && captureY < BOARD_CONFIG.GRID_SIZE) {
         
         // Skip non-playable corners
-        if (isInNonPlayableCorner(targetX, targetY)) {
+        if (isInNonPlayableCorner(captureX, captureY)) {
           continue;
         }
         
         // Check if there's an opponent's piece to capture
-        const targetPiece = allBasePoints.find(p => p.x === targetX && p.y === targetY);
+        const targetPiece = allBasePoints.find(p => p.x === captureX && p.y === captureY);
         if (targetPiece && getTeamByColor(targetPiece.color) !== team) {
-          allMoves.push({
-            x: targetX,
-            y: targetY,
+          moves.push({
+            x: captureX,
+            y: captureY,
             canCapture: true
           });
         }
       }
     }
     
-    // Set the final possible moves after all pawn moves are calculated
-    possibleMoves = allMoves;
-    
-    // Filter out any moves that would leave the king in check if in check
-    if (options.isKingInCheck && options.wouldResolveCheck && options.getTeamFn && options.isSquareUnderAttack && options.isSquareBetween) {
-      const playerColor = basePoint.color;
-      
-      possibleMoves = possibleMoves.filter(move => {
-        return options.wouldResolveCheck(
-          [basePoint.x, basePoint.y],
-          [move.x, move.y],
-          playerColor,
-          allBasePoints,
-          options.getTeamFn,
-          options.isSquareUnderAttack,
-          options.isSquareBetween
-        );
-      });
-    }
+    possibleMoves = [...moves];
   } else if (pieceType === 'bishop') {
     // Bishop moves any number of squares diagonally
     const directions = [
