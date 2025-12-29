@@ -720,6 +720,12 @@ export function getLegalMoves(
   isCastle?: boolean;
   castleType?: string;
   isEnPassant?: boolean;
+  capturedPiece?: {
+    x: number;
+    y: number;
+    color: string;
+    pieceType: string;
+  };
 }> {
 
   const { 
@@ -732,7 +738,20 @@ export function getLegalMoves(
 
   const pieceType = basePoint.pieceType || 'pawn'; // Default to pawn if not specified
   const team = getTeamByColor(basePoint.color);
-  let possibleMoves: Array<{x: number, y: number, canCapture: boolean, isCastle?: boolean, castleType?: string, isEnPassant?: boolean}> = [];
+  let possibleMoves: Array<{
+    x: number;
+    y: number;
+    canCapture: boolean;
+    isCastle?: boolean;
+    castleType?: string;
+    isEnPassant?: boolean;
+    capturedPiece?: {
+      x: number;
+      y: number;
+      color: string;
+      pieceType: string;
+    };
+  }> = [];
   
   if (pieceType === 'queen') {
     // Queen moves any number of squares in any direction
@@ -857,38 +876,57 @@ export function getLegalMoves(
       const dy = Math.abs(currentEnPassantTarget.y - basePoint.y);
       
       // Check if the pawn is in position to capture en passant
-      // For vertical moving pawns (red/yellow), check same file
-      // For horizontal moving pawns (blue/green), check same rank
       const isVertical = basePoint.color === '#F44336' || basePoint.color === '#FFEB3B';
-      const isAdjacent = (isVertical && dx === 1 && dy === 1) || 
-                        (!isVertical && dx === 1 && dy === 1);
+      const isHorizontal = basePoint.color === '#2196F3' || basePoint.color === '#4CAF50';
+      
+      // For vertical pawns, check if they're on the same file and adjacent rank
+      // For horizontal pawns, check if they're on the same rank and adjacent file
+      const isAdjacent = (isVertical && dx === 0 && dy === 1) || 
+                        (isHorizontal && dx === 1 && dy === 0);
       
       console.log('[getLegalMoves] En passant check:', JSON.stringify({
         piece: {x: basePoint.x, y: basePoint.y, color: basePoint.color},
         target: currentEnPassantTarget,
         dx, dy,
         isVertical,
+        isHorizontal,
         isAdjacent
       }, null, 2));
       
       if (isAdjacent) {
         // Add the en passant capture move
         // The actual capture square is one square behind the target in the direction of movement
-        const captureX = currentEnPassantTarget.x;
-        const captureY = currentEnPassantTarget.y;
+        let captureX = currentEnPassantTarget.x;
+        let captureY = currentEnPassantTarget.y;
+        
+        // Determine the captured pawn's position based on movement direction
+        if (isVertical) {
+          // For vertical pawns, the captured pawn is one square behind in the y-direction
+          captureY += (basePoint.color === '#F44336' ? -1 : 1);
+        } else {
+          // For horizontal pawns, the captured pawn is one square behind in the x-direction
+          captureX += (basePoint.color === '#2196F3' ? -1 : 1);
+        }
         
         // Add the en passant capture move
         console.log('[getLegalMoves] Adding en passant move:', JSON.stringify({
           from: {x: basePoint.x, y: basePoint.y},
-          to: {x: captureX, y: captureY},
+          to: {x: currentEnPassantTarget.x, y: currentEnPassantTarget.y},
+          capturedPawn: {x: captureX, y: captureY},
           target: currentEnPassantTarget
         }, null, 2));
         
         possibleMoves.push({
-          x: captureX,
-          y: captureY,
+          x: currentEnPassantTarget.x,
+          y: currentEnPassantTarget.y,
           canCapture: true,
-          isEnPassant: true
+          isEnPassant: true,
+          capturedPiece: {
+            x: captureX,
+            y: captureY,
+            color: currentEnPassantTarget.color,
+            pieceType: 'pawn'
+          }
         });
       }
     }

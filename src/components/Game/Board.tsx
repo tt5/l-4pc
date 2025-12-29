@@ -618,7 +618,8 @@ const Board: Component<BoardProps> = (props) => {
           isSquareUnderAttack(x, y, team, points, teamFn),
         isSquareBetween: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => 
           isSquareBetween(from, to, x, y),
-        getTeamFn: getTeamByColor
+        getTeamFn: getTeamByColor,
+        enPassantTarget: enPassantTarget()
       }
     );
     
@@ -999,7 +1000,8 @@ const Board: Component<BoardProps> = (props) => {
           isSquareUnderAttack(x, y, team, points, teamFn),
         isSquareBetween: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => 
           isSquareBetween(from, to, x, y),
-        getTeamFn: getTeamByColor
+        getTeamFn: getTeamByColor,
+        enPassantTarget: enPassantTarget()
       }
     );
     
@@ -1107,7 +1109,8 @@ const Board: Component<BoardProps> = (props) => {
               isSquareUnderAttack(x, y, team, points, teamFn),
             isSquareBetween: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => 
               isSquareBetween(from, to, x, y),
-            getTeamFn: getTeamByColor
+            getTeamFn: getTeamByColor,
+            enPassantTarget: enPassantTarget()
           }
         );
         
@@ -1474,6 +1477,9 @@ const Board: Component<BoardProps> = (props) => {
     // Set processing flag
     setIsProcessingMove(true);
 
+    // Reset enPassantTarget at the start of each move
+    setEnPassantTarget(null);
+
     // Get and validate the move target and start position
     const target = getMoveTarget();
     if (!target) {
@@ -1527,10 +1533,8 @@ const Board: Component<BoardProps> = (props) => {
             currentEnPassantTarget.y === targetY) {
           isEnPassantCapture = true;
         }
-        setEnPassantTarget(null);
+        // enPassantTarget is already reset at the start of the function
       }
-    } else {
-      setEnPassantTarget(null);
     }  
 
     // Save the current state for potential rollback

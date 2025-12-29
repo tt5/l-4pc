@@ -53,10 +53,17 @@ export interface MoveResult {
   canCapture: boolean;
   isCastle?: boolean;
   castleType?: string;
+  isEnPassant?: boolean;
   rookX?: number;
   rookY?: number;
   rookNewX?: number;
   rookNewY?: number;
   dx?: number;
   dy?: number;
+  capturedPiece?: {
+    x: number;
+    y: number;
+    color: string;
+    pieceType: string;
+  };
 }
