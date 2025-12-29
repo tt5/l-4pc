@@ -1517,14 +1517,33 @@ const Board: Component<BoardProps> = (props) => {
     // Handle en passant
     let isEnPassantCapture = false;
     if (pointToMove.pieceType === 'pawn') {
+      // For vertical pawns (red and yellow)
+      const isVerticalPawn = pointToMove.color === '#F44336' || pointToMove.color === '#FFEB3B';
+      // For horizontal pawns (blue and green)
+      const isHorizontalPawn = pointToMove.color === '#2196F3' || pointToMove.color === '#4CAF50';
+      
       // Check if this is a two-square pawn move
-      if (Math.abs(targetY - startY) === 2) {
-        const enPassantY = startY + (targetY > startY ? -1 : 1);
-        setEnPassantTarget({
-          x: targetX,
-          y: enPassantY,
-          color: pointToMove.color
-        });
+      if ((isVerticalPawn && Math.abs(targetY - startY) === 2) || 
+          (isHorizontalPawn && Math.abs(targetX - startX) === 2)) {
+        
+        // For vertical pawns, set en passant target on the same file
+        if (isVerticalPawn) {
+          const enPassantY = startY + (targetY > startY ? 1 : -1);
+          setEnPassantTarget({
+            x: targetX,
+            y: enPassantY,
+            color: pointToMove.color
+          });
+        } 
+        // For horizontal pawns, set en passant target on the same rank
+        else if (isHorizontalPawn) {
+          const enPassantX = startX + (targetX > startX ? 1 : -1);
+          setEnPassantTarget({
+            x: enPassantX,
+            y: targetY,
+            color: pointToMove.color
+          });
+        }
       } else {
         // Check if this is an en passant capture
         const currentEnPassantTarget = enPassantTarget();
@@ -1535,7 +1554,7 @@ const Board: Component<BoardProps> = (props) => {
         }
         // enPassantTarget is already reset at the start of the function
       }
-    }  
+    }
 
     // Save the current state for potential rollback
     const originalState = saveCurrentStateForRollback();

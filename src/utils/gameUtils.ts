@@ -879,10 +879,10 @@ export function getLegalMoves(
       const isVertical = basePoint.color === '#F44336' || basePoint.color === '#FFEB3B';
       const isHorizontal = basePoint.color === '#2196F3' || basePoint.color === '#4CAF50';
       
-      // For vertical pawns, check if they're on the same file and adjacent rank
-      // For horizontal pawns, check if they're on the same rank and adjacent file
-      const isAdjacent = (isVertical && dx === 0 && dy === 1) || 
-                        (isHorizontal && dx === 1 && dy === 0);
+      // For en passant, we need to check diagonal adjacency (dx=1, dy=1)
+      // since the capturing pawn moves diagonally to capture
+      const isAdjacent = (isVertical && dx === 1 && dy === 1) || 
+                        (isHorizontal && dx === 1 && dy === 1);
       
       console.log('[getLegalMoves] En passant check:', JSON.stringify({
         piece: {x: basePoint.x, y: basePoint.y, color: basePoint.color},
