@@ -844,30 +844,52 @@ export function getLegalMoves(
   } else if (pieceType === 'pawn') {
     // Add en passant capture if available
     const currentEnPassantTarget = options.enPassantTarget;
+    console.log('[getLegalMoves] Checking en passant for piece:', JSON.stringify({
+      piece: {x: basePoint.x, y: basePoint.y, color: basePoint.color, type: pieceType},
+      enPassantTarget: currentEnPassantTarget
+    }, null, 2));
+    
     if (currentEnPassantTarget && 
         currentEnPassantTarget.color !== basePoint.color) {
+      
+      // For en passant, the target should be adjacent to the pawn
       const dx = Math.abs(currentEnPassantTarget.x - basePoint.x);
       const dy = Math.abs(currentEnPassantTarget.y - basePoint.y);
       
-      // For en passant, the target should be adjacent to the pawn
-      if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) {
-        // Check if the pawn can capture en passant
+      // Check if the pawn is in position to capture en passant
+      // For vertical moving pawns (red/yellow), check same file
+      // For horizontal moving pawns (blue/green), check same rank
+      const isVertical = basePoint.color === '#F44336' || basePoint.color === '#FFEB3B';
+      const isAdjacent = (isVertical && dx === 1 && dy === 1) || 
+                        (!isVertical && dx === 1 && dy === 1);
+      
+      console.log('[getLegalMoves] En passant check:', JSON.stringify({
+        piece: {x: basePoint.x, y: basePoint.y, color: basePoint.color},
+        target: currentEnPassantTarget,
+        dx, dy,
+        isVertical,
+        isAdjacent
+      }, null, 2));
+      
+      if (isAdjacent) {
+        // Add the en passant capture move
+        // The actual capture square is one square behind the target in the direction of movement
         const captureX = currentEnPassantTarget.x;
         const captureY = currentEnPassantTarget.y;
-        const isVertical = basePoint.color === '#F44336' || basePoint.color === '#FFEB3B';
         
-        // For vertical moving pawns (red/yellow), check same file
-        // For horizontal moving pawns (blue/green), check same rank
-        if ((isVertical && basePoint.x === captureX) || 
-            (!isVertical && basePoint.y === captureY)) {
-          // Add the en passant capture move
-          possibleMoves.push({
-            x: captureX,
-            y: captureY,
-            canCapture: true,
-            isEnPassant: true
-          });
-        }
+        // Add the en passant capture move
+        console.log('[getLegalMoves] Adding en passant move:', JSON.stringify({
+          from: {x: basePoint.x, y: basePoint.y},
+          to: {x: captureX, y: captureY},
+          target: currentEnPassantTarget
+        }, null, 2));
+        
+        possibleMoves.push({
+          x: captureX,
+          y: captureY,
+          canCapture: true,
+          isEnPassant: true
+        });
       }
     }
     // Determine movement direction based on color
