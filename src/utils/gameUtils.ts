@@ -920,13 +920,13 @@ export function getLegalMoves(
           x: currentEnPassantTarget.x,
           y: currentEnPassantTarget.y,
           canCapture: true,
-          isEnPassant: true,
           capturedPiece: {
             x: captureX,
             y: captureY,
             color: currentEnPassantTarget.color,
             pieceType: 'pawn'
-          }
+          },
+          isEnPassant: false
         });
       }
     }
@@ -1003,11 +1003,20 @@ export function getLegalMoves(
     // For horizontally moving pawns (Blue and Green)
     else {
       captureOffsets = [
+        // Combine standard moves, en passant moves, and capture moves
         { dx: dx, dy: -1 },  // Diagonal up
         { dx: dx, dy: 1 }    // Diagonal down
       ];
     }
     
+    const allMoves = [...moves];
+    
+    // Add en passant moves if any exist
+    if (possibleMoves && possibleMoves.length > 0) {
+      allMoves.push(...possibleMoves);
+    }
+    
+    // Add capture moves
     for (const offset of captureOffsets) {
       const targetX = basePoint.x + offset.dx;
       const targetY = basePoint.y + offset.dy;
@@ -1024,7 +1033,7 @@ export function getLegalMoves(
         // Check if there's an opponent's piece to capture
         const targetPiece = allBasePoints.find(p => p.x === targetX && p.y === targetY);
         if (targetPiece && getTeamByColor(targetPiece.color) !== team) {
-          moves.push({
+          allMoves.push({
             x: targetX,
             y: targetY,
             canCapture: true
@@ -1033,7 +1042,25 @@ export function getLegalMoves(
       }
     }
     
-    possibleMoves = [...moves];
+    // Set the final possible moves after all pawn moves are calculated
+    possibleMoves = allMoves;
+    
+    // Filter out any moves that would leave the king in check if in check
+    if (options.isKingInCheck && options.wouldResolveCheck && options.getTeamFn && options.isSquareUnderAttack && options.isSquareBetween) {
+      const playerColor = basePoint.color;
+      
+      possibleMoves = possibleMoves.filter(move => {
+        return options.wouldResolveCheck(
+          [basePoint.x, basePoint.y],
+          [move.x, move.y],
+          playerColor,
+          allBasePoints,
+          options.getTeamFn,
+          options.isSquareUnderAttack,
+          options.isSquareBetween
+        );
+      });
+    }
   } else if (pieceType === 'bishop') {
     // Bishop moves any number of squares diagonally
     const directions = [
