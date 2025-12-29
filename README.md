@@ -16,5 +16,6 @@ and (in another terminal)
 - [ ] keyboard controls
 - [x] save/load game
 - [ ] show saved game ids, select when loading
+- [ ] delete game
 - [ ] export/import pgn4
 - [ ] start from fen4, show fen4
