@@ -1,12 +1,78 @@
 .boardControls {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 12px;
+  margin-bottom: 1rem;
+  padding: 1rem;
   background-color: #f8f9fa;
   border-radius: 4px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   align-items: stretch;
-  width: fit-content;
+  width: 100%;
+  max-width: 300px;
+}
+
+.controlGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.controlLabel {
+  font-size: 0.9rem;
+  color: #4a5568;
+  margin-bottom: 4px;
+}
+
+.slider {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: #e2e8f0;
+  outline: none;
+  margin: 8px 0;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #4299e1;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.slider::-webkit-slider-thumb:hover {
+  background: #3182ce;
+  transform: scale(1.1);
+}
+
+.slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #4299e1;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.slider::-moz-range-thumb:hover {
+  background: #3182ce;
+  transform: scale(1.1);
+}
+
+.sizeDisplay {
+  text-align: center;
+  font-size: 0.85rem;
+  color: #4a5568;
+  font-family: monospace;
+  margin-top: -4px;
 }
 
 .navButtons {

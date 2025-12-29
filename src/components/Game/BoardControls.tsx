@@ -9,6 +9,8 @@ type BoardControlsProps = {
   onDeleteCurrentMove?: () => Promise<void>;
   onSaveGame?: () => Promise<void>;
   onLoadGame?: (gameId: string) => Promise<void>;
+  onCellSizeChange?: (size: number) => void;
+  cellSize?: number;
   gameId?: string;
   canGoBack?: boolean;
   canGoForward?: boolean;
@@ -24,6 +26,7 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
   const [isSaving, setIsSaving] = createSignal(false);
   const [gameIdInput, setGameIdInput] = createSignal('');
   const [isLoading, setIsLoading] = createSignal(false);
+  const [localCellSize, setLocalCellSize] = createSignal(props.cellSize || 50);
 
   const handleResetBoard = async () => {
     const currentUser = user();
@@ -126,8 +129,29 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
     }
   };
 
+  const handleCellSizeChange = (e: Event) => {
+    const newSize = parseInt((e.target as HTMLInputElement).value, 10);
+    setLocalCellSize(newSize);
+    if (props.onCellSizeChange) {
+      props.onCellSizeChange(newSize);
+    }
+  };
+
   return (
     <div class={styles.boardControls}>
+      <div class={styles.controlGroup}>
+        <label class={styles.controlLabel}>Grid Size</label>
+        <input
+          type="range"
+          min="30"
+          max="100"
+          step="5"
+          value={localCellSize()}
+          onInput={handleCellSizeChange}
+          class={styles.slider}
+        />
+        <span class={styles.sizeDisplay}>{localCellSize()}px</span>
+      </div>
       <div class={styles.gameId}>{props.gameId}</div>
       <div class={styles.navButtons}>
         <button 

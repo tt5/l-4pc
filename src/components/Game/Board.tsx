@@ -73,6 +73,7 @@ const Board: Component<BoardProps> = (props) => {
   const [analysis, setAnalysis] = createSignal<{score: string; depth: number; bestMove: string} | null>(null);
   const [lastAnalyzedMoves, setLastAnalyzedMoves] = createSignal<string[]>([]);
   const analysisInProgress = { current: false };
+  const [cellSize, setCellSize] = createSignal(50); // Default cell size
   
   // Centralized function to handle engine analysis
   const startEngineAnalysis = async (moves: string[]) => {
@@ -1834,9 +1835,14 @@ const Board: Component<BoardProps> = (props) => {
           onDeleteCurrentMove={handleDeleteCurrentMove}
           onSaveGame={handleSaveGame}
           onLoadGame={loadGame}
+          cellSize={cellSize()}
+          onCellSizeChange={setCellSize}
         />
         
-        <div class={styles.grid}>
+        <div 
+          class={styles.grid}
+          style={{ '--grid-cell-size': `${cellSize()}px` }}
+        >
           {Array.from({ length: BOARD_CONFIG.GRID_SIZE * BOARD_CONFIG.GRID_SIZE }).map((_, index) => {
           const [x, y] = [index % BOARD_CONFIG.GRID_SIZE, Math.floor(index / BOARD_CONFIG.GRID_SIZE)];
           // Find if there's a base point at these coordinates and get its color

@@ -205,8 +205,8 @@
 
 /* Game Elements */
 .grid {
-  --grid-cell-size: 50px;
-
+  --grid-cell-size: 50px; /* Default size, will be overridden by inline style */
+  
   display: grid;
   grid-template-rows: repeat(var(--grid-size), var(--grid-cell-size));
   grid-template-columns: repeat(var(--grid-size), var(--grid-cell-size));
@@ -215,7 +215,8 @@
   width: fit-content;
   margin: var(--spacing-lg) auto;
   padding: var(--spacing-md);
-  background: lightgray; /* Lighter green background */
+  background: lightgray;
+  transition: grid-template-rows 0.2s ease, grid-template-columns 0.2s ease;
 }
 
 .square {
