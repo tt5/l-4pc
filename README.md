@@ -12,7 +12,6 @@ and (in another terminal)
 - [ ] rotate board
 - [ ] algebraic notation
 - [ ] promote branch
-- [ ] layout settings (board size, etc.)
 - [ ] keyboard controls
 - [x] save/load game
 - [ ] show saved game ids, select when loading

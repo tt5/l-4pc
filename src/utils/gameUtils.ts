@@ -711,8 +711,9 @@ export function getLegalMoves(
     isSquareUnderAttack?: (x: number, y: number, team: number, points: BasePoint[], getTeamFn: (color: string) => number) => boolean;
     isSquareBetween?: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean;
     getTeamFn?: (color: string) => number;
+    enPassantTarget?: {x: number, y: number, color: string} | null;
   } = {}
-): Array<{x: number, y: number, canCapture: boolean, isCastle?: boolean, castleType?: string}> {
+): Array<{x: number, y: number, canCapture: boolean, isCastle?: boolean, castleType?: string, isEnPassant?: boolean}> {
 
   const { 
     isKingInCheck = false, 
@@ -834,13 +835,40 @@ export function getLegalMoves(
     
     possibleMoves = [...standardMoves, ...castlingMoves];
   } else if (pieceType === 'pawn') {
-    const moves: {x: number, y: number, canCapture: boolean}[] = [];
-    
+    // Add en passant capture if available
+    const currentEnPassantTarget = options.enPassantTarget;
+    if (currentEnPassantTarget && 
+        currentEnPassantTarget.color !== basePoint.color) {
+      const dx = Math.abs(currentEnPassantTarget.x - basePoint.x);
+      const dy = Math.abs(currentEnPassantTarget.y - basePoint.y);
+      
+      // For en passant, the target should be adjacent to the pawn
+      if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) {
+        // Check if the pawn can capture en passant
+        const captureX = currentEnPassantTarget.x;
+        const captureY = currentEnPassantTarget.y;
+        const isVertical = basePoint.color === '#F44336' || basePoint.color === '#FFEB3B';
+        
+        // For vertical moving pawns (red/yellow), check same file
+        // For horizontal moving pawns (blue/green), check same rank
+        if ((isVertical && basePoint.x === captureX) || 
+            (!isVertical && basePoint.y === captureY)) {
+          // Add the en passant capture move
+          possibleMoves.push({
+            x: captureX,
+            y: captureY,
+            canCapture: true,
+            isEnPassant: true
+          });
+        }
+      }
+    }
     // Determine movement direction based on color
     let dx = 0;
     let dy = 0;
     let isVertical = true;
     let startPosition = 0;
+    const moves: {x: number, y: number, canCapture: boolean, isEnPassant?: boolean}[] = [];
     
     // Determine direction toward center based on starting position
     if (basePoint.color === '#F44336') { // Red - starts at bottom, moves up

@@ -35,6 +35,7 @@ export interface Move {
   isCastle?: boolean;
   castleType?: 'KING_SIDE' | 'QUEEN_SIDE' | null;
   isBranch?: boolean;
+  isEnPassant?: boolean;
 }
 
 export interface BoardProps {

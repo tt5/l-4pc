@@ -74,6 +74,7 @@ const Board: Component<BoardProps> = (props) => {
   const [lastAnalyzedMoves, setLastAnalyzedMoves] = createSignal<string[]>([]);
   const analysisInProgress = { current: false };
   const [cellSize, setCellSize] = createSignal(50); // Default cell size
+  const [enPassantTarget, setEnPassantTarget] = createSignal<{x: number, y: number, color: string} | null>(null);
   
   // Centralized function to handle engine analysis
   const startEngineAnalysis = async (moves: string[]) => {
@@ -720,6 +721,28 @@ const Board: Component<BoardProps> = (props) => {
         const capturedPiece = positionMap.get(toKey);
         console.log(`[replayMoves] Capturing piece at [${toX},${toY}]:`, capturedPiece);
         positionMap.delete(toKey);
+      }
+
+      // Handle en passant capture
+      if (isEnPassant) {
+        setBasePoints(prev => {
+          // For en passant, the captured pawn is on the same file but different rank
+          const capturedPawnX = toX;
+          let capturedPawnY = toY;
+          
+          // Determine the direction of the capture based on the moving pawn's color
+          if (piece.color === '#F44336') { // Red - moving up
+            capturedPawnY = toY - 1; // Capture the pawn below
+          } else if (piece.color === '#2196F3') { // Blue - moving right
+            capturedPawnX = toX - 1; // Capture the pawn to the left
+          } else if (piece.color === '#FFEB3B') { // Yellow - moving down
+            capturedPawnY = toY + 1; // Capture the pawn above
+          } else if (piece.color === '#4CAF50') { // Green - moving left
+            capturedPawnX = toX + 1; // Capture the pawn to the right
+          }
+          
+          return prev.filter(bp => !(bp.x === capturedPawnX && bp.y === capturedPawnY));
+        });
       }
 
       // Move the piece
@@ -1483,6 +1506,31 @@ const Board: Component<BoardProps> = (props) => {
       return;
     }
     
+    // Handle en passant
+    let isEnPassantCapture = false;
+    if (pointToMove.pieceType === 'pawn') {
+      // Check if this is a two-square pawn move
+      if (Math.abs(targetY - startY) === 2) {
+        const enPassantY = startY + (targetY > startY ? -1 : 1);
+        setEnPassantTarget({
+          x: targetX,
+          y: enPassantY,
+          color: pointToMove.color
+        });
+      } else {
+        // Check if this is an en passant capture
+        const currentEnPassantTarget = enPassantTarget();
+        if (currentEnPassantTarget && 
+            currentEnPassantTarget.x === targetX && 
+            currentEnPassantTarget.y === targetY) {
+          isEnPassantCapture = true;
+        }
+        setEnPassantTarget(null);
+      }
+    } else {
+      setEnPassantTarget(null);
+    }  
+
     // Save the current state for potential rollback
     const originalState = saveCurrentStateForRollback();
     
@@ -1650,7 +1698,8 @@ const Board: Component<BoardProps> = (props) => {
           isBranch: isBranching,
           pieceType: pointToMove.pieceType,
           isCastle: isCastle || false,
-          castleType: (castleType === 'KING_SIDE' || castleType === 'QUEEN_SIDE') ? castleType : null
+          castleType: (castleType === 'KING_SIDE' || castleType === 'QUEEN_SIDE') ? castleType : null,
+          isEnPassant: isEnPassantCapture
         };
         console.log(`[handleGlobalMouseUp] newMove: ${JSON.stringify(newMove)}`)
 
