@@ -8,6 +8,7 @@ type BoardControlsProps = {
   onGoForward?: () => Promise<void>;
   onDeleteCurrentMove?: () => Promise<void>;
   onSaveGame?: () => Promise<void>;
+  onLoadGame?: (gameId: string) => Promise<void>;
   gameId?: string;
   canGoBack?: boolean;
   canGoForward?: boolean;
@@ -21,6 +22,8 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
   const [isGoingForward, setIsGoingForward] = createSignal(false);
   const [isDeleting, setIsDeleting] = createSignal(false);
   const [isSaving, setIsSaving] = createSignal(false);
+  const [gameIdInput, setGameIdInput] = createSignal('');
+  const [isLoading, setIsLoading] = createSignal(false);
 
   const handleResetBoard = async () => {
     const currentUser = user();
@@ -107,6 +110,22 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
     }
   };
 
+  const handleLoadGame = async (e: Event) => {
+    e.preventDefault();
+    const id = gameIdInput().trim();
+    if (!id || !props.onLoadGame) return;
+    
+    setIsLoading(true);
+    try {
+      await props.onLoadGame(id);
+      setGameIdInput('');
+    } catch (error) {
+      console.error('Error loading game:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div class={styles.boardControls}>
       <div class={styles.gameId}>{props.gameId}</div>
@@ -158,6 +177,23 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
             {isDeleting() ? 'Deleting...' : 'Delete Move'}
           </button>
         )}
+        <div class={styles.loadGameContainer}>
+          <input
+            type="text"
+            value={gameIdInput()}
+            onInput={(e) => setGameIdInput(e.currentTarget.value)}
+            placeholder="Enter game ID"
+            class={styles.gameIdInput}
+          />
+          <button
+            onClick={handleLoadGame}
+            disabled={isLoading() || !gameIdInput() || !props.onLoadGame}
+            class={`${styles.controlButton} ${styles.loadButton}`}
+            title="Load a saved game"
+          >
+            {isLoading() ? 'Loading...' : 'Load Game'}
+          </button>
+        </div>
         <button
           onClick={handleSaveClick}
           disabled={isSaving() || !props.onSaveGame}

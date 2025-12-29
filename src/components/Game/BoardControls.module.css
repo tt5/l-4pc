@@ -35,6 +35,31 @@
   color: white;
 }
 
+.loadGameContainer {
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.gameIdInput {
+  padding: 8px 12px;
+  border: 1px solid #6c757d;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  width: 120px;
+}
+
+.loadButton {
+  border: 1px solid #6c757d;
+  color: #6c757d;
+  white-space: nowrap;
+}
+
+.loadButton:hover:not(:disabled) {
+  background-color: #6c757d;
+  color: white;
+}
+
 .saveButton {
   border: 1px solid #198754;
   color: #198754;

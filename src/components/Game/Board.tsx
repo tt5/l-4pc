@@ -1831,6 +1831,7 @@ const Board: Component<BoardProps> = (props) => {
           onReset={resetBoardToInitialState}
           onDeleteCurrentMove={handleDeleteCurrentMove}
           onSaveGame={handleSaveGame}
+          onLoadGame={loadGame}
         />
         
         <div class={styles.grid}>
