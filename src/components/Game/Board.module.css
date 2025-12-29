@@ -205,7 +205,7 @@
 
 /* Game Elements */
 .grid {
-  --grid-cell-size: 45px;
+  --grid-cell-size: 50px;
 
   display: grid;
   grid-template-rows: repeat(var(--grid-size), var(--grid-cell-size));
@@ -342,9 +342,7 @@
   background-color: #d0ebe7;
 }
 
-/* Dragging States */
 .square.dragging {
-  opacity: 0.5;
   transform: scale(0.95);
   cursor: grabbing;
 }
@@ -376,161 +374,6 @@
   transform: none !important;
   box-shadow: none !important;
   cursor: not-allowed;
-}
-
-/* Move History */
-.moveHistory {
-  width: 100%;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.moveHistory h3 {
-  margin: 0 0 10px 0;
-  color: #333;
-  font-size: 1.1rem;
-}
-
-.moveList {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.moveItem {
-  padding: 8px 12px;
-  margin: 4px 0;
-  background-color: #fff;
-  border-left: 3px solid #4CAF50;
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border-radius: 4px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  transition: all 0.2s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.moveItem.currentMove {
-  background-color: #f0f9ff;
-  border-left: 3px solid #2196F3;
-  box-shadow: 0 2px 4px rgba(33, 150, 243, 0.2);
-}
-
-.moveItem.currentMove::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: #2196F3;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0% { opacity: 0.5; }
-  50% { opacity: 1; }
-  100% { opacity: 0.5; }
-}
-
-.moveItem:hover {
-  background-color: #f0f9ff;
-  transform: translateX(2px);
-}
-
-.moveItem.currentMove:hover {
-  background-color: #e3f2fd;
-}
-
-.colorSwatch {
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  border-radius: 3px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  flex-shrink: 0;
-}
-
-.moveDetails {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.moveCoords {
-  font-family: monospace;
-  font-size: 0.9em;
-  color: #4a5568;
-  margin-top: 2px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.branchIndicator {
-  color: #718096;
-  cursor: help;
-  font-size: 1.1em;
-  margin-left: 4px;
-  opacity: 0.7;
-  transition: opacity 0.2s ease;
-}
-
-.branchIndicator:hover {
-  opacity: 1;
-  color: #4a90e2;
-  cursor: pointer;
-}
-
-.branchDropdown {
-  position: absolute;
-  left: 100%;
-  top: 0;
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
-  min-width: 180px;
-  max-height: 200px;
-  overflow-y: auto;
-  margin-left: 8px;
-}
-
-.branchOption {
-  padding: 6px 12px;
-  font-family: monospace;
-  font-size: 0.9em;
-  color: #4a5568;
-  cursor: pointer;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.branchOption:hover {
-  background-color: #f7fafc;
-}
-
-.branchName {
-  color: #718096;
-  font-size: 0.8em;
-  margin-left: 8px;
-}
-
-.moveItem span:first-child {
-  font-weight: 500;
-  margin-right: 5px;
-}
-
-.moveItem span:last-child {
-  font-family: monospace;
-  color: #555;
 }
 
 .square.invalid-drop {
@@ -584,13 +427,6 @@
   opacity: 0.8;
 }
 
-/* Base points on restricted squares */
-.square.restricted.basePoint {
-  background-color: #fff3e0;
-  background-image: none;
-  border: 1px solid #ffa000;
-}
-
 .square.restricted.basePoint .basePointMarker {
   background: #ffa000;
 }
@@ -632,92 +468,4 @@
   border-left: 4px solid #f44336;
   border-radius: var(--border-radius-sm);
   transition: all var(--transition-normal);
-}
-
-/* Player Position */
-.playerPosition {
-  position: relative;
-  background: var(--color-primary) !important;
-  box-shadow: 0 0 0 2px white, 0 0 0 4px var(--color-primary);
-}
-
-.playerPosition::after {
-  position: absolute;
-  display: grid;
-  color: white;
-  font-weight: bold;
-  font-size: 1.2em;
-  content: 'P';
-  inset: 0;
-  place-content: center;
-}
-
-/* Controls */
-.userBar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--spacing-lg);
-  padding: var(--spacing-md);
-  background: var(--color-bg);
-  border-radius: var(--border-radius-sm);
-}
-
-.userBarActions {
-  display: flex;
-  gap: var(--spacing-md);
-  margin-top: var(--spacing-md);
-}
-
-.button {
-  padding: var(--spacing-xs) var(--spacing-md);
-  border: none;
-  border-radius: var(--border-radius-sm);
-  cursor: pointer;
-  transition: background-color var(--transition-normal);
-}
-
-.logoutButton {
-  padding: var(--spacing-xs) var(--spacing-md);
-  border: none;
-  border-radius: var(--border-radius-sm);
-  cursor: pointer;
-  transition: background-color var(--transition-normal);
-  color: white;
-  background: var(--color-error);
-}
-
-.logoutButton:hover { background: var(--color-error-dark); }
-
-.directionGroup {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--spacing-xs);
-  margin-top: var(--spacing-md);
-}
-
-.directionButton {
-  padding: var(--spacing-xs) var(--spacing-md);
-  border: none;
-  border-radius: var(--border-radius-sm);
-  cursor: pointer;
-  transition: all var(--transition-normal);
-  min-width: 80px;
-  color: white;
-  font-weight: bold;
-  background: var(--color-primary);
-}
-
-.directionButton:hover { background: var(--color-primary-dark); }
-
-.directionButton:active { transform: scale(0.95); }
-
-.directionButton:focus-visible {
-  outline: 3px solid #64B5F6;
-  outline-offset: 2px;
-}
-
-.directionButton:first-child,
-.directionButton:last-child {
-  grid-column: 1 / -1;
 }

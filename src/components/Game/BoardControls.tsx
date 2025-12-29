@@ -147,62 +147,60 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
           {isGoingForward() ? '...' : 'Forward ⏩'}
         </button>
       </div>
-      <div class={styles.actionButtons}>
-        <button 
-          onClick={handleResetBoard} 
-          disabled={isResetting()}
-          class={`${styles.controlButton} ${styles.resetButton}`}
-          title="Reset the game board to its initial state"
-        >
-          {isResetting() ? 'Resetting...' : 'Reset Board'}
-        </button>
-        {props.canDeleteCurrentMove && (
-          <button
-            onClick={async (e) => {
-              e.preventDefault();
-              if (isDeleting() || !props.onDeleteCurrentMove) return;
-              setIsDeleting(true);
-              try {
-                await props.onDeleteCurrentMove();
-              } catch (error) {
-                console.error('Error deleting move:', error);
-              } finally {
-                setIsDeleting(false);
-              }
-            }}
-            disabled={isDeleting() || !props.canDeleteCurrentMove}
-            class={`${styles.controlButton} ${styles.deleteButton}`}
-            title="Delete current move and all subsequent moves"
-          >
-            {isDeleting() ? 'Deleting...' : 'Delete Move'}
-          </button>
-        )}
-        <div class={styles.loadGameContainer}>
-          <input
-            type="text"
-            value={gameIdInput()}
-            onInput={(e) => setGameIdInput(e.currentTarget.value)}
-            placeholder="Enter game ID"
-            class={styles.gameIdInput}
-          />
-          <button
-            onClick={handleLoadGame}
-            disabled={isLoading() || !gameIdInput() || !props.onLoadGame}
-            class={`${styles.controlButton} ${styles.loadButton}`}
-            title="Load a saved game"
-          >
-            {isLoading() ? 'Loading...' : 'Load Game'}
-          </button>
-        </div>
+      <button 
+        onClick={handleResetBoard} 
+        disabled={isResetting()}
+        class={`${styles.controlButton} ${styles.resetButton}`}
+        title="Reset the game board to its initial state"
+      >
+        {isResetting() ? 'Resetting...' : 'Reset Board'}
+      </button>
+      {props.canDeleteCurrentMove && (
         <button
-          onClick={handleSaveClick}
-          disabled={isSaving() || !props.onSaveGame}
-          class={`${styles.controlButton} ${styles.saveButton}`}
-          title="Save the current game state"
+          onClick={async (e) => {
+            e.preventDefault();
+            if (isDeleting() || !props.onDeleteCurrentMove) return;
+            setIsDeleting(true);
+            try {
+              await props.onDeleteCurrentMove();
+            } catch (error) {
+              console.error('Error deleting move:', error);
+            } finally {
+              setIsDeleting(false);
+            }
+          }}
+          disabled={isDeleting() || !props.canDeleteCurrentMove}
+          class={`${styles.controlButton} ${styles.deleteButton}`}
+          title="Delete current move and all subsequent moves"
         >
-          {isSaving() ? 'Saving...' : 'Save Game'}
+          {isDeleting() ? 'Deleting...' : 'Delete Move'}
+        </button>
+      )}
+      <div class={styles.loadGameContainer}>
+        <input
+          type="text"
+          value={gameIdInput()}
+          onInput={(e) => setGameIdInput(e.currentTarget.value)}
+          placeholder="Enter game ID"
+          class={styles.gameIdInput}
+        />
+        <button
+          onClick={handleLoadGame}
+          disabled={isLoading() || !gameIdInput() || !props.onLoadGame}
+          class={`${styles.controlButton} ${styles.loadButton}`}
+          title="Load a saved game"
+        >
+          {isLoading() ? 'Loading...' : 'Load Game'}
         </button>
       </div>
+      <button
+        onClick={handleSaveClick}
+        disabled={isSaving() || !props.onSaveGame}
+        class={`${styles.controlButton} ${styles.saveButton}`}
+        title="Save the current game state"
+      >
+        {isSaving() ? 'Saving...' : 'Save Game'}
+      </button>
     </div>
   );
 };
