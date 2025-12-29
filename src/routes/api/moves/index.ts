@@ -13,8 +13,6 @@ type MoveInput = {
   capturedPieceId?: number | null;
   isBranch?: boolean;
   branchName?: string | null;
-  positionBeforeId?: string | null;
-  positionAfterId?: string | null;
 };
 
 export const POST = withAuth(async (event: APIEvent) => {
@@ -77,9 +75,7 @@ export const POST = withAuth(async (event: APIEvent) => {
       moveNumber: data.moveNumber, // Will be auto-calculated if not provided
       capturedPieceId: data.capturedPieceId || null,
       isBranch: data.isBranch || false,
-      branchName: data.branchName || null,
-      positionBeforeId: data.positionBeforeId || null,
-      positionAfterId: data.positionAfterId || null
+      branchName: data.branchName || null
     });
     
     return new Response(

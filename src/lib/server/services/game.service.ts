@@ -1,7 +1,6 @@
 import { Database } from 'sqlite';
 import { BasePointRepository } from '../repositories/base-point.repository';
 import { MoveRepository } from '../repositories/move.repository';
-import { GamePositionRepository } from '../repositories/game-position.repository';
 import { UserRepository } from '../repositories/user.repository';
 import { getDb } from '../db';
 import { BasePoint, BasePointEventType } from '../events/base-point.events';
@@ -16,7 +15,6 @@ interface MoveResult {
   isCheck?: boolean;
   isCheckmate?: boolean;
   isStalemate?: boolean;
-  positionId?: string;
 }
 
 interface GameStatusResult {
