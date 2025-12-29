@@ -31,22 +31,11 @@ export async function up(db: Database): Promise<void> {
     );
   `);
 
-  // 3. Create games table (depends on users)
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS games (
-      id TEXT PRIMARY KEY,
-      status TEXT NOT NULL DEFAULT 'waiting',
-      created_at_ms INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-      updated_at_ms INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
-    );
-  `);
-
-  // 4. Create base_points table (depends on users and games)
+  // 3. Create base_points table (depends on users)
   await db.exec(`
     CREATE TABLE IF NOT EXISTS base_points (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id TEXT NOT NULL,
-      game_id TEXT NOT NULL,
       x INTEGER NOT NULL,
       y INTEGER NOT NULL,
       piece_type TEXT NOT NULL DEFAULT 'pawn',
@@ -54,28 +43,14 @@ export async function up(db: Database): Promise<void> {
       created_at_ms INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
       updated_at_ms INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-      FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
-      UNIQUE(user_id, x, y, game_id)
+      UNIQUE(user_id, x, y)
     );
   `);
 
-  // 5. Create map_tiles table (no foreign key dependencies)
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS map_tiles (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      x INTEGER NOT NULL,
-      y INTEGER NOT NULL,
-      terrain_type TEXT NOT NULL,
-      created_at_ms INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-      UNIQUE(x, y)
-    );
-  `);
-
-  // 6. Create moves table (depends on users, games, and base_points)
+  // 4. Create moves table (depends on users and base_points)
   await db.exec(`
     CREATE TABLE IF NOT EXISTS moves (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      game_id TEXT NOT NULL,
       user_id TEXT NOT NULL,
       piece_type TEXT NOT NULL,
       from_x INTEGER NOT NULL,
@@ -88,7 +63,6 @@ export async function up(db: Database): Promise<void> {
       branch_name TEXT,
       created_at_ms INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-      FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
       FOREIGN KEY (captured_piece_id) REFERENCES base_points(id) ON DELETE SET NULL
     );
   `);
@@ -112,12 +86,9 @@ export async function up(db: Database): Promise<void> {
       throw error;
     }
   }
-  await db.exec('CREATE INDEX IF NOT EXISTS idx_users_game_joined ON users(game_joined)');
   await db.exec('CREATE INDEX IF NOT EXISTS idx_base_points_user_id ON base_points(user_id)');
   await db.exec('CREATE INDEX IF NOT EXISTS idx_base_points_coords ON base_points(x, y)');
   await db.exec('CREATE INDEX IF NOT EXISTS idx_base_points_created_at ON base_points(created_at_ms)');
-  await db.exec('CREATE INDEX IF NOT EXISTS idx_map_tiles_coords ON map_tiles(x, y)');
-  await db.exec('CREATE INDEX IF NOT EXISTS idx_moves_game_id ON moves(game_id)');
   await db.exec('CREATE INDEX IF NOT EXISTS idx_moves_user_id ON moves(user_id)');
   await db.exec('CREATE INDEX IF NOT EXISTS idx_moves_created_at ON moves(created_at_ms)');
   await db.exec('CREATE INDEX IF NOT EXISTS idx_moves_move_number ON moves(move_number)');
@@ -133,14 +104,12 @@ export async function down(db: Database): Promise<void> {
   
   // Drop tables in reverse order of creation
   await db.exec('DROP TABLE IF EXISTS moves');
-  await db.exec('DROP TABLE IF EXISTS map_tiles');
   await db.exec('DROP TABLE IF EXISTS base_points');
-  await db.exec('DROP TABLE IF EXISTS games');
   await db.exec('DROP TABLE IF EXISTS users');
   await db.exec('DROP TABLE IF EXISTS migrations');
   
   // Re-enable foreign keys
   await db.exec('PRAGMA foreign_keys = ON;');
   
-  console.log('✅ Successfully rolled back all database changes');
+  console.log('✅ Successfully rolled back consolidated migration');
 }
