@@ -410,8 +410,12 @@ export function isPiecePinned(
     const pieceInLine = allBasePoints.find(p => p.x === x && p.y === y);
     
     if (pieceInLine) {
+      // Only consider pieces that can attack through the line (queen, rook, bishop)
+      const isAttacker = getTeamFn(pieceInLine.color) !== getTeamFn(piece.color) && 
+                       ['queen', 'rook', 'bishop'].includes(pieceInLine.pieceType);
       
-      if (getTeamFn(pieceInLine.color) !== getTeamFn(piece.color)) {
+      if (isAttacker) {
+        // Check if the attacker can attack through the line
         const canAttack = canPieceAttackThroughLine(pieceInLine, piece, king, allBasePoints, getTeamFn);
         if (canAttack) {
           foundAttacker = true;
