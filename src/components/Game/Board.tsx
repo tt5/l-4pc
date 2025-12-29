@@ -69,6 +69,7 @@ const Board: Component<BoardProps> = (props) => {
   const [isEngineReady, setIsEngineReady] = createSignal(false);
   const [isEngineThinking, setIsEngineThinking] = createSignal(false);
   const [isAnalyzing, setIsAnalyzing] = createSignal(false);
+  const [isSaving, setIsSaving] = createSignal(false);
   const [analysis, setAnalysis] = createSignal<{score: string; depth: number; bestMove: string} | null>(null);
   const [lastAnalyzedMoves, setLastAnalyzedMoves] = createSignal<string[]>([]);
   const analysisInProgress = { current: false };
@@ -694,6 +695,43 @@ const Board: Component<BoardProps> = (props) => {
     }
 
     return Array.from(positionMap.values());
+  };
+
+  const handleSaveGame = async () => {
+    if (isSaving()) return;
+    
+    setIsSaving(true);
+    try {
+      const currentUser = auth.user();
+      if (!currentUser) {
+        console.error('Cannot save game: User not authenticated');
+        return;
+      }
+
+      const response = await fetch('/api/game/update-id', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentUser.id}`
+        },
+        body: JSON.stringify({
+          currentGameId: gameId(),
+          newGameId: gameId() // Using the same ID since we're just saving the current state
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'Failed to save game');
+      }
+
+      console.log('Game saved successfully');
+    } catch (error) {
+      console.error('Error saving game:', error);
+      throw error; // Re-throw to be caught by the BoardControls component
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDeleteCurrentMove = async () => {
@@ -1739,6 +1777,7 @@ const Board: Component<BoardProps> = (props) => {
           onGoForward={handleGoForward}
           onReset={resetBoardToInitialState}
           onDeleteCurrentMove={handleDeleteCurrentMove}
+          onSaveGame={handleSaveGame}
         />
         
         <div class={styles.grid}>

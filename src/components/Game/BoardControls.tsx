@@ -94,9 +94,22 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
     }
   };
 
+  const handleSaveClick = async (e: Event) => {
+    e.preventDefault();
+    if (isSaving() || !props.onSaveGame) return;
+    setIsSaving(true);
+    try {
+      await props.onSaveGame();
+    } catch (error) {
+      console.error('Error saving game:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div class={styles.boardControls}>
-      <div>{props.gameId}</div>
+      <div class={styles.gameId}>{props.gameId}</div>
       <div class={styles.navButtons}>
         <button 
           onClick={handleGoBack} 
@@ -146,18 +159,7 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
           </button>
         )}
         <button
-          onClick={async (e) => {
-            e.preventDefault();
-            if (isSaving() || !props.onSaveGame) return;
-            setIsSaving(true);
-            try {
-              await props.onSaveGame();
-            } catch (error) {
-              console.error('Error saving game:', error);
-            } finally {
-              setIsSaving(false);
-            }
-          }}
+          onClick={handleSaveClick}
           disabled={isSaving() || !props.onSaveGame}
           class={`${styles.controlButton} ${styles.saveButton}`}
           title="Save the current game state"
