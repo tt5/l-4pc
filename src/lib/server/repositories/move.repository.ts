@@ -173,6 +173,38 @@ export class MoveRepository {
     }
   }
 
+  /**
+   * Updates all moves from one game_id to another
+   * @param currentGameId The current game ID to update from
+   * @param newGameId The new game ID to update to
+   * @returns The number of rows updated
+   */
+  async updateGameIdForAllMoves(currentGameId: string, newGameId: string): Promise<number> {
+    try {
+      if (!currentGameId || !newGameId) {
+        throw new Error('Both currentGameId and newGameId are required');
+      }
+
+      if (currentGameId === newGameId) {
+        console.log(`[Move] Current and new game IDs are the same, no update needed`);
+        return 0;
+      }
+
+      const result = await this.db.run(
+        `UPDATE moves SET game_id = ? WHERE game_id = ?`,
+        [newGameId, currentGameId]
+      );
+      
+      console.log(`[Move] Updated ${result.changes} moves from game ${currentGameId} to ${newGameId}`);
+      return result.changes || 0;
+      
+    } catch (error) {
+      console.error(`[Move] ❌ Error updating game_id from ${currentGameId} to ${newGameId}:`, 
+        error instanceof Error ? error.message : 'Unknown error');
+      throw error;
+    }
+  }
+
   async getMoveAndDescendants(moveId: number): Promise<number[]> {
     try {
       // First get the move to find its game and branch info
