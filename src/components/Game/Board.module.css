@@ -2,32 +2,45 @@
 
 /* Layout */
 .board {
+  width: 100%;
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
+  display: flex;
+  justify-content: center;
 }
 
 .boardContent {
   display: flex;
   gap: 20px;
   align-items: flex-start;
+  justify-content: center;
+  width: 100%;
 }
 
-/* Style for the controls to keep them on the left */
+/* Board controls on the left */
 .boardContent > :first-child {
   width: 200px;
   flex-shrink: 0;
+  position: sticky;
+  top: 20px;
+  align-self: flex-start;
 }
 
-/* Ensure the grid takes remaining space */
-.boardContent > :last-child {
-  flex-grow: 1;
-  display: flex;
-  justify-content: center;
+/* Board in the middle */
+.boardContent > :nth-child(2) {
+  flex: 0 0 auto;
 }
 
+/* Move history on the right */
 .moveHistoryContainer {
-  position: fixed;
+  width: 200px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 20px;
+  align-self: flex-start;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
   right: 20px;
   top: 20px;
   width: 250px;
