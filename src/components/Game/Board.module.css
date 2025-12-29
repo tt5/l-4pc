@@ -366,25 +366,8 @@
 
 /* Non-playable corner squares */
 .square.nonPlayable {
-  background-color: rgba(0, 0, 0, 0.3) !important;
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-.square.nonPlayable::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: repeating-linear-gradient(
-    45deg,
-    transparent,
-    transparent 2px,
-    rgba(0, 0, 0, 0.2) 2px,
-    rgba(0, 0, 0, 0.2) 4px
-  );
+  background-color: transparent !important;
+  opacity: 0;
   pointer-events: none;
 }
 
