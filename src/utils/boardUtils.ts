@@ -45,6 +45,7 @@ export function calculateRestrictedSquares(
     isSquareUnderAttack?: (x: number, y: number, team: number, points: BasePoint[], getTeamFn: (color: string) => number) => boolean;
     isSquareBetween?: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean;
     getTeamFn?: (color: string) => number;
+    enPassantTarget?: {x: number, y: number, color: string} | null;
   } = {}
 ): RestrictedSquaresResult {
 
@@ -67,7 +68,12 @@ export function calculateRestrictedSquares(
       wouldResolveCheck: options.wouldResolveCheck,
       isSquareUnderAttack: options.isSquareUnderAttack,
       isSquareBetween: options.isSquareBetween,
-      getTeamFn: options.getTeamFn || getTeamByColor
+      getTeamFn: options.getTeamFn || getTeamByColor,
+      enPassantTarget: options.enPassantTarget ? {
+        x: options.enPassantTarget.x,
+        y: options.enPassantTarget.y,
+        color: piece.color
+      } : null
     });
     
     for (const { x, y, canCapture } of moves) {

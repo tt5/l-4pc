@@ -1416,7 +1416,8 @@ const Board: Component<BoardProps> = (props) => {
       wouldResolveCheck,
       isSquareUnderAttack,
       isSquareBetween,
-      getTeamFn: getTeamByColor
+      getTeamFn: getTeamByColor,
+      enPassantTarget: enPassantTarget()
     });
     // Check if this is a castling move
     const castlingMove = legalMoves.find(
