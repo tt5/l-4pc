@@ -713,7 +713,14 @@ export function getLegalMoves(
     getTeamFn?: (color: string) => number;
     enPassantTarget?: {x: number, y: number, color: string} | null;
   } = {}
-): Array<{x: number, y: number, canCapture: boolean, isCastle?: boolean, castleType?: string, isEnPassant?: boolean}> {
+): Array<{
+  x: number;
+  y: number;
+  canCapture: boolean;
+  isCastle?: boolean;
+  castleType?: string;
+  isEnPassant?: boolean;
+}> {
 
   const { 
     isKingInCheck = false, 
@@ -725,7 +732,7 @@ export function getLegalMoves(
 
   const pieceType = basePoint.pieceType || 'pawn'; // Default to pawn if not specified
   const team = getTeamByColor(basePoint.color);
-  let possibleMoves: Array<{x: number, y: number, canCapture: boolean, isCastle?: boolean, castleType?: string}> = [];
+  let possibleMoves: Array<{x: number, y: number, canCapture: boolean, isCastle?: boolean, castleType?: string, isEnPassant?: boolean}> = [];
   
   if (pieceType === 'queen') {
     // Queen moves any number of squares in any direction

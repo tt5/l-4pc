@@ -655,7 +655,8 @@ const Board: Component<BoardProps> = (props) => {
         id: moveId, 
         moveNumber, 
         isCastle = false,
-        castleType = ''
+        castleType = '',
+        isEnPassant = false
       } = move;
       const isCastleMove = isCastle ?? false;
       const castleTypeValue = (castleType === 'KING_SIDE' || castleType === 'QUEEN_SIDE') ? castleType : null;
@@ -727,7 +728,7 @@ const Board: Component<BoardProps> = (props) => {
       if (isEnPassant) {
         setBasePoints(prev => {
           // For en passant, the captured pawn is on the same file but different rank
-          const capturedPawnX = toX;
+          let capturedPawnX = toX;
           let capturedPawnY = toY;
           
           // Determine the direction of the capture based on the moving pawn's color
