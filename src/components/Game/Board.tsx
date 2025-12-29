@@ -171,24 +171,29 @@ const Board: Component<BoardProps> = (props) => {
     });
   });
   
-  // Fetch the latest game ID when the component mounts
+  // Initialize the board when the component mounts
   onMount(async () => {
-    if (!props.gameId) {
-      try {
+    try {
+      if (props.gameId) {
+        // If we have a gameId prop, load that game
+        await loadGame(props.gameId);
+      } else {
+        // Otherwise, try to load the latest game
         const response = await fetch('/api/game/latest');
         if (response.ok) {
           const data = await response.json();
-          if (data.gameId) {
-            setGameId(data.gameId);
-            // Update the URL if we're not already on the game page
-            if (!window.location.pathname.includes(data.gameId)) {
-              navigate(`/game/${data.gameId}`, { replace: true });
-            }
+          if (data?.gameId) {
+            await loadGame(data.gameId);
+            return; // Exit if we successfully loaded a game
           }
         }
-      } catch (error) {
-        console.error('Failed to fetch latest game ID:', error);
+        // If we get here, either the API call failed or no game was found
+        console.log('No game found, initializing new game');
+        resetBoardToInitialState();
       }
+    } catch (error) {
+      console.error('Error initializing game:', error);
+      resetBoardToInitialState();
     }
   });
   
@@ -198,9 +203,137 @@ const Board: Component<BoardProps> = (props) => {
     userId: string | null;
   }>({ gameId: null, userId: null });
   
+  // Load a game by ID
+  const loadGame = async (gameIdToLoad: string) => {
+    console.log('[loadGame] Starting to load game with ID:', gameIdToLoad);
+    
+    if (!gameIdToLoad) {
+      console.log('[loadGame] No game ID provided, initializing new game');
+      resetBoardToInitialState();
+      return;
+    }
+
+    const currentUser = auth.user();
+    console.log('[loadGame] Current user:', currentUser ? 'Logged in' : 'Not logged in');
+    
+    if (!currentUser) {
+      console.log('[loadGame] No user logged in, initializing new game');
+      resetBoardToInitialState();
+      return;
+    }
+
+    try {
+      const url = `/api/game/${gameIdToLoad}/moves`;
+      console.log('[loadGame] Fetching moves from:', url);
+      
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      const userToken = auth.getToken();
+      console.log('[loadGame] User token:', userToken ? 'Available' : 'Not available');
+      if (userToken) {
+        headers['Authorization'] = `Bearer ${userToken}`;
+      }
+      
+      console.log('[loadGame] Making request with headers:', headers);
+      const response = await fetch(url, { 
+        headers,
+        credentials: 'include' // Ensure cookies are sent with the request
+      });
+      console.log('[loadGame] Response status:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[loadGame] Error response:', errorText);
+        throw new Error(`Failed to load game: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('[loadGame] Received data:', data);
+      const rawMoves = Array.isArray(data?.moves) ? data.moves : [];
+      console.log(`[loadGame] Found ${rawMoves.length} moves`);
+      
+      if (rawMoves.length === 0) {
+        console.log('[loadGame] No moves found, initializing new game');
+        resetBoardToInitialState();
+        return;
+      }
+      
+      // Define the type for the move object from the API
+      interface ApiMove {
+        id: number;
+        gameId: string;
+        userId: string;
+        pieceType: string;
+        fromX: number;
+        fromY: number;
+        toX: number;
+        toY: number;
+        moveNumber: number;
+        capturedPieceId: number | null;
+        createdAtMs: number;
+        isBranch?: boolean;
+        branchName?: string | null;
+      }
+      
+      const moves = rawMoves.map((move: ApiMove) => ({
+        fromX: move.fromX,
+        fromY: move.fromY,
+        toX: move.toX,
+        toY: move.toY,
+        pieceType: move.pieceType,
+        userId: move.userId,
+        id: move.id,
+        gameId: move.gameId,
+        moveNumber: move.moveNumber,
+        capturedPieceId: move.capturedPieceId,
+        createdAtMs: move.createdAtMs,
+        isBranch: move.isBranch || false,
+        branchName: move.branchName || null
+      }));
+      
+      // Update state in a batch
+      batch(() => {
+        setGameId(gameIdToLoad);
+        setFullMoveHistory(moves);
+        
+        if (moves.length > 0) {
+          setMainLineMoves(moves.filter((move: Move) => !move.branchName || move.branchName === 'main'));
+          setCurrentBranchName('main');
+          setMoveHistory(rebuildMoveHistory('main'));
+          setCurrentMoveIndex(0);
+          setCurrentTurnIndex(0);
+        } else {
+          resetBoardToInitialState();
+        }
+        
+        // Update last loaded state
+        setLastLoadedState({
+          gameId: gameIdToLoad,
+          userId: currentUser.id
+        });
+        
+        // Update URL if needed
+        if (!window.location.pathname.includes(gameIdToLoad)) {
+          navigate(`/game/${gameIdToLoad}`, { replace: true });
+        }
+      });
+      
+      return moves;
+    } catch (error) {
+      console.error('Error loading game:', error);
+      // Reset to a clean state on error
+      batch(() => {
+        setMoveHistory([]);
+        setFullMoveHistory([]);
+        setCurrentTurnIndex(0);
+        setCurrentMoveIndex(-1);
+        resetBoardToInitialState();
+      });
+      throw error;
+    }
+  };
+  
   // Load moves when game ID or user changes
   createEffect(() => {
-    //console.log(`[Effect] load moves`)
     const currentGameId = gameId();
     const currentUser = auth.user();
     const lastState = lastLoadedState();
@@ -208,107 +341,16 @@ const Board: Component<BoardProps> = (props) => {
     // Only load moves if we have a valid game ID and user is logged in
     if (currentGameId && currentUser) {
       if (currentGameId !== lastState.gameId || currentUser.id !== lastState.userId) {
+        // Reset state
+        batch(() => {
+          setMoveHistory([]);
+          setFullMoveHistory([]);
+          setCurrentMoveIndex(-1);
+          setCurrentTurnIndex(0);
+        });
         
-        // Reset move history immediately to clear any stale data
-        setMoveHistory([]);
-        setFullMoveHistory([]);
-        setCurrentMoveIndex(-1);
-        setCurrentTurnIndex(0);
-        
-        // Load moves for the current game
-        const loadMoves = async () => {
-          try {
-            const url = `/api/game/${currentGameId}/moves`;
-            const headers: HeadersInit = {
-              'Content-Type': 'application/json'
-            };
-            
-            // Add auth token if available
-            const userToken = auth.getToken();
-            if (userToken) {
-              headers['Authorization'] = `Bearer ${userToken}`;
-            }
-            
-            const response = await fetch(url, {
-              headers
-            });
-            
-            if (response.ok) {
-              const data = await response.json();
-              const rawMoves = Array.isArray(data?.moves) ? data.moves : [];
-              
-              // Define the type for the move object from the API
-              interface ApiMove {
-                id: number;
-                gameId: string;
-                userId: string;
-                pieceType: string;
-                fromX: number;
-                fromY: number;
-                toX: number;
-                toY: number;
-                moveNumber: number;
-                capturedPieceId: number | null;
-                createdAtMs: number;
-                isBranch?: boolean;
-                branchName?: string | null;
-              }
-              
-              const moves = rawMoves.map((move: ApiMove) => ({
-                fromX: move.fromX,
-                fromY: move.fromY,
-                toX: move.toX,
-                toY: move.toY,
-                pieceType: move.pieceType,
-                userId: move.userId,
-                id: move.id,
-                gameId: move.gameId,
-                moveNumber: move.moveNumber,
-                capturedPieceId: move.capturedPieceId,
-                createdAtMs: move.createdAtMs,
-                isBranch: move.isBranch || false,
-                branchName: move.branchName || null
-              }));
-              
-              // Set the full move history (all moves)
-              setFullMoveHistory(moves);
-
-              if (moves.length > 0) {
-                setMainLineMoves(moves.filter((move: Move) => !move.branchName || move.branchName === 'main'));
-                setCurrentBranchName('main');
-                setMoveHistory(rebuildMoveHistory('main'));
-                setCurrentMoveIndex(0);
-              } else {
-                resetBoardToInitialState();
-              }
-              
-              // Update last loaded state
-              const newState = {
-                gameId: currentGameId,
-                userId: currentUser.id
-              };
-              setLastLoadedState(newState);
-            } else {
-              const errorText = await response.text();
-              console.error('[BOARD] Failed to load moves:', {
-                status: response.status,
-                statusText: response.statusText,
-                error: errorText
-              });
-              setMoveHistory([]);
-              setCurrentTurnIndex(0);
-            }
-          } catch (error) {
-            console.error('[BOARD] Error loading moves:', {
-              error: error instanceof Error ? error.message : String(error),
-              stack: error instanceof Error ? error.stack : undefined
-            });
-            setMoveHistory([]);
-            setCurrentTurnIndex(0);
-          }
-        };
-        
-        loadMoves();
+        // Load the game using the new loadGame function
+        loadGame(currentGameId).catch(console.error);
       }
     } else {
       // Clear state if no game ID or user
