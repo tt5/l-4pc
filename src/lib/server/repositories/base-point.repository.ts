@@ -46,14 +46,14 @@ export class BasePointRepository {
 
   async getAll(): Promise<BasePoint[]> {
     const results = await this.db.all<BasePoint[]>(
-      'SELECT id, user_id as userId, x, y, color, piece_type as pieceType, game_created_at_ms as createdAtMs FROM base_points'
+      'SELECT id, user_id as userId, x, y, color, piece_type as pieceType, created_at_ms as createdAtMs FROM base_points'
     );
     return results || [];
   }
 
   async getByUser(userId: string): Promise<BasePoint[]> {
     const results = await this.db.all<BasePoint[]>(
-      'SELECT id, user_id as userId, x, y, color, piece_type as pieceType, game_created_at_ms as createdAtMs FROM base_points WHERE user_id = ?',
+      'SELECT id, user_id as userId, x, y, color, piece_type as pieceType, created_at_ms as createdAtMs FROM base_points WHERE user_id = ?',
       [userId]
     );
     return results || [];
@@ -81,7 +81,7 @@ export class BasePointRepository {
 
   async getPointsInBounds(minX: number, minY: number, maxX: number, maxY: number): Promise<BasePoint[]> {
     const results = await this.db.all<BasePoint[]>(
-      'SELECT id, user_id as userId, x, y, color, piece_type as pieceType, game_created_at_ms as createdAtMs ' +
+      'SELECT id, user_id as userId, x, y, color, piece_type as pieceType, created_at_ms as createdAtMs ' +
       'FROM base_points ' +
       'WHERE x >= ? AND x <= ? AND y >= ? AND y <= ?',
       [minX, maxX, minY, maxY]
@@ -138,7 +138,7 @@ export class BasePointRepository {
 
         // First, try to get the existing base point
         const existing = await this.db.get<BasePoint>(
-          'SELECT id, x, y, game_created_at_ms as createdAtMs FROM base_points WHERE user_id = ? AND x = ? AND y = ?',
+          'SELECT id, x, y, created_at_ms as createdAtMs FROM base_points WHERE user_id = ? AND x = ? AND y = ?',
           [userId, x, y]
         );
 
@@ -149,7 +149,7 @@ export class BasePointRepository {
 
         // Insert the base point
         const result = await this.db.run(
-          'INSERT INTO base_points (user_id, x, y, game_created_at_ms, color, piece_type) VALUES (?, ?, ?, ?, ?, ?)',
+          'INSERT INTO base_points (user_id, x, y, created_at_ms, color, piece_type) VALUES (?, ?, ?, ?, ?, ?)',
           [userId, x, y, now, color, pieceType]
         );
 
@@ -159,7 +159,7 @@ export class BasePointRepository {
         
         // Fetch the complete base point to ensure all fields are included
         const insertedPoint = await this.db.get<BasePoint>(
-          'SELECT id, user_id as userId, x, y, color, piece_type as pieceType, game_created_at_ms as createdAtMs FROM base_points WHERE id = ?',
+          'SELECT id, user_id as userId, x, y, color, piece_type as pieceType, created_at_ms as createdAtMs FROM base_points WHERE id = ?',
           [result.lastID]
         );
 
@@ -254,7 +254,7 @@ export class BasePointRepository {
 
   async getById(id: number): Promise<BasePoint | null> {
     const result = await this.db.get<BasePoint>(
-      'SELECT id, user_id as userId, x, y, color, piece_type as pieceType, game_created_at_ms as createdAtMs FROM base_points WHERE id = ?',
+      'SELECT id, user_id as userId, x, y, color, piece_type as pieceType, created_at_ms as createdAtMs FROM base_points WHERE id = ?',
       [id]
     );
     return result || null;
@@ -269,7 +269,7 @@ export class BasePointRepository {
    */
   async findByCoordinates(x: number, y: number, excludeId?: number): Promise<BasePoint | null> {
     const query = `
-      SELECT id, user_id as userId, x, y, color, piece_type as pieceType, game_created_at_ms as createdAtMs 
+      SELECT id, user_id as userId, x, y, color, piece_type as pieceType, created_at_ms as createdAtMs 
       FROM base_points 
       WHERE x = ? AND y = ? ${excludeId ? 'AND id != ?' : ''}
     `;
@@ -346,10 +346,10 @@ export class BasePointRepository {
    */
   async getOldest(): Promise<BasePoint | null> {
     const result = await this.db.get<BasePoint>(
-      'SELECT id, user_id as userId, x, y, game_created_at_ms as createdAtMs ' +
+      'SELECT id, user_id as userId, x, y, created_at_ms as createdAtMs ' +
       'FROM base_points ' +
       'WHERE x != 0 OR y != 0 ' +
-      'ORDER BY game_created_at_ms ASC LIMIT 1'
+      'ORDER BY created_at_ms ASC LIMIT 1'
     );
     return result || null;
   }
@@ -593,7 +593,7 @@ export class BasePointRepository {
   async deleteBasePoint(id: number): Promise<BasePoint | null> {
     // First get the point to return it after deletion
     const point = await this.db.get<BasePoint>(
-      'SELECT id, user_id as userId, x, y, game_created_at_ms as createdAtMs FROM base_points WHERE id = ?',
+      'SELECT id, user_id as userId, x, y, created_at_ms as createdAtMs FROM base_points WHERE id = ?',
       [id]
     );
 

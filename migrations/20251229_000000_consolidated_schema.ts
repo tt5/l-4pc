@@ -47,23 +47,29 @@ export async function up(db: Database): Promise<void> {
     );
   `);
 
-  // 4. Create moves table (depends on users and base_points)
+  // 4. Create moves table (depends on users, games, and base_points)
   await db.exec(`
     CREATE TABLE IF NOT EXISTS moves (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      game_id TEXT NOT NULL,
       user_id TEXT NOT NULL,
       piece_type TEXT NOT NULL,
+      color TEXT NOT NULL DEFAULT 'white',
       from_x INTEGER NOT NULL,
       from_y INTEGER NOT NULL,
       to_x INTEGER NOT NULL,
       to_y INTEGER NOT NULL,
       move_number INTEGER,
       captured_piece_id INTEGER,
+      position_before_id INTEGER,
+      position_after_id INTEGER,
       is_branch BOOLEAN NOT NULL DEFAULT 0,
       branch_name TEXT,
       created_at_ms INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-      FOREIGN KEY (captured_piece_id) REFERENCES base_points(id) ON DELETE SET NULL
+      FOREIGN KEY (captured_piece_id) REFERENCES base_points(id) ON DELETE SET NULL,
+      FOREIGN KEY (position_before_id) REFERENCES base_points(id) ON DELETE SET NULL,
+      FOREIGN KEY (position_after_id) REFERENCES base_points(id) ON DELETE SET NULL
     );
   `);
 
@@ -71,18 +77,30 @@ export async function up(db: Database): Promise<void> {
   console.log('Creating indexes...');
   await db.exec('CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)');
   
-  // Add game_joined column if it doesn't exist
+  // Add columns if they don't exist
   try {
     await db.exec('ALTER TABLE users ADD COLUMN game_joined INTEGER DEFAULT 0');
     console.log('Added game_joined column to users table');
   } catch (error: unknown) {
-    // Column might already exist, which is fine
-    if (error instanceof Error) {
-      if (!error.message.includes('duplicate column name')) {
-        throw error; // Re-throw if it's a different error
-      }
-    } else {
-      // If it's not an Error object, re-throw it
+    if (error instanceof Error && !error.message.includes('duplicate column name')) {
+      throw error;
+    }
+  }
+
+  try {
+    await db.exec('ALTER TABLE base_points ADD COLUMN color TEXT NOT NULL DEFAULT "white"');
+    console.log('Added color column to base_points table');
+  } catch (error: unknown) {
+    if (error instanceof Error && !error.message.includes('duplicate column name')) {
+      throw error;
+    }
+  }
+
+  try {
+    await db.exec('ALTER TABLE base_points ADD COLUMN piece_type TEXT NOT NULL DEFAULT "pawn"');
+    console.log('Added piece_type column to base_points table');
+  } catch (error: unknown) {
+    if (error instanceof Error && !error.message.includes('duplicate column name')) {
       throw error;
     }
   }
@@ -90,6 +108,7 @@ export async function up(db: Database): Promise<void> {
   await db.exec('CREATE INDEX IF NOT EXISTS idx_base_points_coords ON base_points(x, y)');
   await db.exec('CREATE INDEX IF NOT EXISTS idx_base_points_created_at ON base_points(created_at_ms)');
   await db.exec('CREATE INDEX IF NOT EXISTS idx_moves_user_id ON moves(user_id)');
+  await db.exec('CREATE INDEX IF NOT EXISTS idx_moves_game_id ON moves(game_id)');
   await db.exec('CREATE INDEX IF NOT EXISTS idx_moves_created_at ON moves(created_at_ms)');
   await db.exec('CREATE INDEX IF NOT EXISTS idx_moves_move_number ON moves(move_number)');
   
