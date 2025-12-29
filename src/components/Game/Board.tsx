@@ -178,6 +178,7 @@ const Board: Component<BoardProps> = (props) => {
         // If we have a gameId prop, load that game
         await loadGame(props.gameId);
       } else {
+        /*
         // Otherwise, try to load the latest game
         const response = await fetch('/api/game/latest');
         if (response.ok) {
@@ -188,6 +189,7 @@ const Board: Component<BoardProps> = (props) => {
           }
         }
         // If we get here, either the API call failed or no game was found
+        */
         console.log('No game found, initializing new game');
         resetBoardToInitialState();
       }
@@ -313,7 +315,7 @@ const Board: Component<BoardProps> = (props) => {
         
         // Update URL if needed
         if (!window.location.pathname.includes(gameIdToLoad)) {
-          navigate(`/game/${gameIdToLoad}`, { replace: true });
+          //navigate(`/game/${gameIdToLoad}`, { replace: true });
         }
       });
       
