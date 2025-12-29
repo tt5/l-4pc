@@ -697,20 +697,30 @@ const Board: Component<BoardProps> = (props) => {
     return Array.from(positionMap.values());
   };
 
+  const generateNewGameId = () => {
+    // Generate a random 8-character alphanumeric ID
+    return Math.random().toString(36).substring(2, 10);
+  };
+
   const handleSaveGame = async () => {
     if (isSaving()) return;
     
     setIsSaving(true);
     try {
+      const currentGameId = gameId();
+      const newGameId = generateNewGameId();
+      
+      console.log(`[Save] Saving game ${currentGameId} as new game ${newGameId}`);
+      
       const response = await fetch('/api/game/update-id', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        credentials: 'include', // This will include the session cookie
+        credentials: 'include',
         body: JSON.stringify({
-          currentGameId: gameId(),
-          newGameId: gameId() // Using the same ID since we're just saving the current state
+          currentGameId,
+          newGameId
         })
       });
 
@@ -719,7 +729,14 @@ const Board: Component<BoardProps> = (props) => {
         throw new Error(error.error || 'Failed to save game');
       }
 
-      console.log('Game saved successfully');
+      const data = await response.json();
+      console.log('Game saved successfully as', newGameId);
+      
+      // Update the game ID in the URL and state
+      setGameId(newGameId);
+      const url = new URL(window.location.href);
+      url.searchParams.set('gameId', newGameId);
+      window.history.pushState({}, '', url.toString());
     } catch (error) {
       console.error('Error saving game:', error);
       throw error; // Re-throw to be caught by the BoardControls component
