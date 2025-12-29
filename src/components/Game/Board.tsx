@@ -702,18 +702,12 @@ const Board: Component<BoardProps> = (props) => {
     
     setIsSaving(true);
     try {
-      const currentUser = auth.user();
-      if (!currentUser) {
-        console.error('Cannot save game: User not authenticated');
-        return;
-      }
-
       const response = await fetch('/api/game/update-id', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${currentUser.id}`
+          'Content-Type': 'application/json'
         },
+        credentials: 'include', // This will include the session cookie
         body: JSON.stringify({
           currentGameId: gameId(),
           newGameId: gameId() // Using the same ID since we're just saving the current state
