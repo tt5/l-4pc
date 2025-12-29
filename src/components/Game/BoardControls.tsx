@@ -7,6 +7,7 @@ type BoardControlsProps = {
   onGoBack?: () => Promise<void>;
   onGoForward?: () => Promise<void>;
   onDeleteCurrentMove?: () => Promise<void>;
+  onSaveGame?: () => Promise<void>;
   gameId?: string;
   canGoBack?: boolean;
   canGoForward?: boolean;
@@ -19,6 +20,7 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
   const [isGoingBack, setIsGoingBack] = createSignal(false);
   const [isGoingForward, setIsGoingForward] = createSignal(false);
   const [isDeleting, setIsDeleting] = createSignal(false);
+  const [isSaving, setIsSaving] = createSignal(false);
 
   const handleResetBoard = async () => {
     const currentUser = user();
@@ -143,6 +145,25 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
             {isDeleting() ? 'Deleting...' : 'Delete Move'}
           </button>
         )}
+        <button
+          onClick={async (e) => {
+            e.preventDefault();
+            if (isSaving() || !props.onSaveGame) return;
+            setIsSaving(true);
+            try {
+              await props.onSaveGame();
+            } catch (error) {
+              console.error('Error saving game:', error);
+            } finally {
+              setIsSaving(false);
+            }
+          }}
+          disabled={isSaving() || !props.onSaveGame}
+          class={`${styles.controlButton} ${styles.saveButton}`}
+          title="Save the current game state"
+        >
+          {isSaving() ? 'Saving...' : 'Save Game'}
+        </button>
       </div>
     </div>
   );

@@ -35,6 +35,17 @@
   color: white;
 }
 
+.saveButton {
+  border: 1px solid #198754;
+  color: #198754;
+  margin-left: 8px;
+}
+
+.saveButton:hover:not(:disabled) {
+  background-color: #198754;
+  color: white;
+}
+
 .resetButton {
   border: 1px solid #dc3545;
   color: #dc3545;
