@@ -74,7 +74,13 @@ const Board: Component<BoardProps> = (props) => {
   const [lastAnalyzedMoves, setLastAnalyzedMoves] = createSignal<string[]>([]);
   const analysisInProgress = { current: false };
   const [cellSize, setCellSize] = createSignal(50); // Default cell size
-  const [enPassantTarget, setEnPassantTarget] = createSignal<{x: number, y: number, color: string} | null>(null);
+  // Track en passant targets for each player
+  const [enPassantTargets, setEnPassantTargets] = createSignal<Record<string, {x: number, y: number, color: string} | null>>({
+    '#F44336': null,  // Red
+    '#FFEB3B': null,  // Yellow
+    '#2196F3': null,  // Blue
+    '#4CAF50': null   // Green
+  });
   
   // Centralized function to handle engine analysis
   const startEngineAnalysis = async (moves: string[]) => {
@@ -1420,7 +1426,7 @@ const Board: Component<BoardProps> = (props) => {
       isSquareUnderAttack,
       isSquareBetween,
       getTeamFn: getTeamByColor,
-      enPassantTarget: enPassantTarget()
+      enPassantTargets: enPassantTargets()
     });
     // Check if this is a castling move
     const castlingMove = legalMoves.find(
@@ -1477,8 +1483,14 @@ const Board: Component<BoardProps> = (props) => {
     // Set processing flag
     setIsProcessingMove(true);
 
-    // Reset enPassantTarget at the start of each move
-    setEnPassantTarget(null);
+    // Clear the en passant target for the current player at the start of their move
+    const currentColor = basePoints().find(p => p.x === startX && p.y === startY)?.color;
+    if (currentColor) {
+      setEnPassantTargets(prev => ({
+        ...prev,
+        [currentColor]: null
+      }));
+    }
 
     // Get and validate the move target and start position
     const target = getMoveTarget();
@@ -1529,32 +1541,45 @@ const Board: Component<BoardProps> = (props) => {
         // For vertical pawns, set en passant target on the same file
         if (isVerticalPawn) {
           const enPassantY = startY + (targetY > startY ? 1 : -1);
-          setEnPassantTarget({
-            x: targetX,
-            y: enPassantY,
-            color: pointToMove.color
-          });
+          setEnPassantTargets(prev => ({
+            ...prev,
+            [pointToMove.color]: {
+              x: targetX,
+              y: enPassantY,
+              color: pointToMove.color
+            }
+          }));
         } 
         // For horizontal pawns, set en passant target on the same rank
         else if (isHorizontalPawn) {
           const enPassantX = startX + (targetX > startX ? 1 : -1);
-          setEnPassantTarget({
-            x: enPassantX,
-            y: targetY,
-            color: pointToMove.color
-          });
+          setEnPassantTargets(prev => ({
+            ...prev,
+            [pointToMove.color]: {
+              x: enPassantX,
+              y: targetY,
+              color: pointToMove.color
+            }
+          }));
         }
       } else {
         // Check if this is an en passant capture
-        const currentEnPassantTarget = enPassantTarget();
-        if (currentEnPassantTarget && 
-            currentEnPassantTarget.x === targetX && 
-            currentEnPassantTarget.y === targetY) {
+        const targets = enPassantTargets();
+        const currentTarget = Object.values(targets).find(target => 
+          target && target.x === targetX && target.y === targetY
+        );
+        
+        if (currentTarget) {
           isEnPassantCapture = true;
         }
-        // enPassantTarget is already reset at the start of the function
       }
     }
+    
+    // Clear the en passant target for the current player when they make any move
+    setEnPassantTargets(prev => ({
+      ...prev,
+      [pointToMove.color]: null
+    }));
 
     // Save the current state for potential rollback
     const originalState = saveCurrentStateForRollback();
@@ -1896,7 +1921,6 @@ const Board: Component<BoardProps> = (props) => {
   
   return (
     <div class={styles.board}>
-      
       <div class={styles.boardContent}>
         <BoardControls 
           gameId={gameId()}
@@ -1912,7 +1936,11 @@ const Board: Component<BoardProps> = (props) => {
           cellSize={cellSize()}
           onCellSizeChange={setCellSize}
         />
-        
+        <div>
+          <div>Eval: {analysis()?.score}</div>
+          <div>Depth: {analysis()?.depth}</div>
+          <div>Best: {analysis()?.bestMove}</div>
+        </div>
         <div 
           class={styles.grid}
           style={{ '--grid-cell-size': `${cellSize()}px` }}
@@ -1990,11 +2018,6 @@ const Board: Component<BoardProps> = (props) => {
           );
         })}
       </div>
-        <div>
-          <div>Eval: {analysis()?.score}</div>
-          <div>Depth: {analysis()?.depth}</div>
-          <div>Best: {analysis()?.bestMove}</div>
-        </div>
       {error() && (
         <div class={styles.error} classList={{ [styles.visible]: !!error() }}>
           {error()}
