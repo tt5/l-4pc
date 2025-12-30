@@ -1580,11 +1580,8 @@ const Board: Component<BoardProps> = (props) => {
       }
     }
     
-    // Clear the en passant target for the current player when they make any move
-    setEnPassantTargets(prev => ({
-      ...prev,
-      [pointToMove.color]: null
-    }));
+    // Note: En passant target is cleared at the start of the player's next move
+    // to allow other players to capture en passant
 
     // Save the current state for potential rollback
     const originalState = saveCurrentStateForRollback();
