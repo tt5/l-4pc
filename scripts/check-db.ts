@@ -3,7 +3,7 @@ import { createDatabaseConnection, type Database } from './core/db.js';
 import type { DbMigration, CheckResult } from './types/database.js';
 
 const checkDatabase = async (): Promise<CheckResult> => {
-  const requiredTables = ['users', 'base_points'];
+  const requiredTables = ['users'];
   const result: CheckResult = {
     success: false,
     dbExists: false,

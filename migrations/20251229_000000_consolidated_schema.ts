@@ -83,7 +83,6 @@ export async function down(db: Database): Promise<void> {
   
   // Drop tables in reverse order of creation
   await db.exec('DROP TABLE IF EXISTS moves');
-  await db.exec('DROP TABLE IF EXISTS base_points');
   await db.exec('DROP TABLE IF EXISTS users');
   await db.exec('DROP TABLE IF EXISTS migrations');
   

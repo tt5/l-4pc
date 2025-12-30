@@ -3,7 +3,6 @@ import { open, Database } from 'sqlite';
 import { promises as fs } from 'fs';
 import { dirname } from 'path';
 import { assertServer } from './utils';
-import { BasePointRepository } from './repositories/base-point.repository';
 import { MoveRepository } from './repositories/move.repository';
 
 export type SqliteDatabase = Database<sqlite3.Database, sqlite3.Statement>;
@@ -19,7 +18,6 @@ const dbPath = join(dbDir, 'app.db');
 
 // Initialize database
 let db: SqliteDatabase;
-let basePointRepo: BasePointRepository | null = null;
 let moveRepo: MoveRepository | null = null;
 
 async function getDb(): Promise<SqliteDatabase> {
@@ -72,45 +70,13 @@ async function ensureUserTable(userId: string): Promise<string> {
       )
     `);
     
-    // Add default base points for new users (center of each edge)
-    try {
-      const basePointRepo = await getBasePointRepository();
-      // Add four base points at the center of each edge of the board
-      await basePointRepo.add(userId, 7, 0);    // Center top
-      await basePointRepo.add(userId, 13, 7);   // Center right
-      await basePointRepo.add(userId, 6, 13);   // Center bottom
-      await basePointRepo.add(userId, 0, 6);    // Center left
-      console.log(`Added default base points for user ${userId}`);
-    } catch (error) {
-      console.error('Error adding default base points:', error);
-      // Don't fail the whole operation if base points creation fails
-    }
+    // Base points are now managed on the client side
     
     return tableName;
   } catch (error) {
     console.error('Error in ensureUserTable:', error);
     throw error;
   }
-}
-
-async function ensureRepositoriesInitialized() {
-  if (!basePointRepo) {
-    console.log('Initializing repositories...');
-    try {
-      await initializeRepositories();
-    } catch (error) {
-      console.error('Failed to initialize repositories:', error);
-      throw new Error('Failed to initialize database repositories');
-    }
-  }
-}
-
-async function getBasePointRepository(): Promise<BasePointRepository> {
-  if (!basePointRepo) {
-    const db = await getDb();
-    basePointRepo = new BasePointRepository(db);
-  }
-  return basePointRepo;
 }
 
 async function getMoveRepository(): Promise<MoveRepository> {
@@ -126,21 +92,7 @@ async function initializeRepositories() {
   if (!db) await getDb();
   
   try {
-    // Create base_points table with foreign key to users
-    await db.exec(`
-      CREATE TABLE IF NOT EXISTS base_points (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id TEXT NOT NULL,
-        x INTEGER NOT NULL,
-        y INTEGER NOT NULL,
-        created_at_ms INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-        updated_at_ms INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        UNIQUE(user_id, x, y)
-      )
-    `);
-    
-    // Run migrations (they'll be no-ops if already applied)
+    // Base points are now managed on the client side
     console.log('Running database migrations...');
     try {
       await runMigrations();
@@ -154,10 +106,7 @@ async function initializeRepositories() {
     throw error;
   }
   
-  // Initialize basePointRepo and mapTileRepo if not already done
-  if (!basePointRepo) {
-    basePointRepo = new BasePointRepository(db);
-  }
+  // Base points are now managed on the client side
 }
 
 async function runMigrations() {
@@ -284,7 +233,6 @@ async function runMigrations() {
 export {
   getDb,
   ensureUserTable,
-  getBasePointRepository,
   getMoveRepository,
   initializeRepositories,
   runMigrations

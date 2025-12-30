@@ -190,21 +190,6 @@ const initializeDatabase = async (): Promise<InitResult> => {
               updated_at_ms INTEGER DEFAULT (strftime('%s', 'now') * 1000)
             )
           `
-        },
-        {
-          name: 'base_points',
-          sql: `
-            CREATE TABLE IF NOT EXISTS base_points (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              user_id TEXT NOT NULL,
-              x INTEGER NOT NULL,
-              y INTEGER NOT NULL,
-              created_at_ms INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-              updated_at_ms INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-              FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-              UNIQUE(user_id, x, y)
-            )
-          `
         }
       ];
       
