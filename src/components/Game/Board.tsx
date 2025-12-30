@@ -732,31 +732,11 @@ const Board: Component<BoardProps> = (props) => {
       }
 
       // Handle en passant capture
-      if (isEnPassant) {
-        setBasePoints(prev => {
-          // Use the capturedPiece position from the move object if available
-          // This is more reliable than recalculating the position
-          const capturedPawnX = move.capturedPiece?.x;
-          const capturedPawnY = move.capturedPiece?.y;
-          
-          if (capturedPawnX === undefined || capturedPawnY === undefined) {
-            console.error('[enPassant] No capturedPiece position in move object:', move);
-            return prev; // Skip if no captured piece position is available
-          }
-          
-          console.log(`[enPassant] Removing captured pawn at [${capturedPawnX},${capturedPawnY}]`);
-          
-          // Create a new array without the captured pawn
-          const newPoints = prev.filter(bp => {
-            const shouldRemove = bp.x === capturedPawnX && bp.y === capturedPawnY;
-            if (shouldRemove) {
-              console.log(`[enPassant] Removed pawn at [${bp.x},${bp.y}] (color: ${bp.color})`);
-            }
-            return !shouldRemove;
-          });
-          
-          return newPoints;
-        });
+      if (isEnPassant && move.capturedPiece) {
+        const { x: capturedX, y: capturedY } = move.capturedPiece;
+        const capturedKey = `${capturedX},${capturedY}`;
+        console.log(`[replayMoves] En passant capture at [${capturedX},${capturedY}]`);
+        positionMap.delete(capturedKey);
       }
 
       // Move the piece
