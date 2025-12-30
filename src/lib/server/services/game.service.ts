@@ -1,6 +1,5 @@
 import { Database } from 'sqlite';
 import { MoveRepository } from '../repositories/move.repository';
-import { UserRepository } from '../repositories/user.repository';
 import { getDb } from '../db';
 import { GameStateService } from './game-state.service';
 
@@ -12,15 +11,6 @@ interface MoveResult {
   isCheck?: boolean;
   isCheckmate?: boolean;
   isStalemate?: boolean;
-}
-
-interface GameStatusResult {
-  success: boolean;
-  gameJoined: boolean;
-  homeX: number;
-  homeY: number;
-  message?: string;
-  error?: string;
 }
 
 interface RestrictedSquaresResult {
@@ -37,11 +27,7 @@ interface CalculateRestrictedSquaresInput {
 }
 
 export class GameService {
-  private userRepository: UserRepository;
-
-  constructor(db: Database) {
-    this.userRepository = new UserRepository(db);
-  }
+  constructor(private db: Database) {}
 
   /**
    * Executes a database transaction
@@ -60,43 +46,4 @@ export class GameService {
       throw error;
     }
   }
-
-  async getGameStatus(userId: string): Promise<GameStatusResult> {
-    try {
-      const status = await this.userRepository.getGameStatus(userId);
-      
-      if (!status) {
-        return { 
-          success: false, 
-          gameJoined: false, 
-          homeX: 0, 
-          homeY: 0,
-          error: 'User not found',
-          message: 'User account could not be found.'
-        };
-      }
-      
-      return {
-        success: true,
-        gameJoined: status.gameJoined,
-        homeX: status.homeX,
-        homeY: status.homeY,
-        message: status.gameJoined 
-          ? `Your home base is at (${status.homeX}, ${status.homeY})`
-          : 'You have not joined the game yet.'
-      };
-      
-    } catch (error) {
-      console.error('Error in getGameStatus:', error);
-      return { 
-        success: false, 
-        gameJoined: false, 
-        homeX: 0, 
-        homeY: 0,
-        error: 'Failed to retrieve game status',
-        message: 'An error occurred while retrieving your game status.'
-      };
-    }
-  }
-
 }
