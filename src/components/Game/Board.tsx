@@ -734,22 +734,28 @@ const Board: Component<BoardProps> = (props) => {
       // Handle en passant capture
       if (isEnPassant) {
         setBasePoints(prev => {
-          // For en passant, the captured pawn is on the same file but different rank
-          let capturedPawnX = toX;
-          let capturedPawnY = toY;
+          // Use the capturedPiece position from the move object if available
+          // This is more reliable than recalculating the position
+          const capturedPawnX = move.capturedPiece?.x;
+          const capturedPawnY = move.capturedPiece?.y;
           
-          // Determine the direction of the capture based on the moving pawn's color
-          if (piece.color === '#F44336') { // Red - moving up
-            capturedPawnY = toY - 1; // Capture the pawn below
-          } else if (piece.color === '#2196F3') { // Blue - moving right
-            capturedPawnX = toX - 1; // Capture the pawn to the left
-          } else if (piece.color === '#FFEB3B') { // Yellow - moving down
-            capturedPawnY = toY + 1; // Capture the pawn above
-          } else if (piece.color === '#4CAF50') { // Green - moving left
-            capturedPawnX = toX + 1; // Capture the pawn to the right
+          if (capturedPawnX === undefined || capturedPawnY === undefined) {
+            console.error('[enPassant] No capturedPiece position in move object:', move);
+            return prev; // Skip if no captured piece position is available
           }
           
-          return prev.filter(bp => !(bp.x === capturedPawnX && bp.y === capturedPawnY));
+          console.log(`[enPassant] Removing captured pawn at [${capturedPawnX},${capturedPawnY}]`);
+          
+          // Create a new array without the captured pawn
+          const newPoints = prev.filter(bp => {
+            const shouldRemove = bp.x === capturedPawnX && bp.y === capturedPawnY;
+            if (shouldRemove) {
+              console.log(`[enPassant] Removed pawn at [${bp.x},${bp.y}] (color: ${bp.color})`);
+            }
+            return !shouldRemove;
+          });
+          
+          return newPoints;
         });
       }
 
@@ -1419,7 +1425,7 @@ const Board: Component<BoardProps> = (props) => {
       };
     }
 
-    // Get the legal moves for this piece to check if it's a castling move
+    // Get the legal moves for this piece
     const legalMoves = getLegalMoves(pointToMove, basePoints(), {
       isKingInCheck: kingInCheck()?.team === getTeamByColor(pointToMove.color),
       wouldResolveCheck,
@@ -1428,18 +1434,22 @@ const Board: Component<BoardProps> = (props) => {
       getTeamFn: getTeamByColor,
       enPassantTarget: enPassantTargets()
     });
-    // Check if this is a castling move
-    const castlingMove = legalMoves.find(
-      move => move.x === targetX && 
-            move.y === targetY && 
-            move.isCastle
-    );
+
+    // Find the specific move
+    const move = legalMoves.find(m => m.x === targetX && m.y === targetY);
+    if (!move) {
+      return { 
+        isValid: false, 
+        error: `Invalid move for ${pointToMove.pieceType} at (${startX}, ${startY}) to (${targetX}, ${targetY})` 
+      };
+    }
 
     return { 
       isValid: true, 
       pointToMove,
-      isCastle: castlingMove?.isCastle || false,
-      castleType: castlingMove?.castleType
+      isCastle: move.isCastle || false,
+      castleType: move.castleType,
+      capturedPiece: move.capturedPiece  // Include capturedPiece in the return value
     };
   };
 
@@ -1522,7 +1532,7 @@ const Board: Component<BoardProps> = (props) => {
     }
 
     // Validate the move
-    const { isValid, pointToMove, error, isCastle, castleType } = validateMove(startX, startY, targetX, targetY);
+    const { isValid, pointToMove, error, isCastle, castleType, capturedPiece } = validateMove(startX, startY, targetX, targetY);
     if (!isValid || !pointToMove) {
       if (error) {
         console.error('Move validation failed:', error);
@@ -1751,7 +1761,8 @@ const Board: Component<BoardProps> = (props) => {
           pieceType: pointToMove.pieceType,
           isCastle: isCastle || false,
           castleType: (castleType === 'KING_SIDE' || castleType === 'QUEEN_SIDE') ? castleType : null,
-          isEnPassant: isEnPassantCapture
+          isEnPassant: isEnPassantCapture,
+          capturedPiece: isEnPassantCapture ? capturedPiece : undefined
         };
         console.log(`[handleGlobalMouseUp] newMove: ${JSON.stringify(newMove)}`)
 

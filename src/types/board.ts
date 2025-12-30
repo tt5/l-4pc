@@ -82,10 +82,17 @@ export interface Move {
   pieceType?: string;
   branch?: string; // For tracking move branches in game variations
   capturedPieceId?: number | null;
+  capturedPiece?: {
+    x: number;
+    y: number;
+    color: string;
+    pieceType: string;
+  };
   createdAtMs?: number;
   isBranch?: boolean | number;  // Can be boolean or number (0/1) from API
   branchName?: string;
   parentBranchName?: string | null;  // Track parent branch for nested branches
+  isEnPassant?: boolean;  // Indicates if this is an en passant capture
 }
 
 export interface GameState {

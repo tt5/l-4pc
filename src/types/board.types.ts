@@ -36,6 +36,15 @@ export interface Move {
   castleType?: 'KING_SIDE' | 'QUEEN_SIDE' | null;
   isBranch?: boolean;
   isEnPassant?: boolean;
+  capturedPiece?: {
+    x: number;
+    y: number;
+    color: string;
+    pieceType: string;
+  };
+  capturedPieceId?: string | null;
+  gameId?: string;
+  userId?: string;
 }
 
 export interface BoardProps {
