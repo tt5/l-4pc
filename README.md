@@ -7,14 +7,13 @@ and (in another terminal)
 
 # TODO
 
-- [ ] en passant
+- [x] en passant
 - [ ] pawn promotion
 - [ ] rotate board
 - [ ] algebraic notation
 - [ ] promote branch
 - [ ] keyboard controls
-- [x] save/load game
-- [ ] show saved game ids, select when loading
+- [ ] show saved game ids
 - [ ] delete game
 - [ ] export/import pgn4
 - [ ] start from fen4, show fen4
