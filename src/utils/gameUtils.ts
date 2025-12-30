@@ -1042,7 +1042,6 @@ export function getLegalMoves(
       }
     }
     
-    possibleMoves = [...moves];
   } else if (pieceType === 'bishop') {
     // Bishop moves any number of squares diagonally
     const directions = [
