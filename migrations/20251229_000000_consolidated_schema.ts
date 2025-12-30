@@ -48,7 +48,7 @@ export async function up(db: Database): Promise<void> {
       is_branch BOOLEAN NOT NULL DEFAULT 0,
       branch_name TEXT,
       created_at_ms INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
   `);
 
@@ -66,17 +66,7 @@ export async function up(db: Database): Promise<void> {
     }
   }
 
-  try {
-    // Removed base_points related ALTER TABLE statements
-    console.log('Added piece_type column to base_points table');
-  } catch (error: unknown) {
-    if (error instanceof Error && !error.message.includes('duplicate column name')) {
-      throw error;
-    }
-  }
-  await db.exec('CREATE INDEX IF NOT EXISTS idx_base_points_user_id ON base_points(user_id)');
-  await db.exec('CREATE INDEX IF NOT EXISTS idx_base_points_coords ON base_points(x, y)');
-  await db.exec('CREATE INDEX IF NOT EXISTS idx_base_points_created_at ON base_points(created_at_ms)');
+  // Create remaining indexes
   await db.exec('CREATE INDEX IF NOT EXISTS idx_moves_user_id ON moves(user_id)');
   await db.exec('CREATE INDEX IF NOT EXISTS idx_moves_game_id ON moves(game_id)');
   await db.exec('CREATE INDEX IF NOT EXISTS idx_moves_created_at ON moves(created_at_ms)');
