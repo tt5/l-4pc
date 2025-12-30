@@ -145,7 +145,6 @@ const runMigrations = async (): Promise<MigrationResult> => {
 const initializeDatabase = async (): Promise<InitResult> => {
   console.log('\n=== Database Initialization ===');
   const startTime = Date.now();
-  const tablesCreated: string[] = [];
   
   try {
     if (!(await ensureDbDirectory())) {
@@ -157,58 +156,15 @@ const initializeDatabase = async (): Promise<InitResult> => {
     const db = await createDatabaseConnection();
     
     try {
-      console.log('\n2. Checking existing tables...');
-      const tables = await getAllTables(db);
+      console.log('\n2. Running migrations...');
+      const migrationResult = await runMigrations();
       
-      if (tables.length) {
-        console.log('✅ Database already initialized with tables:', tables.map(t => t.name).join(', '));
-        return { success: true, tablesCreated: [] };
+      if (!migrationResult.success) {
+        throw new Error('Failed to run migrations');
       }
       
-      console.log('\n3. Creating tables...');
-      
-      // Table definitions
-      const tableDefs = [
-        {
-          name: 'migrations',
-          sql: `
-            CREATE TABLE IF NOT EXISTS migrations (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              name TEXT NOT NULL UNIQUE,
-              applied_at INTEGER DEFAULT (strftime('%s', 'now'))
-            )
-          `
-        },
-        {
-          name: 'users',
-          sql: `
-            CREATE TABLE IF NOT EXISTS users (
-              id TEXT PRIMARY KEY,
-              username TEXT NOT NULL UNIQUE,
-              password_hash TEXT NOT NULL,
-              created_at_ms INTEGER DEFAULT (strftime('%s', 'now') * 1000),
-              updated_at_ms INTEGER DEFAULT (strftime('%s', 'now') * 1000)
-            )
-          `
-        }
-      ];
-      
-      // Create tables in a transaction
-      await db.run('BEGIN TRANSACTION');
-      try {
-        for (const { name, sql } of tableDefs) {
-          console.log(`   - Creating ${name} table`);
-          await db.exec(sql);
-          tablesCreated.push(name);
-        }
-        await db.run('COMMIT');
-      } catch (error) {
-        await db.run('ROLLBACK');
-        throw error;
-      }
-      
-      console.log(`✅ Database initialized with ${tablesCreated.length} tables`);
-      return { success: true, tablesCreated };
+      console.log('✅ Database initialized successfully');
+      return { success: true, tablesCreated: [] };
       
     } finally {
       await db.close();
