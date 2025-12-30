@@ -902,11 +902,9 @@ export function getLegalMoves(
         
         // Determine the captured pawn's position based on movement direction
         if (isVertical) {
-          // For vertical pawns, the captured pawn is one square behind in the y-direction
-          captureY += (basePoint.color === '#F44336' ? -1 : 1);
+          captureX += (basePoint.color === '#F44336' ? -1 : 1);
         } else {
-          // For horizontal pawns, the captured pawn is one square behind in the x-direction
-          captureX += (basePoint.color === '#2196F3' ? -1 : 1);
+          captureY += (basePoint.color === '#2196F3' ? -1 : 1);
         }
         
         // Add the en passant capture move
