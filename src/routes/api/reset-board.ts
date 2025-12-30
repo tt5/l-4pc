@@ -11,15 +11,20 @@ export const POST = withAuth(async ({ request, user }) => {
     const gameId = data?.gameId ? String(data.gameId) : DEFAULT_GAME_ID;
     const moveRepository = await getMoveRepository();
     
-    // Delete all moves for the specified game
     console.log(`[${requestId}] Resetting game by deleting all moves for game:`, gameId);
     
+    // Delete all moves for the specified game
     await moveRepository.deleteAllForGame(gameId);
-    console.log(`[${requestId}] Successfully deleted moves for game:`, gameId);
+    
+    // Reset any game state that might be stored elsewhere
+    // For example, if you're using any in-memory state or cache:
+    // resetGameState(gameId);
+    
+    console.log(`[${requestId}] Successfully reset game:`, gameId);
     
     return createApiResponse({
       success: true, 
-      message: 'Game reset successfully - all moves deleted'
+      message: 'Game reset successfully'
     });
   } catch (error) {
     console.error(`[${requestId}] Error resetting game:`, error);

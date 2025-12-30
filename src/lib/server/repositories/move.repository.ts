@@ -21,6 +21,7 @@ export class MoveRepository {
   
   // Helper method to convert database row to Move
   private mapDbRowToMove(row: any): Move {
+    // Exclude position_before_id and position_after_id if they exist
     const { position_before_id, position_after_id, ...rest } = row;
     return {
       ...rest,
@@ -96,8 +97,8 @@ export class MoveRepository {
         move_number as moveNumber,
         captured_piece_id as capturedPieceId,
         created_at_ms as createdAtMs,
-        position_before_id as positionBeforeId,
-        position_after_id as positionAfterId,
+        NULL as positionBeforeId,
+        NULL as positionAfterId,
         is_branch as isBranch,
         branch_name as branchName
       FROM moves
