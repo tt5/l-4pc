@@ -31,23 +31,7 @@ export async function up(db: Database): Promise<void> {
     );
   `);
 
-  // 3. Create base_points table (depends on users)
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS base_points (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id TEXT NOT NULL,
-      x INTEGER NOT NULL,
-      y INTEGER NOT NULL,
-      piece_type TEXT NOT NULL DEFAULT 'pawn',
-      color TEXT NOT NULL DEFAULT 'white',
-      created_at_ms INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-      updated_at_ms INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-      UNIQUE(user_id, x, y)
-    );
-  `);
-
-  // 4. Create moves table (depends on users, games, and base_points)
+  // 3. Create moves table (depends on users)
   await db.exec(`
     CREATE TABLE IF NOT EXISTS moves (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,15 +45,10 @@ export async function up(db: Database): Promise<void> {
       to_y INTEGER NOT NULL,
       move_number INTEGER,
       captured_piece_id INTEGER,
-      position_before_id INTEGER,
-      position_after_id INTEGER,
       is_branch BOOLEAN NOT NULL DEFAULT 0,
       branch_name TEXT,
       created_at_ms INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-      FOREIGN KEY (captured_piece_id) REFERENCES base_points(id) ON DELETE SET NULL,
-      FOREIGN KEY (position_before_id) REFERENCES base_points(id) ON DELETE SET NULL,
-      FOREIGN KEY (position_after_id) REFERENCES base_points(id) ON DELETE SET NULL
     );
   `);
 
@@ -88,16 +67,7 @@ export async function up(db: Database): Promise<void> {
   }
 
   try {
-    await db.exec('ALTER TABLE base_points ADD COLUMN color TEXT NOT NULL DEFAULT "white"');
-    console.log('Added color column to base_points table');
-  } catch (error: unknown) {
-    if (error instanceof Error && !error.message.includes('duplicate column name')) {
-      throw error;
-    }
-  }
-
-  try {
-    await db.exec('ALTER TABLE base_points ADD COLUMN piece_type TEXT NOT NULL DEFAULT "pawn"');
+    // Removed base_points related ALTER TABLE statements
     console.log('Added piece_type column to base_points table');
   } catch (error: unknown) {
     if (error instanceof Error && !error.message.includes('duplicate column name')) {
