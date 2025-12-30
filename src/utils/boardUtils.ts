@@ -63,11 +63,6 @@ export function calculateRestrictedSquares(
 
   for (const piece of pieces) {
     
-    console.log('[calculateRestrictedSquares] Calling getLegalMoves with:', JSON.stringify({
-      piece: {x: piece.x, y: piece.y, color: piece.color, type: piece.pieceType},
-      enPassantTarget: options.enPassantTarget
-    }, null, 2));
-    
     const moves = getLegalMoves(piece, boardState, {
       isKingInCheck: options.isKingInCheck,
       wouldResolveCheck: options.wouldResolveCheck,
@@ -253,78 +248,6 @@ export const updateBasePoint = async (
       }
     }
 
-    /*
-    // Then update the base point position
-    const response = await fetch(`/api/base-points/${id}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      credentials: 'include',
-      body: JSON.stringify({ x, y })
-    });
-
-    // Handle non-JSON responses
-    const responseText = await response.text();
-    let responseData;
-    
-    try {
-      responseData = responseText ? JSON.parse(responseText) : {};
-    } catch (e) {
-      console.error('Failed to parse server response');
-      return {
-        success: false,
-        error: `Invalid server response: ${response.status} ${response.statusText}`,
-        timestamp: Date.now()
-      };
-    }
-
-    // Handle non-OK responses
-    if (!response.ok) {
-      console.error(`Update failed: ${response.status} ${response.statusText}`, responseData.error || '');
-      
-      return {
-        success: false,
-        error: responseData.error || `Failed to update base point: ${response.status} ${response.statusText}`,
-        timestamp: Date.now()
-      };
-    }
-
-    // Check if the response has the expected structure
-    if (!responseData.success || !responseData.data) {
-      console.error('Invalid response format from server');
-      return {
-        success: false,
-        error: 'Invalid response format from server',
-        timestamp: Date.now()
-      };
-    }
-
-    // Handle nested response structure: response.data.data or response.data
-    const responseDataObj = responseData.data;
-    let basePoint = responseDataObj;
-    
-    // If the data is nested inside another data property
-    if (responseDataObj.data) {
-      basePoint = responseDataObj.data;
-    }
-    
-    // If we still don't have a valid base point, try to get it from a basePoint property
-    if ((!basePoint.x || !basePoint.y) && responseDataObj.basePoint) {
-      basePoint = responseDataObj.basePoint;
-    }
-    
-    if (!basePoint || typeof basePoint.x !== 'number' || typeof basePoint.y !== 'number') {
-      console.error('Invalid base point data in response');
-      return {
-        success: false,
-        error: 'Invalid base point data in response',
-        timestamp: Date.now()
-      };
-    }
-    */
-    
     return {
       success: true,
       //data: basePoint,

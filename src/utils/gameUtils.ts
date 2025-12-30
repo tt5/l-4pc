@@ -863,10 +863,6 @@ export function getLegalMoves(
   } else if (pieceType === 'pawn') {
     // Add en passant capture if available
     const enPassantTargets = options.enPassantTarget || {};
-    console.log('[getLegalMoves] Checking en passant for piece:', JSON.stringify({
-      piece: {x: basePoint.x, y: basePoint.y, color: basePoint.color, type: pieceType},
-      enPassantTargets
-    }, null, 2));
     
     // Check all en passant targets for valid captures
     for (const [color, currentEnPassantTarget] of Object.entries(enPassantTargets)) {
@@ -885,15 +881,6 @@ export function getLegalMoves(
       const isAdjacent = (isVertical && dx === 1 && dy === 1) || 
                         (isHorizontal && dx === 1 && dy === 1);
       
-      console.log('[getLegalMoves] En passant check:', JSON.stringify({
-        piece: {x: basePoint.x, y: basePoint.y, color: basePoint.color},
-        target: currentEnPassantTarget,
-        dx, dy,
-        isVertical,
-        isHorizontal,
-        isAdjacent
-      }, null, 2));
-      
       if (isAdjacent) {
         // Add the en passant capture move
         // The actual capture square is one square behind the target in the direction of movement
@@ -906,14 +893,6 @@ export function getLegalMoves(
         } else {
           captureY += (basePoint.color === '#2196F3' ? -1 : 1);
         }
-        
-        // Add the en passant capture move
-        console.log('[getLegalMoves] Adding en passant move:', JSON.stringify({
-          from: {x: basePoint.x, y: basePoint.y},
-          to: {x: currentEnPassantTarget.x, y: currentEnPassantTarget.y},
-          capturedPawn: {x: captureX, y: captureY},
-          target: currentEnPassantTarget
-        }, null, 2));
         
         possibleMoves.push({
           x: currentEnPassantTarget.x,
