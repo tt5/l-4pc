@@ -1,10 +1,7 @@
 import { Database } from 'sqlite';
-import { BasePointRepository } from '../repositories/base-point.repository';
 import { MoveRepository } from '../repositories/move.repository';
 import { UserRepository } from '../repositories/user.repository';
 import { getDb } from '../db';
-import { BasePoint, BasePointEventType } from '../events/base-point.events';
-import { isInNonPlayableCorner as isPositionInNonPlayableCorner } from '../../../constants/game';
 import { GameStateService } from './game-state.service';
 
 interface MoveResult {
@@ -41,11 +38,9 @@ interface CalculateRestrictedSquaresInput {
 
 export class GameService {
   private userRepository: UserRepository;
-  private basePointRepository: BasePointRepository;
 
   constructor(db: Database) {
     this.userRepository = new UserRepository(db);
-    this.basePointRepository = new BasePointRepository(db);
   }
 
   /**
