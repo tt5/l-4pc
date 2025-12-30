@@ -240,6 +240,22 @@
 }
 
 /* Non-playable corner squares */
+.evaluation {
+  display: flex;
+  gap: 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+}
+
+.evaluation > div {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 .square.nonPlayable {
   background-color: transparent !important;
   opacity: 0;

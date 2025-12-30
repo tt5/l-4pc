@@ -1483,6 +1483,14 @@ const Board: Component<BoardProps> = (props) => {
     // Set processing flag
     setIsProcessingMove(true);
 
+    // Get the starting position from pickedUpBasePoint
+    const startPos = pickedUpBasePoint();
+    if (!startPos) {
+      cleanupDragState();
+      return;
+    }
+    const [startX, startY] = startPos;
+
     // Clear the en passant target for the current player at the start of their move
     const currentColor = basePoints().find(p => p.x === startX && p.y === startY)?.color;
     if (currentColor) {
@@ -1492,21 +1500,18 @@ const Board: Component<BoardProps> = (props) => {
       }));
     }
 
-    // Get and validate the move target and start position
+    // Get and validate the move target
     const target = getMoveTarget();
     if (!target) {
       cleanupDragState();
       return;
     }
-
-    const startPos = dragStartPosition();
     if (!startPos) {
       cleanupDragState();
       return;
     }
 
     const [targetX, targetY] = target;
-    const [startX, startY] = startPos;
     
     // Handle case where there's no movement
     if (startX === targetX && startY === targetY) {
@@ -1922,6 +1927,7 @@ const Board: Component<BoardProps> = (props) => {
   return (
     <div class={styles.board}>
       <div class={styles.boardContent}>
+        <div>
         <BoardControls 
           gameId={gameId()}
           canGoBack={currentMoveIndex() >= 0}
@@ -1936,10 +1942,11 @@ const Board: Component<BoardProps> = (props) => {
           cellSize={cellSize()}
           onCellSizeChange={setCellSize}
         />
-        <div>
-          <div>Eval: {analysis()?.score}</div>
-          <div>Depth: {analysis()?.depth}</div>
-          <div>Best: {analysis()?.bestMove}</div>
+        <div class={styles.evaluation}>
+          <div>Eval: <strong>{analysis()?.score || '-'}</strong></div>
+          <div>Depth: <strong>{analysis()?.depth || '-'}</strong></div>
+          <div>Best: <strong>{analysis()?.bestMove || '-'}</strong></div>
+        </div>
         </div>
         <div 
           class={styles.grid}
