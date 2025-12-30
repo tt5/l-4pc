@@ -45,7 +45,7 @@ export function calculateRestrictedSquares(
     isSquareUnderAttack?: (x: number, y: number, team: number, points: BasePoint[], getTeamFn: (color: string) => number) => boolean;
     isSquareBetween?: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean;
     getTeamFn?: (color: string) => number;
-    enPassantTarget?: {x: number, y: number, color: string} | null;
+    enPassantTarget?: Record<string, {x: number, y: number, color: string} | null>;
   } = {}
 ): RestrictedSquaresResult {
 
@@ -63,25 +63,18 @@ export function calculateRestrictedSquares(
 
   for (const piece of pieces) {
     
-    const enPassantTarget = options.enPassantTarget ? {
-      x: options.enPassantTarget.x,
-      y: options.enPassantTarget.y,
-      color: options.enPassantTarget.color  // Use the original color from enPassantTarget
-    } : null;
-    
     console.log('[calculateRestrictedSquares] Calling getLegalMoves with:', JSON.stringify({
       piece: {x: piece.x, y: piece.y, color: piece.color, type: piece.pieceType},
-      enPassantTarget,
-      originalEnPassantTarget: options.enPassantTarget
+      enPassantTarget: options.enPassantTarget
     }, null, 2));
     
     const moves = getLegalMoves(piece, boardState, {
-      isKingInCheck: kingInCheck,
+      isKingInCheck: options.isKingInCheck,
       wouldResolveCheck: options.wouldResolveCheck,
       isSquareUnderAttack: options.isSquareUnderAttack,
       isSquareBetween: options.isSquareBetween,
       getTeamFn: options.getTeamFn || getTeamByColor,
-      enPassantTarget
+      enPassantTarget: options.enPassantTarget
     });
     
     for (const { x, y, canCapture } of moves) {

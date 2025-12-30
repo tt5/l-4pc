@@ -625,7 +625,7 @@ const Board: Component<BoardProps> = (props) => {
         isSquareBetween: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => 
           isSquareBetween(from, to, x, y),
         getTeamFn: getTeamByColor,
-        enPassantTarget: enPassantTarget()
+        enPassantTarget: enPassantTargets()
       }
     );
     
@@ -1007,7 +1007,7 @@ const Board: Component<BoardProps> = (props) => {
         isSquareBetween: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => 
           isSquareBetween(from, to, x, y),
         getTeamFn: getTeamByColor,
-        enPassantTarget: enPassantTarget()
+        enPassantTarget: enPassantTargets()
       }
     );
     
@@ -1116,7 +1116,7 @@ const Board: Component<BoardProps> = (props) => {
             isSquareBetween: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => 
               isSquareBetween(from, to, x, y),
             getTeamFn: getTeamByColor,
-            enPassantTarget: enPassantTarget()
+            enPassantTarget: enPassantTargets()
           }
         );
         

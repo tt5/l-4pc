@@ -711,7 +711,7 @@ export function getLegalMoves(
     isSquareUnderAttack?: (x: number, y: number, team: number, points: BasePoint[], getTeamFn: (color: string) => number) => boolean;
     isSquareBetween?: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean;
     getTeamFn?: (color: string) => number;
-    enPassantTarget?: {x: number, y: number, color: string} | null;
+    enPassantTarget?: Record<string, {x: number, y: number, color: string} | null>;
   } = {}
 ): Array<{
   x: number;
@@ -862,14 +862,15 @@ export function getLegalMoves(
     possibleMoves = [...standardMoves, ...castlingMoves];
   } else if (pieceType === 'pawn') {
     // Add en passant capture if available
-    const currentEnPassantTarget = options.enPassantTarget;
+    const enPassantTargets = options.enPassantTarget || {};
     console.log('[getLegalMoves] Checking en passant for piece:', JSON.stringify({
       piece: {x: basePoint.x, y: basePoint.y, color: basePoint.color, type: pieceType},
-      enPassantTarget: currentEnPassantTarget
+      enPassantTargets
     }, null, 2));
     
-    if (currentEnPassantTarget && 
-        currentEnPassantTarget.color !== basePoint.color) {
+    // Check all en passant targets for valid captures
+    for (const [color, currentEnPassantTarget] of Object.entries(enPassantTargets)) {
+      if (!currentEnPassantTarget || color === basePoint.color) continue;
       
       // For en passant, the target should be adjacent to the pawn
       const dx = Math.abs(currentEnPassantTarget.x - basePoint.x);
