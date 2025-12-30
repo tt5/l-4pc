@@ -591,6 +591,9 @@ const Board: Component<BoardProps> = (props) => {
     setCurrentBranchName(null);
     setBranchPoints({});
     setMainLineMoves([]);
+    
+    // Reset gameId to default
+    setGameId(DEFAULT_GAME_ID);
 
     const initialBasePoints = JSON.parse(JSON.stringify(INITIAL_BASE_POINTS));
     setBasePoints(initialBasePoints);

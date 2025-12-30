@@ -177,7 +177,7 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
         class={`${styles.controlButton} ${styles.resetButton}`}
         title="Reset the game board to its initial state"
       >
-        {isResetting() ? 'Resetting...' : 'Reset Board'}
+        {isResetting() ? 'Resetting...' : 'Delete Game'}
       </button>
       {props.canDeleteCurrentMove && (
         <button
