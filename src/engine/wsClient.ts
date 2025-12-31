@@ -179,62 +179,31 @@ export function createEngineClient() {
     }
   };
 
-  const setThreads = async (threads: number) => {
+  const setThreads = (threads: number) => {
+    console.log('[wsClient] setThreads called with:', threads);
+    
     if (!ws) {
-      console.error('[wsClient] Cannot set threads: WebSocket is not initialized');
+      console.error('[wsClient] WebSocket is not initialized');
       return false;
     }
     
-    // Wait for connection if not yet open
-    if (ws.readyState === WebSocket.CONNECTING) {
-      console.log('[wsClient] WebSocket is connecting, waiting for connection...');
-      try {
-        await new Promise<void>((resolve, reject) => {
-          if (!ws) {
-            reject(new Error('WebSocket not initialized'));
-            return;
-          }
-          
-          const onOpen = () => {
-            ws?.removeEventListener('open', onOpen);
-            ws?.removeEventListener('error', onError);
-            resolve();
-          };
-          
-          const onError = (error: Event) => {
-            ws?.removeEventListener('open', onOpen);
-            ws?.removeEventListener('error', onError);
-            reject(new Error('WebSocket connection failed'));
-          };
-          
-          ws.addEventListener('open', onOpen);
-          ws.addEventListener('error', onError);
-        });
-      } catch (error) {
-        console.error('[wsClient] Error waiting for WebSocket connection:', error);
-        return false;
-      }
-    }
-    
     if (ws.readyState !== WebSocket.OPEN) {
-      console.error(`[wsClient] Cannot set threads: WebSocket is not open (state: ${ws.readyState})`);
+      console.error(`[wsClient] WebSocket is not open. State: ${ws.readyState}`);
       return false;
     }
     
     try {
-      console.log('[wsClient] Sending setThreads request with thread count:', threads);
-      const message = JSON.stringify({
+      const message = {
         type: 'setThreads',
-        data: {
-          threadCount: threads
-        }
-      });
+        data: { threads }
+      };
+      
       console.log('[wsClient] Sending message:', message);
-      ws.send(message);
-      console.log('[wsClient] Thread count update sent successfully');
+      ws.send(JSON.stringify(message));
+      console.log('[wsClient] Message sent successfully');
       return true;
     } catch (error) {
-      console.error('[wsClient] Failed to set thread count:', error);
+      console.error('[wsClient] Failed to set threads:', error);
       return false;
     }
   };

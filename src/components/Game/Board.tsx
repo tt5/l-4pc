@@ -2,6 +2,7 @@ import {
   type Component, 
   createSignal,
   createEffect,
+  createMemo,
   batch,
   onMount,
   onCleanup,
@@ -12,6 +13,7 @@ import { useNavigate } from '@solidjs/router';
 import { GridCell } from './GridCell';
 import BoardControls from './BoardControls';
 import { MoveHistory } from './MoveHistory';
+import ThreadControl from './ThreadControl';
 
 import { useAuth } from '~/contexts/AuthContext';
 import { useRestrictedSquares } from '../../contexts/RestrictedSquaresContext';
@@ -70,6 +72,8 @@ const Board: Component<BoardProps> = (props) => {
   const [isEngineThinking, setIsEngineThinking] = createSignal(false);
   const [isAnalyzing, setIsAnalyzing] = createSignal(false);
   const [isSaving, setIsSaving] = createSignal(false);
+  const [threads, setThreads] = createSignal(1);
+  const [isLoadingThreads, setIsLoadingThreads] = createSignal(false);
   const [analysis, setAnalysis] = createSignal<{score: string; depth: number; bestMove: string} | null>(null);
   const [lastAnalyzedMoves, setLastAnalyzedMoves] = createSignal<string[]>([]);
   const analysisInProgress = { current: false };
@@ -120,6 +124,40 @@ const Board: Component<BoardProps> = (props) => {
     }
   };
   
+  // Handle thread count changes
+  const handleThreadChange = async (newThreads: number) => {
+    console.log('[Board] handleThreadChange called with:', newThreads);
+    
+    if (isNaN(newThreads) || newThreads < 1 || newThreads > 8) {
+      console.warn('[Board] Invalid thread count:', newThreads);
+      return;
+    }
+    
+    console.log('[Board] Starting thread count update...');
+    setIsLoadingThreads(true);
+    
+    try {
+      console.log('[Board] Current thread count:', threads());
+      console.log('[Board] Requesting thread count change to:', newThreads);
+      
+      const success = await engine.setThreads(newThreads);
+      console.log('[Board] engine.setThreads returned:', success);
+      
+      if (success) {
+        console.log('[Board] Updating local thread state to:', newThreads);
+        setThreads(newThreads);
+        console.log('[Board] Thread count updated successfully');
+      } else {
+        console.warn('[Board] Failed to update thread count: engine.setThreads returned false');
+      }
+    } catch (error) {
+      console.error('[Board] Error updating thread count:', error);
+    } finally {
+      console.log('[Board] Completing update process');
+      setIsLoadingThreads(false);
+    }
+  };
+
   // Listen for analysis updates from the engine
   onMount(() => {
     const handleAnalysis = (update: any) => {
@@ -1938,6 +1976,11 @@ const Board: Component<BoardProps> = (props) => {
           <div>Depth: <strong>{analysis()?.depth || '-'}</strong></div>
           <div>Best: <strong>{analysis()?.bestMove || '-'}</strong></div>
         </div>
+        <ThreadControl 
+          threads={threads()} 
+          isLoading={isLoadingThreads()} 
+          onThreadChange={handleThreadChange} 
+        />
         </div>
         <div 
           class={styles.grid}

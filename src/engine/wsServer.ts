@@ -90,9 +90,9 @@ export function createEngineWebSocketServer(port: number = 8080) {
             
           case 'setThreads':
             console.log('Received setThreads message with data:', data);
-            if (typeof data.threadCount === 'number' && data.threadCount > 0) {
-              console.log(`Setting thread count to: ${data.threadCount}`);
-              engine.setThreads(data.threadCount);
+            if (typeof data.threads === 'number' && data.threads > 0) {
+              console.log(`Setting thread count to: ${data.threads}`);
+              engine.setThreads(data.threads);
               console.log('Thread count updated, sending confirmation');
               ws.send(JSON.stringify({
                 type: 'threadsUpdated',

@@ -1,40 +1,17 @@
-import { Component, createSignal } from 'solid-js';
-import { createEngineClient } from '../../engine/wsClient';
+import { Component } from 'solid-js';
 import styles from './ThreadControl.module.css';
 
-const ThreadControl: Component = () => {
-  const [threads, setThreads] = createSignal(1);
-  const [isLoading, setIsLoading] = createSignal(false);
-  const engineClient = createEngineClient();
+interface ThreadControlProps {
+  threads: number;
+  isLoading: boolean;
+  onThreadChange: (threads: number) => void;
+}
 
-  const handleThreadChange = async (e: Event) => {
+const ThreadControl: Component<ThreadControlProps> = (props) => {
+  const handleChange = (e: Event) => {
     const newThreads = parseInt((e.target as HTMLSelectElement).value, 10);
-    
-    if (isNaN(newThreads) || newThreads < 1 || newThreads > 256) {
-      console.warn('[ThreadControl] Invalid thread count:', newThreads);
-      return;
-    }
-    
-    console.log('[ThreadControl] Starting thread count update...');
-    setIsLoading(true);
-    
-    try {
-      console.log('[ThreadControl] Calling engineClient.setThreads with count:', newThreads);
-      const success = await engineClient.setThreads(newThreads);
-      console.log('[ThreadControl] engineClient.setThreads returned:', success);
-      
-      if (success) {
-        console.log('[ThreadControl] Updating local thread state to:', newThreads);
-        setThreads(newThreads);
-        console.log('[ThreadControl] Thread count updated successfully');
-      } else {
-        console.warn('[ThreadControl] Failed to update thread count: engineClient.setThreads returned false');
-      }
-    } catch (error) {
-      console.error('[ThreadControl] Error updating thread count:', error);
-    } finally {
-      console.log('[ThreadControl] Completing update process');
-      setIsLoading(false);
+    if (!isNaN(newThreads) && typeof props.onThreadChange === 'function') {
+      props.onThreadChange(newThreads);
     }
   };
 
@@ -43,9 +20,9 @@ const ThreadControl: Component = () => {
       <label for="threads">Engine Threads:</label>
       <select 
         id="threads" 
-        value={threads()}
-        onChange={handleThreadChange}
-        disabled={isLoading()}
+        value={props.threads}
+        onChange={handleChange}
+        disabled={props.isLoading}
         class={styles.threadSelect}
       >
         {[1, 2, 4, 8].map(num => (
@@ -54,7 +31,7 @@ const ThreadControl: Component = () => {
           </option>
         ))}
       </select>
-      {isLoading() && <span class={styles.loading}>Updating...</span>}
+      {props.isLoading && <span class={styles.loading}>Updating...</span>}
     </div>
   );
 };
