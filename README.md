@@ -10,6 +10,8 @@ and (in another terminal)
 
 https://github.com/Anurag-Baundwal/4pchess
 
+https://github.com/obryanlouis/4pchess
+
 # TODO
 
 - [ ] pawn promotion

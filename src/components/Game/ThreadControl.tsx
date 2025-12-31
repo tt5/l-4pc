@@ -35,7 +35,7 @@ const ThreadControl: Component = () => {
         class={styles.threadSelect}
       >
         {[1, 2, 4, 8].map(num => (
-          <option value={num} key={num}>
+          <option value={num}>
             {num} {num === 1 ? 'Thread' : 'Threads'}
           </option>
         ))}

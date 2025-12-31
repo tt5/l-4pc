@@ -157,15 +157,39 @@ export function createEngineClient() {
   };
   
   const updatePosition = (fen: string, moveHistory: string[] = []) => {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
     
-    ws.send(JSON.stringify({
-      type: 'updatePosition',
-      data: { 
-        fen,
-        moveHistory 
-      }
-    }));
+    try {
+      ws.send(JSON.stringify({
+        type: 'updatePosition',
+        data: { 
+          fen,
+          moveHistory 
+        }
+      }));
+      return true;
+    } catch (error) {
+      console.error('Failed to update position:', error);
+      return false;
+    }
+  };
+
+  const setThreads = (threads: number) => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    
+    try {
+      ws.send(JSON.stringify({
+        type: 'setOption',
+        data: {
+          name: 'Threads',
+          value: threads.toString()
+        }
+      }));
+      return true;
+    } catch (error) {
+      console.error('Failed to set thread count:', error);
+      return false;
+    }
   };
   
   const disconnect = () => {
@@ -223,6 +247,7 @@ export function createEngineClient() {
     stopAnalysis,
     makeMove,
     updatePosition,
+    setThreads,
     on,
     off,
     emit
