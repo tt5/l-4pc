@@ -62,15 +62,13 @@ export function calculateRestrictedSquares(
     false;
 
   // Log the pieces we're calculating restricted squares for
-  console.log('[calculateRestrictedSquares] Calculating for pieces:', 
-    pieces.map(p => ({
-      x: p.x, 
-      y: p.y, 
-      type: p.pieceType, 
-      color: p.color,
-      team: getTeam(p.color)
-    }))
-  );
+  console.log(`[calculateRestrictedSquares] Calculating for pieces: ${JSON.stringify(pieces.map(p => ({
+    x: p.x, 
+    y: p.y, 
+    type: p.pieceType, 
+    color: p.color,
+    team: getTeam(p.color)
+  })), null, 2)}`);
 
   for (const piece of pieces) {
     
@@ -123,16 +121,35 @@ export function calculateRestrictedSquares(
     }
   }
 
-  // Log the final restricted squares
-  console.log('[calculateRestrictedSquares] Final restricted squares:', 
-    restrictedSquaresInfo.map(s => ({
-      x: s.x, 
-      y: s.y, 
-      canCapture: s.canCapture,
-      pieceType: s.pieceType,
-      team: s.team
-    }))
-  );
+  // Only log if there are restricted squares
+  if (restrictedSquaresInfo.length > 0) {
+    // Group restricted squares by piece type for better readability
+    const squaresByType = restrictedSquaresInfo.reduce((acc, s) => {
+      const key = s.pieceType || 'unknown';
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(`(${s.x},${s.y}${s.canCapture ? '!' : ''})`);
+      return acc;
+    }, {} as Record<string, string[]>);
+
+    // Log summary in a single line
+    const summary = Object.entries(squaresByType)
+      .map(([type, squares]) => `${type}: ${squares.length} [${squares.join(' ')}]`)
+      .join(' | ');
+    
+    console.log(`[Restricted] ${summary}`);
+    
+    // Only show details in development
+    if (process.env.NODE_ENV === 'development') {
+      console.groupCollapsed('Details');
+      console.table(restrictedSquaresInfo.map(s => ({
+        pos: `(${s.x},${s.y})`,
+        piece: s.pieceType,
+        team: s.team,
+        canCapture: s.canCapture ? '✓' : ''
+      })));
+      console.groupEnd();
+    }
+  }
 
   return { restrictedSquares, restrictedSquaresInfo };
 }

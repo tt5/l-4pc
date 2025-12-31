@@ -107,7 +107,7 @@ const Board: Component<BoardProps> = (props) => {
       return;
     }
     
-    console.log('[Engine] Starting analysis with moves:', moves);
+    console.log(`[Engine] Starting analysis with moves: ${JSON.stringify(moves, null, 2)}`);
     analysisInProgress.current = true;
     setLastAnalyzedMoves(moves);
     setIsAnalyzing(true);
@@ -126,7 +126,7 @@ const Board: Component<BoardProps> = (props) => {
   
   // Handle thread count changes
   const handleThreadChange = async (newThreads: number) => {
-    console.log('[Board] handleThreadChange called with:', newThreads);
+    console.log(`[Board] handleThreadChange called with: ${newThreads}`);
     
     if (isNaN(newThreads) || newThreads < 1 || newThreads > 8) {
       console.warn('[Board] Invalid thread count:', newThreads);
@@ -137,14 +137,14 @@ const Board: Component<BoardProps> = (props) => {
     setIsLoadingThreads(true);
     
     try {
-      console.log('[Board] Current thread count:', threads());
-      console.log('[Board] Requesting thread count change to:', newThreads);
+      console.log(`[Board] Current thread count: ${threads()}`);
+      console.log(`[Board] Requesting thread count change to: ${newThreads}`);
       
       const success = await engine.setThreads(newThreads);
-      console.log('[Board] engine.setThreads returned:', success);
+      console.log(`[Board] engine.setThreads returned: ${success}`);
       
       if (success) {
-        console.log('[Board] Updating local thread state to:', newThreads);
+        console.log(`[Board] Updating local thread state to: ${newThreads}`);
         setThreads(newThreads);
         console.log('[Board] Thread count updated successfully');
       } else {
@@ -253,7 +253,7 @@ const Board: Component<BoardProps> = (props) => {
   
   // Load a game by ID
   const loadGame = async (gameIdToLoad: string) => {
-    console.log('[loadGame] Starting to load game with ID:', gameIdToLoad);
+    console.log(`[loadGame] Starting to load game with ID: ${gameIdToLoad}`);
     
     if (!gameIdToLoad) {
       console.log('[loadGame] No game ID provided, initializing new game');
@@ -262,7 +262,7 @@ const Board: Component<BoardProps> = (props) => {
     }
 
     const currentUser = auth.user();
-    console.log('[loadGame] Current user:', currentUser ? 'Logged in' : 'Not logged in');
+    console.log(`[loadGame] Current user: ${currentUser ? 'Logged in' : 'Not logged in'}`);
     
     if (!currentUser) {
       console.log('[loadGame] No user logged in, initializing new game');
@@ -272,21 +272,21 @@ const Board: Component<BoardProps> = (props) => {
 
     try {
       const url = `/api/game/${gameIdToLoad}/moves`;
-      console.log('[loadGame] Fetching moves from:', url);
+      console.log(`[loadGame] Fetching moves from: ${url}`);
       
       const headers: HeadersInit = { 'Content-Type': 'application/json' };
       const userToken = auth.getToken();
-      console.log('[loadGame] User token:', userToken ? 'Available' : 'Not available');
+      console.log(`[loadGame] User token: ${userToken ? 'Available' : 'Not available'}`);
       if (userToken) {
         headers['Authorization'] = `Bearer ${userToken}`;
       }
       
-      console.log('[loadGame] Making request with headers:', headers);
+      console.log(`[loadGame] Making request with headers: ${JSON.stringify(headers, null, 2)}`);
       const response = await fetch(url, { 
         headers,
         credentials: 'include' // Ensure cookies are sent with the request
       });
-      console.log('[loadGame] Response status:', response.status, response.statusText);
+      console.log(`[loadGame] Response status: ${response.status} ${response.statusText}`);
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -295,7 +295,7 @@ const Board: Component<BoardProps> = (props) => {
       }
 
       const data = await response.json();
-      console.log('[loadGame] Received data:', data);
+      console.log(`[loadGame] Received data: ${JSON.stringify(data, null, 2)}`);
       const rawMoves = Array.isArray(data?.moves) ? data.moves : [];
       console.log(`[loadGame] Found ${rawMoves.length} moves`);
       
@@ -688,7 +688,7 @@ const Board: Component<BoardProps> = (props) => {
     // Replay each move up to the target index
     for (let i = 0; i <= endIndex; i++) {
       const move = moves[i];
-      console.log(`[replayMoves] Move ${i}:`, JSON.stringify(move));
+      console.log(`[replayMoves] Move ${i}: ${JSON.stringify(move, null, 2)}`);
       if (!move) {
         console.warn(`[replayMoves] Missing move at index ${i}`);
         continue;
@@ -768,7 +768,7 @@ const Board: Component<BoardProps> = (props) => {
       // Handle captures
       if (positionMap.has(toKey)) {
         const capturedPiece = positionMap.get(toKey);
-        console.log(`[replayMoves] Capturing piece at [${toX},${toY}]:`, capturedPiece);
+        console.log(`[replayMoves] Capturing piece at [${toX},${toY}]: ${JSON.stringify(capturedPiece, null, 2)}`);
         positionMap.delete(toKey);
       }
 
@@ -833,7 +833,7 @@ const Board: Component<BoardProps> = (props) => {
       }
 
       const data = await response.json();
-      console.log('Game saved successfully as', newGameId);
+      console.log(`Game saved successfully as ${newGameId}`);
       
       // Update the game ID in the URL and state
       setGameId(newGameId);
@@ -1466,7 +1466,9 @@ const Board: Component<BoardProps> = (props) => {
       const isSamePosition = m.x === targetX && m.y === targetY;
       // For pawns, we need to check both position and capture status
       if (pointToMove.pieceType === 'pawn') {
-        const isDiagonal = Math.abs(targetX - startX) === 1 && Math.abs(targetY - startY) === 1;
+        const isDiagonal = (Math.abs(targetX - startX) === 1 && Math.abs(targetY - startY) === 1) ||  // Standard diagonal
+                          (pointToMove.color === '#2196F3' && targetX - startX === 1 && Math.abs(targetY - startY) === 1) ||  // Blue pawn moving right
+                          (pointToMove.color === '#4CAF50' && startX - targetX === 1 && Math.abs(targetY - startY) === 1);    // Green pawn moving left
         if (isDiagonal) {
           // For diagonal moves, we need a valid capture
           return isSamePosition && (m.canCapture || targetPiece);

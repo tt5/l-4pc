@@ -1077,11 +1077,11 @@ export function getLegalMoves(
       ];
     }
     
-    // Combine standard moves with any en passant moves we found earlier
+    // First process capture moves into a separate array
+    const captureMoves: {x: number, y: number, canCapture: boolean}[] = [];
+    
     console.log('[getLegalMoves] Standard moves:', JSON.stringify(moves, null, 2));
     console.log('[getLegalMoves] En passant moves:', JSON.stringify(possibleMoves, null, 2));
-    possibleMoves = [...moves, ...possibleMoves];
-    console.log('[getLegalMoves] All possible moves:', JSON.stringify(possibleMoves, null, 2));
     
     // Add capture moves
     console.log('[getLegalMoves] Checking capture offsets for pawn at', 
@@ -1099,11 +1099,6 @@ export function getLegalMoves(
         'from offset:', 
         JSON.stringify(offset)
       );
-      
-      // Skip if the target square is in a non-playable corner
-      if (isInNonPlayableCorner(captureX, captureY)) {
-        continue;
-      }
       
       // Check if target square is within bounds
       if (captureX >= 0 && captureX < BOARD_CONFIG.GRID_SIZE && 
@@ -1159,7 +1154,7 @@ export function getLegalMoves(
               target: { x: captureX, y: captureY },
               piece: targetPiece.pieceType
             }));
-            moves.push({
+            captureMoves.push({
               x: captureX,
               y: captureY,
               canCapture: true
@@ -1172,7 +1167,11 @@ export function getLegalMoves(
         }
       }
     }
-    
+
+    // Combine all possible moves: standard moves, en passant moves, and capture moves
+    possibleMoves = [...moves, ...possibleMoves, ...captureMoves];
+    console.log('[getLegalMoves] All possible moves:', JSON.stringify(possibleMoves, null, 2));  
+
   } else if (pieceType === 'bishop') {
     // Bishop moves any number of squares diagonally
     const directions = [
