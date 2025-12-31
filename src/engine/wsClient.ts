@@ -175,21 +175,30 @@ export function createEngineClient() {
   };
 
   const setThreads = (threads: number) => {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    if (!ws) {
+      console.error('[wsClient] Cannot set threads: WebSocket is not initialized');
+      return false;
+    }
+    
+    if (ws.readyState !== WebSocket.OPEN) {
+      console.error(`[wsClient] Cannot set threads: WebSocket is not open (state: ${ws.readyState})`);
+      return false;
+    }
     
     try {
-      console.log('Sending setThreads request with thread count:', threads);
+      console.log('[wsClient] Sending setThreads request with thread count:', threads);
       const message = JSON.stringify({
         type: 'setThreads',
         data: {
           threadCount: threads
         }
       });
-      console.log('Sending message:', message);
+      console.log('[wsClient] Sending message:', message);
       ws.send(message);
+      console.log('[wsClient] Thread count update sent successfully');
       return true;
     } catch (error) {
-      console.error('Failed to set thread count:', error);
+      console.error('[wsClient] Failed to set thread count:', error);
       return false;
     }
   };

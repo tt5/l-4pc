@@ -9,18 +9,38 @@ const ThreadControl: Component = () => {
 
   const handleThreadChange = async (e: Event) => {
     const newThreads = Number((e.target as HTMLSelectElement).value);
-    if (newThreads !== threads() && !isLoading()) {
-      setIsLoading(true);
-      try {
-        const success = engineClient.setThreads(newThreads);
-        if (success) {
-          setThreads(newThreads);
-        }
-      } catch (error) {
-        console.error('Failed to update thread count:', error);
-      } finally {
-        setIsLoading(false);
+    console.log('[ThreadControl] Thread change initiated. New thread count:', newThreads, 'Current thread count:', threads());
+    
+    if (newThreads === threads()) {
+      console.log('[ThreadControl] No change in thread count, ignoring update.');
+      return;
+    }
+    
+    if (isLoading()) {
+      console.log('[ThreadControl] Update already in progress, ignoring concurrent request.');
+      return;
+    }
+    
+    console.log('[ThreadControl] Starting thread count update...');
+    setIsLoading(true);
+    
+    try {
+      console.log('[ThreadControl] Calling engineClient.setThreads with count:', newThreads);
+      const success = engineClient.setThreads(newThreads);
+      console.log('[ThreadControl] engineClient.setThreads returned:', success);
+      
+      if (success) {
+        console.log('[ThreadControl] Updating local thread state to:', newThreads);
+        setThreads(newThreads);
+        console.log('[ThreadControl] Thread count updated successfully');
+      } else {
+        console.warn('[ThreadControl] Failed to update thread count: engineClient.setThreads returned false');
       }
+    } catch (error) {
+      console.error('[ThreadControl] Error updating thread count:', error);
+    } finally {
+      console.log('[ThreadControl] Completing update process');
+      setIsLoading(false);
     }
   };
 
