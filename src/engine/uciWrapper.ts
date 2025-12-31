@@ -15,6 +15,7 @@ export class UCIEngine {
   private currentScore: number = 0;
   private currentPv: string[] = [];
   private onBestMove: (move: string) => void = () => {};
+  private threadCount: number = 1; // Default to 1 thread
   public onAnalysisUpdate?: (info: AnalysisInfo) => void;
 
   constructor(enginePath: string = './cli') {
@@ -113,10 +114,22 @@ export class UCIEngine {
   public async init(): Promise<void> {
     return new Promise((resolve) => {
       this.sendCommand('uci');
+      this.sendCommand(`setoption name Threads value ${this.threadCount}`);
       this.sendCommand('setoption name UCI_ShowCurrLine value true');
       this.sendCommand('isready');
       resolve();
     });
+  }
+
+  /**
+   * Set the number of threads for the engine
+   * @param count Number of threads to use (default: 1)
+   */
+  public setThreads(count: number = 1): void {
+    if (count !== this.threadCount) {
+      this.threadCount = count;
+      this.sendCommand(`setoption name Threads value ${count}`);
+    }
   }
 
   public setPosition(fenOrMoves: string | { fen?: string; moves?: string[] }): void {

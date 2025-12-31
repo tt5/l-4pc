@@ -4,6 +4,11 @@ Analyse 4 player chess games.
 and (in another terminal)
 `npx tsx src/engine/wsServer.ts`
 
+# engine
+
+`./cli`
+
+https://github.com/Anurag-Baundwal/4pchess
 
 # TODO
 

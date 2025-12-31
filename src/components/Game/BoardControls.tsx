@@ -1,5 +1,6 @@
 import { Component, createSignal } from 'solid-js';
 import { useAuth } from '../../contexts/AuthContext';
+import ThreadControl from './ThreadControl';
 import styles from './BoardControls.module.css';
 
 type BoardControlsProps = {
@@ -152,6 +153,8 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
         />
         <span class={styles.sizeDisplay}>{localCellSize()}px</span>
       </div>
+      
+      <ThreadControl />
       <div class={styles.gameId}>{props.gameId}</div>
       <div class={styles.navButtons}>
         <button 

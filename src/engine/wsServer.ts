@@ -87,6 +87,18 @@ export function createEngineWebSocketServer(port: number = 8080) {
           case 'stopAnalysis':
             engine.stop();
             break;
+            
+          case 'setThreads':
+            if (typeof data.threadCount === 'number' && data.threadCount > 0) {
+              engine.setThreads(data.threadCount);
+              ws.send(JSON.stringify({
+                type: 'threadsUpdated',
+                data: { threadCount: data.threadCount }
+              }));
+            } else {
+              throw new Error('Invalid thread count');
+            }
+            break;
         }
       } catch (error) {
         console.error('Error handling message:', error);

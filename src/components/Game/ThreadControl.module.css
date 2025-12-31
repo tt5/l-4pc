@@ -1,0 +1,41 @@
+.threadControl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+  padding: 8px 12px;
+  background: #f5f5f5;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.threadSelect {
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid #d1d5db;
+  background: white;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.threadSelect:hover {
+  border-color: #9ca3af;
+}
+
+.threadSelect:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.threadSelect:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.loading {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-left: 8px;
+}
