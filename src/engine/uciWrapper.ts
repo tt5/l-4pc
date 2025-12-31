@@ -126,9 +126,22 @@ export class UCIEngine {
    * @param count Number of threads to use (default: 1)
    */
   public setThreads(count: number = 1): void {
+    console.log(`[UCIEngine] Current thread count: ${this.threadCount}, requested: ${count}`);
     if (count !== this.threadCount) {
+      console.log(`[UCIEngine] Updating thread count from ${this.threadCount} to ${count}`);
+      const oldThreadCount = this.threadCount;
       this.threadCount = count;
-      this.sendCommand(`setoption name Threads value ${count}`);
+      try {
+        this.sendCommand(`setoption name Threads value ${count}`);
+        console.log(`[UCIEngine] Successfully sent thread count update to engine`);
+      } catch (error) {
+        // Revert thread count if sending the command fails
+        this.threadCount = oldThreadCount;
+        console.error(`[UCIEngine] Failed to set thread count:`, error);
+        throw error;
+      }
+    } else {
+      console.log(`[UCIEngine] Thread count already set to ${count}, no change needed`);
     }
   }
 

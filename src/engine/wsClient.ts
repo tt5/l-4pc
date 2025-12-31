@@ -178,13 +178,15 @@ export function createEngineClient() {
     if (!ws || ws.readyState !== WebSocket.OPEN) return false;
     
     try {
-      ws.send(JSON.stringify({
-        type: 'setOption',
+      console.log('Sending setThreads request with thread count:', threads);
+      const message = JSON.stringify({
+        type: 'setThreads',
         data: {
-          name: 'Threads',
-          value: threads.toString()
+          threadCount: threads
         }
-      }));
+      });
+      console.log('Sending message:', message);
+      ws.send(message);
       return true;
     } catch (error) {
       console.error('Failed to set thread count:', error);
