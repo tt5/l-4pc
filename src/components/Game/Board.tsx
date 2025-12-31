@@ -1456,15 +1456,25 @@ const Board: Component<BoardProps> = (props) => {
       enPassantTarget: enPassantTargets()
     });
 
+    console.log('[validateMove] Legal moves:', JSON.stringify(legalMoves, null, 2));
+
     // Check if there's a piece at the target position
     const targetPiece = basePoints().find(p => p.x === targetX && p.y === targetY);
     
     // Find the specific move
-    const move = legalMoves.find(m => 
-      m.x === targetX && 
-      m.y === targetY
-    );
-    
+    const move = legalMoves.find(m => {
+      const isSamePosition = m.x === targetX && m.y === targetY;
+      // For pawns, we need to check both position and capture status
+      if (pointToMove.pieceType === 'pawn') {
+        const isDiagonal = Math.abs(targetX - startX) === 1 && Math.abs(targetY - startY) === 1;
+        if (isDiagonal) {
+          // For diagonal moves, we need a valid capture
+          return isSamePosition && (m.canCapture || targetPiece);
+        }
+      }
+      return isSamePosition;
+    }); 
+
     if (!move) {
       return { 
         isValid: false, 

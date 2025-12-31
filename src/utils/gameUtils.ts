@@ -1146,12 +1146,13 @@ export function getLegalMoves(
         
         if (targetPiece) {
           const targetTeam = getTeamByColor(targetPiece.color);
-          console.log('[getLegalMoves] Target piece team check:', {
+          const checkInfo = {
             targetTeam,
             currentTeam: team,
             isOpponent: targetTeam !== team,
             targetPiece: {x: targetPiece.x, y: targetPiece.y, type: targetPiece.pieceType, color: targetPiece.color}
-          });
+          };
+          console.log('[getLegalMoves] Target piece team check:', JSON.stringify(checkInfo, null, 2));
           
           if (targetTeam !== team) {
             console.log('[getLegalMoves] Adding capture move to:', JSON.stringify({

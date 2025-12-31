@@ -61,6 +61,17 @@ export function calculateRestrictedSquares(
     isKingInCheck(currentKing, boardState, getTeam) : 
     false;
 
+  // Log the pieces we're calculating restricted squares for
+  console.log('[calculateRestrictedSquares] Calculating for pieces:', 
+    pieces.map(p => ({
+      x: p.x, 
+      y: p.y, 
+      type: p.pieceType, 
+      color: p.color,
+      team: getTeam(p.color)
+    }))
+  );
+
   for (const piece of pieces) {
     
     const moves = getLegalMoves(piece, boardState, {
@@ -71,6 +82,11 @@ export function calculateRestrictedSquares(
       getTeamFn: options.getTeamFn || getTeamByColor,
       enPassantTarget: options.enPassantTarget
     });
+    
+    // Log the moves for this piece
+    console.log(`[calculateRestrictedSquares] Moves for ${piece.pieceType} at (${piece.x},${piece.y}):`, 
+      JSON.stringify(moves, null, 2)
+    );
     
     for (const { x, y, canCapture } of moves) {
       const index = y * BOARD_CONFIG.GRID_SIZE + x;
@@ -89,17 +105,34 @@ export function calculateRestrictedSquares(
       if (existingInfo) {
         existingInfo.restrictedBy = existingInfo.restrictedBy || [];
         existingInfo.restrictedBy.push(restrictionInfo);
+        // Update canCapture if this move allows capturing
+        if (canCapture) {
+          existingInfo.canCapture = true;
+        }
       } else {
         restrictedSquaresInfo.push({
           index,
           x,
           y,
           restrictedBy: [restrictionInfo],
-          canCapture
+          canCapture,
+          pieceType: piece.pieceType,
+          team: getTeam(piece.color)
         });
       }
     }
   }
+
+  // Log the final restricted squares
+  console.log('[calculateRestrictedSquares] Final restricted squares:', 
+    restrictedSquaresInfo.map(s => ({
+      x: s.x, 
+      y: s.y, 
+      canCapture: s.canCapture,
+      pieceType: s.pieceType,
+      team: s.team
+    }))
+  );
 
   return { restrictedSquares, restrictedSquaresInfo };
 }
