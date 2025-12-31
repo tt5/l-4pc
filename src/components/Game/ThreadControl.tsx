@@ -8,16 +8,10 @@ const ThreadControl: Component = () => {
   const engineClient = createEngineClient();
 
   const handleThreadChange = async (e: Event) => {
-    const newThreads = Number((e.target as HTMLSelectElement).value);
-    console.log('[ThreadControl] Thread change initiated. New thread count:', newThreads, 'Current thread count:', threads());
+    const newThreads = parseInt((e.target as HTMLSelectElement).value, 10);
     
-    if (newThreads === threads()) {
-      console.log('[ThreadControl] No change in thread count, ignoring update.');
-      return;
-    }
-    
-    if (isLoading()) {
-      console.log('[ThreadControl] Update already in progress, ignoring concurrent request.');
+    if (isNaN(newThreads) || newThreads < 1 || newThreads > 256) {
+      console.warn('[ThreadControl] Invalid thread count:', newThreads);
       return;
     }
     
@@ -26,7 +20,7 @@ const ThreadControl: Component = () => {
     
     try {
       console.log('[ThreadControl] Calling engineClient.setThreads with count:', newThreads);
-      const success = engineClient.setThreads(newThreads);
+      const success = await engineClient.setThreads(newThreads);
       console.log('[ThreadControl] engineClient.setThreads returned:', success);
       
       if (success) {

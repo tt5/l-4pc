@@ -23,10 +23,15 @@ export function createEngineClient() {
   
   const connect = (url: string = 'ws://localhost:8080') => {
     try {
+      // Close existing connection if any
+      if (ws) {
+        ws.close();
+      }
+      
       ws = new WebSocket(url);
       
       ws.onopen = () => {
-        console.log('Connected to engine server');
+        console.log('[wsClient] Connected to engine server');
         setIsConnected(true);
       };
       
@@ -174,10 +179,41 @@ export function createEngineClient() {
     }
   };
 
-  const setThreads = (threads: number) => {
+  const setThreads = async (threads: number) => {
     if (!ws) {
       console.error('[wsClient] Cannot set threads: WebSocket is not initialized');
       return false;
+    }
+    
+    // Wait for connection if not yet open
+    if (ws.readyState === WebSocket.CONNECTING) {
+      console.log('[wsClient] WebSocket is connecting, waiting for connection...');
+      try {
+        await new Promise<void>((resolve, reject) => {
+          if (!ws) {
+            reject(new Error('WebSocket not initialized'));
+            return;
+          }
+          
+          const onOpen = () => {
+            ws?.removeEventListener('open', onOpen);
+            ws?.removeEventListener('error', onError);
+            resolve();
+          };
+          
+          const onError = (error: Event) => {
+            ws?.removeEventListener('open', onOpen);
+            ws?.removeEventListener('error', onError);
+            reject(new Error('WebSocket connection failed'));
+          };
+          
+          ws.addEventListener('open', onOpen);
+          ws.addEventListener('error', onError);
+        });
+      } catch (error) {
+        console.error('[wsClient] Error waiting for WebSocket connection:', error);
+        return false;
+      }
     }
     
     if (ws.readyState !== WebSocket.OPEN) {
