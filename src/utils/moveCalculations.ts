@@ -223,20 +223,47 @@ export const calculatePawnMoves = (
     return deltas;
   })();
   
+  console.log(`[calculatePawnMoves] Calculating captures for ${color} pawn at [${x},${y}] (team ${currentTeam})`);
   for (const [dx, dy] of captureDeltas) {
     const targetX = x + dx;
     const targetY = y + dy;
-    console.log(`Checking capture at [${targetX},${targetY}] for ${color} pawn at [${x},${y}]`);
+    
+    const logData = {
+      pawnPosition: { x, y },
+      delta: [dx, dy],
+      target: { x: targetX, y: targetY },
+      inBounds: targetX >= 0 && targetX < BOARD_CONFIG.GRID_SIZE && 
+               targetY >= 0 && targetY < BOARD_CONFIG.GRID_SIZE,
+      inNonPlayableCorner: isInNonPlayableCorner(targetX, targetY)
+    };
+    
+    console.log(`[calculatePawnMoves] Checking capture:`, JSON.stringify(logData, null, 2));
     
     if (targetX < 0 || targetX >= BOARD_CONFIG.GRID_SIZE || 
         targetY < 0 || targetY >= BOARD_CONFIG.GRID_SIZE ||
         isInNonPlayableCorner(targetX, targetY)) {
+      console.log(`[calculatePawnMoves] Skipping - out of bounds or in non-playable corner`);
       continue;
     }
     
     const targetPiece = allBasePoints.find(p => p.x === targetX && p.y === targetY);
-    if (targetPiece && targetPiece.team !== currentTeam) {
-      moves.push({ x: targetX, y: targetY, canCapture: true });
+    console.log(`[calculatePawnMoves] Target piece at [${targetX},${targetY}]:`, 
+      targetPiece ? {
+        id: targetPiece.id,
+        type: targetPiece.pieceType,
+        color: targetPiece.color,
+        team: targetPiece.team
+      } : 'empty');
+    
+    if (targetPiece) {
+      console.log(`[calculatePawnMoves] Checking if can capture: ` +
+        `target team=${targetPiece.team}, current team=${currentTeam}, ` +
+        `canCapture=${targetPiece.team !== currentTeam}`);
+      
+      if (targetPiece.team !== currentTeam) {
+        console.log(`[calculatePawnMoves] Adding capture move to [${targetX},${targetY}]`);
+        moves.push({ x: targetX, y: targetY, canCapture: true });
+      }
     }
   }
   

@@ -1456,8 +1456,15 @@ const Board: Component<BoardProps> = (props) => {
       enPassantTarget: enPassantTargets()
     });
 
+    // Check if there's a piece at the target position
+    const targetPiece = basePoints().find(p => p.x === targetX && p.y === targetY);
+    
     // Find the specific move
-    const move = legalMoves.find(m => m.x === targetX && m.y === targetY);
+    const move = legalMoves.find(m => 
+      m.x === targetX && 
+      m.y === targetY
+    );
+    
     if (!move) {
       return { 
         isValid: false, 
@@ -1465,12 +1472,32 @@ const Board: Component<BoardProps> = (props) => {
       };
     }
 
+    // Additional validation for captures
+    if (targetPiece) {
+      if (!move.canCapture) {
+        return { 
+          isValid: false, 
+          error: `Cannot capture with ${pointToMove.pieceType} at (${startX}, ${startY}) to (${targetX}, ${targetY})` 
+        };
+      }
+      
+      // For pawns, ensure it's a diagonal capture
+      if (pointToMove.pieceType === 'pawn' && 
+          Math.abs(targetX - startX) !== 1) {
+        return { 
+          isValid: false, 
+          error: `Pawns can only capture diagonally` 
+        };
+      }
+    }
+
     return { 
       isValid: true, 
       pointToMove,
       isCastle: move.isCastle || false,
       castleType: move.castleType,
-      capturedPiece: move.capturedPiece  // Include capturedPiece in the return value
+      capturedPiece: targetPiece || move.capturedPiece,
+      isCapture: !!targetPiece
     };
   };
 
