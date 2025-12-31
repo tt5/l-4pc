@@ -662,16 +662,73 @@ export function validateSquarePlacement(
       return { isValid: true };
     }
 
-    // If not a restricted square, check for friendly pieces
-    if (userBasePoints.some(bp => 
-      bp.x === gridX && 
-      bp.y === gridY && 
-      !(bp.x === pickedUp[0] && bp.y === pickedUp[1])
-    )) {
-      return { isValid: false, reason: 'You already have a base point here' };
+    // Add debug logging before checking for friendly pieces
+    const logData = {
+      from: [startX, startY],
+      to: [gridX, gridY],
+      movingPiece: movingPiece && {
+        id: movingPiece.id,
+        type: movingPiece.pieceType,
+        color: movingPiece.color,
+        team: getTeam(movingPiece.color)
+      },
+      targetPiece: basePoints().find(bp => bp.x === gridX && bp.y === gridY),
+      isRestrictedByPickedUp,
+      allRestrictedSquares: restrictedSquaresInfo()
+        .filter(sq => {
+          const [sqX, sqY] = [sq.index % BOARD_CONFIG.GRID_SIZE, Math.floor(sq.index / BOARD_CONFIG.GRID_SIZE)];
+          return sqX === gridX && sqY === gridY;
+        })
+        .map(sq => ({
+          index: sq.index,
+          restrictedBy: sq.restrictedBy
+        }))
+    };
+    console.log('Checking move validation for:', JSON.stringify(logData, null, 2));
+
+    // Check for pieces at the target square
+    const targetPiece = basePoints().find(bp => bp.x === gridX && bp.y === gridY);
+    if (targetPiece) {
+      const targetTeam = getTeam(targetPiece.color);
+      const movingTeam = getTeam(movingPiece.color);
+      
+      // Check if it's a capture (opponent's piece)
+      if (targetTeam !== movingTeam) {
+        console.log('Capture detected:', JSON.stringify({
+          position: { gridX, gridY },
+          targetPiece: {
+            id: targetPiece.id,
+            type: targetPiece.pieceType,
+            color: targetPiece.color,
+            team: targetTeam
+          },
+          movingPiece: {
+            id: movingPiece.id,
+            type: movingPiece.pieceType,
+            color: movingPiece.color,
+            team: movingTeam
+          },
+          isRestrictedByPickedUp
+        }, null, 2));
+        
+        // If this is a valid capture (restricted by the moving piece), allow it
+        if (isRestrictedByPickedUp) {
+          return { isValid: true };
+        }
+      } else {
+        // Block friendly pieces
+        console.log('Move blocked by friendly piece at target', { gridX, gridY });
+        return { isValid: false, reason: 'You already have a base point here' };
+      }
     }
     
-    // If we get here, it's not a restricted square and not occupied by a friendly piece
+    // If we get here, check if it's a valid capture
+    if (targetPiece) {
+      // It's a valid capture, allow the move
+      return { isValid: true };
+    }
+    
+    // Not a capture and not a restricted square
     return { 
       isValid: false, 
       reason: 'Base points can only be moved to squares they restrict' 

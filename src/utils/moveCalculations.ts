@@ -200,14 +200,33 @@ export const calculatePawnMoves = (
     }
   }
   
-  // Capture moves
-  const captureDeltas = pawnConfig.dx === 0 
-    ? [[-1, pawnConfig.dy], [1, pawnConfig.dy]]  // Vertical movement
-    : [[pawnConfig.dx, -1], [pawnConfig.dx, 1]]; // Horizontal movement
+  // Capture moves - handle diagonal captures based on pawn color
+  const captureDeltas = (() => {
+    const deltas = (() => {
+      switch(color) {
+        case '#F44336': // Red - up and diagonal
+          return [[-1, -1], [1, -1]];
+        case '#FFEB3B': // Yellow - down and diagonal
+          return [[-1, 1], [1, 1]];
+        case '#2196F3': // Blue - right and diagonal
+          return [[1, -1], [1, 1]];
+        case '#4CAF50': // Green - left and diagonal
+          return [[-1, -1], [-1, 1]];
+        default:
+          return [];
+      }
+    })();
+    
+    console.log(`Pawn capture deltas for ${color}:`, deltas.map(([dx, dy]) => 
+      `[${x}+${dx},${y}+${dy}]=[${x+dx},${y+dy}]`
+    ));
+    return deltas;
+  })();
   
   for (const [dx, dy] of captureDeltas) {
     const targetX = x + dx;
     const targetY = y + dy;
+    console.log(`Checking capture at [${targetX},${targetY}] for ${color} pawn at [${x},${y}]`);
     
     if (targetX < 0 || targetX >= BOARD_CONFIG.GRID_SIZE || 
         targetY < 0 || targetY >= BOARD_CONFIG.GRID_SIZE ||

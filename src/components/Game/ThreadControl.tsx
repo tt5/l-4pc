@@ -25,7 +25,7 @@ const ThreadControl: Component<ThreadControlProps> = (props) => {
         disabled={props.isLoading}
         class={styles.threadSelect}
       >
-        {[1, 2, 4, 8].map(num => (
+        {[1, 2, 3, 4, 5, 6, 7, 8].map(num => (
           <option value={num}>
             {num} {num === 1 ? 'Thread' : 'Threads'}
           </option>
