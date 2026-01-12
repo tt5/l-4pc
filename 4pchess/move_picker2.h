@@ -149,11 +149,11 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                     const float inv_remaining_moves = 1.0f / remaining_moves;
                     
                     // Calculate scores for remaining moves
-                    for (size_t i = 0; i < remaining_moves; i++) {  // Changed loop condition
-                        const Move& move = picker->moves[picker->current + i];  // Adjust index
-                        float order_score = 1.0f - i * inv_remaining_moves;  // Use multiplication instead of division
+                    for (size_t i = 0; i < remaining_moves; i++) {
+                        const Move& move = picker->moves[picker->current + i];
+                        const float order_score = 1.0f - i * inv_remaining_moves;
                         
-                        // Get piece and move information
+                        // Get move information
                         const auto from = move.From();
                         const auto to = move.To();
                         const Piece piece = picker->board->GetPiece(from);
@@ -164,68 +164,65 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                         const int to_col = to.GetCol();
                         const bool is_capture = move.IsCapture();
                         
-                        float history_score = 0.0f;
-                        float cont_history_score = 0.0f;
-                        float current_history_score = 0.0f;
-                        float capture_bonus = is_capture ? 0.5f : 0.0f;
-                        
-                        // 1. Get current ply's history heuristic score
-                        if (picker->history_heuristic) {
-                            size_t lock_key = (from_row * 14 + from_col) * 196 + (to_row * 14 + to_col);
-                            static std::mutex mtx;
-                            std::lock_guard<std::mutex> lock(mtx);
-                            int32_t hist_value = picker->history_heuristic[from_row][from_col][to_row][to_col][pt];
-                            current_history_score = fast_tanh(hist_value * 0.001f);
-                        }
-                        
-                        // 2. Get continuation history scores from previous plies
-                        float total_weight = 0.0f;
-                        
-                        // Weights for each ply (sum to 1.0)
-                        constexpr float weights[5] = {0.5f, 0.25f, 0.125f, 0.0625f, 0.0625f};
-                        
-                        // Move the is_capture check outside the loop
+                        // Fast path for captures - give them a significant bonus
                         if (is_capture) {
-                            for (int ply = 0; ply < 5; ++ply) {
-                                if (picker->cont_hist[ply] != nullptr) {
-                                    const auto& entry = (*picker->cont_hist[ply])[true][pt];  // true for captures
-                                    int32_t cont_value = entry[to_row * 14 + to_col];
-                                    cont_history_score += weights[ply] * std::tanh(cont_value / 1000.0f);
-                                    total_weight += weights[ply];
+                            // High base score for captures
+                            float score = 1000.0f + order_score * 10.0f;
+                            
+                            // Add history heuristic if available
+                            if (picker->history_heuristic) {
+                                int32_t hist_value = picker->history_heuristic[from_row][from_col][to_row][to_col][pt];
+                                score += fast_tanh(hist_value * 0.001f) * 100.0f;
+                            }
+                            
+                            // Only check first continuation history
+                            if (picker->cont_hist[0] != nullptr) {
+                                const auto& entry = (*picker->cont_hist[0])[true][pt];
+                                int32_t cont_value = entry[to_row * 14 + to_col];
+                                score += std::tanh(cont_value / 1000.0f) * 50.0f;
+                            }
+                            
+                            scored_moves.push_back({i, score});
+                        } 
+                        // Slower path for non-captures
+                        else {
+                            float score = order_score;
+                            
+                            // Only use history heuristic if it's significant
+                            if (picker->history_heuristic) {
+                                int32_t hist_value = picker->history_heuristic[from_row][from_col][to_row][to_col][pt];
+                                if (hist_value > 100) {  // Only consider significant history
+                                    score += fast_tanh(hist_value * 0.001f);
                                 }
                             }
-                        } else {
-                            for (int ply = 0; ply < 5; ++ply) {
-                                if (picker->cont_hist[ply] != nullptr) {
-                                    const auto& entry = (*picker->cont_hist[ply])[false][pt];  // false for non-captures
-                                    int32_t cont_value = entry[to_row * 14 + to_col];
-                                    cont_history_score += weights[ply] * std::tanh(cont_value / 1000.0f);
-                                    total_weight += weights[ply];
-                                }
-                            }
+
+                            /*
+                            if (picker->cont_hist[0] != nullptr) {
+                                const auto& entry = (*picker->cont_hist[0])[false][pt];  // false for non-captures
+                                int32_t cont_value = entry[to_row * 14 + to_col];
+                                score += std::tanh(cont_value / 1000.0f) * 20.0f;
+                            }                           
+                            */
+                            
+                            scored_moves.push_back({i, score});
                         }
-                        
-                        // Normalize by actual weight sum in case some plies were missing
-                        if (total_weight > 0) {
-                            cont_history_score /= total_weight;
-                        }
-                        
-                        // 3. Combine current history and continuation history with a 70/30 weight
-                        constexpr float current_history_weight = 0.7f;
-                        history_score = current_history_weight * current_history_score + 
-                                        (1.0f - current_history_weight) * cont_history_score;
-                    
-                        // Weighted combination
-                        float combined_score = 
-                            (1.0f - picker->history_weight) * order_score + 
-                            picker->history_weight * history_score +
-                            capture_bonus;
-                        
-                        scored_moves.push_back({i, combined_score});
                     }
                     
-                    // Sort by combined score
-                    std::sort(scored_moves.begin(), scored_moves.end());
+                    // Use insertion sort for small arrays, std::sort for larger ones
+                    if (scored_moves.size() <= 10) {
+                        for (size_t i = 1; i < scored_moves.size(); ++i) {
+                            auto key = scored_moves[i];
+                            int j = i - 1;
+                            while (j >= 0 && scored_moves[j].score < key.score) {
+                                scored_moves[j + 1] = scored_moves[j];
+                                j = j - 1;
+                            }
+                            scored_moves[j + 1] = key;
+                        }
+                    } else {
+                        std::sort(scored_moves.begin(), scored_moves.end(),
+                            [](const auto& a, const auto& b) { return a.score > b.score; });
+                    }
                     
                     // Update move_indices with new order
                     for (size_t i = 0; i < scored_moves.size(); i++) {
@@ -239,12 +236,18 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                     total_ordering_time += duration;
                     orderings_count++;
                     
-                    // Log every 1000 orderings to avoid too much output
+                    static size_t max_moves_ordered = 0;
+                    size_t moves_this_time = picker->count - picker->current;
+                    if (moves_this_time > max_moves_ordered) {
+                        max_moves_ordered = moves_this_time;
+                    }
+                    
                     if (orderings_count % 100000 == 0) {
-                        //std::cout << "Move ordering stats - "
-                        //          << "Total time: " << total_ordering_time.count() / 1000.0 << "ms "
-                        //          << "Count: " << orderings_count << " "
-                        //          << "Avg: " << total_ordering_time.count() / orderings_count << "µs\n";
+                        std::cout << "Move ordering stats - "
+                                  << "Total time: " << total_ordering_time.count() / 1000.0 << "ms "
+                                  << "Count: " << orderings_count << " "
+                                  << "Avg: " << total_ordering_time.count() / orderings_count << "µs "
+                                  << "Cur/Max moves: " << moves_this_time << "/" << max_moves_ordered << "\n";
                     }
                 }
                 

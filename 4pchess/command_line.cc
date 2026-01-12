@@ -188,7 +188,6 @@ void CommandLine::StartEvaluation() {
         }
         std::string pv = GetPVStr(*player);
 
-        /*
         // Print the board when a new depth is reached
         static int last_depth = 0;
         if (depth > last_depth) {
@@ -212,7 +211,6 @@ void CommandLine::StartEvaluation() {
           board_copy->PrintBoard();
           std::cout << "Searching depth " << depth << "...\n";
         }
-        */
 
         std::cout
           << "info"
