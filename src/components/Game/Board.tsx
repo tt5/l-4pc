@@ -281,12 +281,10 @@ const Board: Component<BoardProps> = (props) => {
         headers['Authorization'] = `Bearer ${userToken}`;
       }
       
-      console.log(`[loadGame] Making request with headers: ${JSON.stringify(headers, null, 2)}`);
       const response = await fetch(url, { 
         headers,
         credentials: 'include' // Ensure cookies are sent with the request
       });
-      console.log(`[loadGame] Response status: ${response.status} ${response.statusText}`);
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -295,9 +293,7 @@ const Board: Component<BoardProps> = (props) => {
       }
 
       const data = await response.json();
-      console.log(`[loadGame] Received data: ${JSON.stringify(data, null, 2)}`);
       const rawMoves = Array.isArray(data?.moves) ? data.moves : [];
-      console.log(`[loadGame] Found ${rawMoves.length} moves`);
       
       if (rawMoves.length === 0) {
         console.log('[loadGame] No moves found, initializing new game');
@@ -540,7 +536,6 @@ const Board: Component<BoardProps> = (props) => {
     if (reconstructedBranchName === 'main/undefined') {
       reconstructedBranchName = 'main'
     }
-    console.log(`[buildFullBranchName] ${reconstructedBranchName}`)
 
     return reconstructedBranchName
   };
@@ -688,7 +683,6 @@ const Board: Component<BoardProps> = (props) => {
     // Replay each move up to the target index
     for (let i = 0; i <= endIndex; i++) {
       const move = moves[i];
-      console.log(`[replayMoves] Move ${i}: ${JSON.stringify(move, null, 2)}`);
       if (!move) {
         console.warn(`[replayMoves] Missing move at index ${i}`);
         continue;
@@ -861,7 +855,6 @@ const Board: Component<BoardProps> = (props) => {
     }
     
     console.log(`[Delete] Current index: ${currentIndex}, History length: ${history.length}`);
-    console.log(`[Delete] Move history:`, JSON.stringify(history, null, 2));
     
     if (currentIndex < 0 || currentIndex >= history.length || history.length === 0) {
       console.log(`[Delete] No move to delete - Index ${currentIndex} is out of bounds for history length ${history.length}`);
@@ -869,7 +862,6 @@ const Board: Component<BoardProps> = (props) => {
     }
 
     const currentMove = history[currentIndex];
-    console.log(`[Delete] Current move to delete:`, JSON.stringify(currentMove, null, 2));
     
     // First try to delete on the server if we have the required data
     if (currentMove?.fromX !== undefined && currentMove?.fromY !== undefined && 
@@ -886,7 +878,6 @@ const Board: Component<BoardProps> = (props) => {
       };
       
       try {
-        console.log(`[Delete] Attempting to delete move at index ${currentIndex} with data:`, moveData);
         const response = await fetch('/api/moves/delete', {
           method: 'DELETE',
           headers: {
@@ -969,7 +960,6 @@ const Board: Component<BoardProps> = (props) => {
     console.log(`[Delete] Resetting board and replaying ${currentIndex} moves`);
     resetBoardToInitialState();
     const movesToReplay = newMoveHistory.slice(0, currentIndex);
-    console.log(`[Delete] Moves to replay:`, movesToReplay);
     
     const replayedPieces = replayMoves(movesToReplay, movesToReplay.length - 1);
     
@@ -1213,9 +1203,7 @@ const Board: Component<BoardProps> = (props) => {
 
             // Convert move history to UCI format
             const uciMoveHistory = currentMoves.map(moveToUCI);
-            const currentFen = generateFen4(basePoints(), currentTurnIndex());
             
-            console.log('Starting engine analysis with FEN:', currentFen);
             console.log('Move history:', uciMoveHistory);
             
             // Start analysis with the move history
@@ -1285,7 +1273,6 @@ const Board: Component<BoardProps> = (props) => {
 
   // Check for king in check when restricted squares or base points change
   createEffect(() => {
-    //console.log(`[Effect] check king in check`)
   // Check all kings to see if they are in check
     const allBasePoints = basePoints();
     const restrictedSquares = getRestrictedSquares();
@@ -1455,8 +1442,6 @@ const Board: Component<BoardProps> = (props) => {
       getTeamFn: getTeamByColor,
       enPassantTarget: enPassantTargets()
     });
-
-    console.log('[validateMove] Legal moves:', JSON.stringify(legalMoves, null, 2));
 
     // Check if there's a piece at the target position
     const targetPiece = basePoints().find(p => p.x === targetX && p.y === targetY);
@@ -1824,8 +1809,6 @@ const Board: Component<BoardProps> = (props) => {
           isEnPassant: isEnPassantCapture,
           capturedPiece: isEnPassantCapture ? capturedPiece : undefined
         };
-        console.log(`[handleGlobalMouseUp] newMove: ${JSON.stringify(newMove)}`)
-
         console.log(`[handleGlobalMouseUp] moveNumber: ${newMove.moveNumber}`)
         
         // If this is a branching move, update the current branch name
