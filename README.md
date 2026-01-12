@@ -8,7 +8,9 @@ and (in another terminal)
 
 `./cli`
 
-https://github.com/Anurag-Baundwal/4pchess
+- [ ] castling
+- [ ] en passant
+- [ ] promotion
 
 https://github.com/obryanlouis/4pchess
 

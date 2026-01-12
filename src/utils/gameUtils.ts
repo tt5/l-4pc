@@ -684,7 +684,6 @@ export function validateSquarePlacement(
           restrictedBy: sq.restrictedBy
         }))
     };
-    console.log('Checking move validation for:', JSON.stringify(logData, null, 2));
 
     // Check for pieces at the target square
     const targetPiece = basePoints().find(bp => bp.x === gridX && bp.y === gridY);
@@ -694,7 +693,6 @@ export function validateSquarePlacement(
       
       // Block friendly pieces
       if (targetTeam === movingTeam) {
-        console.log('Move blocked by friendly piece at target', JSON.stringify({ gridX, gridY }));
         return { isValid: false, reason: 'You already have a base point here' };
       }
       
@@ -705,22 +703,6 @@ export function validateSquarePlacement(
         const isDiagonalCapture = Math.abs(dx) === 1 && Math.abs(dy) === 1;
         
         if (isDiagonalCapture) {
-          console.log('Pawn capture detected:', JSON.stringify({
-            from: [startX, startY],
-            to: [gridX, gridY],
-            movingPiece: {
-              id: movingPiece.id,
-              type: movingPiece.pieceType,
-              color: movingPiece.color,
-              team: movingTeam
-            },
-            targetPiece: {
-              id: targetPiece.id,
-              type: targetPiece.pieceType,
-              color: targetPiece.color,
-              team: targetTeam
-            }
-          }, null, 2));
           return { isValid: true };
         }
       }
@@ -1005,12 +987,6 @@ export function getLegalMoves(
       canCapture: false
     };
     
-    console.log('[getLegalMoves] Checking one square forward to:', 
-      JSON.stringify(oneForward), 
-      'dx:', dx, 
-      'dy:', dy
-    );
-    
     // Skip if the target square is in a non-playable corner
     if (!isInNonPlayableCorner(oneForward.x, oneForward.y)) {
       // Check if one square forward is valid and not occupied
@@ -1043,17 +1019,6 @@ export function getLegalMoves(
     // Set up capture directions based on pawn movement
     let captureOffsets: Array<{dx: number, dy: number}> = [];
     
-    // Debug: Log pawn info
-    console.log('[getLegalMoves] Pawn at:', 
-      JSON.stringify({
-        x: basePoint.x, 
-        y: basePoint.y, 
-        color: basePoint.color, 
-        pieceType
-      }), 
-      'team:', team
-    );
-    
     // Set capture directions based on pawn color
     if (basePoint.color === '#F44336') { // Red - moves up
       captureOffsets = [
@@ -1080,25 +1045,9 @@ export function getLegalMoves(
     // First process capture moves into a separate array
     const captureMoves: {x: number, y: number, canCapture: boolean}[] = [];
     
-    console.log('[getLegalMoves] Standard moves:', JSON.stringify(moves, null, 2));
-    console.log('[getLegalMoves] En passant moves:', JSON.stringify(possibleMoves, null, 2));
-    
-    // Add capture moves
-    console.log('[getLegalMoves] Checking capture offsets for pawn at', 
-      JSON.stringify({x: basePoint.x, y: basePoint.y}), 
-      'offsets:', 
-      JSON.stringify(captureOffsets)
-    );
-    
     for (const offset of captureOffsets) {
       const captureX = basePoint.x + offset.dx;
       const captureY = basePoint.y + offset.dy;
-      
-      console.log('[getLegalMoves] Checking capture at:', 
-        JSON.stringify({captureX, captureY}), 
-        'from offset:', 
-        JSON.stringify(offset)
-      );
       
       // Check if target square is within bounds
       if (captureX >= 0 && captureX < BOARD_CONFIG.GRID_SIZE && 
@@ -1112,32 +1061,8 @@ export function getLegalMoves(
         // Check if there's an opponent's piece to capture
         const targetPiece = allBasePoints.find(p => {
           const isSamePosition = p.x === captureX && p.y === captureY;
-          if (isSamePosition) {
-            console.log('[getLegalMoves] Found piece at', 
-              JSON.stringify({x: p.x, y: p.y}), ':', 
-              JSON.stringify({
-                id: p.id, 
-                type: p.pieceType, 
-                color: p.color, 
-                team: getTeamByColor(p.color)
-              })
-            );
-          }
           return isSamePosition;
         });
-        
-        console.log('[getLegalMoves] All pieces:', 
-          JSON.stringify(
-            allBasePoints.map(p => ({
-              x: p.x, 
-              y: p.y, 
-              type: p.pieceType, 
-              color: p.color, 
-              team: getTeamByColor(p.color)
-            })), 
-            null, 2
-          )
-        );
         
         if (targetPiece) {
           const targetTeam = getTeamByColor(targetPiece.color);
@@ -1147,30 +1072,21 @@ export function getLegalMoves(
             isOpponent: targetTeam !== team,
             targetPiece: {x: targetPiece.x, y: targetPiece.y, type: targetPiece.pieceType, color: targetPiece.color}
           };
-          console.log('[getLegalMoves] Target piece team check:', JSON.stringify(checkInfo, null, 2));
           
           if (targetTeam !== team) {
-            console.log('[getLegalMoves] Adding capture move to:', JSON.stringify({
-              target: { x: captureX, y: captureY },
-              piece: targetPiece.pieceType
-            }));
             captureMoves.push({
               x: captureX,
               y: captureY,
               canCapture: true
             });
           } else {
-            console.log('[getLegalMoves] Cannot capture own piece at:', JSON.stringify({ x: captureX, y: captureY }));
           }
-        } else {
-          console.log('[getLegalMoves] No piece found at:', JSON.stringify({ x: captureX, y: captureY }));
         }
       }
     }
 
     // Combine all possible moves: standard moves, en passant moves, and capture moves
     possibleMoves = [...moves, ...possibleMoves, ...captureMoves];
-    console.log('[getLegalMoves] All possible moves:', JSON.stringify(possibleMoves, null, 2));  
 
   } else if (pieceType === 'bishop') {
     // Bishop moves any number of squares diagonally

@@ -61,15 +61,6 @@ export function calculateRestrictedSquares(
     isKingInCheck(currentKing, boardState, getTeam) : 
     false;
 
-  // Log the pieces we're calculating restricted squares for
-  console.log(`[calculateRestrictedSquares] Calculating for pieces: ${JSON.stringify(pieces.map(p => ({
-    x: p.x, 
-    y: p.y, 
-    type: p.pieceType, 
-    color: p.color,
-    team: getTeam(p.color)
-  })), null, 2)}`);
-
   for (const piece of pieces) {
     
     const moves = getLegalMoves(piece, boardState, {
@@ -80,11 +71,6 @@ export function calculateRestrictedSquares(
       getTeamFn: options.getTeamFn || getTeamByColor,
       enPassantTarget: options.enPassantTarget
     });
-    
-    // Log the moves for this piece
-    console.log(`[calculateRestrictedSquares] Moves for ${piece.pieceType} at (${piece.x},${piece.y}):`, 
-      JSON.stringify(moves, null, 2)
-    );
     
     for (const { x, y, canCapture } of moves) {
       const index = y * BOARD_CONFIG.GRID_SIZE + x;
@@ -118,36 +104,6 @@ export function calculateRestrictedSquares(
           team: getTeam(piece.color)
         });
       }
-    }
-  }
-
-  // Only log if there are restricted squares
-  if (restrictedSquaresInfo.length > 0) {
-    // Group restricted squares by piece type for better readability
-    const squaresByType = restrictedSquaresInfo.reduce((acc, s) => {
-      const key = s.pieceType || 'unknown';
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(`(${s.x},${s.y}${s.canCapture ? '!' : ''})`);
-      return acc;
-    }, {} as Record<string, string[]>);
-
-    // Log summary in a single line
-    const summary = Object.entries(squaresByType)
-      .map(([type, squares]) => `${type}: ${squares.length} [${squares.join(' ')}]`)
-      .join(' | ');
-    
-    console.log(`[Restricted] ${summary}`);
-    
-    // Only show details in development
-    if (process.env.NODE_ENV === 'development') {
-      console.groupCollapsed('Details');
-      console.table(restrictedSquaresInfo.map(s => ({
-        pos: `(${s.x},${s.y})`,
-        piece: s.pieceType,
-        team: s.team,
-        canCapture: s.canCapture ? '✓' : ''
-      })));
-      console.groupEnd();
     }
   }
 
