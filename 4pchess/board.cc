@@ -1548,165 +1548,122 @@ void Board::MakeMove(const Move& move) {
   // Cases:
   // 1. Move
   // 2. Capture
-  // 3. En passant
-  // 4. Castle
-  // 5. Promotion
-  // 6. Capture with promotion
+  //// 3. En passant
+  //// 4. Castle
+  //// 5. Promotion
+  //// 6. Capture with promotion
 
   const auto from = move.From();
   const auto to = move.To();
   const Piece piece = GetPiece(from);
+  const PlayerColor color = piece.GetColor();  // Cache color
+  const PieceType piece_type = piece.GetPieceType();  // Cache piece type
+  const Team team = piece.GetTeam();  // Cache team
+  /*
+  if (!piece.Present()) {
+    std::cerr << "Remove FATAL: Attempted to remove non-present piece" << std::endl;
+    std::abort();
+  }
+  */
+  const auto to_row = to.GetRow();
+  const auto to_col = to.GetCol();
+  const auto from_row = from.GetRow();
+  const auto from_col = from.GetCol();
   
   // Capture
   const auto standard_capture = GetPiece(to);
   if (standard_capture.Present()) {
-    // Debug logging for capture validation
+    const auto capture_color = standard_capture.GetColor();
+    const auto capture_team = standard_capture.GetTeam();
+    const auto capture_type = standard_capture.GetPieceType();
+    
     //RemovePiece(move.To());
-    auto& placed_pieces = piece_list_[standard_capture.GetColor()];
-    bool found = false;
-    for (auto it = placed_pieces.begin(); it != placed_pieces.end();) {
-        const auto& placed_piece = *it;
-        if (placed_piece.GetLocation() == to) {
-            it = placed_pieces.erase(it);
-            found = true;
-            break;  // We can break after erasing since locations should be unique
-        } else {
-            ++it;
-        }
-    }
-
-    if (!found) {
+    auto& placed_pieces = piece_list_[capture_color];
+    auto it = std::find_if(placed_pieces.begin(), placed_pieces.end(),
+        [&to](const auto& placed_piece) {
+            return placed_piece.GetLocation() == to;
+        });
+    if (it != placed_pieces.end()) {
+        placed_pieces.erase(it);
+    } else {
         std::cerr << "Failed to find captured piece in piece_list_:\n";
         std::abort();
     }
 
     UpdatePieceHash(standard_capture, to);
-    location_to_piece_[to.GetRow()][to.GetCol()] = Piece();
+    location_to_piece_[to_row][to_col] = Piece();
 
     // Update king location
-    if (standard_capture.GetPieceType() == KING) {
-      castling_rights_[turn_.GetColor()] = CastlingRights(false, false);
-      king_locations_[standard_capture.GetColor()] = BoardLocation::kNoLocation;
+    if (capture_type == KING) {
+      king_locations_[capture_color] = BoardLocation::kNoLocation;
     }
     // Update piece eval
-    int piece_eval = kPieceEvaluations[standard_capture.GetPieceType()];
-    if (standard_capture.GetTeam() == RED_YELLOW) {
+    int piece_eval = kPieceEvaluations[capture_type];
+    if (capture_team == RED_YELLOW) {
       piece_evaluation_ -= piece_eval;
     } else {
       piece_evaluation_ += piece_eval;
     }
-    player_piece_evaluations_[standard_capture.GetColor()] -= piece_eval;
+    player_piece_evaluations_[capture_color] -= piece_eval;
   }
 
-  /*
-  // Handle castling (check if this move has an associated rook move)
-  if (move.GetRookMove().Present()) {
-    const auto& rook_move = move.GetRookMove();
-    const auto rook_from = rook_move.From();
-    const auto rook_to = rook_move.To();
-    const Piece rook = GetPiece(rook_from);
-    
-    // Verify king is in the expected position
-    if (!piece.Present() || piece.GetPieceType() != KING
-            || !rook.Present() || rook.GetPieceType() != ROOK) {
-      std::cerr << "MakeMove FATAL: Invalid castling - no king at " << from.PrettyStr() 
-                << "\n  Move: " << move.DebugString()
-                << "\n  Piece at from: " << piece.DebugString()
-                << "\n  Rook move: " << rook_move.From().PrettyStr() << "->" << rook_move.To().PrettyStr()
-                << "\n  Turn: " << turn_
-                << std::endl;
-      std::abort();
-    }
-
-    //// Perform the rook move
-    //SetPiece(rook_to, rook);
-    //SetPiece(rook_from, Piece());
-    RemovePiece(rook_from);
-    SetPiece(rook_to, piece);
-
-    // The king will be moved by the code below
-
-    assert(piece.Present());
-  }
-  */
-
-  /*
-  const auto promotion_piece_type = move.GetPromotionPieceType();
-  if (promotion_piece_type != NO_PIECE) { // Promotion
-    RemovePiece(move.From());
-    SetPiece(
-        move.To(),
-        Piece(turn_.GetColor(), promotion_piece_type));
-  } else { // Move
-  */
-    //RemovePiece(from);
-    // remove (inlined)
-  if (!piece.Present()) {
-    std::cerr << "Remove FATAL: Attempted to remove non-present piece" << std::endl;
-    std::abort();
-  }
-  
-  auto& placed_pieces = piece_list_[piece.GetColor()];
-  bool found = false;
-  for (auto it = placed_pieces.begin(); it != placed_pieces.end();) {
-      const auto& placed_piece = *it;
-      if (placed_piece.GetLocation() == from) {
-          if (!placed_piece.GetPiece().Present()) {
-              std::cerr << "RemovePiece WARNING: Found non-present piece in piece_list_" << std::endl;}
-          it = placed_pieces.erase(it);
-          found = true;
-          break;  // We can break after erasing since locations should be unique
-      } else {
-          ++it;
-      }
-  }
-
-  if (!found) {
-      // This is bad - we tried to remove a piece that wasn't in the list
-      std::cerr << "RemovePiece FATAL: Tried to remove piece but it wasn't found in piece_list_" << std::endl;
+  //RemovePiece(from);
+  auto& placed_pieces = piece_list_[color];
+  auto it = std::find_if(placed_pieces.begin(), placed_pieces.end(),
+      [&from](const auto& placed_piece) {
+          return placed_piece.GetLocation() == from;
+      });
+  if (it != placed_pieces.end()) {
+      placed_pieces.erase(it);
+  } else {
+      std::cerr << "Failed to find captured piece in piece_list_:\n";
       std::abort();
   }
+
   UpdatePieceHash(piece, from);
-  location_to_piece_[from.GetRow()][from.GetCol()] = Piece();
+  location_to_piece_[from_row][from_col] = Piece();
 
   // Update king location
-  if (piece.GetPieceType() == KING) {
-    castling_rights_[turn_.GetColor()] = CastlingRights(false, false);
-    king_locations_[piece.GetColor()] = BoardLocation::kNoLocation;
+  if (piece_type == KING) {
+    castling_rights_[color] = CastlingRights(false, false);
+    king_locations_[color] = BoardLocation::kNoLocation;
   }
-  // Update piece eval
-  int piece_eval = kPieceEvaluations[piece.GetPieceType()];
-  if (piece.GetTeam() == RED_YELLOW) {
-    piece_evaluation_ -= piece_eval;
-  } else {
-    piece_evaluation_ += piece_eval;
-  }
-  player_piece_evaluations_[piece.GetColor()] -= piece_eval;
-  // end remove
-    SetPiece(to, piece);
-  //}
 
+  //SetPiece(to, piece);
+  // Update the board
+  location_to_piece_[to_row][to_col] = piece;
+  // Check if this piece is already in the piece list
+  auto& pieces = piece_list_[color];
+  bool found = false;
+  
   /*
-  // En-passant
-  const auto enpassant_location = move.GetEnpassantLocation();
-  if (enpassant_location.Present()) {
-    RemovePiece(enpassant_location);
-  } else {
-    // Castling: rights update
-    const auto castling_rights = move.GetCastlingRights();
-    if (castling_rights.Present()) {
-      castling_rights_[turn_.GetColor()] = castling_rights;
-    }
+  // Check if this piece is already in the piece list (shouldn't happen for valid moves)
+  auto piece_it = std::find_if(pieces.begin(), pieces.end(),
+      [&to](const auto& p) { return p.GetLocation() == to; });
+  if (piece_it != pieces.end()) {
+      std::cerr << "SetPiece FATAL: Attempt to set existing piece at " 
+                << to.PrettyStr() << "\n";
+      std::abort();
   }
-    */
+  */
+  // Add new entry
+  pieces.emplace_back(to, piece);
 
-  int t = static_cast<int>(turn_.GetColor());
+  UpdatePieceHash(piece, to);
+  // Update king location
+  if (piece_type == KING) {
+    king_locations_[color] = to;
+  }
+  // end set piece
+
+  int t = static_cast<int>(color);
   UpdateTurnHash(t);
   UpdateTurnHash((t+1)%4);
 
   turn_ = GetNextPlayer(turn_);
   moves_.push_back(move);
 }
+
 
 void Board::UndoMove() {
   // Cases:
@@ -1725,52 +1682,72 @@ void Board::UndoMove() {
 
   // Move the piece back.
   const auto piece = GetPiece(to);
+  /*
   if (piece.Missing()) {
     std::cout << "piece missing in UndoMove" << std::endl;
-    std::cout << *this << std::endl;
     abort();
   }
+  */
+  const PlayerColor color = piece.GetColor();
 
-  RemovePiece(to);
-  /*
-  const auto promotion_piece_type = move.GetPromotionPieceType();
-  if (promotion_piece_type != NO_PIECE) {
-    // Handle promotions
-    SetPiece(from, Piece(turn_before.GetColor(), PAWN));
-  } else {
-   */
-    SetPiece(from, piece);
-  //}
-
-  // Place back captured pieces
-  const auto standard_capture = move.GetStandardCapture();
-  if (standard_capture.Present()) {
-    SetPiece(to, standard_capture);
+  if (auto it = std::find_if(piece_list_[color].begin(), piece_list_[color].end(),
+    [&to](const auto& p) { return p.GetLocation() == to; });
+    it != piece_list_[color].end()) {
+    piece_list_[color].erase(it);
   }
 
-  /*
-  // Place back en-passant pawns
-  const auto enpassant_location = move.GetEnpassantLocation();
-  if (enpassant_location.Present()) {
-    SetPiece(enpassant_location,
-             move.GetEnpassantCapture());
-  } else {
-  */
-/*
-    // Castling: rook move
-    const auto rook_move = move.GetRookMove();
-    if (rook_move.Present()) {
-      RemovePiece(rook_move.To());
-      SetPiece(rook_move.From(), Piece(turn_before.GetColor(), ROOK));
-    }
+  UpdatePieceHash(piece, to);
+  location_to_piece_[to.GetRow()][to.GetCol()] = Piece();
 
-    // Castling: rights update
-    const auto initial_castling_rights = move.GetInitialCastlingRights();
-    if (initial_castling_rights.Present()) {
-      castling_rights_[turn_before.GetColor()] = initial_castling_rights;
-    }
-      */
-  //}
+  // Update king location
+  if (piece.GetPieceType() == KING) {
+    castling_rights_[color] = CastlingRights(false, false);
+    king_locations_[color] = BoardLocation::kNoLocation;
+  }
+  // end remove
+
+  //SetPiece(from, piece);
+  // Update the board
+  location_to_piece_[from.GetRow()][from.GetCol()] = piece;
+  // Check if this piece is already in the piece list
+  auto& pieces = piece_list_[color];
+  /*
+  auto piece_it = std::find_if(pieces.begin(), pieces.end(),
+      [&from](const auto& p) { return p.GetLocation() == from; });
+
+  if (piece_it != pieces.end()) {
+      std::cerr << "SetPiece FATAL: Attempt to set existing piece at " 
+                << from.PrettyStr() << "\n";
+      std::abort();
+  }
+  */
+  // Add new entry
+  pieces.emplace_back(from, piece);
+
+  UpdatePieceHash(piece, from);
+  // Update king location
+  if (piece.GetPieceType() == KING) {
+    king_locations_[color] = from;
+  }
+  //end set piece
+  // Place back captured pieces
+  if (const auto standard_capture = move.GetStandardCapture();
+    standard_capture.Present()) {
+      location_to_piece_[to.GetRow()][to.GetCol()] = standard_capture;
+      piece_list_[standard_capture.GetColor()].emplace_back(to, standard_capture);
+      UpdatePieceHash(standard_capture, to);
+      
+      // Update king location if needed
+      if (standard_capture.GetPieceType() == KING) {
+          king_locations_[standard_capture.GetColor()] = to;
+      }
+      
+      // Update piece evaluation
+      const int piece_eval = kPieceEvaluations[standard_capture.GetPieceType()];
+      const int sign = (standard_capture.GetTeam() == RED_YELLOW) ? 1 : -1;
+      piece_evaluation_ += sign * piece_eval;
+      player_piece_evaluations_[standard_capture.GetColor()] += piece_eval;
+  }
 
   turn_ = turn_before;
   moves_.pop_back();
