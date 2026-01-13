@@ -1608,6 +1608,20 @@ void Board::MakeMove(const Move& move) {
   }
 
   //RemovePiece(from);
+// Find the piece in the piece list
+auto& pieces = piece_list_[color];
+auto it = std::find_if(pieces.begin(), pieces.end(),
+    [&from](const auto& placed_piece) {
+        return placed_piece.GetLocation() == from;
+    });
+if (it != pieces.end()) {
+    // Update the piece's location by creating a new PlacedPiece with the same piece but new location
+    *it = PlacedPiece(to, it->GetPiece());
+} else {
+    std::cerr << "Failed to find moving piece in piece_list_:\n";
+    std::abort();
+}
+  /*
   auto& placed_pieces = piece_list_[color];
   auto it = std::find_if(placed_pieces.begin(), placed_pieces.end(),
       [&from](const auto& placed_piece) {
@@ -1619,6 +1633,7 @@ void Board::MakeMove(const Move& move) {
       std::cerr << "Failed to find captured piece in piece_list_:\n";
       std::abort();
   }
+  */
 
   UpdatePieceHash(piece, from);
   location_to_piece_[from_row][from_col] = Piece();
@@ -1632,22 +1647,11 @@ void Board::MakeMove(const Move& move) {
   //SetPiece(to, piece);
   // Update the board
   location_to_piece_[to_row][to_col] = piece;
-  // Check if this piece is already in the piece list
-  auto& pieces = piece_list_[color];
-  bool found = false;
-  
+
   /*
-  // Check if this piece is already in the piece list (shouldn't happen for valid moves)
-  auto piece_it = std::find_if(pieces.begin(), pieces.end(),
-      [&to](const auto& p) { return p.GetLocation() == to; });
-  if (piece_it != pieces.end()) {
-      std::cerr << "SetPiece FATAL: Attempt to set existing piece at " 
-                << to.PrettyStr() << "\n";
-      std::abort();
-  }
-  */
-  // Add new entry
+  auto& pieces = piece_list_[color];
   pieces.emplace_back(to, piece);
+  */
 
   UpdatePieceHash(piece, to);
   // Update king location
@@ -1690,11 +1694,27 @@ void Board::UndoMove() {
   */
   const PlayerColor color = piece.GetColor();
 
+  // Find and update the moved piece's location in one pass
+auto& pieces = piece_list_[color];
+auto it = std::find_if(pieces.begin(), pieces.end(),
+    [&to](const auto& placed_piece) {
+        return placed_piece.GetLocation() == to;
+    });
+if (it != pieces.end()) {
+    // Update the piece's location by creating a new PlacedPiece
+    *it = PlacedPiece(from, it->GetPiece());
+} else {
+    std::cerr << "Failed to find moved piece in piece_list_ during UndoMove\n";
+    std::abort();
+}
+
+  /*
   if (auto it = std::find_if(piece_list_[color].begin(), piece_list_[color].end(),
     [&to](const auto& p) { return p.GetLocation() == to; });
     it != piece_list_[color].end()) {
     piece_list_[color].erase(it);
   }
+  */
 
   UpdatePieceHash(piece, to);
   location_to_piece_[to.GetRow()][to.GetCol()] = Piece();
@@ -1709,20 +1729,11 @@ void Board::UndoMove() {
   //SetPiece(from, piece);
   // Update the board
   location_to_piece_[from.GetRow()][from.GetCol()] = piece;
-  // Check if this piece is already in the piece list
-  auto& pieces = piece_list_[color];
-  /*
-  auto piece_it = std::find_if(pieces.begin(), pieces.end(),
-      [&from](const auto& p) { return p.GetLocation() == from; });
 
-  if (piece_it != pieces.end()) {
-      std::cerr << "SetPiece FATAL: Attempt to set existing piece at " 
-                << from.PrettyStr() << "\n";
-      std::abort();
-  }
-  */
-  // Add new entry
+  /*
+  auto& pieces = piece_list_[color];
   pieces.emplace_back(from, piece);
+  */
 
   UpdatePieceHash(piece, from);
   // Update king location

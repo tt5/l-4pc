@@ -10,6 +10,8 @@
 #include <utility>
 #include <vector>
 #include <mutex>
+#include <shared_mutex>
+#include <unordered_set>
 
 #include "board.h"
 #include "move_picker.h"
@@ -213,6 +215,8 @@ class AlphaBetaPlayer {
   static size_t call_countB;
   static std::chrono::nanoseconds total_timeA2;
   static size_t call_countA2;
+  static std::chrono::nanoseconds total_timeC;
+  static size_t call_countC;
   int64_t GetNumLateMovesPruned() { return num_lm_pruned_; }
   int64_t GetNumFailHighReductions() { return num_fail_high_reductions_; }
   int64_t GetNumCheckExtensions() { return num_check_extensions_; }
@@ -221,6 +225,17 @@ class AlphaBetaPlayer {
   int64_t GetNumRazorTested() { return num_razor_tested_; }
   int64_t GetLmrReductionsMade() { return lmr_reductions_made_; }
   int64_t GetLmrReductionsEffective() { return lmr_reductions_effective_; }
+
+  // Check if the current board position is a known checkmate
+  bool IsKnownCheckmate(const Board& board) const {
+    return IsKnownCheckmate(board.HashKey());
+  }
+  
+  // Check if a specific hash key corresponds to a known checkmate position
+  bool IsKnownCheckmate(int64_t hash_key) const {
+    std::shared_lock<std::shared_mutex> lock(checkmate_mutex_);
+    return checkmate_positions_.find(hash_key) != checkmate_positions_.end();
+  }
 
   void EnableDebug(bool enable) { enable_debug_ = enable; }
 
@@ -323,6 +338,10 @@ class AlphaBetaPlayer {
 
   static constexpr size_t kHeuristicMutexes = 256;
   std::unique_ptr<std::mutex[]> heuristic_mutexes_;
+  
+  // Checkmate position tracking
+  std::unordered_set<int64_t> checkmate_positions_;
+  mutable std::shared_mutex checkmate_mutex_;  // mutable allows const methods to lock it
 };
 
 }  // namespace chess

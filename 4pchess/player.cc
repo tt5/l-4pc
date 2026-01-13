@@ -28,10 +28,12 @@ std::chrono::nanoseconds AlphaBetaPlayer::total_time{0};
 std::chrono::nanoseconds AlphaBetaPlayer::total_timeA{0};
 std::chrono::nanoseconds AlphaBetaPlayer::total_timeA2{0};
 std::chrono::nanoseconds AlphaBetaPlayer::total_timeB{0};
+std::chrono::nanoseconds AlphaBetaPlayer::total_timeC{0};
 size_t AlphaBetaPlayer::call_count = 0;
 size_t AlphaBetaPlayer::call_countA = 0;
 size_t AlphaBetaPlayer::call_countA2 = 0;
 size_t AlphaBetaPlayer::call_countB = 0;
+size_t AlphaBetaPlayer::call_countC = 0;
 
 AlphaBetaPlayer::AlphaBetaPlayer(std::optional<PlayerOptions> options) {
   if (options.has_value()) {
@@ -238,6 +240,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     PVInfo& pvinfo,
     int null_moves,
     bool is_cut_node) {
+  auto startA = std::chrono::high_resolution_clock::now();
 
   if (canceled_
       || (deadline.has_value()
@@ -294,9 +297,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
   Player player = board.GetTurn();
 
-
-  auto startA = std::chrono::high_resolution_clock::now();
-
   (ss+2)->killers[0] = (ss+2)->killers[1] = Move();
   ss->move_count = 0;
   if (ply == 1) {
@@ -305,26 +305,10 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   bool in_check = board.IsKingInCheck(player);
   ss->in_check = in_check;
 
-  bool partner_checked = board.IsKingInCheck(GetPartner(player));
-
   std::optional<Move> best_move;
 
   std::optional<Move> pv_move = pvinfo.GetBestMove();
   Move* moves = thread_state.GetNextMoveBufferPartition();
-
-  auto endA = std::chrono::high_resolution_clock::now();
-  auto durationA = std::chrono::duration_cast<std::chrono::nanoseconds>(endA - startA);
-  total_timeA += durationA;
-  call_countA++;
-  if (call_countA % 100000 == 0) {
-    auto avg_ns = total_timeA.count() / call_countA;
-    auto current_avg = durationA.count() / 1;  // Current call's time in ns
-
-    //std::cout << "[Search - A]"
-    //          << "Average: " << avg_ns << " ns, "
-    //          << "Call count: " << call_countA << std::endl;
-  }
-
   
   // Generate moves first
   auto result = board.GetPseudoLegalMoves2(
@@ -342,7 +326,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   } 
   (ss+1)->root_depth = ss->root_depth;
   ss->static_eval = eval;
-
   
   // Then initialize the move picker with the generated moves
   MovePicker2 picker;
@@ -378,9 +361,21 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   bool fail_high = false;
   std::vector<Move> searched_moves;
 
+  auto endA = std::chrono::high_resolution_clock::now();
+  auto durationA = std::chrono::duration_cast<std::chrono::nanoseconds>(endA - startA);
+  total_timeA += durationA;
+  call_countA++;
+  if (call_countA % 400000 == 0) {
+    auto avg_ns = total_timeA.count() / call_countA;
+    auto current_avg = durationA.count() / 1;  // Current call's time in ns
+
+    std::cout << "[Search - before move]"
+              << "Average: " << avg_ns << " ns, "
+              << "Call count: " << call_countA << std::endl;
+  }
   while (true) {
-    const Move* move_ptr = GetNextMove2(&picker);
     auto startA2 = std::chrono::high_resolution_clock::now();
+    const Move* move_ptr = GetNextMove2(&picker);
 
     if (move_ptr == nullptr) break;
 
@@ -398,7 +393,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     
     std::optional<std::tuple<int, std::optional<Move>>> value_and_move_or;
 
-    // 50ns
     board.MakeMove(move);
 
     if (board.CheckWasLastMoveKingCapture() != IN_PROGRESS) {
@@ -436,24 +430,27 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     if (move_count >= 4) { r++; }
     if (move_count >= 8) { r++; }
 
+    r += is_cut_node;
+
     auto endA2 = std::chrono::high_resolution_clock::now();
     auto durationA2 = std::chrono::duration_cast<std::chrono::nanoseconds>(endA2 - startA2);
     total_timeA2 += durationA2;
     call_countA2++;
-    if (call_countA2 % 200000 == 0) {
+    if (call_countA2 % 400000 == 0) {
       auto avg_ns = total_timeA2.count() / call_countA2;
       auto current_avg = durationA2.count() / 1;  // Current call's time in ns
 
-      std::cout << "[Move before]"
+      std::cout << "[Move - before recursion]"
                 << "Average: " << avg_ns << " ns, "
                 << "Call count: " << call_countA2 << std::endl
                 << "Singular searches: " << GetNumSingularExtensionSearches() << std::endl
                 << "Singular hits: " << GetNumSingularExtensions()
                 << std::endl;
     }
+
     // Singular extension search
     if (!is_root_node
-        //&& move_count >= 8
+        && move_count >= 2
         && tt_move.has_value() && move == *tt_move
         && !ss->excludedMove.Present()
         && depth >= 8 // Only for reasonably deep searches
@@ -491,8 +488,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       }
     }
 
-    r += is_cut_node;
-
     if (depth <= 1
         && ply >= 4
         && is_capture
@@ -502,17 +497,21 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         )
     ) { r = -1; }
 
+    int64_t current_hash = board.HashKey();
+    bool checkmate = IsKnownCheckmate(current_hash);
+
     // lmr
-    if ((depth >= 5)
-      & is_root_node
-      & (move_count >= 5)) {
+    if (!checkmate
+      && (depth >= 5)
+      && is_root_node
+      && (move_count >= 2 + 2 * (depth > 5))) {
       // First search with reduced depth and null window
       value_and_move_or = Search(
-          ss+1, NonPV, thread_state, board, ply + 1,
-           depth - 1
-           - (depth/2)*(r > 0)
-           - (depth/4)*(r > 1)
-           - (depth/8)*(r > 2)
+          ss+1, NonPV, thread_state, board, ply + 1, depth - 1
+          - (depth/2)
+          - (depth/4)*(r > 0)
+          - (depth/8)*(r > 1)
+          - (depth/16)*(r > 2)
           + (r < 0),
           -alpha-1, -alpha, !maximizing_player, expanded,
           deadline, *child_pvinfo, 0, true);
@@ -527,11 +526,10 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
           if (score < alpha + 150) {
             value_and_move_or = Search(
                 ss+1, NonPV, thread_state, board, ply + 1, depth - 1
-           - (depth/2)*(r > 0)
-           - (depth/4)*(r > 1)
-           - (depth/8)*(r > 2)
-          + (r < 0)
-          ,
+                - (depth/2)*(r > 0)
+                - (depth/4)*(r > 1)
+                - (depth/8)*(r > 2)
+                + (r < 0) ,
                 -alpha-50, -alpha, !maximizing_player, expanded,
                 deadline, *child_pvinfo, 0, true);
                 
@@ -560,13 +558,14 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         }
       }
 
-    } else if (!is_pv_node || move_count > 1) {
+    } else if (!checkmate
+      && (!is_pv_node || move_count > 1)) {
 
       value_and_move_or = Search(
           ss+1, NonPV, thread_state, board, ply + 1, depth - 1
-          - (depth/4)*(r > 0)*(depth>=2)
+          - (depth/2)*(r > 0)*(depth>=2)
           - (depth/4)*(r > 1)*(depth>=3)
-          - (depth/4)*(r > 2)*(depth>=4)
+          - (depth/8)*(r > 2)*(depth>=4)
           + (r < 0),
           -alpha-1, -alpha, !maximizing_player, expanded,
           deadline, *child_pvinfo, 0, false);
@@ -584,7 +583,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
                   || -std::get<0>(*value_and_move_or) < beta)
               ));
 
-    if (full_search) {
+    if (full_search || checkmate) {
       value_and_move_or = Search(
           ss+1, PV, thread_state, board, ply + 1, depth - 1
           + (r < 0),
@@ -630,15 +629,18 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     auto durationB = std::chrono::duration_cast<std::chrono::nanoseconds>(endB - startB);
     total_timeB += durationB;
     call_countB++;
-    if (call_countB % 200000 == 0) {
+    if (call_countB % 400000 == 0) {
       auto avg_ns = total_timeB.count() / call_countB;
       auto current_avg = durationB.count() / 1;  // Current call's time in ns
 
-      std::cout << "[Move after]"
+      std::cout << "[Move - after recursion]"
                 << "Average: " << avg_ns << " ns, "
-                << "Call count: " << call_countA << std::endl;
+                << "Call count: " << call_countB << std::endl;
     }
   }
+  static std::atomic<int64_t> total_checkmates_found = 0;
+  thread_local int checkmates_in_this_search = 0;
+  auto startC = std::chrono::high_resolution_clock::now();
 
   if (!fail_low) {
     UpdateStats(ss, thread_state, board, *best_move, depth, fail_high,
@@ -655,6 +657,25 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       // checkmate
     */
       score = std::min(beta, std::max(alpha, -kMateValue));
+      
+      // Track unique checkmate positions
+      int64_t hash_key = board.HashKey();
+      bool is_new_checkmate = false;
+      
+      // First try a read-only check with shared lock
+      {
+        std::shared_lock<std::shared_mutex> lock(checkmate_mutex_);
+        is_new_checkmate = (checkmate_positions_.find(hash_key) == checkmate_positions_.end());
+      }
+      
+      // If it's a new checkmate, take exclusive lock to update
+      if (is_new_checkmate) {
+        std::unique_lock<std::shared_mutex> lock(checkmate_mutex_);
+        // Double-check in case another thread added it between our check and now
+        checkmate_positions_.insert(hash_key).second;
+      }
+      checkmates_in_this_search++;  // Increment checkmate counter for this search
+      total_checkmates_found++;     // Increment total checkmate counter
     /*
     }
     */
@@ -681,6 +702,20 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   ss->static_eval = score;
 
   thread_state.ReleaseMoveBufferPartition();
+  auto endC = std::chrono::high_resolution_clock::now();
+  auto durationC = std::chrono::duration_cast<std::chrono::nanoseconds>(endC - startC);
+  total_timeC += durationC;
+  call_countC++;
+  if (call_countC % 400000 == 0) {
+    auto avg_ns = total_timeB.count() / call_countC;
+    auto current_avg = durationC.count() / 1;  // Current call's time in ns
+
+    std::cout << "[Search - after move]"
+              << " Average: " << avg_ns << " ns,"
+              << " Call count: " << call_countC
+              << ", Checkmates (this search/total): " 
+              << checkmates_in_this_search << "/" << total_checkmates_found << std::endl;
+  }
   return std::make_tuple(score, best_move);
 }
 
@@ -878,7 +913,7 @@ int AlphaBetaPlayer::Evaluate(
     auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
     total_time += duration;
     call_count++;
-    if (call_count % 100000 == 0) {
+    if (call_count % 400000 == 0) {
       auto avg_ns = total_time.count() / call_count;
       auto current_avg = duration.count() / 1;  // Current call's time in ns
 
@@ -964,11 +999,9 @@ void AlphaBetaPlayer::AgeHistoryHeuristics() {
 
 void AlphaBetaPlayer::ResetMobilityScores(ThreadState& thread_state, Board& board) {
   // reset pseudo-mobility scores
-  if (options_.enable_mobility_evaluation || options_.enable_piece_activation) {
-    for (int i = 0; i < 4; i++) {
-      Player player(static_cast<PlayerColor>(i));
-      UpdateMobilityEvaluation(thread_state, board, player);
-    }
+  for (int i = 0; i < 4; i++) {
+    Player player(static_cast<PlayerColor>(i));
+    UpdateMobilityEvaluation(thread_state, board, player);
   }
 }
 
@@ -1189,6 +1222,7 @@ int PVInfo::GetDepth() const {
 void AlphaBetaPlayer::UpdateMobilityEvaluation(
     ThreadState& thread_state, Board& board, Player player) {
     
+    /*
     // Get move and threat counts for all players in one go
     auto result = board.GetPseudoLegalMoves2(nullptr, 0);
     
@@ -1197,6 +1231,9 @@ void AlphaBetaPlayer::UpdateMobilityEvaluation(
         thread_state.TotalMoves()[i] = result.mobility_counts[i];
         thread_state.n_threats[i] = result.threat_counts[i];
     }
+    */
+    thread_state.TotalMoves()[player.GetColor()] = 1;
+    thread_state.n_threats[player.GetColor()] = 1;
 }
 
 std::shared_ptr<PVInfo> PVInfo::Copy() const {

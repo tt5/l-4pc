@@ -242,7 +242,7 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                         max_moves_ordered = moves_this_time;
                     }
                     
-                    if (orderings_count % 200000 == 0) {
+                    if (orderings_count % 400000 == 0) {
                         std::cout << "Move ordering stats - "
                                   << "Total time: " << total_ordering_time.count() / 1000.0 << "ms "
                                   << "Count: " << orderings_count << " "
