@@ -309,14 +309,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
   std::optional<Move> best_move;
 
-  const PieceToHistory* cont_hist[] = {
-    (ss - 1)->continuation_history,
-    (ss - 2)->continuation_history,
-    (ss - 3)->continuation_history,
-    (ss - 4)->continuation_history,
-    (ss - 5)->continuation_history,
-  };
-
   std::optional<Move> pv_move = pvinfo.GetBestMove();
   Move* moves = thread_state.GetNextMoveBufferPartition();
 
@@ -360,6 +352,13 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   size_t move_count2 = result.count;
   const Move* killer1 = &ss->killers[0];
   const Move* killer2 = &ss->killers[1];
+  const PieceToHistory* cont_hist[] = {
+    (ss - 1)->continuation_history,
+    (ss - 2)->continuation_history,
+    (ss - 3)->continuation_history,
+    (ss - 4)->continuation_history,
+    (ss - 5)->continuation_history,
+  };
   
   InitMovePicker2(&picker, 
                &board,
@@ -380,29 +379,10 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   std::vector<Move> searched_moves;
 
   while (true) {
-  auto startA2 = std::chrono::high_resolution_clock::now();
     const Move* move_ptr = GetNextMove2(&picker);
+    auto startA2 = std::chrono::high_resolution_clock::now();
 
     if (move_ptr == nullptr) break;
-  auto endA2 = std::chrono::high_resolution_clock::now();
-  auto durationA2 = std::chrono::duration_cast<std::chrono::nanoseconds>(endA2 - startA2);
-  total_timeA2 += durationA2;
-  call_countA2++;
-  if (call_countA2 % 100000 == 0) {
-    auto avg_ns = total_timeA2.count() / call_countA2;
-    auto current_avg = durationA2.count() / 1;  // Current call's time in ns
-
-    //std::cout << "[Search - A2]"
-    //          << "Average: " << avg_ns << " ns, "
-    //          << "Call count: " << call_countA2 << std::endl;
-  }
-    /*
-    if (
-      depth <= 2
-      && move_count >= 5
-      && ply >= 4
-    ) { break; }
-    */
 
     const Move& move = *move_ptr;
 
@@ -418,20 +398,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     
     std::optional<std::tuple<int, std::optional<Move>>> value_and_move_or;
 
-    // this has to be called before the move is made
-    bool delivers_check = move.DeliversCheck(board);
-
-    bool quiet = !in_check && !is_capture && !delivers_check;
-
-    bool lmr = depth > 2 
-      && is_root_node
-      && (move_count > 5);
-
-    int r = 1; 
-    
-    ss->current_move = move;
-    ss->continuation_history = &continuation_history[in_check][is_capture][piece_type][to.GetRow()][to.GetCol()];
-
+    // 50ns
     board.MakeMove(move);
 
     if (board.CheckWasLastMoveKingCapture() != IN_PROGRESS) {
@@ -449,9 +416,10 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
       continue;
     }
-
     has_legal_moves = true;
 
+    ss->current_move = move;
+    ss->continuation_history = &continuation_history[in_check][is_capture][piece_type][to.GetRow()][to.GetCol()];
     ss->move_count = move_count++;
 
     bool is_pv_move = pv_move.has_value() && *pv_move == move;
@@ -463,14 +431,32 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       child_pvinfo = std::make_shared<PVInfo>();
     }
 
+    int r = 1; 
+    
     if (move_count >= 4) { r++; }
     if (move_count >= 8) { r++; }
+
+    auto endA2 = std::chrono::high_resolution_clock::now();
+    auto durationA2 = std::chrono::duration_cast<std::chrono::nanoseconds>(endA2 - startA2);
+    total_timeA2 += durationA2;
+    call_countA2++;
+    if (call_countA2 % 200000 == 0) {
+      auto avg_ns = total_timeA2.count() / call_countA2;
+      auto current_avg = durationA2.count() / 1;  // Current call's time in ns
+
+      std::cout << "[Move before]"
+                << "Average: " << avg_ns << " ns, "
+                << "Call count: " << call_countA2 << std::endl
+                << "Singular searches: " << GetNumSingularExtensionSearches() << std::endl
+                << "Singular hits: " << GetNumSingularExtensions()
+                << std::endl;
+    }
     // Singular extension search
     if (!is_root_node
-        && move_count >= 8
+        //&& move_count >= 8
         && tt_move.has_value() && move == *tt_move
         && !ss->excludedMove.Present()
-        && depth >= 9 // Only for reasonably deep searches
+        && depth >= 8 // Only for reasonably deep searches
         && tte != nullptr && tte->score != value_none_tt && std::abs(tte->score) < kMateValue
         && tte->bound == LOWER_BOUND // The TT move was a fail-high
         && tte->depth >= depth - 3
@@ -480,21 +466,24 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       
       // Search again, but excluding the strong TT move.
       // The beta for this search is based on the TT score, with a margin.
-      int singular_beta = tte->score - (58 + 76 * (ss->tt_pv && node_type == NonPV)) * depth / 57;
-      int singular_depth = (depth - 1) / 2;
+      //int singular_beta = tte->score - (58 + 76 * (ss->tt_pv && node_type == NonPV)) * depth / 57;
+      //int singular_beta = tte->score - (150 * (ss->tt_pv && node_type == NonPV)) - 200;
+      int singular_beta = tte->score - 100;
+      int singular_depth = depth - 1 - (depth/2) - (depth/4);
 
       ss->excludedMove = move; // Exclude the current move for the sub-search
 
       PVInfo singular_pvinfo;
       auto singular_res = Search(ss, NonPV, thread_state, board, ply, singular_depth,
                                  singular_beta - 1, singular_beta,
-                                 maximizing_player, expanded, deadline, singular_pvinfo, null_moves, is_cut_node);
+                                 maximizing_player, expanded, deadline, singular_pvinfo, null_moves, true);
       
       ss->excludedMove = Move(); // Reset for the main search
 
       if (singular_res.has_value()) {
         int singular_score = std::get<0>(*singular_res);
         // If the search without the TT move fails low, the move is singular.
+        // we didn't find a better move
         if (singular_score < singular_beta) {
           num_singular_extensions_.fetch_add(1, std::memory_order_relaxed);
           r = 0; // no reduction
@@ -506,14 +495,17 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
     if (depth <= 1
         && ply >= 4
-        && move.IsCapture()
+        && is_capture
         && (
-         (ss-1)->current_move.IsCapture() && (ss-1)->current_move.To() == move.To()
-         || (ss-3)->current_move.IsCapture() && (ss-3)->current_move.To() == move.To()
+         (ss-1)->current_move.IsCapture() && (ss-1)->current_move.To() == to
+         || (ss-3)->current_move.IsCapture() && (ss-3)->current_move.To() == to
         )
     ) { r = -1; }
 
-    if (lmr) {
+    // lmr
+    if ((depth >= 5)
+      & is_root_node
+      & (move_count >= 5)) {
       // First search with reduced depth and null window
       value_and_move_or = Search(
           ss+1, NonPV, thread_state, board, ply + 1,
@@ -541,7 +533,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
           + (r < 0)
           ,
                 -alpha-50, -alpha, !maximizing_player, expanded,
-                deadline, *child_pvinfo, 0, !is_cut_node);
+                deadline, *child_pvinfo, 0, true);
                 
             if (value_and_move_or && -std::get<0>(*value_and_move_or) > alpha) {
               // If the reduced window search still fails high, do a full search
@@ -552,7 +544,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
                 - (depth/8)*(r > 2)
                 + (r < 0),
                 -beta, -alpha, !maximizing_player, expanded,
-                deadline, *child_pvinfo, 0, !is_cut_node);
+                deadline, *child_pvinfo, 0, false);
             }
           } else {
             // Failing high by a lot, do a full search immediately
@@ -563,7 +555,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
               - (depth/8)*(r > 2)
               + (r < 0),
               -beta, -alpha, !maximizing_player, expanded,
-              deadline, *child_pvinfo, 0, !is_cut_node);
+              deadline, *child_pvinfo, 0, false);
           }
         }
       }
@@ -572,12 +564,12 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
       value_and_move_or = Search(
           ss+1, NonPV, thread_state, board, ply + 1, depth - 1
-          - (depth/4)*(r > 0)
-          - (depth/4)*(r > 1)
-          - (depth/4)*(r > 2)
+          - (depth/4)*(r > 0)*(depth>=2)
+          - (depth/4)*(r > 1)*(depth>=3)
+          - (depth/4)*(r > 2)*(depth>=4)
           + (r < 0),
           -alpha-1, -alpha, !maximizing_player, expanded,
-          deadline, *child_pvinfo, 0, !is_cut_node);
+          deadline, *child_pvinfo, 0, false);
     }
 
     // For PV nodes only, do a full PV search on the first move or after a fail
@@ -599,6 +591,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
           -beta, -alpha, !maximizing_player, expanded,
           deadline, *child_pvinfo, 0, false);
     }
+    auto startB = std::chrono::high_resolution_clock::now();
 
     board.UndoMove();
 
@@ -633,8 +626,19 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       pvinfo.SetChild(child_pvinfo);
       pvinfo.SetBestMove(move);
     }
+    auto endB = std::chrono::high_resolution_clock::now();
+    auto durationB = std::chrono::duration_cast<std::chrono::nanoseconds>(endB - startB);
+    total_timeB += durationB;
+    call_countB++;
+    if (call_countB % 200000 == 0) {
+      auto avg_ns = total_timeB.count() / call_countB;
+      auto current_avg = durationB.count() / 1;  // Current call's time in ns
+
+      std::cout << "[Move after]"
+                << "Average: " << avg_ns << " ns, "
+                << "Call count: " << call_countA << std::endl;
+    }
   }
-  auto startB = std::chrono::high_resolution_clock::now();
 
   if (!fail_low) {
     UpdateStats(ss, thread_state, board, *best_move, depth, fail_high,
@@ -677,18 +681,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   ss->static_eval = score;
 
   thread_state.ReleaseMoveBufferPartition();
-  auto endB = std::chrono::high_resolution_clock::now();
-  auto durationB = std::chrono::duration_cast<std::chrono::nanoseconds>(endB - startB);
-  total_timeB += durationB;
-  call_countB++;
-  if (call_countB % 100000 == 0) {
-    auto avg_ns = total_timeB.count() / call_countB;
-    auto current_avg = durationB.count() / 1;  // Current call's time in ns
-
-    //std::cout << "[Search - B]"
-    //          << "Average: " << avg_ns << " ns, "
-    //          << "Call count: " << call_countA << std::endl;
-  }
   return std::make_tuple(score, best_move);
 }
 

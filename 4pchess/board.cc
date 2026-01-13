@@ -1435,13 +1435,6 @@ GameResult Board::CheckWasLastMoveKingCapture() const {
 void Board::SetPiece(
     const BoardLocation& location,
     const Piece& piece) {
-  if (!piece.IsValid()) {
-    std::cerr << "SetPiece FATAL: Attempt to set invalid piece at " 
-              << location.PrettyStr() 
-              << ": " << piece.DebugString() 
-              << std::endl; 
-    std::abort();
-  }
     
   // Update the board
   location_to_piece_[location.GetRow()][location.GetCol()] = piece;
@@ -1500,30 +1493,30 @@ void Board::RemovePiece(const BoardLocation& location) {
   
   auto& placed_pieces = piece_list_[piece.GetColor()];
   bool found = false;
-for (auto it = placed_pieces.begin(); it != placed_pieces.end();) {
-    const auto& placed_piece = *it;
-    if (placed_piece.GetLocation() == location) {
-        if (!placed_piece.GetPiece().Present()) {
-            std::cerr << "RemovePiece WARNING: Found non-present piece in piece_list_ at " 
-                     << location.PrettyStr() 
-                     << " with piece: " << placed_piece.GetPiece().DebugString()
-                     << std::endl;
-        }
-        it = placed_pieces.erase(it);
-        found = true;
-        break;  // We can break after erasing since locations should be unique
-    } else {
-        ++it;
-    }
-}
+  for (auto it = placed_pieces.begin(); it != placed_pieces.end();) {
+      const auto& placed_piece = *it;
+      if (placed_piece.GetLocation() == location) {
+          if (!placed_piece.GetPiece().Present()) {
+              std::cerr << "RemovePiece WARNING: Found non-present piece in piece_list_ at " 
+                      << location.PrettyStr() 
+                      << " with piece: " << placed_piece.GetPiece().DebugString()
+                      << std::endl;
+          }
+          it = placed_pieces.erase(it);
+          found = true;
+          break;  // We can break after erasing since locations should be unique
+      } else {
+          ++it;
+      }
+  }
 
-if (!found) {
-    // This is bad - we tried to remove a piece that wasn't in the list
-    std::cerr << "RemovePiece FATAL: Tried to remove piece at " << location.PrettyStr()
-             << " but it wasn't found in piece_list_ for color " 
-             << static_cast<int>(piece.GetColor()) << "\n";
-    std::abort();
-}
+  if (!found) {
+      // This is bad - we tried to remove a piece that wasn't in the list
+      std::cerr << "RemovePiece FATAL: Tried to remove piece at " << location.PrettyStr()
+              << " but it wasn't found in piece_list_ for color " 
+              << static_cast<int>(piece.GetColor()) << "\n";
+      std::abort();
+  }
   UpdatePieceHash(piece, location);
   location_to_piece_[location.GetRow()][location.GetCol()] = Piece();
 
@@ -1565,7 +1558,7 @@ void Board::MakeMove(const Move& move) {
   const Piece piece = GetPiece(from);
   
   // Capture
-  const auto standard_capture = GetPiece(move.To());
+  const auto standard_capture = GetPiece(to);
   if (standard_capture.Present()) {
     // Debug logging for capture validation
     //RemovePiece(move.To());
@@ -1573,8 +1566,7 @@ void Board::MakeMove(const Move& move) {
     bool found = false;
     for (auto it = placed_pieces.begin(); it != placed_pieces.end();) {
         const auto& placed_piece = *it;
-        if (placed_piece.GetLocation() == move.To()) {
-        //if (placed_piece.GetLocation() == move.To() && placed_piece.GetPiece() == standard_capture) {
+        if (placed_piece.GetLocation() == to) {
             it = placed_pieces.erase(it);
             found = true;
             break;  // We can break after erasing since locations should be unique
@@ -1583,22 +1575,13 @@ void Board::MakeMove(const Move& move) {
         }
     }
 
-if (!found) {
-    std::cerr << "Failed to find captured piece in piece_list_:\n";
-    std::cerr << "  Looking for: " << standard_capture.DebugString() 
-              << " at " << move.To().PrettyStr() << "\n";
-    std::cerr << "  Pieces for color " << static_cast<int>(standard_capture.GetColor()) << ":\n";
-    for (const auto& p : placed_pieces) {
-        std::cerr << "    - " << p.GetPiece().DebugString() 
-                  << " at " << p.GetLocation().PrettyStr() 
-                  << (p.GetLocation() == move.To() ? " (location matches)" : "")
-                  << "\n";
+    if (!found) {
+        std::cerr << "Failed to find captured piece in piece_list_:\n";
+        std::abort();
     }
-    std::abort();
-}
 
-    UpdatePieceHash(standard_capture, move.To());
-    location_to_piece_[move.To().GetRow()][move.To().GetCol()] = Piece();
+    UpdatePieceHash(standard_capture, to);
+    location_to_piece_[to.GetRow()][to.GetCol()] = Piece();
 
     // Update king location
     if (standard_capture.GetPieceType() == KING) {
@@ -1656,8 +1639,51 @@ if (!found) {
         Piece(turn_.GetColor(), promotion_piece_type));
   } else { // Move
   */
-    RemovePiece(move.From());
-    SetPiece(move.To(), piece);
+    //RemovePiece(from);
+    // remove (inlined)
+  if (!piece.Present()) {
+    std::cerr << "Remove FATAL: Attempted to remove non-present piece" << std::endl;
+    std::abort();
+  }
+  
+  auto& placed_pieces = piece_list_[piece.GetColor()];
+  bool found = false;
+  for (auto it = placed_pieces.begin(); it != placed_pieces.end();) {
+      const auto& placed_piece = *it;
+      if (placed_piece.GetLocation() == from) {
+          if (!placed_piece.GetPiece().Present()) {
+              std::cerr << "RemovePiece WARNING: Found non-present piece in piece_list_" << std::endl;}
+          it = placed_pieces.erase(it);
+          found = true;
+          break;  // We can break after erasing since locations should be unique
+      } else {
+          ++it;
+      }
+  }
+
+  if (!found) {
+      // This is bad - we tried to remove a piece that wasn't in the list
+      std::cerr << "RemovePiece FATAL: Tried to remove piece but it wasn't found in piece_list_" << std::endl;
+      std::abort();
+  }
+  UpdatePieceHash(piece, from);
+  location_to_piece_[from.GetRow()][from.GetCol()] = Piece();
+
+  // Update king location
+  if (piece.GetPieceType() == KING) {
+    castling_rights_[turn_.GetColor()] = CastlingRights(false, false);
+    king_locations_[piece.GetColor()] = BoardLocation::kNoLocation;
+  }
+  // Update piece eval
+  int piece_eval = kPieceEvaluations[piece.GetPieceType()];
+  if (piece.GetTeam() == RED_YELLOW) {
+    piece_evaluation_ -= piece_eval;
+  } else {
+    piece_evaluation_ += piece_eval;
+  }
+  player_piece_evaluations_[piece.GetColor()] -= piece_eval;
+  // end remove
+    SetPiece(to, piece);
   //}
 
   /*
