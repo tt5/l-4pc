@@ -473,7 +473,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       PVInfo singular_pvinfo;
       auto singular_res = Search(ss, NonPV, thread_state, board, ply, singular_depth,
                                  singular_beta - 1, singular_beta,
-                                 maximizing_player, expanded, deadline, singular_pvinfo, null_moves, true);
+                                 maximizing_player, expanded, deadline, singular_pvinfo, null_moves, !is_cut_node);
       
       ss->excludedMove = Move(); // Reset for the main search
 
@@ -514,7 +514,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
           - (depth/16)*(r > 2)
           + (r < 0),
           -alpha-1, -alpha, !maximizing_player, expanded,
-          deadline, *child_pvinfo, 0, true);
+          deadline, *child_pvinfo, 0, !is_cut_node);
           
       if (value_and_move_or.has_value()) {
         int score = -std::get<0>(*value_and_move_or);
@@ -542,7 +542,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
                 - (depth/8)*(r > 2)
                 + (r < 0),
                 -beta, -alpha, !maximizing_player, expanded,
-                deadline, *child_pvinfo, 0, false);
+                deadline, *child_pvinfo, 0, !is_cut_node);
             }
           } else {
             // Failing high by a lot, do a full search immediately
@@ -553,7 +553,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
               - (depth/8)*(r > 2)
               + (r < 0),
               -beta, -alpha, !maximizing_player, expanded,
-              deadline, *child_pvinfo, 0, false);
+              deadline, *child_pvinfo, 0, !is_cut_node);
           }
         }
       }
@@ -568,7 +568,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
           - (depth/8)*(r > 2)*(depth>=4)
           + (r < 0),
           -alpha-1, -alpha, !maximizing_player, expanded,
-          deadline, *child_pvinfo, 0, false);
+          deadline, *child_pvinfo, 0, !is_cut_node);
     }
 
     // For PV nodes only, do a full PV search on the first move or after a fail
@@ -588,7 +588,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
           ss+1, PV, thread_state, board, ply + 1, depth - 1
           + (r < 0),
           -beta, -alpha, !maximizing_player, expanded,
-          deadline, *child_pvinfo, 0, false);
+          deadline, *child_pvinfo, 0, !is_cut_node);
     }
     auto startB = std::chrono::high_resolution_clock::now();
 
