@@ -410,6 +410,18 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
       continue;
     }
+
+    int64_t current_hash = board.HashKey();
+    bool checkmate = depth >= 3 && IsKnownCheckmate(current_hash);
+    /*
+    if (checkmate) {
+      board.UndoMove();
+      return std::make_tuple(
+      std::min(beta, std::max(alpha, -kMateValue))
+        , best_move);
+    }
+    */
+
     has_legal_moves = true;
 
     ss->current_move = move;
@@ -497,9 +509,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         )
     ) { r = -1; }
 
-    int64_t current_hash = board.HashKey();
-    bool checkmate = IsKnownCheckmate(current_hash);
-
     // lmr
     if (!checkmate
       && (depth >= 5)
@@ -584,6 +593,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
               ));
 
     if (full_search || checkmate) {
+      
       value_and_move_or = Search(
           ss+1, PV, thread_state, board, ply + 1, depth - 1
           + (r < 0),
@@ -629,13 +639,26 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     auto durationB = std::chrono::duration_cast<std::chrono::nanoseconds>(endB - startB);
     total_timeB += durationB;
     call_countB++;
+    // Track full searches and checkmate searches
+    thread_local int64_t total_full_searches = 0;
+    thread_local int64_t total_checkmate_searches = 0;
+    thread_local int64_t total_checkmate_searches_nonpv = 0;
+    
+    if (full_search) total_full_searches++;
+    if (checkmate) total_checkmate_searches++;
+    if (checkmate && !full_search) total_checkmate_searches_nonpv++;
+    
     if (call_countB % 400000 == 0) {
       auto avg_ns = total_timeB.count() / call_countB;
       auto current_avg = durationB.count() / 1;  // Current call's time in ns
 
       std::cout << "[Move - after recursion]"
-                << "Average: " << avg_ns << " ns, "
-                << "Call count: " << call_countB << std::endl;
+                << " Average: " << avg_ns << " ns,"
+                << " Calls: " << call_countB
+                << ", Full searches: " << total_full_searches
+                << ", Checkmate searches: " << total_checkmate_searches
+                << " / " << total_checkmate_searches_nonpv
+                << std::endl;
     }
   }
   static std::atomic<int64_t> total_checkmates_found = 0;
@@ -659,7 +682,10 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       score = std::min(beta, std::max(alpha, -kMateValue));
       
       // Track unique checkmate positions
-      int64_t hash_key = board.HashKey();
+      Board checkmateboard = board;
+      checkmateboard.UndoMove();
+      int64_t hash_key = checkmateboard.HashKey();
+
       bool is_new_checkmate = false;
       
       // First try a read-only check with shared lock
