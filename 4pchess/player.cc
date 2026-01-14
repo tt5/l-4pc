@@ -374,8 +374,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
               << "Call count: " << call_countA << std::endl;
   }
   while (true) {
-    auto startA2 = std::chrono::high_resolution_clock::now();
     const Move* move_ptr = GetNextMove2(&picker);
+    auto startA2 = std::chrono::high_resolution_clock::now();
 
     if (move_ptr == nullptr) break;
 
@@ -385,11 +385,11 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       continue;
     }
 
-    const auto& from = move.From();
+    //const auto& from = move.From();
     const auto& to = move.To();
-    Piece piece = board.GetPiece(from);
-    PieceType piece_type = piece.GetPieceType();
-    bool is_capture = move.IsCapture();
+    //Piece piece = board.GetPiece(from);
+    //PieceType piece_type = piece.GetPieceType();
+    //bool is_capture = move.IsCapture();
     
     std::optional<std::tuple<int, std::optional<Move>>> value_and_move_or;
 
@@ -413,6 +413,11 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
     int64_t current_hash = board.HashKey();
     bool checkmate = depth >= 3 && IsKnownCheckmate(current_hash);
+    if (checkmate) {
+      board.UndoMove();
+
+      continue;
+    }
     /*
     if (checkmate) {
       board.UndoMove();
@@ -425,7 +430,9 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     has_legal_moves = true;
 
     ss->current_move = move;
-    ss->continuation_history = &continuation_history[in_check][is_capture][piece_type][to.GetRow()][to.GetCol()];
+    //ss->continuation_history = &continuation_history[in_check][is_capture][piece_type][to.GetRow()][to.GetCol()];
+    static PieceToHistory dummy_history = {};
+    ss->continuation_history = &dummy_history;
     ss->move_count = move_count++;
 
     bool is_pv_move = pv_move.has_value() && *pv_move == move;
@@ -462,7 +469,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
     // Singular extension search
     if (!is_root_node
-        && move_count >= 2
+        && move_count >= 1
         && tt_move.has_value() && move == *tt_move
         && !ss->excludedMove.Present()
         && depth >= 8 // Only for reasonably deep searches
@@ -477,7 +484,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       // The beta for this search is based on the TT score, with a margin.
       //int singular_beta = tte->score - (58 + 76 * (ss->tt_pv && node_type == NonPV)) * depth / 57;
       //int singular_beta = tte->score - (150 * (ss->tt_pv && node_type == NonPV)) - 200;
-      int singular_beta = tte->score - 100;
+      int singular_beta = tte->score - 50;
       int singular_depth = depth - 1 - (depth/2) - (depth/4);
 
       ss->excludedMove = move; // Exclude the current move for the sub-search
@@ -502,10 +509,12 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
     if (depth <= 1
         && ply >= 4
-        && is_capture
+        //&& is_capture
         && (
-         (ss-1)->current_move.IsCapture() && (ss-1)->current_move.To() == to
-         || (ss-3)->current_move.IsCapture() && (ss-3)->current_move.To() == to
+         //(ss-1)->current_move.IsCapture() && (ss-1)->current_move.To() == to
+         //|| (ss-3)->current_move.IsCapture() && (ss-3)->current_move.To() == to
+         (ss-1)->current_move.To() == to
+         || (ss-3)->current_move.To() == to
         )
     ) { r = -1; }
 
@@ -683,6 +692,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       
       // Track unique checkmate positions
       Board checkmateboard = board;
+      //Move last_move = board.GetLastMove();
       checkmateboard.UndoMove();
       int64_t hash_key = checkmateboard.HashKey();
 
@@ -711,7 +721,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     best_move.has_value() ? EXACT : UPPER_BOUND;
   transposition_table_->Save(board.HashKey(), depth, best_move, score, ss->static_eval, bound, is_pv_node);
 
-  if (best_move.has_value() && !best_move->IsCapture()) {
+  //if (best_move.has_value() && !best_move->IsCapture()) {
+  if (best_move.has_value()) {
     if (ss->killers[0] != *best_move) {
       ss->killers[1] = ss->killers[0];
       ss->killers[0] = *best_move;

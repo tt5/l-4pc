@@ -175,12 +175,14 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                                 score += fast_tanh(hist_value * 0.001f) * 100.0f;
                             }
                             
+                            /*
                             // Only check first continuation history
                             if (picker->cont_hist[0] != nullptr) {
                                 const auto& entry = (*picker->cont_hist[0])[true][pt];
                                 int32_t cont_value = entry[to_row * 14 + to_col];
                                 score += std::tanh(cont_value / 1000.0f) * 50.0f;
                             }
+                            */
                             
                             scored_moves.push_back({i, score});
                         } 

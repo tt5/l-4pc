@@ -13,368 +13,6 @@ Average: 105131 ns, Call count: 900000
 
 The goal is to reduce the "Total nodes" number while maintaining or improving playing strength. Even a 10% reduction would be significant at this level.
 
-20
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 3,577,405
-Total time: 4.74s
-Average NPS: 754,762
-
-80
-323
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 3,577,405
-Total time: 4.58s
-Average NPS: 781,009
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 2,942,308
-Total time: 4.42s
-Average NPS: 665,064
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 2,261,798
-Total time: 3.30s
-Average NPS: 686,180
-
-15
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 787,438
-Total time: 1.63s
-Average NPS: 482,193
-
-18
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 4,009,434
-Total time: 8.78s
-Average NPS: 456,621
-
-19
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 4,692,953
-Total time: 10.33s
-Average NPS: 454,348
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 4,692,953
-Total time: 10.35s
-Average NPS: 453,400
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 2,651,132
-Total time: 5.68s
-Average NPS: 466,449
-
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 2,651,132
-Total time: 5.68s
-Average NPS: 466,449
-
-20
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 11,972,487
-Total time: 26.67s
-Average NPS: 448,902
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 11,972,487
-Total time: 26.32s
-Average NPS: 454,923
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 4,849,786
-Total time: 10.98s
-Average NPS: 441,810
-
-15
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 10,229,548
-Total time: 17.18s
-Average NPS: 595,279
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 8,999,919
-Total time: 14.57s
-Average NPS: 617,550
-
-Depth 28: 490,041 nps, 21,833,321 nodes
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 21,833,321
-Total time: 44.56s
-Average NPS: 490,026
-
----
-
-Depth 20: 257,923 nps, 6,135,218 nodes
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 6,135,218
-Total time: 23.79s
-Average NPS: 257,903
-
-Depth 20: 254,390 nps, 4,094,423 nodes
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 4,094,423
-Total time: 16.10s
-Average NPS: 254,358
-
----
-
-Depth 13: 226,801 nps, 2,610,257 nodes
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 2,610,257
-Total time: 11.51s
-Average NPS: 226,773
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 1,514,569
-Total time: 7.29s
-Average NPS: 207,836
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 1,833,762
-Total time: 8.13s
-Average NPS: 225,424
-
-Depth 15: 211,673 nps, 6,706,860 nodes
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 6,706,860
-Total time: 31.69s
-Average NPS: 211,665
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 2,534,016
-Total time: 10.78s
-Average NPS: 235,050
-
-Depth 17: 249,998 nps, 13,286,926 nodes
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 13,286,926
-Total time: 53.15s
-Average NPS: 249,993
-
-Depth 17: 272,866 nps, 6,425,191 nodes
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 6,425,191
-Total time: 23.55s
-Average NPS: 272,844
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 6,425,191
-Total time: 23.20s
-Average NPS: 276,938
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 5,831,752
-Total time: 21.54s
-Average NPS: 270,726
-
-=== Benchmark Summary
-Runs completed: 1
-Total nodes: 5,276,28
-Total time: 19.13s
-Average NPS: 275,765
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 10,920,019
-Total time: 31.53s
-Average NPS: 346,389
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 2,186,199
-Total time: 7.90s
-Average NPS: 276,898
-
-Depth 18: 237,602 nps, 23,026,327 nodes
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 23,026,327
-Total time: 96.91s
-Average NPS: 237,601
-
-Depth 18: 247,975 nps, 4,012,494 nodes
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 4,012,494
-Total time: 16.18s
-Average NPS: 247,953
-
-Depth 15: 413,357 nps, 6,313,617 nodes
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 6,313,617
-Total time: 15.27s
-Average NPS: 413,331
-
-Depth 13: 414,820 nps, 2,500,121 nodes
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 2,500,121
-Total time: 6.03s
-Average NPS: 414,743
-
-Depth 13: 370,256 nps, 7,741,322 nodes
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 7,741,322
-Total time: 20.91s
-Average NPS: 370,242
-
-Depth 14: 406,601 nps, 2,528,652 nodes
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 2,528,652
-Total time: 6.22s
-Average NPS: 406,501
-
-
-Depth 15: 381,437 nps, 10,013,503 nodes
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 10,013,503
-Total time: 26.25s
-Average NPS: 381,419
-
-Depth 20: 397,606 nps, 9,828,427 nodes
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 9,828,427
-Total time: 24.72s
-Average NPS: 397,576
-
-Depth 24: 387,500 nps, 63,392,756 nodes
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 63,392,756
-Total time: 163.60s
-Average NPS: 387,497
-
-
-Depth 20: 356,164 nps, 2,311,864 nodes
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 2,311,864
-Total time: 6.49s
-Average NPS: 356,087
-
-sudo python benchmark_startpos.py --engine ./cli --runs 1 --depth 19 --clear-cache
-
----
-no move ordering:
-
-Depth 14: 264,045 nps, 11,099,168 nodes
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 11,099,168
-Total time: 42.04s
-Average NPS: 264,031
-
-Depth 12: 287,569 nps, 2,022,766 nodes
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 2,022,766
-Total time: 7.04s
-Average NPS: 287,480
-
-with pv move first:
-
-Depth 12: 217,682 nps, 214,635 nodes
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 214,635
-Total time: 0.99s
-Average NPS: 217,349
-
-Engine: Average: 87 ns, Call count: 8350000
-Engine: [Search - A2]Average: 365 ns, Call count: 950000
-Engine: [Search - A]Average: 429 ns, Call count: 950000
-Engine: [Search - B]Average: 166 ns, Call count: 950012
-Engine: [MoveGen]Average: 338 ns, Call count: 7500000
-
-Depth 15: 182,449 nps, 9,988,187 nodes
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 9,988,187
-Total time: 54.75s
-Average NPS: 182,441
-
-Depth 15: 180,703 nps, 9,988,187 nodes
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 9,988,187
-Total time: 55.28s
-Average NPS: 180,697
-
-
-
-Depth 15: 180,406 nps, 9,988,187 nodes
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 9,988,187
-Total time: 55.37s
-Average NPS: 180,399
-Engine: Average: 87 ns, Call count: 8350000
-Engine: [Search - A2]Average: 454 ns, Call count: 950000
-Engine: [Search - A]Average: 521 ns, Call count: 950000
-Engine: [Search - B]Average: 166 ns, Call count: 950012
-
-Depth 15: 234,639 nps, 6,830,829 nodes
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 6,830,829
-Total time: 29.11s
-Average NPS: 234,624
-
 ---
 
 iteration on depth, outer loop
@@ -395,28 +33,49 @@ Move() creates a null/invalid move
 
 ---
 
-Depth 14: 606,925 nps, 26,007,385 nodes
+// Example usage:
+int64_t some_hash = 0x1234abcd;  // Your hash value
+if (player.IsKnownCheckmate(some_hash)) {
+    // This hash corresponds to a known checkmate position
+    std::cout << "Hash 0x" << std::hex << some_hash << " is a known checkmate" << std::dec << std::endl;
+}
+
+// In your search function:
+if (IsKnownCheckmate(board)) {
+    // This position is already known to be checkmate
+    return std::make_tuple(-kMateValue, std::nullopt);
+}
+
+--- no legal moves or checkmates
+
+Depth 19
 
 === Benchmark Summary ===
 Runs completed: 1
-Total nodes: 26,007,385
-Total time: 42.85s
-Average NPS: 606,898
-
-Depth 16: 1,543,221 nps, 10,689,898 nodes
+Total nodes: 538,498,793
+Total time: 171.05s
+Average NPS: 3,148,265
 
 === Benchmark Summary ===
 Runs completed: 1
-Total nodes: 10,689,898
-Total time: 6.93s
-Average NPS: 1,542,895
-
----
-
-Depth 18: 1,683,831 nps, 68,289,468 nodes
+Total nodes: 365,988,975
+Total time: 118.44s
+Average NPS: 3,090,191
 
 === Benchmark Summary ===
 Runs completed: 1
-Total nodes: 68,289,468
-Total time: 40.56s
-Average NPS: 1,683,771
+Total nodes: 247,717,317
+Total time: 80.91s
+Average NPS: 3,061,772
+
+=== Benchmark Summary ===
+Runs completed: 1
+Total nodes: 221,870,709
+Total time: 74.55s
+Average NPS: 2,976,244
+
+=== Benchmark Summary ===
+Runs completed: 1
+Total nodes: 73,954,902
+Total time: 24.64s
+Average NPS: 3,001,892
