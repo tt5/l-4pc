@@ -102,11 +102,9 @@ function GameContent() {
             <div class={styles.gameContainer}>
               
               <div class={styles.settingsContainer}>
-                <div>
-                  <h2>{user()?.username}</h2>
-                  <div>Games: {games()?.join(', ') || 'No games found'}</div>
-                </div>
+                <h2>{user()?.username}</h2>
                 <button onClick={() => logout()}>Logout</button>
+                <div>Games: {games()?.join(', ') || 'No games found'}</div>
               </div>
               <Board 
                 gameId={gameId()} 
