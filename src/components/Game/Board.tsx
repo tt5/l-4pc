@@ -172,7 +172,7 @@ const Board: Component<BoardProps> = (props) => {
     else {
       console.log('[Engine] Stopping analysis');
       try {
-        const success = engine.stopAnalysis();
+        const success = await engine.stopAnalysis();
         if (success) {
           setIsAnalysisStopped(true);
           setIsAnalyzing(false);
