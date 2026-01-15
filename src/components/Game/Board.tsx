@@ -50,6 +50,7 @@ import styles from './Board.module.css';
 
 interface BoardProps {
   gameId?: string;
+  onGameIdChange?: (gameId: string) => void;
   onGameUpdate?: () => void;
 }
 
@@ -831,10 +832,23 @@ const Board: Component<BoardProps> = (props) => {
       }
       
       const result = await response.json();
-      console.log(`[Delete] Successfully deleted ${result.deletedCount} moves`);
+      console.log(`[Save] Successfully saved game as ${newGameId}`);
+      
+      // Update the game ID in the URL and state
+      setGameId(newGameId);
+      if (props.onGameIdChange) {
+        props.onGameIdChange(newGameId);
+      }
+      
+      // Notify parent component to refresh the game list
+      if (props.onGameUpdate) {
+        props.onGameUpdate();
+      }
     } catch (error) {
-      console.error('[Delete] Failed to delete move:', error instanceof Error ? error.message : String(error));
-      // Don't update local state if server deletion fails
+      console.error('[Save] Failed to save game:', error instanceof Error ? error.message : String(error));
+      throw error; // Re-throw to allow error handling in the calling component
+    } finally {
+      setIsSaving(false);
     }
   };
 
