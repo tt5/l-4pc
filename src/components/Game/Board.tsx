@@ -50,6 +50,7 @@ import styles from './Board.module.css';
 
 interface BoardProps {
   gameId?: string;
+  onGameUpdate?: () => void;
 }
 
 const Board: Component<BoardProps> = (props) => {
@@ -828,6 +829,11 @@ const Board: Component<BoardProps> = (props) => {
       const url = new URL(window.location.href);
       url.searchParams.set('gameId', newGameId);
       window.history.pushState({}, '', url.toString());
+      
+      // Notify parent component to refresh the game list
+      if (props.onGameUpdate) {
+        props.onGameUpdate();
+      }
     } catch (error) {
       console.error('Error saving game:', error);
       throw error; // Re-throw to be caught by the BoardControls component
@@ -952,6 +958,11 @@ const Board: Component<BoardProps> = (props) => {
 
     // Reset and replay moves
     console.log(`[Delete] Resetting board and replaying ${currentIndex} moves`);
+    
+    // Notify parent component to refresh the game list
+    if (props.onGameUpdate) {
+      props.onGameUpdate();
+    }
     resetBoardToInitialState();
     const movesToReplay = newMoveHistory.slice(0, currentIndex);
     

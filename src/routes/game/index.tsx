@@ -108,7 +108,7 @@ function GameContent() {
                 </div>
                 <button onClick={() => logout()}>Logout</button>
               </div>
-              <Board gameId={gameId()} />
+              <Board gameId={gameId()} onGameUpdate={refetch} />
             </div>
           </RestrictedSquaresProvider>
         </Show>
