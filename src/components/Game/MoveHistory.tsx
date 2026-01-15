@@ -4,15 +4,24 @@ import { formatMove } from '../../utils/chessNotation';
 import type { BasePoint } from '../../types/board';
 
 type Move = {
-  id?: number | string;
+  id?: string | number;
+  basePointId?: string;
   fromX: number;
   fromY: number;
   toX: number;
   toY: number;
-  moveNumber?: number;
+  timestamp?: number;
   playerId?: string;
   color?: string;
+  branchName?: string;
+  parentBranchName?: string | null;
+  moveNumber?: number;
+  isBranch?: boolean;
   pieceType?: string;
+  isCastle?: boolean;
+  castleType?: 'KING_SIDE' | 'QUEEN_SIDE' | null;
+  isEnPassant?: boolean;
+  capturedPiece?: any;
   isCapture?: boolean;
   isCheck?: boolean;
   promotionPiece?: string;
@@ -75,7 +84,40 @@ export const MoveHistory = (props: MoveHistoryProps) => {
   // Format move using chess notation
   const formatMoveDisplay = (move: Move, basePoints: BasePoint[]) => {
     try {
-      return formatMove(move, basePoints);
+      // Extract the piece from basePoints if available
+      const piece = basePoints.find(p => 
+        p.x === move.fromX && 
+        p.y === move.fromY &&
+        (move.pieceType ? p.pieceType === move.pieceType : true)
+      );
+      
+      // If we have a piece, use its type and color
+      if (piece) {
+        return formatMove({
+          fromX: move.fromX,
+          fromY: move.fromY,
+          toX: move.toX,
+          toY: move.toY,
+          pieceType: piece.pieceType,
+          color: piece.color,
+          isCapture: move.isCapture || !!move.capturedPiece,
+          isCheck: move.isCheck,
+          promotionPiece: move.promotionPiece
+        }, basePoints);
+      }
+      
+      // Fallback to using move data directly
+      return formatMove({
+        fromX: move.fromX,
+        fromY: move.fromY,
+        toX: move.toX,
+        toY: move.toY,
+        pieceType: move.pieceType,
+        color: move.color,
+        isCapture: move.isCapture || !!move.capturedPiece,
+        isCheck: move.isCheck,
+        promotionPiece: move.promotionPiece
+      }, basePoints);
     } catch (error) {
       console.error('Error formatting move:', error);
       return `(${move.fromX},${move.fromY}) → (${move.toX},${move.toY})`;
