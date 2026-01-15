@@ -1,10 +1,8 @@
 Analyse 4 player chess games.
 
 `npm run dev`
-and (in another terminal)
-`npx tsx src/engine/wsServer.ts`
 
-# engine
+or with engine: `node start-servers.js` (starts both: dev server and engine server)
 
 ``` bash
 cd 4pchess
