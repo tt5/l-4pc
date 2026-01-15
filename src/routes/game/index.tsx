@@ -4,7 +4,6 @@ import { useSearchParams } from '@solidjs/router';
 import { useAuth } from '~/contexts/AuthContext';
 import { RestrictedSquaresProvider } from '~/contexts/RestrictedSquaresContext';
 import Board from '~/components/Game/Board';
-import SidePanel from '~/components/Game/SidePanel';
 import { DEFAULT_GAME_ID } from '~/constants/game';
 import styles from './game.module.css';
 
@@ -73,22 +72,11 @@ function GameContent() {
         }>
           <RestrictedSquaresProvider>
             <div class={styles.gameContainer}>
-              <SidePanel 
-                activeTab={activeTab() as 'info' | 'settings'}
-                onTabChange={(tab) => setActiveTab(tab)}
-                username={user()!.username}
-                userId={user()!.id}
-                onLogout={logout}
-              />
               
-              <div class={styles.gameBoard}>
-                <Show when={activeTab() === 'info'}>
-                  <Board gameId={gameId()} />
-                </Show>
-                <Show when={activeTab() === 'settings'}>
-                  <h2>Settings</h2>
-                </Show>
+              <div class={styles.settingsContainer}>
+                <button onClick={() => logout()}>Logout</button>
               </div>
+              <Board gameId={gameId()} />
             </div>
           </RestrictedSquaresProvider>
         </Show>
