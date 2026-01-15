@@ -17,20 +17,31 @@ function GameContent() {
   );
   
   // Fetch all game IDs for the user
-  const [games] = createResource(async () => {
-    if (!user()) return [];
-    try {
-      const response = await fetch('/api/game/list', {
-        headers: { 'Authorization': `Bearer ${user()?.id}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        return data.gameIds || [];
+  const [games, { refetch }] = createResource(
+    () => user()?.id,  // Re-run when user ID changes
+    async (userId) => {
+      if (!userId) return [];
+      try {
+        const response = await fetch('/api/game/list', {
+          headers: { 'Authorization': `Bearer ${userId}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          return data.gameIds || [];
+        }
+        return [];
+      } catch (error) {
+        console.error('Failed to fetch game list:', error);
+        return [];
       }
-      return [];
-    } catch (error) {
-      console.error('Failed to fetch game list:', error);
-      return [];
+    }
+  );
+
+  // Refresh game list when gameId changes
+  createEffect(() => {
+    gameId(); // Track gameId dependency
+    if (user()) {
+      refetch();
     }
   });
 
