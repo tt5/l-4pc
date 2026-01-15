@@ -14,6 +14,7 @@ import { GridCell } from './GridCell';
 import BoardControls from './BoardControls';
 import { MoveHistory } from './MoveHistory';
 import ThreadControl from './ThreadControl';
+import EngineControl from '../EngineControl/EngineControl';
 
 import { useAuth } from '~/contexts/AuthContext';
 import { useRestrictedSquares } from '../../contexts/RestrictedSquaresContext';
@@ -47,6 +48,7 @@ import {
 } from '~/constants/game';
 
 import styles from './Board.module.css';
+import '../EngineControl/EngineControl.module.css';
 
 interface BoardProps {
   gameId?: string;
@@ -2044,11 +2046,14 @@ const Board: Component<BoardProps> = (props) => {
           <div>Depth: <strong>{analysis()?.depth || '-'}</strong></div>
           <div>Best: <strong>{analysis()?.bestMove || '-'}</strong></div>
         </div>
-        <ThreadControl 
-          threads={threads()} 
-          isLoading={isLoadingThreads()} 
-          onThreadChange={handleThreadChange} 
-        />
+        <div class={styles.engineControls}>
+          <ThreadControl 
+            threads={threads()} 
+            isLoading={isLoadingThreads()} 
+            onThreadChange={handleThreadChange} 
+          />
+          <EngineControl />
+        </div>
         </div>
         <div 
           class={styles.grid}
