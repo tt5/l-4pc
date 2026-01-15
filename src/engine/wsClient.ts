@@ -54,7 +54,7 @@ function createEngineClient() {
         console.log('[wsClient] Connected to engine server');
         setIsConnected(true);
         // Request engine status on connect
-        send('getEngineStatus');
+        ws?.send(JSON.stringify({ type: 'getEngineStatus' }));
       };
       
       ws.onmessage = (event) => {
