@@ -103,8 +103,14 @@ const Board: Component<BoardProps> = (props) => {
       return;
     }
     
+    // Don't start analysis if it was explicitly stopped
+    if (isAnalysisStopped()) {
+      console.log('[Engine] Skipping analysis - analysis was stopped by user');
+      return;
+    }
+    
     // Skip if we're already analyzing these exact moves
-    if (movesStr === lastMovesStr && !isAnalysisStopped()) {
+    if (movesStr === lastMovesStr) {
       console.log('[Engine] Skipping analysis - same moves as last analysis');
       return;
     }
@@ -113,7 +119,6 @@ const Board: Component<BoardProps> = (props) => {
     analysisInProgress.current = true;
     setLastAnalyzedMoves(moves);
     setIsAnalyzing(true);
-    setIsAnalysisStopped(false);
     
     try {
       await engine.startAnalysis(moves);
