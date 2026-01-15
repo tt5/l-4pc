@@ -9,6 +9,7 @@ import {
   on,
 } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
+import { getEngineClient } from '~/engine/wsClient';
 
 import { GridCell } from './GridCell';
 import BoardControls from './BoardControls';
@@ -20,7 +21,6 @@ import { useAuth } from '~/contexts/AuthContext';
 import { useRestrictedSquares } from '../../contexts/RestrictedSquaresContext';
 
 import { generateFen4, parseFen4 } from '~/utils/fen4Utils';
-import { createEngineClient } from '~/engine/wsClient';
 import { getColorHex } from '~/utils/colorUtils';
 import { getLegalMoves } from '~/utils/gameUtils';
 import { MOVE_PATTERNS } from '~/constants/movePatterns';
@@ -84,15 +84,12 @@ const Board: Component<BoardProps> = (props) => {
 
   // Set up engine status listener
   onMount(() => {
-    const cleanup = engine.on('status', (status) => {
+    const cleanup = engine.on('status', (status: { running: boolean }) => {
       console.log('[Board] Engine status update:', status);
       setIsEngineReady(status?.running === true);
     });
 
-    // Initial status check
-    if (engine.isReady()) {
-      engine.send('getEngineStatus');
-    }
+    // Status is handled by the connection event listener above
 
     onCleanup(() => {
       cleanup();
@@ -112,14 +109,13 @@ const Board: Component<BoardProps> = (props) => {
     const movesStr = JSON.stringify(moves);
     const lastMovesStr = JSON.stringify(lastAnalyzedMoves());
     
-    if (!engine.isReady()) {
+    if (!engine.isConnected()) {
       console.log('[Engine] Engine not ready, requesting status...');
-      engine.send('getEngineStatus');
       
       // Wait a bit for the status update
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      if (!engine.isReady()) {
+      if (!engine.isConnected()) {
         console.log('[Engine] Still not ready after status check');
         return;
       }

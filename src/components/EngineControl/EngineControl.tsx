@@ -25,8 +25,9 @@ export function EngineControl() {
     });
 
     // Initial status check
-    if (engine.isReady()) {
-      engine.send('getEngineStatus');
+    if (engine.isConnected()) {
+      // No direct 'getEngineStatus' method, but the connection handler in wsClient
+      // already calls this when the connection is established
     }
 
     return () => {
@@ -36,13 +37,34 @@ export function EngineControl() {
 
   // Send command to engine
   const sendCommand = (command: string, data: any = {}) => {
-    if (!engine.isReady()) {
+    if (!engine.isConnected()) {
       console.warn('Cannot send command: Engine not connected');
       return false;
     }
 
     try {
-      engine.send(command, data);
+      // Map commands to the appropriate WebSocket client methods
+      switch (command) {
+        case 'startAnalysis':
+          engine.startAnalysis(data.moveHistory || []);
+          break;
+        case 'stopAnalysis':
+          engine.stopAnalysis();
+          break;
+        case 'makeMove':
+          engine.makeMove(data.fen, data.move, data.moveHistory || []);
+          break;
+        case 'updatePosition':
+          engine.updatePosition(data.fen, data.moveHistory || []);
+          break;
+        case 'setThreads':
+          engine.setThreads(data.threads);
+          break;
+        default:
+          console.warn(`Unknown command: ${command}`);
+          return false;
+      }
+      
       setIsLoading(true);
       return true;
     } catch (error) {
@@ -85,7 +107,7 @@ export function EngineControl() {
     
     try {
       // First try to stop gracefully via WebSocket if connected
-      if (engine.isReady()) {
+      if (engine.isConnected()) {
         sendCommand('stopEngine');
         // Wait a bit for the engine to stop
         await new Promise(resolve => setTimeout(resolve, 1000));
