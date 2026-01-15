@@ -252,6 +252,27 @@ const Board: Component<BoardProps> = (props) => {
   }>({ gameId: null, userId: null });
   
   // Load a game by ID
+  const handleLoadGame = async (gameIdToLoad: string) => {
+    if (!gameIdToLoad) {
+      console.log('[handleLoadGame] No game ID provided');
+      return;
+    }
+    
+    try {
+      await loadGame(gameIdToLoad);
+      // Update the URL with the new game ID
+      if (props.onGameIdChange) {
+        props.onGameIdChange(gameIdToLoad);
+      }
+      // Refresh the game list
+      if (props.onGameUpdate) {
+        props.onGameUpdate();
+      }
+    } catch (error) {
+      console.error('Error loading game:', error);
+    }
+  };
+
   const loadGame = async (gameIdToLoad: string) => {
     console.log(`[loadGame] Starting to load game with ID: ${gameIdToLoad}`);
     
@@ -1931,7 +1952,7 @@ const Board: Component<BoardProps> = (props) => {
           onReset={resetBoardToInitialState}
           onDeleteCurrentMove={handleDeleteCurrentMove}
           onSaveGame={handleSaveGame}
-          onLoadGame={loadGame}
+          onLoadGame={handleLoadGame}
           cellSize={cellSize()}
           onCellSizeChange={setCellSize}
         />
