@@ -10,6 +10,8 @@ type BoardControlsProps = {
   onSaveGame?: () => Promise<void>;
   onLoadGame?: (gameId: string) => Promise<void>;
   onCellSizeChange?: (size: number) => void;
+  onStopAnalysis?: () => Promise<boolean>;
+  isAnalyzing?: boolean;
   cellSize?: number;
   gameId?: string;
   canGoBack?: boolean;
@@ -26,6 +28,7 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
   const [isSaving, setIsSaving] = createSignal(false);
   const [gameIdInput, setGameIdInput] = createSignal('');
   const [isLoading, setIsLoading] = createSignal(false);
+  const [isStopping, setIsStopping] = createSignal(false);
   const [localCellSize, setLocalCellSize] = createSignal(props.cellSize || 50);
 
   const handleResetBoard = async () => {
@@ -154,6 +157,28 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
       </div>
       
       <div class={styles.gameId}>{props.gameId}</div>
+      
+      {props.isAnalyzing && (
+        <button 
+          onClick={async (e) => {
+            e.preventDefault();
+            if (isStopping() || !props.onStopAnalysis) return;
+            setIsStopping(true);
+            try {
+              await props.onStopAnalysis();
+            } catch (error) {
+              console.error('Error stopping analysis:', error);
+            } finally {
+              setIsStopping(false);
+            }
+          }}
+          disabled={isStopping() || !props.onStopAnalysis}
+          class={`${styles.controlButton} ${styles.stopButton}`}
+          title="Stop engine analysis"
+        >
+          {isStopping() ? 'Stopping...' : '❌ Stop Analysis'}
+        </button>
+      )}
       <div class={styles.navButtons}>
         <button 
           onClick={handleGoBack} 

@@ -177,8 +177,17 @@
 }
 
 .deleteButton:hover:not(:disabled) {
-  background-color: #dc3545;
+  background-color: #f57c00;
+}
+
+.stopButton {
+  background-color: #f44336;
   color: white;
+  margin-top: 0.25rem;
+}
+
+.stopButton:not(:disabled):hover {
+  background-color: #d32f2f;
 }
 
 .backButton::before {

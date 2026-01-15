@@ -73,6 +73,7 @@ const Board: Component<BoardProps> = (props) => {
   const [isEngineThinking, setIsEngineThinking] = createSignal(false);
   const [isAnalyzing, setIsAnalyzing] = createSignal(false);
   const [isSaving, setIsSaving] = createSignal(false);
+  const [isAnalysisStopped, setIsAnalysisStopped] = createSignal(false);
   const [threads, setThreads] = createSignal(1);
   const [isLoadingThreads, setIsLoadingThreads] = createSignal(false);
   const [analysis, setAnalysis] = createSignal<{score: string; depth: number; bestMove: string} | null>(null);
@@ -103,7 +104,7 @@ const Board: Component<BoardProps> = (props) => {
     }
     
     // Skip if we're already analyzing these exact moves
-    if (movesStr === lastMovesStr) {
+    if (movesStr === lastMovesStr && !isAnalysisStopped()) {
       console.log('[Engine] Skipping analysis - same moves as last analysis');
       return;
     }
@@ -112,6 +113,7 @@ const Board: Component<BoardProps> = (props) => {
     analysisInProgress.current = true;
     setLastAnalyzedMoves(moves);
     setIsAnalyzing(true);
+    setIsAnalysisStopped(false);
     
     try {
       await engine.startAnalysis(moves);
@@ -119,12 +121,33 @@ const Board: Component<BoardProps> = (props) => {
       console.error('[Engine] Error during analysis:', error);
       // Reset last analyzed moves on error to ensure we can retry
       setLastAnalyzedMoves([]);
-    } finally {
       analysisInProgress.current = false;
       setIsAnalyzing(false);
     }
   };
   
+  const stopAnalysis = async () => {
+    if (!isEngineReady()) {
+      console.log('[Engine] Cannot stop analysis - engine not ready');
+      return false;
+    }
+    
+    try {
+      console.log('[Engine] Stopping analysis');
+      const success = engine.stopAnalysis();
+      if (success) {
+        setIsAnalysisStopped(true);
+        setIsAnalyzing(false);
+        analysisInProgress.current = false;
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('[Engine] Error stopping analysis:', error);
+      return false;
+    }
+  };
+
   const handleThreadChange = async (newThreads: number) => {
     console.log(`[Board] handleThreadChange called with: ${newThreads}`);
     
@@ -750,14 +773,14 @@ const Board: Component<BoardProps> = (props) => {
       if (isCastleMove && castleTypeValue) {
         console.log(`[replayMoves] Castling move: ${moveId}`);
         // Get the color name from the piece's color
-        const getColorName = (colorCode: string): string => {
+        const getColorName = (color: string): string => {
           const colorMap: Record<string, string> = {
             '#F44336': 'RED',
             '#FFEB3B': 'YELLOW',
             '#2196F3': 'BLUE',
             '#4CAF50': 'GREEN'
           };
-          return colorMap[colorCode.toUpperCase()] || '';
+          return colorMap[color.toUpperCase()] || '';
         };
         
         const colorName = getColorName(piece.color || '');
@@ -1899,7 +1922,7 @@ const Board: Component<BoardProps> = (props) => {
         setRestrictedSquares(originalState.restrictedSquares);
         setRestrictedSquaresInfo(originalState.restrictedSquaresInfo);
         setError(error instanceof Error ? error.message : 'Failed to place base point');
-        throw error; // Re-throw to trigger the finally block
+        throw error; // Re-throw to allow error handling in the calling component
       } finally {
         // Always clean up and reset the processing flag
         setIsProcessingMove(false);
@@ -1997,6 +2020,8 @@ const Board: Component<BoardProps> = (props) => {
           onLoadGame={handleLoadGame}
           cellSize={cellSize()}
           onCellSizeChange={setCellSize}
+          onStopAnalysis={stopAnalysis}
+          isAnalyzing={isAnalyzing()}
         />
         <div class={styles.evaluation}>
           <div>Eval: <strong>{analysis()?.score || '-'}</strong></div>
