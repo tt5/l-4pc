@@ -23,7 +23,7 @@
     "test:e2e:ui": "vitest --ui -c vitest.config.ts --mode e2e",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest watch",
-    "engine:server": "npx tsx --no-warnings src/engine/startServer.ts",
+    "engine:server": "npx tsx --no-warnings src/engine/wsServer.ts",
     "lint:css": "stylelint 'src/**/*.css' --fix",
     "lint:css:check": "stylelint 'src/**/*.css'",
     "lint:stylelint": "stylelint 'src/**/*.css'",
