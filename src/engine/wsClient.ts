@@ -18,6 +18,14 @@ let wsInstance: ReturnType<typeof createEngineClient> | null = null;
 export function getEngineClient() {
   if (!wsInstance) {
     wsInstance = createEngineClient();
+    
+    // Cleanup on unmount
+    onCleanup(() => {
+      // Only clean up if we have an instance and it's connected
+      if (wsInstance?.isConnected()) {
+        wsInstance.disconnect();
+      }
+    });
   }
   return wsInstance;
 }
@@ -28,10 +36,25 @@ function createEngineClient() {
   const [error, setError] = createSignal<Error | null>(null);
   
   let ws: WebSocket | null = null;
+  let reconnectAttempts = 0;
+  const MAX_RECONNECT_ATTEMPTS = 5;
+  const RECONNECT_DELAY = 3000; // 3 seconds
+  let reconnectTimeout: number | null = null;
   let lastFen: string | null = null; // Track the last sent FEN
   const events: EventMap = {}; // Store event listeners
   
   const connect = (url: string = 'ws://localhost:8080') => {
+    // Clear any pending reconnection attempts
+    if (reconnectTimeout !== null) {
+      clearTimeout(reconnectTimeout);
+      reconnectTimeout = null;
+    }
+
+    // Close existing connection if any
+    if (ws) {
+      ws.close();
+    }
+
     try {
       // If already connected or connecting, just return
       if (ws) {
@@ -51,6 +74,17 @@ function createEngineClient() {
       ws = new WebSocket(url);
       
       ws.onopen = () => {
+        console.log('[wsClient] Connected to engine server');
+        setIsConnected(true);
+        reconnectAttempts = 0; // Reset reconnect attempts on successful connection
+        
+        // Notify listeners that we're connected
+        emit('connected', null);
+        
+        // If we have a last known FEN, send it to the server
+        if (lastFen) {
+          updatePosition(lastFen);
+        }
         console.log('[wsClient] Connected to engine server');
         setIsConnected(true);
         // Request engine status on connect
@@ -114,14 +148,29 @@ function createEngineClient() {
         }
       };
       
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        setError(new Error('Failed to connect to engine server'));
+      ws.onerror = (event) => {
+        const error = new Error(`WebSocket error: ${event.type}`);
+        console.error('[wsClient]', error);
+        setError(error);
+        emit('error', error);
       };
       
-      ws.onclose = () => {
-        console.log('Disconnected from engine server');
+      ws.onclose = (event) => {
+        console.log(`[wsClient] Disconnected from engine server: ${event.code} ${event.reason || ''}`);
         setIsConnected(false);
+        emit('disconnected', { code: event.code, reason: event.reason });
+        
+        // Attempt to reconnect if we were previously connected
+        if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+          reconnectAttempts++;
+          console.log(`[wsClient] Attempting to reconnect (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
+          reconnectTimeout = window.setTimeout(() => {
+            connect(url);
+          }, RECONNECT_DELAY);
+        } else {
+          console.error('[wsClient] Max reconnection attempts reached');
+          emit('error', new Error('Max reconnection attempts reached'));
+        }
       };
       
     } catch (err) {

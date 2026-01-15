@@ -80,20 +80,31 @@ export function EngineControl() {
     
     setIsLoading(true);
     setError(null);
+    setConnectionStatus('connecting');
     
     try {
+      // First, start the engine process
       const response = await fetch('/api/engine/start', { method: 'POST' });
       const result = await response.json();
       
       if (result.success) {
-        // The WebSocket client will automatically connect and update the status
-        console.log('Engine start requested, waiting for status update...');
+        // Connect the WebSocket client
+        try {
+          await engine.connect();
+          console.log('Engine started and WebSocket connected');
+        } catch (err) {
+          console.error('Failed to connect WebSocket:', err);
+          setError('Engine started but failed to connect WebSocket');
+          setConnectionStatus('disconnected');
+        }
       } else {
         setError(result.message || 'Failed to start engine');
+        setConnectionStatus('disconnected');
       }
     } catch (error) {
       console.error('Error starting engine:', error);
       setError('Failed to start engine');
+      setConnectionStatus('disconnected');
     } finally {
       setIsLoading(false);
     }
