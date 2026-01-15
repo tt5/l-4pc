@@ -831,9 +831,51 @@ const Board: Component<BoardProps> = (props) => {
     setIsSaving(true);
     try {
       const currentGameId = gameId();
-      const newGameId = generateNewGameId();
+      let newGameId: string;
       
-      console.log(`[Save] Saving game ${currentGameId} as new game ${newGameId}`);
+      if (currentGameId === "default") {
+        // Prompt user for a game name
+        const gameName = window.prompt('Enter a name for your game:');
+        if (!gameName) {
+          setIsSaving(false);
+          return; // User cancelled
+        }
+        // Generate a URL-friendly ID from the game name
+        newGameId = gameName
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+        
+        // Ensure the ID is not empty
+        if (!newGameId) {
+          newGameId = generateNewGameId();
+        }
+      } else {
+        // For existing games, ask if they want to change the name
+        const shouldChangeName = window.confirm(`Current game ID: ${currentGameId}\n\nDo you want to change the game name?`);
+        
+        if (shouldChangeName) {
+          const newName = window.prompt('Enter a new name for your game:', currentGameId);
+          if (newName) {
+            // Generate a URL-friendly ID from the new name
+            newGameId = newName
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/^-+|-+$/g, '');
+            
+            // If the result is empty or the same as current, keep the original
+            if (!newGameId || newGameId === currentGameId) {
+              newGameId = currentGameId;
+            }
+          } else {
+            // User cancelled or entered empty name, keep the original
+            newGameId = currentGameId;
+          }
+        } else {
+          // User chose not to change the name
+          newGameId = currentGameId;
+        }
+      }
       
       const response = await fetch('/api/game/update-id', {
         method: 'POST',
