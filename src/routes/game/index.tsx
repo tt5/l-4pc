@@ -10,7 +10,6 @@ import styles from './game.module.css';
 function GameContent() {
   const { user, isInitialized, logout } = useAuth();
   const [searchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = createSignal('info');
   
   // Initialize gameId with priority: URL param > default
   const [gameId, setGameId] = createSignal<string>(
@@ -74,6 +73,7 @@ function GameContent() {
             <div class={styles.gameContainer}>
               
               <div class={styles.settingsContainer}>
+                <h2>{user()?.username}</h2>
                 <button onClick={() => logout()}>Logout</button>
               </div>
               <Board gameId={gameId()} />

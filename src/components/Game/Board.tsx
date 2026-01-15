@@ -66,7 +66,6 @@ const Board: Component<BoardProps> = (props) => {
   const navigate = useNavigate();
   const [gameId, setGameId] = createSignal<string>(props.gameId || DEFAULT_GAME_ID);
   
-  // Initialize the WebSocket client for the chess engine
   const engine = createEngineClient();
   const [isEngineReady, setIsEngineReady] = createSignal(false);
   const [isEngineThinking, setIsEngineThinking] = createSignal(false);
@@ -77,8 +76,9 @@ const Board: Component<BoardProps> = (props) => {
   const [analysis, setAnalysis] = createSignal<{score: string; depth: number; bestMove: string} | null>(null);
   const [lastAnalyzedMoves, setLastAnalyzedMoves] = createSignal<string[]>([]);
   const analysisInProgress = { current: false };
+
   const [cellSize, setCellSize] = createSignal(50); // Default cell size
-  // Track en passant targets for each player
+
   const [enPassantTargets, setEnPassantTargets] = createSignal<Record<string, {x: number, y: number, color: string} | null>>({
     '#F44336': null,  // Red
     '#FFEB3B': null,  // Yellow
@@ -86,7 +86,6 @@ const Board: Component<BoardProps> = (props) => {
     '#4CAF50': null   // Green
   });
   
-  // Centralized function to handle engine analysis
   const startEngineAnalysis = async (moves: string[]) => {
     const movesStr = JSON.stringify(moves);
     const lastMovesStr = JSON.stringify(lastAnalyzedMoves());
@@ -124,7 +123,6 @@ const Board: Component<BoardProps> = (props) => {
     }
   };
   
-  // Handle thread count changes
   const handleThreadChange = async (newThreads: number) => {
     console.log(`[Board] handleThreadChange called with: ${newThreads}`);
     
@@ -486,10 +484,9 @@ const Board: Component<BoardProps> = (props) => {
     firstMove: BranchMove;
   }>>>({});
 
-  // Add this near other state declarations
   const [fen4, setFen4] = createSignal<string>('');
 
-  // Add this effect to update FEN4 when position changes
+  // update FEN4 when position changes
   createEffect(() => {
     const points = basePoints();
     const turnIndex = currentTurnIndex();
@@ -498,7 +495,6 @@ const Board: Component<BoardProps> = (props) => {
     setFen4(newFen4);
   });
 
-  // Add these utility functions
   const getCurrentFen4 = (): string => fen4();
 
   // Generate a branch name with optional parent branch path

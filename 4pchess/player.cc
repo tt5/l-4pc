@@ -369,9 +369,9 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     auto avg_ns = total_timeA.count() / call_countA;
     auto current_avg = durationA.count() / 1;  // Current call's time in ns
 
-    std::cout << "[Search - before move]"
-              << "Average: " << avg_ns << " ns, "
-              << "Call count: " << call_countA << std::endl;
+    //std::cout << "[Search - before move]"
+    //          << "Average: " << avg_ns << " ns, "
+    //          << "Call count: " << call_countA << std::endl;
   }
   while (true) {
     const Move* move_ptr = GetNextMove2(&picker);
@@ -459,12 +459,12 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       auto avg_ns = total_timeA2.count() / call_countA2;
       auto current_avg = durationA2.count() / 1;  // Current call's time in ns
 
-      std::cout << "[Move - before recursion]"
-                << "Average: " << avg_ns << " ns, "
-                << "Call count: " << call_countA2 << std::endl
-                << "Singular searches: " << GetNumSingularExtensionSearches() << std::endl
-                << "Singular hits: " << GetNumSingularExtensions()
-                << std::endl;
+      //std::cout << "[Move - before recursion]"
+      //          << "Average: " << avg_ns << " ns, "
+      //          << "Call count: " << call_countA2 << std::endl
+      //          << "Singular searches: " << GetNumSingularExtensionSearches() << std::endl
+      //          << "Singular hits: " << GetNumSingularExtensions()
+      //          << std::endl;
     }
 
     // Singular extension search
@@ -661,13 +661,13 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       auto avg_ns = total_timeB.count() / call_countB;
       auto current_avg = durationB.count() / 1;  // Current call's time in ns
 
-      std::cout << "[Move - after recursion]"
-                << " Average: " << avg_ns << " ns,"
-                << " Calls: " << call_countB
-                << ", Full searches: " << total_full_searches
-                << ", Checkmate searches: " << total_checkmate_searches
-                << " / " << total_checkmate_searches_nonpv
-                << std::endl;
+      //std::cout << "[Move - after recursion]"
+      //          << " Average: " << avg_ns << " ns,"
+      //          << " Calls: " << call_countB
+      //          << ", Full searches: " << total_full_searches
+      //          << ", Checkmate searches: " << total_checkmate_searches
+      //          << " / " << total_checkmate_searches_nonpv
+      //          << std::endl;
     }
   }
   static std::atomic<int64_t> total_checkmates_found = 0;
@@ -747,11 +747,11 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     auto avg_ns = total_timeB.count() / call_countC;
     auto current_avg = durationC.count() / 1;  // Current call's time in ns
 
-    std::cout << "[Search - after move]"
-              << " Average: " << avg_ns << " ns,"
-              << " Call count: " << call_countC
-              << ", Checkmates (this search/total): " 
-              << checkmates_in_this_search << "/" << total_checkmates_found << std::endl;
+    //std::cout << "[Search - after move]"
+    //          << " Average: " << avg_ns << " ns,"
+    //          << " Call count: " << call_countC
+    //          << ", Checkmates (this search/total): " 
+    //          << checkmates_in_this_search << "/" << total_checkmates_found << std::endl;
   }
   return std::make_tuple(score, best_move);
 }
