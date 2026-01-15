@@ -12,7 +12,17 @@ export type AnalysisUpdate = {
   bestMove: string | null;
 };
 
-export function createEngineClient() {
+// Singleton instance
+let wsInstance: ReturnType<typeof createEngineClient> | null = null;
+
+export function getEngineClient() {
+  if (!wsInstance) {
+    wsInstance = createEngineClient();
+  }
+  return wsInstance;
+}
+
+function createEngineClient() {
   const [isConnected, setIsConnected] = createSignal(false);
   const [analysis, setAnalysis] = createSignal<AnalysisUpdate | null>(null);
   const [error, setError] = createSignal<Error | null>(null);
@@ -23,16 +33,28 @@ export function createEngineClient() {
   
   const connect = (url: string = 'ws://localhost:8080') => {
     try {
-      // Close existing connection if any
+      // If already connected or connecting, just return
       if (ws) {
+        if (ws.readyState === WebSocket.OPEN) {
+          console.log('[wsClient] Already connected to engine server');
+          return;
+        }
+        if (ws.readyState === WebSocket.CONNECTING) {
+          console.log('[wsClient] Already connecting to engine server');
+          return;
+        }
+        // Close existing connection if it's closing or closed
         ws.close();
       }
       
+      console.log(`[wsClient] Connecting to engine server at ${url}...`);
       ws = new WebSocket(url);
       
       ws.onopen = () => {
         console.log('[wsClient] Connected to engine server');
         setIsConnected(true);
+        // Request engine status on connect
+        send('getEngineStatus');
       };
       
       ws.onmessage = (event) => {

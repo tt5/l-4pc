@@ -70,7 +70,7 @@ const Board: Component<BoardProps> = (props) => {
   const navigate = useNavigate();
   const [gameId, setGameId] = createSignal<string>(props.gameId || DEFAULT_GAME_ID);
   
-  const engine = createEngineClient();
+  const engine = getEngineClient();
   const [isEngineReady, setIsEngineReady] = createSignal(false);
   const [isEngineThinking, setIsEngineThinking] = createSignal(false);
   const [isAnalyzing, setIsAnalyzing] = createSignal(false);
@@ -81,6 +81,23 @@ const Board: Component<BoardProps> = (props) => {
   const [analysis, setAnalysis] = createSignal<{score: string; depth: number; bestMove: string} | null>(null);
   const [lastAnalyzedMoves, setLastAnalyzedMoves] = createSignal<string[]>([]);
   const analysisInProgress = { current: false };
+
+  // Set up engine status listener
+  onMount(() => {
+    const cleanup = engine.on('status', (status) => {
+      console.log('[Board] Engine status update:', status);
+      setIsEngineReady(status?.running === true);
+    });
+
+    // Initial status check
+    if (engine.isReady()) {
+      engine.send('getEngineStatus');
+    }
+
+    onCleanup(() => {
+      cleanup();
+    });
+  });
 
   const [cellSize, setCellSize] = createSignal(50); // Default cell size
 
@@ -95,9 +112,17 @@ const Board: Component<BoardProps> = (props) => {
     const movesStr = JSON.stringify(moves);
     const lastMovesStr = JSON.stringify(lastAnalyzedMoves());
     
-    if (!isEngineReady()) {
-      console.log('[Engine] Skipping analysis - engine not ready');
-      return;
+    if (!engine.isReady()) {
+      console.log('[Engine] Engine not ready, requesting status...');
+      engine.send('getEngineStatus');
+      
+      // Wait a bit for the status update
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      if (!engine.isReady()) {
+        console.log('[Engine] Still not ready after status check');
+        return;
+      }
     }
     
     if (analysisInProgress.current) {
