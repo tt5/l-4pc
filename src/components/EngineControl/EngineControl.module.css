@@ -78,14 +78,7 @@
   color: #f44336;
 }
 
-/* Loading animation */
-@keyframes pulse {
-  0% { opacity: 0.6; }
-  50% { opacity: 1; }
-  100% { opacity: 0.6; }
-}
-
 .button:disabled {
-  animation: pulse 1.5s infinite;
   opacity: 0.8;
+  cursor: not-allowed;
 }
