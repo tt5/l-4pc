@@ -1,5 +1,5 @@
 import { Title } from "@solidjs/meta";
-import { Show, createSignal, createEffect, onMount } from 'solid-js';
+import { Show, createSignal, createEffect, onMount, createResource } from 'solid-js';
 import { useSearchParams } from '@solidjs/router';
 import { useAuth } from '~/contexts/AuthContext';
 import { RestrictedSquaresProvider } from '~/contexts/RestrictedSquaresContext';
@@ -16,6 +16,24 @@ function GameContent() {
     (Array.isArray(searchParams.gameId) ? searchParams.gameId[0] : searchParams.gameId) || DEFAULT_GAME_ID
   );
   
+  // Fetch all game IDs for the user
+  const [games] = createResource(async () => {
+    if (!user()) return [];
+    try {
+      const response = await fetch('/api/game/latest', {
+        headers: { 'Authorization': `Bearer ${user()?.id}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        return [data.gameId]; // Return as array for consistency
+      }
+      return [];
+    } catch (error) {
+      console.error('Failed to fetch game list:', error);
+      return [];
+    }
+  });
+
   // Fetch the latest game ID when the component mounts or user changes
   onMount(async () => {
     if (!user()) return;
@@ -73,7 +91,10 @@ function GameContent() {
             <div class={styles.gameContainer}>
               
               <div class={styles.settingsContainer}>
-                <h2>{user()?.username}</h2>
+                <div>
+                  <h2>{user()?.username}</h2>
+                  <div>Games: {games()?.join(', ') || 'No games found'}</div>
+                </div>
                 <button onClick={() => logout()}>Logout</button>
               </div>
               <Board gameId={gameId()} />
