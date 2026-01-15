@@ -26,7 +26,7 @@ cp ./cli ../cli
 - [ ] promote branch
 - [ ] keyboard controls
 - [X] show saved game ids
-- [ ] save game with name
+- [X] save game with name
 - [ ] export/import pgn4
 - [ ] start from fen4, show fen4
 - [ ] start/stop engine
