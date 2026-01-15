@@ -34,8 +34,8 @@ const COLOR_PREFIXES: Record<string, string> = {
 // Convert x coordinate to file (a-p)
 const getFile = (x: number): string => String.fromCharCode(97 + x);
 
-// Convert y coordinate to rank (1-16)
-const getRank = (y: number): string => (y + 1).toString();
+// Convert y coordinate to rank (1-14 with 1 at bottom, 14 at top)
+const getRank = (y: number): string => (14 - y).toString();
 
 // Convert coordinates to 4-player chess notation (a1-p16)
 export const toChessNotation = (move: Move, basePoints: BasePoint[] = []): string => {
