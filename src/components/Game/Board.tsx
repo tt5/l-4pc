@@ -297,6 +297,10 @@ const Board: Component<BoardProps> = (props) => {
       if (rawMoves.length === 0) {
         console.log('[loadGame] No moves found, initializing new game');
         resetBoardToInitialState();
+        // Refresh game list even when no moves are found
+        if (props.onGameUpdate) {
+          props.onGameUpdate();
+        }
         return;
       }
       
@@ -393,7 +397,12 @@ const Board: Component<BoardProps> = (props) => {
         });
         
         // Load the game using the new loadGame function
-        loadGame(currentGameId).catch(console.error);
+        loadGame(currentGameId).then(() => {
+          // Refresh game list after loading a game
+          if (props.onGameUpdate) {
+            props.onGameUpdate();
+          }
+        }).catch(console.error);
       }
     } else {
       // Clear state if no game ID or user
@@ -820,25 +829,12 @@ const Board: Component<BoardProps> = (props) => {
         const error = await response.json().catch(() => ({}));
         throw new Error(error.error || 'Failed to save game');
       }
-
-      const data = await response.json();
-      console.log(`Game saved successfully as ${newGameId}`);
       
-      // Update the game ID in the URL and state
-      setGameId(newGameId);
-      const url = new URL(window.location.href);
-      url.searchParams.set('gameId', newGameId);
-      window.history.pushState({}, '', url.toString());
-      
-      // Notify parent component to refresh the game list
-      if (props.onGameUpdate) {
-        props.onGameUpdate();
-      }
+      const result = await response.json();
+      console.log(`[Delete] Successfully deleted ${result.deletedCount} moves`);
     } catch (error) {
-      console.error('Error saving game:', error);
-      throw error; // Re-throw to be caught by the BoardControls component
-    } finally {
-      setIsSaving(false);
+      console.error('[Delete] Failed to delete move:', error instanceof Error ? error.message : String(error));
+      // Don't update local state if server deletion fails
     }
   };
 
