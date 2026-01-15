@@ -61,16 +61,42 @@ export function createEngineWebSocketServer(port: number = 8080) {
     // Handle incoming messages
     ws.on('message', async (message) => {
       try {
-        const { type, data } = JSON.parse(message.toString());
-        
-        // Ensure FEN is completely removed from analysis data
-        if (data && type === 'startAnalysis') {
-          delete data.fen;
+        let parsedMessage;
+        try {
+          parsedMessage = JSON.parse(message.toString());
+        } catch (e) {
+          console.error('Failed to parse message:', message.toString());
+          return;
         }
         
+        const { type, data } = parsedMessage;
+        
+        // Log the raw message for debugging
         console.log('Received message:', type, data);
 
+        // Handle the message based on its type
         switch (type) {
+          case 'getEngineStatus':
+            // Initialize the engine if it's not already initialized
+            if (!isInitialized) {
+              try {
+                await initialize();
+              } catch (error) {
+                console.error('Failed to initialize engine:', error);
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                ws.send(JSON.stringify({
+                  type: 'error',
+                  data: { 
+                    message: 'Failed to initialize engine',
+                    error: errorMessage
+                  }
+                }));
+                return;
+              }
+            }
+            // Send the current status
+            sendEngineStatus(ws);
+            break;
           case 'startAnalysis':
             await initialize();
             
