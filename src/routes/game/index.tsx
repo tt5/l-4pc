@@ -20,12 +20,12 @@ function GameContent() {
   const [games] = createResource(async () => {
     if (!user()) return [];
     try {
-      const response = await fetch('/api/game/latest', {
+      const response = await fetch('/api/game/list', {
         headers: { 'Authorization': `Bearer ${user()?.id}` }
       });
       if (response.ok) {
         const data = await response.json();
-        return [data.gameId]; // Return as array for consistency
+        return data.gameIds || [];
       }
       return [];
     } catch (error) {
