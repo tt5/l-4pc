@@ -23,11 +23,30 @@ export async function POST({ request, params }: APIEvent) {
       }
 
       // Start the engine server
-      engineProcess = spawn('npm', ['run', 'engine:server'], {
+      // Use the Node.js executable directly to avoid shell injection
+      const nodePath = process.execPath; // Path to the current Node.js executable
+      const scriptPath = join(process.cwd(), 'node_modules/.bin/tsx');
+      const serverPath = join(process.cwd(), 'src/engine/wsServer.ts');
+      
+      engineProcess = spawn(nodePath, [scriptPath, serverPath], {
         detached: true,
-        stdio: 'pipe',  // Changed from 'ignore' to 'pipe' to ensure streams exist
-        shell: true
+        stdio: 'pipe',
+        cwd: process.cwd(),
+        env: {
+          ...process.env,
+          NODE_ENV: process.env.NODE_ENV || 'development',
+          PORT: '8080' // Ensure the port matches your WebSocket server
+        }
       }) as import('child_process').ChildProcessWithoutNullStreams;
+      
+      // Log process output for debugging
+      engineProcess.stdout?.on('data', (data) => {
+        console.log(`Engine stdout: ${data}`);
+      });
+      
+      engineProcess.stderr?.on('data', (data) => {
+        console.error(`Engine stderr: ${data}`);
+      });
 
       // Store the PID for later use
       if (!engineProcess.pid) {
