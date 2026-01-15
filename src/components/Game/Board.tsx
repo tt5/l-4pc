@@ -497,13 +497,11 @@ const Board: Component<BoardProps> = (props) => {
 
   const getCurrentFen4 = (): string => fen4();
 
-  // Generate a branch name with optional parent branch path
   const generateBranchName = (moveNumber: number, parentBranch: string | null = null): string => {
     const timestamp = Date.now().toString(36).slice(-4);
     const branchSuffix = `branch-${moveNumber}-${timestamp}`;
     return parentBranch ? `${parentBranch.split('/').slice(-1)}/${branchSuffix}` : branchSuffix;
   };
-
 
   const buildFullBranchName = (branchPath: string | null): string => {
     if (!branchPath) {
@@ -1174,79 +1172,6 @@ const Board: Component<BoardProps> = (props) => {
 
     // Set up mouse event listeners
     window.addEventListener('mouseup', handleGlobalMouseUp as EventListener);
-
-    // Initialize engine
-    try {
-      if (engine && isEngineReady() && 
-          typeof engine.startAnalysis === 'function' && 
-          typeof engine.stopAnalysis === 'function') {
-        // Handle engine move
-        const handleEngineMove = async () => {
-          if (!engine || !isEngineReady()) return;
-
-          try {
-            const currentMoves = moveHistory();
-            const currentMoveCount = currentMoves.length;
-            
-            // Only proceed if there's exactly one more move than before
-            if (currentMoveCount !== lastMoveCount() + 1) {
-              console.log('Skipping engine move - no new move or too many moves');
-              return;
-            }
-
-            // Update the last move count
-            setLastMoveCount(currentMoveCount);
-
-            // Convert move history to UCI format
-            const uciMoveHistory = currentMoves.map(moveToUCI);
-            
-            console.log('Move history:', uciMoveHistory);
-            
-            // Start analysis with the move history
-            startEngineAnalysis(uciMoveHistory);
-            
-            // Listen for the best move from the engine
-            const bestMove = await new Promise<string>((resolve) => {
-              const onBestMove = (move: string) => {
-                engine.off('bestmove', onBestMove);
-                resolve(move);
-              };
-              engine.on('bestmove', onBestMove);
-              
-              // Set a timeout to prevent hanging if no response
-              setTimeout(() => {
-                engine.off('bestmove', onBestMove);
-                console.warn('Engine move timeout');
-                resolve('');
-              }, 10000); // 10 second timeout
-            });
-            
-            if (bestMove) {
-              // Log the engine's move in a more visible way
-              const from = bestMove.substring(0, 2);
-              const to = bestMove.substring(2, 4);
-              console.log(
-                '%cENGINE MOVE%c %s → %s',
-                'background: #4a4a4a; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
-                '',
-                from.toUpperCase(),
-                to.toUpperCase()
-              );
-              console.log('Full bestMove string:', bestMove);
-            }
-          } catch (error) {
-            console.error('Engine error:', error);
-          } finally {
-            engine.stopAnalysis();
-            setIsEngineThinking(false);
-          }
-        };
-        resetBoardToInitialState();
-      }
-    } catch (error) {
-      console.error('Failed to initialize engine:', error);
-      setIsEngineReady(false);
-    }
 
     resetBoardToInitialState();
   });
