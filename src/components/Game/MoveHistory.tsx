@@ -152,14 +152,18 @@ export const MoveHistory = (props: MoveHistoryProps) => {
               const fromY = move.fromY;
               const toX = move.toX;
               const toY = move.toY;
-              // Use 1-based indexing for display
-              const displayMoveNumber = index() + 1;
+              
               if (fromX === undefined || fromY === undefined || toX === undefined || toY === undefined) {
                 console.warn('Move data is missing required coordinates', move);
               }
               
-              // For display purposes, use displayMoveNumber
-              const moveNumber = displayMoveNumber;
+              // Calculate move number display (1.1, 1.2, 1.3, 1.4, 2.1, etc.)
+              const turnNumber = Math.floor(index() / 4) + 1;
+              const playerMoveNumber = (index() % 4) + 1;
+              const displayMoveNumber = `${turnNumber}.${playerMoveNumber}`;
+              
+              // For backward compatibility
+              const moveNumber = index() + 1;
               
               // Only highlight if this is the exact current move index
               // Using index() directly since it's 0-based like currentMoveIndex
@@ -171,7 +175,7 @@ export const MoveHistory = (props: MoveHistoryProps) => {
                   data-move-index={index()}
                   data-move-number={moveNumber}
                 >
-                  <span class={styles.moveNumber}>{moveNumber}.</span>
+                  <span class={styles.moveNumber}>{displayMoveNumber}.</span>
                   <div class={styles.moveDetails}>
                     <div class={styles.moveCoords}>
                       {formatMoveDisplay({
@@ -193,7 +197,7 @@ export const MoveHistory = (props: MoveHistoryProps) => {
                               <div class={styles.branchContainer}>
                                 <div class={styles.branchMoves}>
                                   <div class={styles.branchMoveItem}>
-                                    <span class={styles.moveNumber}>{moveNumber}.</span>
+                                    <span class={styles.moveNumber}>{displayMoveNumber}.</span>
                                     <span class={styles.moveCoords}>
                                       {formatMoveDisplay(branch.firstMove, props.basePoints || [])}
                                     </span>
