@@ -6,9 +6,8 @@ and (in another terminal)
 
 # engine
 
-`./cli`
-
 ``` bash
+cd 4pchess
 make cli
 cp ./cli ../cli
 ```
@@ -18,8 +17,6 @@ cp ./cli ../cli
 - [ ] castling
 - [ ] en passant
 - [ ] promotion
-
-https://github.com/obryanlouis/4pchess
 
 # TODO
 
@@ -32,3 +29,4 @@ https://github.com/obryanlouis/4pchess
 - [ ] save game with name
 - [ ] export/import pgn4
 - [ ] start from fen4, show fen4
+- [ ] start/stop engine
