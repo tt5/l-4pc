@@ -1,15 +1,21 @@
-import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
+import { For, Show, createEffect, createSignal, onCleanup } from 'solid-js';
 import styles from './MoveHistory.module.css';
+import { formatMove } from '../../utils/chessNotation';
+import type { BasePoint } from '../../types/board';
 
 type Move = {
-  id?: number | string;  // Add id as an optional property
+  id?: number | string;
   fromX: number;
   fromY: number;
   toX: number;
   toY: number;
   moveNumber?: number;
   playerId?: string;
-  color?: string;  // Made optional to match the Move type in board.types.ts
+  color?: string;
+  pieceType?: string;
+  isCapture?: boolean;
+  isCheck?: boolean;
+  promotionPiece?: string;
 };
 
 type MoveHistoryProps = {
@@ -19,8 +25,9 @@ type MoveHistoryProps = {
   branchPoints?: Record<number, Array<{
     branchName: string;
     parentBranch: string;
-    firstMove: any;
+    firstMove: Move;
   }>>;
+  basePoints?: BasePoint[];
 };
 
 export const MoveHistory = (props: MoveHistoryProps) => {
@@ -65,9 +72,14 @@ export const MoveHistory = (props: MoveHistoryProps) => {
     return props.branchPoints?.[moveIndex] || [];
   };
   
-  // Format move coordinates for display
-  const formatMove = (move: { fromX: number; fromY: number; toX: number; toY: number }) => {
-    return `(${move.fromX},${move.fromY}) → (${move.toX},${move.toY})`;
+  // Format move using chess notation
+  const formatMoveDisplay = (move: Move, basePoints: BasePoint[]) => {
+    try {
+      return formatMove(move, basePoints);
+    } catch (error) {
+      console.error('Error formatting move:', error);
+      return `(${move.fromX},${move.fromY}) → (${move.toX},${move.toY})`;
+    }
   };
 
   return (
@@ -109,7 +121,16 @@ export const MoveHistory = (props: MoveHistoryProps) => {
                   <span class={styles.moveNumber}>{moveNumber}.</span>
                   <div class={styles.moveDetails}>
                     <div class={styles.moveCoords}>
-                      ({fromX},{fromY}) → ({toX},{toY})
+                      {formatMoveDisplay({
+                        fromX,
+                        fromY,
+                        toX,
+                        toY,
+                        pieceType: move.pieceType,
+                        isCapture: move.isCapture,
+                        isCheck: move.isCheck,
+                        promotionPiece: move.promotionPiece
+                      }, props.basePoints || [])}
                     </div>
                     {hasBranches(index()) && (
                       <div class={styles.branchInfo}>
@@ -121,7 +142,7 @@ export const MoveHistory = (props: MoveHistoryProps) => {
                                   <div class={styles.branchMoveItem}>
                                     <span class={styles.moveNumber}>{moveNumber}.</span>
                                     <span class={styles.moveCoords}>
-                                      {formatMove(branch.firstMove)}
+                                      {formatMoveDisplay(branch.firstMove, props.basePoints || [])}
                                     </span>
                                   </div>
                                 </div>
