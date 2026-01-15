@@ -22,7 +22,7 @@ cp ./cli ../cli
 
 - [ ] pawn promotion
 - [ ] rotate board
-- [ ] algebraic notation
+- [X] algebraic notation
 - [ ] promote branch
 - [ ] keyboard controls
 - [X] show saved game ids
