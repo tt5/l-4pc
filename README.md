@@ -8,6 +8,13 @@ and (in another terminal)
 
 `./cli`
 
+``` bash
+make cli
+cp ./cli ../cli
+```
+
+## TODO
+
 - [ ] castling
 - [ ] en passant
 - [ ] promotion
@@ -21,7 +28,7 @@ https://github.com/obryanlouis/4pchess
 - [ ] algebraic notation
 - [ ] promote branch
 - [ ] keyboard controls
-- [ ] show saved game ids
+- [X] show saved game ids
 - [ ] save game with name
 - [ ] export/import pgn4
 - [ ] start from fen4, show fen4
