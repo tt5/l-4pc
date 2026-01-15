@@ -158,27 +158,29 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
       
       <div class={styles.gameId}>{props.gameId}</div>
       
-      {props.isAnalyzing && (
-        <button 
-          onClick={async (e) => {
-            e.preventDefault();
-            if (isStopping() || !props.onStopAnalysis) return;
-            setIsStopping(true);
-            try {
-              await props.onStopAnalysis();
-            } catch (error) {
-              console.error('Error stopping analysis:', error);
-            } finally {
-              setIsStopping(false);
-            }
-          }}
-          disabled={isStopping() || !props.onStopAnalysis}
-          class={`${styles.controlButton} ${styles.stopButton}`}
-          title="Stop engine analysis"
-        >
-          {isStopping() ? 'Stopping...' : '❌ Stop Analysis'}
-        </button>
-      )}
+      <button 
+        onClick={async (e) => {
+          e.preventDefault();
+          if (isStopping() || !props.onStopAnalysis) return;
+          setIsStopping(true);
+          try {
+            await props.onStopAnalysis();
+          } catch (error) {
+            console.error('Error toggling analysis:', error);
+          } finally {
+            setIsStopping(false);
+          }
+        }}
+        disabled={isStopping() || !props.onStopAnalysis}
+        class={`${styles.controlButton} ${props.isAnalyzing ? styles.stopButton : styles.startButton}`}
+        title={props.isAnalyzing ? 'Stop engine analysis' : 'Start engine analysis'}
+      >
+        {isStopping() 
+          ? '...' 
+          : props.isAnalyzing 
+            ? '❌ Stop Analysis' 
+            : '▶️ Start Analysis'}
+      </button>
       <div class={styles.navButtons}>
         <button 
           onClick={handleGoBack} 

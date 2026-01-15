@@ -27,4 +27,4 @@ cp ./cli ../cli
 - [X] save game with name
 - [ ] export/import pgn4
 - [ ] start from fen4, show fen4
-- [ ] start/stop engine
+- [X] start/stop engine

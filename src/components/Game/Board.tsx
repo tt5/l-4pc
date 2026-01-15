@@ -131,25 +131,36 @@ const Board: Component<BoardProps> = (props) => {
     }
   };
   
-  const stopAnalysis = async () => {
+  const stopAnalysis = async (): Promise<boolean> => {
     if (!isEngineReady()) {
-      console.log('[Engine] Cannot stop analysis - engine not ready');
+      console.log('[Engine] Engine not ready');
       return false;
     }
     
-    try {
+    // If analysis is stopped, start it
+    if (isAnalysisStopped()) {
+      console.log('[Engine] Starting analysis');
+      setIsAnalysisStopped(false);
+      const currentMoves = moveHistory().slice(0, currentMoveIndex() + 1).map(moveToUCI);
+      await startEngineAnalysis(currentMoves);
+      return true;
+    } 
+    // Otherwise stop it
+    else {
       console.log('[Engine] Stopping analysis');
-      const success = engine.stopAnalysis();
-      if (success) {
-        setIsAnalysisStopped(true);
-        setIsAnalyzing(false);
-        analysisInProgress.current = false;
-        return true;
+      try {
+        const success = engine.stopAnalysis();
+        if (success) {
+          setIsAnalysisStopped(true);
+          setIsAnalyzing(false);
+          analysisInProgress.current = false;
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('[Engine] Error stopping analysis:', error);
+        return false;
       }
-      return false;
-    } catch (error) {
-      console.error('[Engine] Error stopping analysis:', error);
-      return false;
     }
   };
 
