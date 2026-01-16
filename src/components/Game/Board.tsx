@@ -84,16 +84,44 @@ const Board: Component<BoardProps> = (props) => {
 
   // Set up engine status listener
   onMount(() => {
-    const cleanup = engine.on('status', (status: { running: boolean }) => {
+    let isMounted = true;
+    
+    const handleStatusUpdate = async (status: { running: boolean }) => {
+      if (!isMounted) return;
+      
       console.log('[Board] Engine status update:', status);
-      setIsEngineReady(status?.running === true);
-    });
+      const isRunning = status?.running === true;
+      setIsEngineReady(isRunning);
+      
+      // Only connect if engine is running and not already connected
+      if (isRunning && !engine.isConnected()) {
+        console.log('[Board] Engine is running, attempting to connect...');
+        
+        try {
+          const connected = await engine.connect();
+          if (!connected) {
+            console.error('[Board] Failed to connect to engine');
+            return;
+          }
+          
+          console.log('[Board] Successfully connected to engine');
+          
+          // Initial analysis if we have a position
+          if (fullMoveHistory().length > 0) {
+            analyzePosition();
+          }
+        } catch (err) {
+          console.error('[Board] Error connecting to engine:', err);
+        }
+      }
+    };
 
-    // Status is handled by the connection event listener above
-
-    onCleanup(() => {
+    const cleanup = engine.on('status', handleStatusUpdate);
+    
+    return () => {
+      isMounted = false;
       cleanup();
-    });
+    };
   });
 
   const [cellSize, setCellSize] = createSignal(50); // Default cell size
@@ -109,14 +137,42 @@ const Board: Component<BoardProps> = (props) => {
     const movesStr = JSON.stringify(moves);
     const lastMovesStr = JSON.stringify(lastAnalyzedMoves());
     
+    if (!isEngineReady()) {
+      console.log('[Engine] Engine not ready, skipping analysis');
+      return;
+    }
+
     if (!engine.isConnected()) {
-      console.log('[Engine] Engine not ready, requesting status...');
-      
-      // Wait a bit for the status update
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      if (!engine.isConnected()) {
-        console.log('[Engine] Still not ready after status check');
+      console.log('[Engine] Not connected, attempting to connect...');
+      try {
+        // Add connection state change listener for debugging
+        const onStateChange = () => {
+          console.log(`[Engine] Connection state changed:`, {
+            readyState: engine.isConnected() ? 'connected' : 'disconnected'
+          });
+        };
+        
+        // Connect and wait for connection
+        console.log('[Engine] Calling engine.connect()');
+        await engine.connect();
+        
+        // Wait for connection to establish with a timeout
+        const maxWaitTime = 2000; // 2 seconds max
+        const startTime = Date.now();
+        
+        while (!engine.isConnected() && (Date.now() - startTime) < maxWaitTime) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          console.log('[Engine] Waiting for connection to establish...');
+        }
+        
+        if (!engine.isConnected()) {
+          console.error('[Engine] Failed to connect to engine - timeout waiting for connection');
+          return;
+        }
+        
+        console.log('[Engine] Successfully connected to engine');
+      } catch (err) {
+        console.error('[Engine] Error connecting to engine:', err);
         return;
       }
     }
@@ -251,33 +307,7 @@ const Board: Component<BoardProps> = (props) => {
   };
   */
 
-  // Connect to the WebSocket server when the component mounts
-  onMount(() => {
-    engine.connect();
-    
-    // Set up a listener for connection status
-    createEffect(() => {
-      if (engine.isConnected()) {
-        console.log('Engine connected');
-        setIsEngineReady(true);
-        
-        // Use the analyzePosition function defined at the component level
-        
-        // Initial analysis
-        analyzePosition();
-        
-      } else {
-        console.log('Engine disconnected');
-        setIsEngineReady(false);
-      }
-    });
-    
-    // Clean up the WebSocket connection when the component unmounts
-    onCleanup(() => {
-      analysisInProgress.current = false;
-      engine.disconnect();
-    });
-  });
+  // Connection handling is now done in the status listener above
   
   // Initialize the board when the component mounts
   onMount(async () => {

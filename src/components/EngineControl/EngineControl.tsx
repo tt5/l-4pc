@@ -11,27 +11,52 @@ export function EngineControl() {
   const [error, setError] = createSignal<string | null>(null);
   const engine = getEngineClient();
 
-  // Set up engine status listener
+  // Set up engine status and connection listeners
   onMount(() => {
-    const cleanup = engine.on('status', (status) => {
-      console.log('[EngineControl] Engine status update:', status);
-      const isRunning = status?.running === true;
+    const updateStatus = (isRunning: boolean) => {
+      console.log('[EngineControl] Updating engine status:', { isRunning });
       setIsRunning(isRunning);
       setConnectionStatus(isRunning ? 'connected' : 'disconnected');
-      
       if (isRunning) {
         setError(null);
       }
-    });
+    };
+
+    const onStatus = (status: { running: boolean }) => {
+      console.log('[EngineControl] Engine status update:', status);
+      updateStatus(status?.running === true);
+    };
+
+    const onConnected = () => {
+      console.log('[EngineControl] WebSocket connected');
+      updateStatus(true);
+    };
+
+    const onDisconnected = () => {
+      console.log('[EngineControl] WebSocket disconnected');
+      updateStatus(false);
+    };
+
+    const onConnectionLost = () => {
+      console.log('[EngineControl] WebSocket connection lost, attempting to reconnect...');
+      setConnectionStatus('connecting');
+    };
+
+    // Set up all event listeners
+    const cleanupStatus = engine.on('status', onStatus);
+    const cleanupConnected = engine.on('connected', onConnected);
+    const cleanupDisconnected = engine.on('disconnected', onDisconnected);
+    const cleanupConnectionLost = engine.on('connectionLost', onConnectionLost);
 
     // Initial status check
-    if (engine.isConnected()) {
-      // No direct 'getEngineStatus' method, but the connection handler in wsClient
-      // already calls this when the connection is established
-    }
+    updateStatus(engine.isConnected());
 
+    // Clean up all listeners on unmount
     return () => {
-      cleanup();
+      cleanupStatus();
+      cleanupConnected();
+      cleanupDisconnected();
+      cleanupConnectionLost();
     };
   });
 

@@ -55,6 +55,34 @@ export function createEngineWebSocketServer(port: number = 8080) {
   wss.on('connection', (ws) => {
     console.log('New client connected');
     
+    // Set up ping/pong to keep connection alive
+    const pingInterval = setInterval(() => {
+      if (ws.readyState === ws.OPEN) {
+        ws.ping();
+      } else {
+        clearInterval(pingInterval);
+      }
+    }, 30000); // Send ping every 30 seconds
+    
+    // Handle connection close
+    const onClose = () => {
+      console.log('Client disconnected');
+      clearInterval(pingInterval);
+      ws.off('close', onClose);
+      ws.off('error', onError);
+    };
+    
+    // Handle errors
+    const onError = (error: Error) => {
+      console.error('WebSocket error:', error);
+      clearInterval(pingInterval);
+      ws.off('close', onClose);
+      ws.off('error', onError);
+    };
+    
+    ws.on('close', onClose);
+    ws.on('error', onError);
+    
     // Send current status on connection
     sendEngineStatus(ws);
 
@@ -247,19 +275,13 @@ export function createEngineWebSocketServer(port: number = 8080) {
       }
     });
 
-    ws.on('close', () => {
-      console.log('Client disconnected');
-      // Don't stop the engine on client disconnect
-      // Let explicit stop command handle it
-    });
+    // Cleanup is handled by the connection handler
   });
-
-  console.log(`WebSocket server running on ws://localhost:${port}`);
-  return wss;
 }
 
 // Start the server if this file is run directly
 if (import.meta.url === `file://${process.argv[1]}`) {
   const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 8080;
+  console.log(`WebSocket server running on ws://localhost:${port}`);
   createEngineWebSocketServer(port);
 }
