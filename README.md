@@ -11,7 +11,6 @@ cp ./cli ../cli
 # Bug
 
 - [ ] analysis starts one move too far after go back
-- [ ] Bishop can't move when "pinned" from other bishop
 
 # TODO
 

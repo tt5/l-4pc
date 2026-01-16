@@ -1171,24 +1171,39 @@ export function getLegalMoves(
     // Store original moves for logging
     const originalMoveCount = possibleMoves.length;
     
-    // Filter moves to only allow movement along the pin line
-    possibleMoves = possibleMoves.filter(move => {
-      // Knights can't move if pinned
-      if (basePoint.pieceType === 'knight') {
-        return false;
-      }
-      const dx = move.x - basePoint.x;
-      const dy = move.y - basePoint.y;
-      
-      // Allow moves along the pin line
-      const isValidMove = (dx === 0 && pinDir[0] === 0) ||  // Vertical pin
-                         (dy === 0 && pinDir[1] === 0) ||  // Horizontal pin
-                         (dx !== 0 && dy !== 0 && Math.abs(dx / dy) === 1 &&  // Diagonal pin
-                          Math.sign(dx) === Math.sign(pinDir[0]) && 
-                          Math.sign(dy) === Math.sign(pinDir[1]));
-      
-      return isValidMove;
-    });
+    // For bishops, rooks, and queens, allow movement along the pin line
+    if (['bishop', 'rook', 'queen'].includes(basePoint.pieceType)) {
+      possibleMoves = possibleMoves.filter(move => {
+        const dx = move.x - basePoint.x;
+        const dy = move.y - basePoint.y;
+        
+        // Allow moves along the pin line (both directions for bishops, rooks, and queens)
+        return (dx === 0 && pinDir[0] === 0) ||  // Vertical
+               (dy === 0 && pinDir[1] === 0) ||  // Horizontal
+               (dx !== 0 && dy !== 0 && Math.abs(dx) === Math.abs(dy) &&  // Diagonal
+                ((Math.sign(dx) === Math.sign(pinDir[0]) && Math.sign(dy) === Math.sign(pinDir[1])) ||  // Same direction
+                 (Math.sign(dx) === -Math.sign(pinDir[0]) && Math.sign(dy) === -Math.sign(pinDir[1])))); // Opposite direction
+      });
+    } 
+    // For other pieces (pawns, kings), only allow moves away from the king
+    else {
+      possibleMoves = possibleMoves.filter(move => {
+        // Knights can't move if pinned
+        if (basePoint.pieceType === 'knight') {
+          return false;
+        }
+        
+        const dx = move.x - basePoint.x;
+        const dy = move.y - basePoint.y;
+        
+        // Only allow moves along the pin line in the direction away from the king
+        return (dx === 0 && pinDir[0] === 0) ||  // Vertical
+               (dy === 0 && pinDir[1] === 0) ||  // Horizontal
+               (dx !== 0 && dy !== 0 && Math.abs(dx) === Math.abs(dy) &&  // Diagonal
+                Math.sign(dx) === Math.sign(pinDir[0]) && 
+                Math.sign(dy) === Math.sign(pinDir[1]));
+      });
+    }
 
     // Log the restricted moves
     console.log(`[PIN RESTRICTION] ${basePoint.pieceType} at (${basePoint.x},${basePoint.y}) - ` +
