@@ -106,10 +106,12 @@ const Board: Component<BoardProps> = (props) => {
           
           console.log('[Board] Successfully connected to engine');
           
+          /*
           // Initial analysis if we have a position
           if (fullMoveHistory().length > 0) {
             analyzePosition();
           }
+          */
         } catch (err) {
           console.error('[Board] Error connecting to engine:', err);
         }
@@ -145,13 +147,6 @@ const Board: Component<BoardProps> = (props) => {
     if (!engine.isConnected()) {
       console.log('[Engine] Not connected, attempting to connect...');
       try {
-        // Add connection state change listener for debugging
-        const onStateChange = () => {
-          console.log(`[Engine] Connection state changed:`, {
-            readyState: engine.isConnected() ? 'connected' : 'disconnected'
-          });
-        };
-        
         // Connect and wait for connection
         console.log('[Engine] Calling engine.connect()');
         await engine.connect();
@@ -298,22 +293,6 @@ const Board: Component<BoardProps> = (props) => {
       engine.off('analysis', handleAnalysis);
     };
   });
-  
-  // Track the last move count to prevent duplicate analysis
-  const [lastMoveCount, setLastMoveCount] = createSignal(0);
-
-  /*
-  // Reset move count when starting a new game
-  const handleNewGame = () => {
-    setLastMoveCount(0);
-    // Call the original new game handler if it exists
-    if (typeof props.onNewGame === 'function') {
-      props.onNewGame();
-    }
-  };
-  */
-
-  // Connection handling is now done in the status listener above
   
   // Initialize the board when the component mounts
   onMount(async () => {
@@ -1210,9 +1189,11 @@ const Board: Component<BoardProps> = (props) => {
     // 7. Force UI update and recalculate restricted squares with latest state
     await new Promise(resolve => setTimeout(resolve, 0));
     
+    /*
     // Trigger analysis after moving forward
     const uciMoveHistory = history.slice(0, newIndex).map(moveToUCI);
     startEngineAnalysis(uciMoveHistory);
+    */
   };
 
   // Track if we're currently handling a go back operation
@@ -1317,11 +1298,12 @@ const Board: Component<BoardProps> = (props) => {
         setRestrictedSquaresInfo(restrictedSquaresInfo);
       });
       
+      /*
       // Trigger analysis after all state updates are complete
       const uciMoveHistory = history.slice(0, newIndex).map(moveToUCI);
       console.log('[handleGoBack] Starting analysis with moves:', uciMoveHistory);
       await startEngineAnalysis(uciMoveHistory);
-      
+      */
     } finally {
       isHandlingGoBack.current = false;
     }
