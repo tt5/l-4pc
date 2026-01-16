@@ -73,12 +73,31 @@ export async function POST({ request, params }: APIEvent) {
         });
       }
 
-      // Kill the process group to ensure all child processes are terminated
-      if (engineProcess && engineProcess.pid) {
-        process.kill(-engineProcess.pid, 'SIGTERM');
+      try {
+        // First try to stop gracefully via SIGTERM
+        if (engineProcess && engineProcess.pid) {
+          console.log(`Sending SIGTERM to process group ${-engineProcess.pid}`);
+          process.kill(-engineProcess.pid, 'SIGTERM');
+          
+          // Wait for process to exit gracefully
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Force kill if still running
+          try {
+            process.kill(engineProcess.pid, 0); // Check if process exists
+            console.log('Process still running, sending SIGKILL');
+            process.kill(-engineProcess.pid, 'SIGKILL');
+          } catch (e) {
+            // Process already exited
+          }
+        }
+      } catch (error) {
+        console.error('Error killing process:', error);
+      } finally {
+        engineProcess = null;
+        await unlink(PID_FILE).catch(() => {});
+        console.log('Engine process cleanup complete');
       }
-      engineProcess = null;
-      await unlink(PID_FILE).catch(() => {});
 
       return new Response(JSON.stringify({ success: true }), {
         status: 200,

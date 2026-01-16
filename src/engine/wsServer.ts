@@ -28,11 +28,11 @@ export function createEngineWebSocketServer(port: number = 8080) {
   }
   
   function stopEngine() {
-    if (!engine) return true;
-    
     console.log('Stopping engine...');
     try {
-      engine.quit();
+      if (engine) {
+        engine.quit();
+      }
       return true;
     } catch (error) {
       console.error('Error stopping engine:', error);
@@ -41,6 +41,7 @@ export function createEngineWebSocketServer(port: number = 8080) {
       engine = null;
       isInitialized = false;
       isEngineRunning = false;
+      console.log('Engine stopped and fully reset');
     }
   }
 

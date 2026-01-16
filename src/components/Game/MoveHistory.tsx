@@ -84,16 +84,11 @@ export const MoveHistory = (props: MoveHistoryProps) => {
   // Format move using chess notation
   const formatMoveDisplay = (move: Move, basePoints: BasePoint[]) => {
     try {
-      console.log('Formatting move:', JSON.stringify(move, null, 2));
-      console.log('Base points:', basePoints);
-      
       // Try to find the piece in basePoints
       const piece = basePoints.find(p => 
         p.x === move.fromX && 
         p.y === move.fromY
       );
-      
-      console.log('Found piece:', piece);
       
       // If we have a piece, use its type and color
       if (piece) {
@@ -108,7 +103,6 @@ export const MoveHistory = (props: MoveHistoryProps) => {
           isCheck: move.isCheck,
           promotionPiece: move.promotionPiece
         }, basePoints);
-        console.log('Formatted move with piece:', formattedMove);
         return formattedMove;
       }
       
@@ -125,9 +119,7 @@ export const MoveHistory = (props: MoveHistoryProps) => {
         promotionPiece: move.promotionPiece
       };
       
-      console.log('Using fallback move data:', fallbackMove);
       const result = formatMove(fallbackMove, basePoints);
-      console.log('Formatted move with fallback:', result);
       return result;
     } catch (error) {
       console.error('Error formatting move:', error);
