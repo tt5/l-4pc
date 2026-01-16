@@ -76,6 +76,7 @@ function createEngineClient(): EngineClient {
   let reconnectTimeout: number | null = null;
   let lastFen: string | null = null; // Track the last sent FEN
   const events: EventMap = {}; // Store event listeners
+  let isIntentionalDisconnect = false; // Track if disconnection was intentional
   
   // Event emitter function
   const emit = (event: string, ...args: any[]): void => {
@@ -239,15 +240,16 @@ function createEngineClient(): EngineClient {
         if (wasConnected) {
           emit('disconnected', { code: event.code, reason: event.reason });
           emit('status', { running: false });
-        } else if (reconnectTimeout === null && !pageIsReloading) {
-          // If we're not connected and not already reconnecting, and not reloading
+        } else if (reconnectTimeout === null && !pageIsReloading && !isIntentionalDisconnect) {
+          // If we're not connected, not already reconnecting, not reloading, and not an intentional disconnect
           emit('connectionLost', { code: event.code, reason: event.reason });
           emit('status', { running: false });
         }
         
-        // Don't attempt to reconnect if this was a normal closure or page is reloading
-        if (event.code === 1000 || pageIsReloading) {
-          console.log(`[wsClient] ${pageIsReloading ? 'Page is reloading' : 'Normal closure'}, not reconnecting`);
+        // Don't attempt to reconnect if this was a normal closure, page is reloading, or disconnection was intentional
+        const shouldNotReconnect = event.code === 1000 || pageIsReloading || isIntentionalDisconnect;
+        if (shouldNotReconnect) {
+          console.log(`[wsClient] ${pageIsReloading ? 'Page is reloading' : isIntentionalDisconnect ? 'Intentional disconnect' : 'Normal closure'}, not reconnecting`);
           if (!isResolved) {
             isResolved = true;
             resolve(false);
@@ -370,7 +372,15 @@ function createEngineClient(): EngineClient {
     
     try {
       console.log('[wsClient] Sending stopEngine command');
+      // Mark this as an intentional disconnect to prevent reconnection
+      isIntentionalDisconnect = true;
       ws.send(JSON.stringify({ type: 'stopEngine' }));
+      
+      // Reset the flag after a short delay to handle any queued close events
+      setTimeout(() => {
+        isIntentionalDisconnect = false;
+      }, 100);
+      
       return true;
     } catch (err) {
       console.error('[wsClient] Error stopping engine:', err);
