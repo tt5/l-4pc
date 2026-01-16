@@ -61,13 +61,6 @@ function createEngineClient() {
   
   const connect = (url: string = 'ws://localhost:8080'): Promise<boolean> => {
     return new Promise((resolve) => {
-      // If we're in the middle of a page reload, don't attempt to reconnect
-      if (pageIsReloading) {
-        console.log('[wsClient] Page is reloading, skipping connection attempt');
-        resolve(false);
-        return;
-      }
-
       // Clear any pending reconnection attempts
       if (reconnectTimeout !== null) {
         clearTimeout(reconnectTimeout);
@@ -78,14 +71,17 @@ function createEngineClient() {
       if (ws) {
         try {
           ws.close();
-        } catch (e) {
-          console.warn('[wsClient] Error closing existing connection:', e);
+        } catch (err) {
+          console.warn('[wsClient] Error closing existing connection:', err);
         }
+        ws = null;
       }
 
       console.log(`[wsClient] Connecting to engine server at ${url}...`);
-      ws = new WebSocket(url);
       
+      // Set a flag to track if we've resolved the promise
+      let isResolved = false;
+
       // Set up connection timeout
       const connectionTimeout = setTimeout(() => {
         if (ws && ws.readyState !== WebSocket.OPEN) {
@@ -94,6 +90,8 @@ function createEngineClient() {
           handleReconnect(url, resolve);
         }
       }, 5000); // 5 second connection timeout
+      
+      ws = new WebSocket(url);
       
       ws.onopen = () => {
         clearTimeout(connectionTimeout);
@@ -113,13 +111,18 @@ function createEngineClient() {
         }
         
         // Request engine status on connect
-        ws?.send(JSON.stringify({ type: 'getEngineStatus' }));
+        try {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'getEngineStatus' }));
+          }
+        } catch (err) {
+          console.error('[wsClient] Error sending getEngineStatus:', err);
+        }
         
-        // Resolve the connection promise
-        if (resolve) {
+        // Resolve the connection promise if not already resolved
+        if (!isResolved) {
+          isResolved = true;
           resolve(true);
-          // Clear the resolve function to prevent multiple resolves
-          resolve = null as any;
         }
       };
       
@@ -210,9 +213,9 @@ function createEngineClient() {
         // Don't attempt to reconnect if this was a normal closure or page is reloading
         if (event.code === 1000 || pageIsReloading) {
           console.log(`[wsClient] ${pageIsReloading ? 'Page is reloading' : 'Normal closure'}, not reconnecting`);
-          if (resolve) {
+          if (!isResolved) {
+            isResolved = true;
             resolve(false);
-            resolve = null as any;
           }
           return;
         }
@@ -220,14 +223,14 @@ function createEngineClient() {
         // Only attempt to reconnect if we're not already in a reconnection attempt
         if (!reconnectTimeout) {
           handleReconnect(url, (success) => {
-            if (resolve) {
+            if (!isResolved) {
+              isResolved = true;
               resolve(success);
-              resolve = null as any;
             }
           });
-        } else if (resolve) {
+        } else if (!isResolved) {
+          isResolved = true;
           resolve(false);
-          resolve = null as any;
         }
       };
       

@@ -46,10 +46,19 @@ export function createEngineWebSocketServer(port: number = 8080) {
 
   // Helper function to send engine status
   function sendEngineStatus(ws: any) {
-    ws.send(JSON.stringify({
-      type: 'engineStatus',
-      data: { running: isEngineRunning }
-    }));
+    if (ws.readyState === ws.OPEN) {
+      try {
+        ws.send(JSON.stringify({
+          type: 'engineStatus',
+          data: { 
+            running: isEngineRunning,
+            initialized: isInitialized
+          }
+        }));
+      } catch (error) {
+        console.error('Error sending engine status:', error);
+      }
+    }
   }
 
   wss.on('connection', (ws) => {
@@ -64,12 +73,18 @@ export function createEngineWebSocketServer(port: number = 8080) {
       }
     }, 30000); // Send ping every 30 seconds
     
+    // Handle pongs to keep the connection alive
+    ws.on('pong', () => {
+      // Reset any connection timeout here if needed
+    });
+    
     // Handle connection close
     const onClose = () => {
       console.log('Client disconnected');
       clearInterval(pingInterval);
       ws.off('close', onClose);
       ws.off('error', onError);
+      ws.off('pong', () => {});
     };
     
     // Handle errors
@@ -78,13 +93,16 @@ export function createEngineWebSocketServer(port: number = 8080) {
       clearInterval(pingInterval);
       ws.off('close', onClose);
       ws.off('error', onError);
+      ws.off('pong', () => {});
     };
     
     ws.on('close', onClose);
     ws.on('error', onError);
     
     // Send current status on connection
-    sendEngineStatus(ws);
+    if (ws.readyState === ws.OPEN) {
+      sendEngineStatus(ws);
+    }
 
     // Handle incoming messages
     ws.on('message', async (message) => {
