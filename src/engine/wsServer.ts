@@ -214,7 +214,7 @@ export function createEngineWebSocketServer(port: number = 8080) {
 
           case 'stopAnalysis':
             if (engine) {
-              engine.stop();
+              engine.stopInfiniteAnalysis();
             }
             break;
             

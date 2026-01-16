@@ -4,7 +4,7 @@ Analyse 4 player chess games.
 
 ``` bash
 cd 4pchess
-make cli
+make -B cli
 cp ./cli ../cli
 ```
 

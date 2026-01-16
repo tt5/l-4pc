@@ -245,11 +245,11 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                     }
                     
                     if (orderings_count % 400000 == 0) {
-                        std::cout << "Move ordering stats - "
-                                  << "Total time: " << total_ordering_time.count() / 1000.0 << "ms "
-                                  << "Count: " << orderings_count << " "
-                                  << "Avg: " << total_ordering_time.count() / orderings_count << "µs "
-                                  << "Cur/Max moves: " << moves_this_time << "/" << max_moves_ordered << "\n";
+                        //std::cout << "Move ordering stats - "
+                        //          << "Total time: " << total_ordering_time.count() / 1000.0 << "ms "
+                        //          << "Count: " << orderings_count << " "
+                        //          << "Avg: " << total_ordering_time.count() / orderings_count << "µs "
+                        //          << "Cur/Max moves: " << moves_this_time << "/" << max_moves_ordered << "\n";
                     }
                 }
                 
