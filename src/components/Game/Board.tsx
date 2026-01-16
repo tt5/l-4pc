@@ -133,13 +133,13 @@ const Board: Component<BoardProps> = (props) => {
     '#4CAF50': null   // Green
   });
   
-  const startEngineAnalysis = async (moves: string[]) => {
+  const startEngineAnalysis = async (moves: string[]): Promise<boolean> => {
     const movesStr = JSON.stringify(moves);
     const lastMovesStr = JSON.stringify(lastAnalyzedMoves());
     
     if (!isEngineReady()) {
       console.log('[Engine] Engine not ready, skipping analysis');
-      return;
+      return false;
     }
 
     if (!engine.isConnected()) {
@@ -167,31 +167,31 @@ const Board: Component<BoardProps> = (props) => {
         
         if (!engine.isConnected()) {
           console.error('[Engine] Failed to connect to engine - timeout waiting for connection');
-          return;
+          return false;
         }
         
         console.log('[Engine] Successfully connected to engine');
       } catch (err) {
         console.error('[Engine] Error connecting to engine:', err);
-        return;
+        return false;
       }
     }
     
     if (analysisInProgress.current) {
       console.log('[Engine] Skipping analysis - already analyzing');
-      return;
+      return false;
     }
     
     // Don't start analysis if it was explicitly stopped
     if (isAnalysisStopped()) {
       console.log('[Engine] Skipping analysis - analysis was stopped by user');
-      return;
+      return false;
     }
     
     // Skip if we're already analyzing these exact moves
     if (movesStr === lastMovesStr) {
       console.log('[Engine] Skipping analysis - same moves as last analysis');
-      return;
+      return false;
     }
     
     console.log(`[Engine] Starting analysis with moves: ${JSON.stringify(moves, null, 2)}`);
@@ -201,12 +201,14 @@ const Board: Component<BoardProps> = (props) => {
     
     try {
       await engine.startAnalysis(moves);
+      return true;
     } catch (error) {
       console.error('[Engine] Error during analysis:', error);
       // Reset last analyzed moves on error to ensure we can retry
       setLastAnalyzedMoves([]);
       analysisInProgress.current = false;
       setIsAnalyzing(false);
+      return false;
     }
   };
   
@@ -221,7 +223,11 @@ const Board: Component<BoardProps> = (props) => {
       console.log('[Engine] Starting analysis');
       setIsAnalysisStopped(false);
       const currentMoves = moveHistory().slice(0, currentMoveIndex() + 1).map(moveToUCI);
-      await startEngineAnalysis(currentMoves);
+      const success = await startEngineAnalysis(currentMoves);
+      if (!success) {
+        console.error('[Engine] Failed to start analysis');
+        return false;
+      }
       return true;
     } 
     // Otherwise stop it

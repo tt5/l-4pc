@@ -1,5 +1,22 @@
 import { createSignal, onCleanup } from 'solid-js';
 
+// Define the engine client interface
+export interface EngineClient {
+  isConnected: () => boolean;
+  connect: (url?: string) => Promise<boolean>;
+  disconnect: () => void;
+  on: (event: string, callback: EventCallback) => () => void;
+  off: (event: string, callback: EventCallback) => void;
+  startAnalysis: (moveHistory?: string[]) => boolean;
+  stopAnalysis: () => boolean;
+  setThreads: (threads: number) => boolean;
+  updatePosition: (fen: string, moveHistory?: string[]) => void;
+  makeMove: (fen: string, move: string, moveHistory: string[]) => void;
+  isReady: () => boolean;
+  analysis: () => AnalysisUpdate | null;
+  error: () => Error | null;
+}
+
 type EventCallback = (...args: any[]) => void;
 type EventMap = {
   [event: string]: EventCallback[];
@@ -13,7 +30,7 @@ export type AnalysisUpdate = {
 };
 
 // Singleton instance
-let wsInstance: ReturnType<typeof createEngineClient> | null = null;
+let wsInstance: EngineClient | null = null;
 
 // Track if the page is being reloaded
 let pageIsReloading = false;
@@ -25,7 +42,7 @@ if (typeof window !== 'undefined') {
   });
 }
 
-export function getEngineClient() {
+export function getEngineClient(): EngineClient {
   if (!wsInstance) {
     wsInstance = createEngineClient();
     
@@ -46,7 +63,7 @@ export function getEngineClient() {
   return wsInstance;
 }
 
-function createEngineClient() {
+function createEngineClient(): EngineClient {
   const [isConnected, setIsConnected] = createSignal(false);
   const [analysis, setAnalysis] = createSignal<AnalysisUpdate | null>(null);
   const [error, setError] = createSignal<Error | null>(null);
@@ -59,6 +76,20 @@ function createEngineClient() {
   let lastFen: string | null = null; // Track the last sent FEN
   const events: EventMap = {}; // Store event listeners
   
+  // Event emitter function
+  const emit = (event: string, ...args: any[]): void => {
+    if (events[event]) {
+      events[event].forEach(callback => {
+        try {
+          callback(...args);
+        } catch (err) {
+          console.error(`[wsClient] Error in ${event} handler:`, err);
+        }
+      });
+    }
+  };
+  
+  // Implement all the methods required by the EngineClient interface
   const connect = (url: string = 'ws://localhost:8080'): Promise<boolean> => {
     return new Promise((resolve) => {
       // Clear any pending reconnection attempts
@@ -97,11 +128,10 @@ function createEngineClient() {
         clearTimeout(connectionTimeout);
         console.log('[wsClient] Connected to engine server');
         
-        // Only update state if we weren't already connected
-        if (!isConnected()) {
-          setIsConnected(true);
-          emit('connected', null);
-        }
+        // Update connection state and emit events
+        setIsConnected(true);
+        emit('connected', null);
+        emit('status', { running: true });
         
         reconnectAttempts = 0; // Reset reconnect attempts on successful connection
         
@@ -201,13 +231,17 @@ function createEngineClient() {
         clearTimeout(connectionTimeout);
         console.log(`[wsClient] Disconnected from engine server: ${event.code} ${event.reason || ''}`);
         
-        // Only update state if we're still connected
-        if (isConnected()) {
-          setIsConnected(false);
+        // Update connection state and emit events
+        const wasConnected = isConnected();
+        setIsConnected(false);
+        
+        if (wasConnected) {
           emit('disconnected', { code: event.code, reason: event.reason });
+          emit('status', { running: false });
         } else if (reconnectTimeout === null && !pageIsReloading) {
           // If we're not connected and not already reconnecting, and not reloading
           emit('connectionLost', { code: event.code, reason: event.reason });
+          emit('status', { running: false });
         }
         
         // Don't attempt to reconnect if this was a normal closure or page is reloading
@@ -238,7 +272,8 @@ function createEngineClient() {
   };
   
   // Helper function to handle reconnection with exponential backoff
-  const handleReconnect = (url: string, resolve: (value: boolean) => void) => {
+  const handleReconnect = (url: string, resolve: (value: boolean) => void): void => {
+    let isResolved = false; // Track if the promise has been resolved
     if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
       const error = new Error('Max reconnection attempts reached');
       console.error('[wsClient]', error);
@@ -277,36 +312,14 @@ function createEngineClient() {
         }
       } catch (err) {
         console.error('[wsClient] Reconnection attempt failed:', err);
-        if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-          handleReconnect(url, resolve);
-        } else {
-          const error = new Error('Max reconnection attempts reached');
-          console.error('[wsClient]', error);
-          setError(error);
-          emit('error', error);
+        ws = null;
+        setIsConnected(false);
+        if (!isResolved) {
+          isResolved = true;
           resolve(false);
         }
       }
-    }, delay);
-  };
-  
-  const disconnect = () => {
-    // Clear any pending reconnection attempts
-    if (reconnectTimeout !== null) {
-      clearTimeout(reconnectTimeout);
-      reconnectTimeout = null;
-    }
-    
-    // Reset reconnect attempts
-    reconnectAttempts = 0;
-    
-    // Close the connection if it exists
-    if (ws) {
-      ws.close(1000, 'Client disconnected');
-      ws = null;
-    }
-    
-    setIsConnected(false);
+    });
   };
   
   const startAnalysis = (moveHistory: string[] = []) => {
@@ -353,7 +366,7 @@ function createEngineClient() {
     }
   };
   
-  const makeMove = (fen: string, move: string, moveHistory: string[] = []) => {
+  const makeMove = (fen: string, move: string, moveHistory: string[] = []): void => {
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     
     ws.send(JSON.stringify({
@@ -362,7 +375,8 @@ function createEngineClient() {
     }));
   };
   
-  const updatePosition = (fen: string, moveHistory: string[] = []) => {
+  const updatePosition = (fen: string, moveHistory: string[] = []): boolean => {
+    lastFen = fen; // Update the last known FEN
     if (!ws || ws.readyState !== WebSocket.OPEN) return false;
     
     try {
@@ -428,13 +442,26 @@ function createEngineClient() {
     }
   };
 
-  const emit = (event: string, ...args: any[]) => {
-    if (!events[event]) return;
-    for (const callback of [...events[event]]) {
+  // Disconnect function implementation
+  const disconnect = (): void => {
+    if (reconnectTimeout !== null) {
+      clearTimeout(reconnectTimeout);
+      reconnectTimeout = null;
+    }
+
+    if (ws) {
       try {
-        callback(...args);
+        // Notify server we're disconnecting
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'disconnect' }));
+        }
+        ws.close();
       } catch (err) {
-        console.error(`Error in event handler for '${event}':`, err);
+        console.error('[wsClient] Error during disconnect:', err);
+      } finally {
+        ws = null;
+        setIsConnected(false);
+        emit('disconnected');
       }
     }
   };
@@ -446,6 +473,11 @@ function createEngineClient() {
       ws.close();
     }
   });
+
+  // Implement isReady method
+  const isReady = (): boolean => {
+    return isConnected() && ws?.readyState === WebSocket.OPEN;
+  };
 
   return {
     isConnected,
@@ -460,8 +492,8 @@ function createEngineClient() {
     setThreads,
     on,
     off,
-    emit
+    isReady
   };
 }
 
-export type EngineClient = ReturnType<typeof createEngineClient>;
+// Export the EngineClient interface
