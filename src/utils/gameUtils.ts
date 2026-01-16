@@ -1163,9 +1163,15 @@ export function getLegalMoves(
   // First check if the piece is pinned
   const { isPinned, pinDirection } = isPiecePinned(basePoint, allBasePoints, getTeamFn);
 
-  // If pinned, only allow moves along the pin line
+  // If pinned, log the piece and its restricted moves
   if (isPinned) {
     const pinDir = pinDirection!;
+    console.log(`[PINNED PIECE] ${basePoint.pieceType} at (${basePoint.x},${basePoint.y}) is pinned in direction [${pinDir[0]},${pinDir[1]}]`);
+    
+    // Store original moves for logging
+    const originalMoveCount = possibleMoves.length;
+    
+    // Filter moves to only allow movement along the pin line
     possibleMoves = possibleMoves.filter(move => {
       // Knights can't move if pinned
       if (basePoint.pieceType === 'knight') {
@@ -1175,12 +1181,26 @@ export function getLegalMoves(
       const dy = move.y - basePoint.y;
       
       // Allow moves along the pin line
-      return (dx === 0 && pinDir[0] === 0) ||  // Vertical pin
-             (dy === 0 && pinDir[1] === 0) ||  // Horizontal pin
-             (dx !== 0 && dy !== 0 && Math.abs(dx / dy) === 1 &&  // Diagonal pin
-              Math.sign(dx) === Math.sign(pinDir[0]) && 
-              Math.sign(dy) === Math.sign(pinDir[1]));
+      const isValidMove = (dx === 0 && pinDir[0] === 0) ||  // Vertical pin
+                         (dy === 0 && pinDir[1] === 0) ||  // Horizontal pin
+                         (dx !== 0 && dy !== 0 && Math.abs(dx / dy) === 1 &&  // Diagonal pin
+                          Math.sign(dx) === Math.sign(pinDir[0]) && 
+                          Math.sign(dy) === Math.sign(pinDir[1]));
+      
+      return isValidMove;
     });
+
+    // Log the restricted moves
+    console.log(`[PIN RESTRICTION] ${basePoint.pieceType} at (${basePoint.x},${basePoint.y}) - ` +
+                `Moves reduced from ${originalMoveCount} to ${possibleMoves.length}`);
+    
+    // Log the remaining valid moves
+    if (possibleMoves.length > 0) {
+      const moveList = possibleMoves.map(m => `(${m.x},${m.y}${m.canCapture ? ' (capture)' : ''})`).join(', ');
+      console.log(`[VALID MOVES] ${basePoint.pieceType} at (${basePoint.x},${basePoint.y}) can move to: ${moveList}`);
+    } else {
+      console.log(`[NO VALID MOVES] ${basePoint.pieceType} at (${basePoint.x},${basePoint.y}) has no legal moves due to pin`);
+    }
   }
 
   // Then filter moves that would leave the king in check
