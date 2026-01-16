@@ -8,10 +8,6 @@ make cli
 cp ./cli ../cli
 ```
 
-# Bug
-
-- [ ] analysis starts one move too far after go back
-
 # TODO
 
 - [ ] engine castling

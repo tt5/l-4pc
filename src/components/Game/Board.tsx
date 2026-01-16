@@ -183,11 +183,13 @@ const Board: Component<BoardProps> = (props) => {
       return false;
     }
     
+    /*
     // Skip if we're already analyzing these exact moves
     if (movesStr === lastMovesStr) {
       console.log('[Engine] Skipping analysis - same moves as last analysis');
       return false;
     }
+    */
     
     console.log(`[Engine] Starting analysis with moves: ${JSON.stringify(moves, null, 2)}`);
     analysisInProgress.current = true;
@@ -217,7 +219,7 @@ const Board: Component<BoardProps> = (props) => {
     if (isAnalysisStopped()) {
       console.log('[Engine] Starting analysis');
       setIsAnalysisStopped(false);
-      const currentMoves = moveHistory().slice(0, currentMoveIndex() + 1).map(moveToUCI);
+      const currentMoves = moveHistory().slice(0, currentMoveIndex()).map(moveToUCI);
       const success = await startEngineAnalysis(currentMoves);
       if (!success) {
         console.error('[Engine] Failed to start analysis');
