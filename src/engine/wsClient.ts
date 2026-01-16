@@ -376,7 +376,10 @@ function createEngineClient(): EngineClient {
     if (!isConnected() || !ws) return false;
     
     try {
-      ws.send(JSON.stringify({ type: 'stopAnalysis' }));
+      ws.send(JSON.stringify({ 
+        type: 'stopAnalysis',
+        data: {}
+      }));
       return true;
     } catch (err) {
       console.error('[wsClient] Error stopping analysis:', err);

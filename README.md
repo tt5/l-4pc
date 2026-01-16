@@ -8,6 +8,10 @@ make -B cli
 cp ./cli ../cli
 ```
 
+# Bug
+
+- [ ] load game: branches not loaded
+
 # TODO
 
 - [ ] engine castling
