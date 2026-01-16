@@ -274,14 +274,32 @@ function createEngineClient(): EngineClient {
     });
   };
   
+  // Helper function to reset reconnection state
+  const resetReconnectionState = (): void => {
+    if (reconnectTimeout !== null) {
+      clearTimeout(reconnectTimeout);
+      reconnectTimeout = null;
+    }
+    reconnectAttempts = 0;
+  };
+
   // Helper function to handle reconnection with exponential backoff
   const handleReconnect = (url: string, resolve: (value: boolean) => void): void => {
+    // If this is an intentional disconnect, don't attempt to reconnect
+    if (isIntentionalDisconnect) {
+      console.log('[wsClient] Not reconnecting - intentional disconnect');
+      resetReconnectionState();
+      resolve(false);
+      return;
+    }
+
     let isResolved = false; // Track if the promise has been resolved
     if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
       const error = new Error('Max reconnection attempts reached');
       console.error('[wsClient]', error);
       setError(error);
       emit('error', error);
+      resetReconnectionState();
       resolve(false);
       return;
     }
@@ -370,23 +388,24 @@ function createEngineClient(): EngineClient {
   const stopEngine = (): boolean => {
     if (!isConnected() || !ws) return false;
     
-    try {
-      console.log('[wsClient] Sending stopEngine command');
-      // Mark this as an intentional disconnect to prevent reconnection
-      isIntentionalDisconnect = true;
-      ws.send(JSON.stringify({ type: 'stopEngine' }));
-      
-      // Reset the flag after a short delay to handle any queued close events
-      setTimeout(() => {
-        isIntentionalDisconnect = false;
-      }, 100);
-      
-      return true;
-    } catch (err) {
-      console.error('[wsClient] Error stopping engine:', err);
-      setError(err instanceof Error ? err : new Error('Failed to stop engine'));
-      return false;
+    // Reset reconnection state
+    resetReconnectionState();
+    
+    if (ws) {
+      ws.close(1000, 'Client disconnected');
+      ws = null;
     }
+    
+    setIsConnected(false);
+    emit('disconnected', { code: 1000, reason: 'Client disconnected' });
+    emit('status', { running: false });
+    
+    // Reset the flag after a short delay to handle any queued close events
+    setTimeout(() => {
+      isIntentionalDisconnect = false;
+    }, 100);
+    
+    return true;
   };
   
   const makeMove = (fen: string, move: string, moveHistory: string[] = []): void => {
