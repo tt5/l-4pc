@@ -9,6 +9,7 @@ export interface EngineClient {
   off: (event: string, callback: EventCallback) => void;
   startAnalysis: (moveHistory?: string[]) => boolean;
   stopAnalysis: () => boolean;
+  stopEngine: () => boolean;
   setThreads: (threads: number) => boolean;
   updatePosition: (fen: string, moveHistory?: string[]) => void;
   makeMove: (fen: string, move: string, moveHistory: string[]) => void;
@@ -351,17 +352,29 @@ function createEngineClient(): EngineClient {
     }
   };
   
-  const stopAnalysis = () => {
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      console.log('Engine: Not connected, cannot stop analysis');
-      return false;
-    }
+  const stopAnalysis = (): boolean => {
+    if (!isConnected() || !ws) return false;
+    
     try {
-      console.log('Engine: Stopping analysis');
       ws.send(JSON.stringify({ type: 'stopAnalysis' }));
       return true;
-    } catch (error) {
-      console.error('Engine: Failed to stop analysis:', error);
+    } catch (err) {
+      console.error('[wsClient] Error stopping analysis:', err);
+      setError(err instanceof Error ? err : new Error('Failed to stop analysis'));
+      return false;
+    }
+  };
+  
+  const stopEngine = (): boolean => {
+    if (!isConnected() || !ws) return false;
+    
+    try {
+      console.log('[wsClient] Sending stopEngine command');
+      ws.send(JSON.stringify({ type: 'stopEngine' }));
+      return true;
+    } catch (err) {
+      console.error('[wsClient] Error stopping engine:', err);
+      setError(err instanceof Error ? err : new Error('Failed to stop engine'));
       return false;
     }
   };
@@ -487,6 +500,7 @@ function createEngineClient(): EngineClient {
     disconnect,
     startAnalysis,
     stopAnalysis,
+    stopEngine,
     makeMove,
     updatePosition,
     setThreads,

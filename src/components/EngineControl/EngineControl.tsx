@@ -144,7 +144,11 @@ export function EngineControl() {
     try {
       // First try to stop gracefully via WebSocket if connected
       if (engine.isConnected()) {
-        sendCommand('stopEngine');
+        // Use the stopEngine method instead of sendCommand
+        const stopped = engine.stopEngine();
+        if (!stopped) {
+          console.warn('Failed to stop engine via WebSocket');
+        }
         // Wait a bit for the engine to stop
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
