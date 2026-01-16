@@ -2,23 +2,18 @@ Analyse 4 player chess games.
 
 `npm run dev`
 
-or with engine: `node start-servers.js` (starts both: dev server and engine server)
-
 ``` bash
 cd 4pchess
 make cli
 cp ./cli ../cli
 ```
 
-## TODO
-
-- [ ] castling
-- [ ] en passant
-- [ ] promotion
-
 # TODO
 
-- [ ] pawn promotion
+- [ ] engine castling
+- [ ] engine en passant
+- [ ] engine promotion
+- [ ] client promotion
 - [ ] rotate board
 - [X] algebraic notation
 - [ ] promote branch
