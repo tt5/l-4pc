@@ -22,15 +22,16 @@ import { useRestrictedSquares } from '../../contexts/RestrictedSquaresContext';
 
 import { generateFen4, parseFen4 } from '~/utils/fen4Utils';
 import { getColorHex } from '~/utils/colorUtils';
-import { getLegalMoves } from '~/utils/gameUtils';
 import { MOVE_PATTERNS } from '~/constants/movePatterns';
 import { 
+  getLegalMoves,
   isValidPieceType,
   isSquareBetween,
   isSquareUnderAttack,
   wouldResolveCheck,
   validateSquarePlacement,
-  isKingInCheck
+  isKingInCheck,
+  moveToUCI
 } from '~/utils/gameUtils';
 import { getTeamByColor } from '~/constants/game';
 import { calculateRestrictedSquares, updateBasePoint } from '~/utils/boardUtils';
@@ -57,14 +58,7 @@ interface BoardProps {
 }
 
 const Board: Component<BoardProps> = (props) => {
-  // Function to convert internal move format to UCI format
-  const moveToUCI = (move: Move): string => {
-    const fromFile = String.fromCharCode(97 + move.fromX);
-    const fromRank = (14 - move.fromY).toString();
-    const toFile = String.fromCharCode(97 + move.toX);
-    const toRank = (14 - move.toY).toString();
-    return `${fromFile}${fromRank}${toFile}${toRank}`;
-  };
+  // moveToUCI function has been moved to gameUtils
 
   const auth = useAuth();
   const navigate = useNavigate();
@@ -89,7 +83,7 @@ const Board: Component<BoardProps> = (props) => {
     const handleStatusUpdate = async (status: { running: boolean }) => {
       if (!isMounted) return;
       
-      console.log('[Board] Engine status update:', status);
+      console.log(`[Board] Engine status update: running: ${status.running}`);
       const isRunning = status?.running === true;
       setIsEngineReady(isRunning);
       
@@ -136,8 +130,6 @@ const Board: Component<BoardProps> = (props) => {
   });
   
   const startEngineAnalysis = async (moves: string[]): Promise<boolean> => {
-    const movesStr = JSON.stringify(moves);
-    const lastMovesStr = JSON.stringify(lastAnalyzedMoves());
     
     if (!isEngineReady()) {
       console.log('[Engine] Engine not ready, skipping analysis');
@@ -183,15 +175,7 @@ const Board: Component<BoardProps> = (props) => {
       return false;
     }
     
-    /*
-    // Skip if we're already analyzing these exact moves
-    if (movesStr === lastMovesStr) {
-      console.log('[Engine] Skipping analysis - same moves as last analysis');
-      return false;
-    }
-    */
-    
-    console.log(`[Engine] Starting analysis with moves: ${JSON.stringify(moves, null, 2)}`);
+    console.log(`[Engine] Starting analysis`);
     analysisInProgress.current = true;
     setLastAnalyzedMoves(moves);
     setIsAnalyzing(true);
@@ -362,7 +346,6 @@ const Board: Component<BoardProps> = (props) => {
     }
 
     const currentUser = auth.user();
-    console.log(`[loadGame] Current user: ${currentUser ? 'Logged in' : 'Not logged in'}`);
     
     if (!currentUser) {
       console.log('[loadGame] No user logged in, initializing new game');
@@ -376,7 +359,6 @@ const Board: Component<BoardProps> = (props) => {
       
       const headers: HeadersInit = { 'Content-Type': 'application/json' };
       const userToken = auth.getToken();
-      console.log(`[loadGame] User token: ${userToken ? 'Available' : 'Not available'}`);
       if (userToken) {
         headers['Authorization'] = `Bearer ${userToken}`;
       }
@@ -489,14 +471,6 @@ const Board: Component<BoardProps> = (props) => {
     // Only load moves if we have a valid game ID and user is logged in
     if (currentGameId && currentUser) {
       if (currentGameId !== lastState.gameId || currentUser.id !== lastState.userId) {
-        // Reset state
-        batch(() => {
-          setMoveHistory([]);
-          setFullMoveHistory([]);
-          setCurrentMoveIndex(-1);
-          setCurrentTurnIndex(0);
-        });
-        
         // Load the game using the new loadGame function
         loadGame(currentGameId).then(() => {
           // Refresh game list after loading a game
@@ -671,7 +645,6 @@ const Board: Component<BoardProps> = (props) => {
     return currentHistory;
   };
 
-  // Clean up currentMove class when component unmounts or moves change
   onCleanup(() => {
     document.querySelectorAll(`.${styles.currentMove}`).forEach(el => {
       el.classList.remove(styles.currentMove);
@@ -1353,7 +1326,6 @@ const Board: Component<BoardProps> = (props) => {
         setRestrictedSquares([]);
         setRestrictedSquaresInfo([]);
       }
-      // Base points are not automatically fetched on login
     },
     { defer: true }
   ));

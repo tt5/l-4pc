@@ -1,11 +1,25 @@
 import { getTeamByColor, isInNonPlayableCorner, BOARD_CONFIG, normalizeColor } from '~/constants/game';
-
-type CastleColor = 'RED' | 'YELLOW' | 'BLUE' | 'GREEN';
-type CastleType = `${CastleColor}_${'KING_SIDE' | 'QUEEN_SIDE'}`;
 import { MOVE_PATTERNS } from '~/constants/movePatterns';
 import { canCastle } from './moveCalculations';
 import type { BasePoint, PieceType } from '~/types/board';
+import type { Move } from '~/types/board.types';
 import type { RestrictedSquareInfo } from '../types/restrictedSquares';
+
+type CastleColor = 'RED' | 'YELLOW' | 'BLUE' | 'GREEN';
+type CastleType = `${CastleColor}_${'KING_SIDE' | 'QUEEN_SIDE'}`;
+
+/**
+ * Converts a move object to UCI (Universal Chess Interface) format
+ * @param move - The move to convert
+ * @returns The move in UCI format (e.g., 'a2a4')
+ */
+export function moveToUCI(move: Move): string {
+  const fromFile = String.fromCharCode(97 + move.fromX);
+  const fromRank = (14 - move.fromY).toString();
+  const toFile = String.fromCharCode(97 + move.toX);
+  const toRank = (14 - move.toY).toString();
+  return `${fromFile}${fromRank}${toFile}${toRank}`;
+}
 
 /**
  * Type guard for PieceType
