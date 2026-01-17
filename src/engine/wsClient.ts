@@ -378,6 +378,8 @@ function createEngineClient(): EngineClient {
         type: 'stopAnalysis',
         data: {}
       }));
+      // Clear the analysis state when stopping analysis
+      setAnalysis(null);
       return true;
     } catch (err) {
       console.error('[wsClient] Error stopping analysis:', err);
