@@ -220,8 +220,8 @@ const Board: Component<BoardProps> = (props) => {
       return false;
     }
     
-    // If analysis is stopped, start it
-    if (isAnalysisStopped()) {
+    // If analysis is stopped or not yet started, start it
+    if (isAnalysisStopped() || !isAnalyzing()) {
       console.log('[Engine] Starting analysis');
       setIsAnalysisStopped(false);
       const currentMoves = moveHistory().slice(0, currentMoveIndex()).map(moveToUCI);
@@ -230,6 +230,7 @@ const Board: Component<BoardProps> = (props) => {
         console.error('[Engine] Failed to start analysis');
         return false;
       }
+      setIsAnalyzing(true);
       return true;
     } 
     // Otherwise stop it
