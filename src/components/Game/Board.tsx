@@ -220,6 +220,7 @@ const Board: Component<BoardProps> = (props) => {
           setIsAnalysisStopped(true);
           setIsAnalyzing(false);
           analysisInProgress.current = false;
+          setAnalysis(null); // Clear the analysis state when stopping
           return true;
         }
         return false;
