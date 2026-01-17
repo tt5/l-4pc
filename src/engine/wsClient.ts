@@ -137,10 +137,8 @@ function createEngineClient(): EngineClient {
         
         reconnectAttempts = 0; // Reset reconnect attempts on successful connection
         
-        // If we have a last known FEN, send it to the server
-        if (lastFen) {
-          updatePosition(lastFen);
-        }
+        // Don't automatically update position or start analysis on connect
+        // Wait for explicit user action to start analysis
         
         // Request engine status on connect
         try {
