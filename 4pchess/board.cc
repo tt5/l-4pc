@@ -152,62 +152,6 @@ Move* Board::GetPawnMovesDirect(
     {10, -1, 1, 0}, // YELLOW: check row == 10
     {-1, 3, 0, 1}   // GREEN: check col == 3
   };
-
-  // Lookup table for en passant conditions: [color] -> {check1, check2, check_row, check_col}
-  // check1, check2: values to check against (3 or 10)
-  // check_row: whether to check row (1) or not (0)
-  // check_col: whether to check column (1) or not (0)
-  static constexpr int kEnPassantConditions[4][4] = {
-    {3, 10, 1, 0},  // RED: check row == 3 or 10
-    {3, 10, 0, 1},  // BLUE: check col == 3 or 10
-    {3, 10, 1, 0},  // YELLOW: check row == 3 or 10
-    {3, 10, 0, 1}   // GREEN: check col == 3 or 10
-  };
-  */
-
-  // Precompute promotion check using lookup table
-  //const int* promo_cond = kPromotionConditions[static_cast<int>(color)];
-  // Simplified promotion check - the -1 values in promo_cond make the other comparison always false
-  //const bool is_promotion = (promo_cond[0] == row) || (promo_cond[1] == col);
-
-  // Cache the move count and initialize en passant variables
-  //const size_t move_count = moves_.size();
-  //bool has_ep = false;
-  //BoardLocation ep_loc = BoardLocation::kNoLocation;  // Use sentinel value instead of optional
-
-  /*
-  // Check if pawn is on a relevant rank/file for en passant
-  const int* ep_cond = kEnPassantConditions[static_cast<int>(color)];
-  const bool can_en_passant = 
-      (ep_cond[2] && (row == ep_cond[0] || row == ep_cond[1])) ||
-      (ep_cond[3] && (col == ep_cond[0] || col == ep_cond[1]));
-
-  if (can_en_passant && move_count > 0) [[unlikely]] {
-      // Check last move for en passant
-      const Move& last_move = moves_.back();
-      const BoardLocation& last_ep_loc = last_move.GetEnpassantLocation();
-      if (last_ep_loc.Present()) {
-          has_ep = true;
-          ep_loc = last_ep_loc;
-      } else if (move_count >= 3) {
-          // Check third-to-last move for en passant
-          const Move& third_last_move = moves_[move_count - 3];
-          const BoardLocation& third_last_ep_loc = third_last_move.GetEnpassantLocation();
-          if (third_last_ep_loc.Present()) {
-              has_ep = true;
-              ep_loc = third_last_ep_loc;
-          }
-      }
-  }
-  */
-
-
-  /*
-  // Helper function to add promotion moves
-  auto AddPromotionMoves = [&](const BoardLocation& to, const Piece& captured = Piece::kNoPiece) -> Move* {
-    *current++ = Move(from, to, captured, BoardLocation::kNoLocation, Piece::kNoPiece, QUEEN);
-    return current;
-  };
   */
 
   // Consolidated direction data for pawn movement and captures
@@ -222,66 +166,82 @@ Move* Board::GetPawnMovesDirect(
   };
   
   static constexpr PawnDirectionData kPawnDirections[4] = {
+    // y direction 0 top, 13 bottom
+    // all colors capture to the left (first capture)
     // RED: moves up, captures up-left and up-right
     {-1, 0, -1, -1, -1, 1},
     // BLUE: moves right, captures up-right and down-right
     {0, 1, -1, 1, 1, 1},
     // YELLOW: moves down, captures down-left and down-right
-    {1, 0, 1, -1, 1, 1},
-    // GREEN: moves left, captures up-left and down-left
-    {0, -1, -1, -1, 1, -1}
+    {1, 0, 1, 1, 1, -1},
+    // GREEN: moves left, captures down-left and up-left
+    {0, -1, 1, -1, -1, -1}
   };
-  
+
+
+  // Precompute promotion check using lookup table
+  //const int* promo_cond = kPromotionConditions[static_cast<int>(color)];
+  // Simplified promotion check - the -1 values in promo_cond make the other comparison always false
+  //const bool is_promotion = (promo_cond[0] == row) || (promo_cond[1] == col);
+
+  /*
+  // Helper function to add promotion moves
+  auto AddPromotionMoves = [&](const BoardLocation& to, const Piece& captured = Piece::kNoPiece) -> Move* {
+    *current++ = Move(from, to, captured, BoardLocation::kNoLocation, Piece::kNoPiece, QUEEN);
+    return current;
+  };
+  */
+
   // Get direction data for current color
   const PawnDirectionData& dir = kPawnDirections[static_cast<int>(color)];
   const int delta_row = dir.delta_row;
   const int delta_col = dir.delta_col;
   
   
-// Precompute all possible target squares
-const int forward_row = row + delta_row;
-const int forward_col = col + delta_col;
-const bool is_forward_legal = IsLegalLocation(forward_row, forward_col);
-const BoardLocation forward1 = is_forward_legal ? 
-    BoardLocation(forward_row, forward_col) : BoardLocation::kNoLocation;
+  // Precompute all possible target squares
+  const int forward_row = row + delta_row;
+  const int forward_col = col + delta_col;
+  const bool is_forward_legal = IsLegalLocation(forward_row, forward_col);
+  const BoardLocation forward1 = is_forward_legal ? 
+      BoardLocation(forward_row, forward_col) : BoardLocation::kNoLocation;
 
-// Cache piece lookup only if the location is legal
-const Piece forward_piece = is_forward_legal ? 
-    GetPiece(forward_row, forward_col) : Piece::kNoPiece;
+  // Cache piece lookup only if the location is legal
+  const Piece forward_piece = is_forward_legal ? 
+      GetPiece(forward_row, forward_col) : Piece::kNoPiece;
 
- // Precompute capture squares and cache their pieces
-const int capture1_row = row + dir.capture1_row;
-const int capture1_col = col + dir.capture1_col;
-const bool is_capture1_legal = IsLegalLocation(capture1_row, capture1_col);
-const BoardLocation capture1_loc = is_capture1_legal ? 
-    BoardLocation(capture1_row, capture1_col) : BoardLocation::kNoLocation;
-const Piece capture1_piece = is_capture1_legal ? 
-    GetPiece(capture1_row, capture1_col) : Piece::kNoPiece;
+  // Precompute capture squares and cache their pieces
+  const int capture1_row = row + dir.capture1_row;
+  const int capture1_col = col + dir.capture1_col;
+  const bool is_capture1_legal = IsLegalLocation(capture1_row, capture1_col);
+  const BoardLocation capture1_loc = is_capture1_legal ? 
+      BoardLocation(capture1_row, capture1_col) : BoardLocation::kNoLocation;
+  const Piece capture1_piece = is_capture1_legal ? 
+      GetPiece(capture1_row, capture1_col) : Piece::kNoPiece;
 
-const int capture2_row = row + dir.capture2_row;
-const int capture2_col = col + dir.capture2_col;
-const bool is_capture2_legal = IsLegalLocation(capture2_row, capture2_col);
-const BoardLocation capture2_loc = is_capture2_legal ? 
-    BoardLocation(capture2_row, capture2_col) : BoardLocation::kNoLocation;
-const Piece capture2_piece = is_capture2_legal ? 
-    GetPiece(capture2_row, capture2_col) : Piece::kNoPiece; 
+  const int capture2_row = row + dir.capture2_row;
+  const int capture2_col = col + dir.capture2_col;
+  const bool is_capture2_legal = IsLegalLocation(capture2_row, capture2_col);
+  const BoardLocation capture2_loc = is_capture2_legal ? 
+      BoardLocation(capture2_row, capture2_col) : BoardLocation::kNoLocation;
+  const Piece capture2_piece = is_capture2_legal ? 
+      GetPiece(capture2_row, capture2_col) : Piece::kNoPiece; 
 
-  // Precompute starting rows/cols for each color
-static constexpr int kStartingRow[4] = {12, -1, 1, -1};  // RED, BLUE, YELLOW, GREEN
-static constexpr int kStartingCol[4] = {-1, 1, -1, 12};  // -1 means not used
+    // Precompute starting rows/cols for each color
+  static constexpr int kStartingRow[4] = {12, -1, 1, -1};  // RED, BLUE, YELLOW, GREEN
+  static constexpr int kStartingCol[4] = {-1, 1, -1, 12};  // -1 means not used
 
-// Later in the code:
-bool not_moved = (color == RED || color == YELLOW) 
-    ? (row == kStartingRow[static_cast<int>(color)])
-    : (col == kStartingCol[static_cast<int>(color)]);
-  
-if (!forward_piece.Present()) [[likely]] {
+  // Later in the code:
+  bool not_moved = (color == RED || color == YELLOW) 
+      ? (row == kStartingRow[static_cast<int>(color)])
+      : (col == kStartingCol[static_cast<int>(color)]);
+    
+  if (!forward_piece.Present()) [[likely]] {
     // Handle promotion or regular move
     //if (is_promotion) [[unlikely]] {
       //current = AddPromotionMoves(forward1);
     //} else {
       *current++ = Move(from, forward1);
-   // }
+    //}
     
     // Double step from starting position
     if (not_moved) {
@@ -292,8 +252,7 @@ if (!forward_piece.Present()) [[likely]] {
       // Only check the double move if the single move square was empty
       const Piece forward2_piece = GetPiece(forward2_row, forward2_col);
       if (!forward2_piece.Present()) {
-        const BoardLocation ep_target(forward_row, forward_col);
-        *current++ = Move(from, forward2, Piece::kNoPiece, ep_target, Piece::kNoPiece, NO_PIECE);
+        *current++ = Move(from, forward2);
       }
     }
   }
@@ -302,12 +261,15 @@ if (!forward_piece.Present()) [[likely]] {
   if (is_capture1_legal) {
     const BoardLocation& to1 = capture1_loc;
     
-    // Check for en passant first (cheaper than GetPiece)
-    //if (has_ep && to1 == ep_loc) {
-        //*current++ = Move(from, to1, Piece::kNoPiece, ep_loc, <captured-pawn, can create new pawn?>, NO_PIECE);
-        // for now just normal move
-        //*current++ = Move(from, to1);
-    //} else {
+    if (color == RED && col == 3 && en_passant_targets_[BLUE].GetRow() == to1.GetRow()) {
+      *current++ = Move(from, to1, Piece::kNoPiece, forward1, forward_piece);
+    } else if (color == BLUE && row == 3 && en_passant_targets_[YELLOW].GetCol() == to1.GetCol()) {
+      *current++ = Move(from, to1, Piece::kNoPiece, forward1, forward_piece);
+    } else if (color == YELLOW && col == 10 && en_passant_targets_[GREEN].GetRow() == to1.GetRow()) {
+      *current++ = Move(from, to1, Piece::kNoPiece, forward1, forward_piece);
+    } else if (color == GREEN && row == 10 && en_passant_targets_[RED].GetCol() == to1.GetCol()) {
+      *current++ = Move(from, to1, Piece::kNoPiece, forward1, forward_piece);
+    } else {
       // Regular capture - use cached piece
       const Piece& captured1 = capture1_piece;
       const PlayerColor captured1_color = captured1.GetColor();
@@ -319,19 +281,22 @@ if (!forward_piece.Present()) [[likely]] {
           *current++ = Move(from, to1, captured1);
         //}
       }
-    //}
+    }
   }
 
+  // Second capture direction
   if (is_capture2_legal) {
-    // Second capture direction
     const BoardLocation& to2 = capture2_loc;
     
-    // Check for en passant first (cheaper than GetPiece)
-    //if (has_ep && to2 == ep_loc) [[unlikely]] {
-      //*current++ = Move(from, to1, Piece::kNoPiece, ep_loc, <captured-pawn, can create new pawn?>, NO_PIECE);
-      // for now just normal move
-      //*current++ = Move(from, to2);
-    //} else {
+    if (color == RED && col == 10 && en_passant_targets_[GREEN].GetRow() == to2.GetRow()) {
+      *current++ = Move(from, to2, Piece::kNoPiece, forward1, forward_piece);
+    } else if (color == BLUE && row == 10 && en_passant_targets_[RED].GetCol() == to2.GetCol()) {
+      *current++ = Move(from, to2, Piece::kNoPiece, forward1, forward_piece);
+    } else if (color == YELLOW && col == 3 && en_passant_targets_[BLUE].GetRow() == to2.GetRow()) {
+      *current++ = Move(from, to2, Piece::kNoPiece, forward1, forward_piece);
+    } else if (color == GREEN && row == 3 && en_passant_targets_[YELLOW].GetCol() == to2.GetCol()) {
+      *current++ = Move(from, to2, Piece::kNoPiece, forward1, forward_piece);
+    } else {
       // Regular capture - use cached piece
       const Piece& captured2 = capture2_piece;
       const PlayerColor captured2_color = captured2.GetColor();
@@ -343,7 +308,7 @@ if (!forward_piece.Present()) [[likely]] {
           *current++ = Move(from, to2, captured2);
         //}
       }
-    //}
+    }
   }
   
   return current;
@@ -1548,10 +1513,10 @@ void Board::MakeMove(const Move& move) {
   // Cases:
   // 1. Move
   // 2. Capture
-  //// 3. En passant
-  //// 4. Castle
-  //// 5. Promotion
-  //// 6. Capture with promotion
+  // 3. En passant
+  // 4. Castle
+  // 5. Promotion
+  // 6. Capture with promotion
 
   const auto from = move.From();
   const auto to = move.To();
@@ -1570,13 +1535,70 @@ void Board::MakeMove(const Move& move) {
   const auto from_row = from.GetRow();
   const auto from_col = from.GetCol();
   
+  // Handle en passant target for the current player
+  en_passant_targets_[color] = BoardLocation::kNoLocation;
+  if (piece_type == PAWN) {
+    const auto row_diff = abs(from_row - to_row);
+    const auto col_diff = abs(from_col - to_col);
+    
+    if (row_diff == 2 || col_diff == 2) {
+      // Set en passant target to the square the pawn passed over
+      const auto target_row = (from_row + to_row) / 2;
+      const auto target_col = (from_col + to_col) / 2;
+      en_passant_targets_[color] = BoardLocation(target_row, target_col);
+    }
+  }
+
+  const auto ep_capture = move.GetEnpassantCapture();
+  if (ep_capture.Present()) {
+
+    const auto ep_target = move.GetEnpassantLocation();
+    const auto ep_capture_color = ep_capture.GetColor();
+    const auto ep_capture_team = ep_capture.GetTeam();
+    const auto ep_capture_type = ep_capture.GetPieceType();
+
+    //RemovePiece(move.To());
+    auto& placed_pieces = piece_list_[ep_capture_color];
+    auto it = std::find_if(placed_pieces.begin(), placed_pieces.end(),
+        [&ep_target](const auto& placed_piece) {
+            return placed_piece.GetLocation() == ep_target;
+        });
+    if (it != placed_pieces.end()) {
+        placed_pieces.erase(it);
+    } else {
+        std::cout << "MakeMove Failed to find captured piece in piece_list_: " << std::endl
+        << "color: " << static_cast<int>(color) << std::endl
+        << "move: " << move << std::endl
+        << "captured piece: " << ep_capture << std::endl;
+        std::cout << "  en_passant_targets_: " << en_passant_targets_[BLUE] << std::endl;
+        for (const auto& placed_piece : piece_list_[BLUE]) {
+          const auto& loc = placed_piece.GetLocation();
+          const auto& piece = placed_piece.GetPiece();
+          std::cout << "  - " << piece << " at " << loc << std::endl;
+        }
+    }
+
+    UpdatePieceHash(ep_capture, ep_target);
+    location_to_piece_[ep_target.GetRow()][ep_target.GetCol()] = Piece();
+
+    // Update piece eval
+    int piece_eval = kPieceEvaluations[PAWN];
+    if (ep_capture_team == RED_YELLOW) {
+      piece_evaluation_ -= piece_eval;
+    } else {
+      piece_evaluation_ += piece_eval;
+    }
+    player_piece_evaluations_[ep_capture_color] -= piece_eval;
+  }
+  
   // Capture
-  const auto standard_capture = GetPiece(to);
+  const auto standard_capture = move.GetStandardCapture();
   if (standard_capture.Present()) {
+    
     const auto capture_color = standard_capture.GetColor();
     const auto capture_team = standard_capture.GetTeam();
     const auto capture_type = standard_capture.GetPieceType();
-    
+
     //RemovePiece(move.To());
     auto& placed_pieces = piece_list_[capture_color];
     auto it = std::find_if(placed_pieces.begin(), placed_pieces.end(),
@@ -1586,9 +1608,20 @@ void Board::MakeMove(const Move& move) {
     if (it != placed_pieces.end()) {
         placed_pieces.erase(it);
     } else {
-        std::cerr << "Failed to find captured piece in piece_list_:\n";
-        std::abort();
+        std::cout << "MakeMove Failed to find captured piece in piece_list_: " << std::endl
+        << "color: " << static_cast<int>(color) << std::endl
+        << "move: " << move << std::endl
+        << "captured piece: " << standard_capture << std::endl;
+        std::cout << "  en_passant_targets_: " << en_passant_targets_[BLUE] << std::endl;
+        for (const auto& placed_piece : piece_list_[BLUE]) {
+          const auto& loc = placed_piece.GetLocation();
+          const auto& piece = placed_piece.GetPiece();
+          std::cout << "  - " << piece << " at " << loc << std::endl;
+        }
+        abort();
     }
+
+    
 
     UpdatePieceHash(standard_capture, to);
     location_to_piece_[to_row][to_col] = Piece();
@@ -1607,7 +1640,6 @@ void Board::MakeMove(const Move& move) {
     player_piece_evaluations_[capture_color] -= piece_eval;
   }
 
-  //RemovePiece(from);
 // Find the piece in the piece list
 auto& pieces = piece_list_[color];
 auto it = std::find_if(pieces.begin(), pieces.end(),
@@ -1618,8 +1650,14 @@ if (it != pieces.end()) {
     // Update the piece's location by creating a new PlacedPiece with the same piece but new location
     *it = PlacedPiece(to, it->GetPiece());
 } else {
-    std::cerr << "Failed to find moving piece in piece_list_:\n";
-    std::abort();
+    std::cout << "MakeMove Failed to find moving piece in piece_list_: "
+    << move << std::endl;
+    for (const auto& placed_piece : piece_list_[BLUE]) {
+      const auto& loc = placed_piece.GetLocation();
+      const auto& piece = placed_piece.GetPiece();
+      std::cout << "  - " << piece << " at " << loc << std::endl;
+    }
+    abort();
 }
   /*
   auto& placed_pieces = piece_list_[color];
@@ -1741,13 +1779,26 @@ if (it != pieces.end()) {
     king_locations_[color] = from;
   }
   //end set piece
+
+  const auto ep_capture = move.GetEnpassantCapture();
+  if (ep_capture.Present()) {
+    const auto ep_loc = move.GetEnpassantLocation();
+    location_to_piece_[ep_loc.GetRow()][ep_loc.GetCol()] = ep_capture;
+    piece_list_[ep_capture.GetColor()].emplace_back(ep_loc, ep_capture);
+    UpdatePieceHash(ep_capture, ep_loc);
+    
+    const int piece_eval = kPieceEvaluations[PAWN];
+    const int sign = (ep_capture.GetTeam() == RED_YELLOW) ? 1 : -1;
+    piece_evaluation_ += sign * piece_eval;
+    player_piece_evaluations_[ep_capture.GetColor()] += piece_eval;
+  }
+
   // Place back captured pieces
-  if (const auto standard_capture = move.GetStandardCapture();
-    standard_capture.Present()) {
+  const auto standard_capture = move.GetStandardCapture();
+  if (standard_capture.Present()) {
       location_to_piece_[to.GetRow()][to.GetCol()] = standard_capture;
       piece_list_[standard_capture.GetColor()].emplace_back(to, standard_capture);
       UpdatePieceHash(standard_capture, to);
-      
       // Update king location if needed
       if (standard_capture.GetPieceType() == KING) {
           king_locations_[standard_capture.GetColor()] = to;
@@ -1760,6 +1811,9 @@ if (it != pieces.end()) {
       player_piece_evaluations_[standard_capture.GetColor()] += piece_eval;
   }
 
+  // Clear en passant target for the current player when undoing a move
+  en_passant_targets_[color] = BoardLocation::kNoLocation;
+  
   turn_ = turn_before;
   moves_.pop_back();
   int t = static_cast<int>(turn_.GetColor());
@@ -1834,8 +1888,11 @@ Board::Board(
     std::unordered_map<BoardLocation, Piece> location_to_piece,
     std::optional<std::unordered_map<Player, CastlingRights>> castling_rights,
     std::optional<EnpassantInitialization> enp)
-  : turn_(std::move(turn))
-    {
+  : turn_(std::move(turn)) {
+  // Initialize en passant targets for all players
+  for (int i = 0; i < 4; ++i) {
+    en_passant_targets_[i] = BoardLocation::kNoLocation;
+  }
 
   for (int color = 0; color < 4; color++) {
     castling_rights_[color] = CastlingRights(false, false);

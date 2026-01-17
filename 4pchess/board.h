@@ -884,6 +884,7 @@ class Board {
   int64_t piece_hashes_[4][6][14][14];
   int64_t turn_hashes_[4];
   BoardLocation king_locations_[4];
+  BoardLocation en_passant_targets_[4];  // One for each player color
 
   size_t move_buffer_size_ = 300;
   Move move_buffer_2_[300];
