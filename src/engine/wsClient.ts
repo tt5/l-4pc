@@ -9,7 +9,7 @@ export interface EngineClient {
   off: (event: string, callback: EventCallback) => void;
   startAnalysis: (moveHistory?: string[]) => boolean;
   stopAnalysis: () => boolean;
-  stopEngine: () => boolean;
+  stopEngine: () => Promise<boolean>;
   setThreads: (threads: number) => boolean;
   updatePosition: (fen: string, moveHistory?: string[]) => void;
   makeMove: (fen: string, move: string, moveHistory: string[]) => void;
@@ -388,27 +388,41 @@ function createEngineClient(): EngineClient {
     }
   };
   
-  const stopEngine = (): boolean => {
+  const stopEngine = async (): Promise<boolean> => {
     if (!isConnected() || !ws) return false;
     
-    // Reset reconnection state
-    resetReconnectionState();
-    
-    if (ws) {
-      ws.close(1000, 'Client disconnected');
-      ws = null;
+    try {
+      // Stop any ongoing analysis first
+      await stopAnalysis();
+      
+      // Reset reconnection state
+      resetReconnectionState();
+      
+      // Close the WebSocket connection
+      if (ws) {
+        ws.close(1000, 'Client disconnected');
+        ws = null;
+      }
+      
+      // Update state and emit events
+      setIsConnected(false);
+      emit('disconnected', { code: 1000, reason: 'Client disconnected' });
+      emit('status', { running: false });
+      emit('stopped'); // Emit stopped event to notify components
+      
+      // Clear analysis state
+      setAnalysis(null);
+      
+      // Reset the flag after a short delay to handle any queued close events
+      setTimeout(() => {
+        isIntentionalDisconnect = false;
+      }, 100);
+      
+      return true;
+    } catch (error) {
+      console.error('Error stopping engine:', error);
+      return false;
     }
-    
-    setIsConnected(false);
-    emit('disconnected', { code: 1000, reason: 'Client disconnected' });
-    emit('status', { running: false });
-    
-    // Reset the flag after a short delay to handle any queued close events
-    setTimeout(() => {
-      isIntentionalDisconnect = false;
-    }, 100);
-    
-    return true;
   };
   
   const makeMove = (fen: string, move: string, moveHistory: string[] = []): void => {

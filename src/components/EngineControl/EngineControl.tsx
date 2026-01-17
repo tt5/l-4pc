@@ -144,8 +144,10 @@ export function EngineControl() {
     try {
       // First try to stop gracefully via WebSocket if connected
       if (engine.isConnected()) {
-        // Use the stopEngine method instead of sendCommand
-        const stopped = engine.stopEngine();
+        // Stop any ongoing analysis first
+        await engine.stopAnalysis();
+        // Then stop the engine
+        const stopped = await engine.stopEngine();
         if (!stopped) {
           console.warn('Failed to stop engine via WebSocket');
         }
@@ -161,6 +163,8 @@ export function EngineControl() {
         setError(result.message || 'Failed to stop engine');
       } else {
         console.log('Engine stop requested, waiting for status update...');
+        // Emit stopped event to notify parent components
+        await engine.stopEngine();
       }
     } catch (error) {
       console.error('Error stopping engine:', error);

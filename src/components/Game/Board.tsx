@@ -87,6 +87,15 @@ const Board: Component<BoardProps> = (props) => {
       const isRunning = status?.running === true;
       setIsEngineReady(isRunning);
       
+      // Clear analysis state when engine is stopped
+      if (!isRunning) {
+        console.log('[Board] Engine stopped, clearing analysis state');
+        setAnalysis(null);
+        setIsAnalyzing(false);
+        setIsAnalysisStopped(false);
+        analysisInProgress.current = false;
+      }
+      
       // Only connect if engine is running and not already connected
       if (isRunning && !engine.isConnected()) {
         console.log('[Board] Engine is running, attempting to connect...');
@@ -112,11 +121,23 @@ const Board: Component<BoardProps> = (props) => {
       }
     };
 
-    const cleanup = engine.on('status', handleStatusUpdate);
+    const handleEngineStopped = () => {
+      if (!isMounted) return;
+      console.log('[Board] Received engine stopped event, clearing analysis state');
+      setAnalysis(null);
+      setIsAnalyzing(false);
+      setIsAnalysisStopped(false);
+      analysisInProgress.current = false;
+    };
+
+    // Set up event listeners
+    const cleanupStatus = engine.on('status', handleStatusUpdate);
+    const cleanupStopped = engine.on('stopped', handleEngineStopped);
     
     return () => {
       isMounted = false;
-      cleanup();
+      cleanupStatus();
+      cleanupStopped();
     };
   });
 
