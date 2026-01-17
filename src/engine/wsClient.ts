@@ -342,12 +342,6 @@ function createEngineClient(): EngineClient {
   };
   
   const startAnalysis = (moveHistory: string[] = []) => {
-    // Don't resend the same move history
-    const currentState = JSON.stringify(moveHistory);
-    if (currentState === lastFen) {
-      return false;
-    }
-    
     console.log('Starting analysis with moves:', moveHistory);
     
     if (!ws || ws.readyState !== WebSocket.OPEN) {
@@ -356,7 +350,10 @@ function createEngineClient(): EngineClient {
     }
     
     try {
-      lastFen = currentState; // Update the last sent state
+      // Clear any existing analysis state when starting new analysis
+      setAnalysis(null);
+      
+      // Start new analysis
       ws.send(JSON.stringify({
         type: 'startAnalysis',
         data: { 
