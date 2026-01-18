@@ -348,8 +348,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     //value = kMateValue;
     best_move = moves[0];
     pvinfo.SetBestMove(*best_move);
-    int score = std::min(beta, std::max(alpha, -kMateValue));
-    return std::make_tuple(score, best_move);
+    return std::make_tuple(kMateValue, best_move);
   }
 
   if (!is_next_king_capture && !is_prev_king_capture) {
