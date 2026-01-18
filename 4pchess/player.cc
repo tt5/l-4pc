@@ -265,6 +265,9 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   bool tt_hit = false;
 
   int64_t key = board.HashKey();
+  if (IsKnownCheckmate(key)) {
+    return std::make_tuple(kMateValue, std::nullopt);
+  }
 
   tte = transposition_table_->Get(key);
   if (tte != nullptr) {
@@ -310,13 +313,53 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   std::optional<Move> pv_move = pvinfo.GetBestMove();
   Move* moves = thread_state.GetNextMoveBufferPartition();
   
-  // Generate moves first
-  auto result = board.GetPseudoLegalMoves2(
+  Board::MoveGenResult result;
+  bool is_next_king_capture = false;
+  bool is_prev_king_capture = false;
+  
+  bool has_legal_moves = false;
+  result.count = 0;
+  result = board.GetNextKingCaptureMoves(
     moves,
     kBufferPartitionSize,
     pv_move.has_value() ? pv_move : tt_move);
-  thread_state.TotalMoves()[player.GetColor()] = result.mobility_counts[player.GetColor()];
-  thread_state.n_threats[player.GetColor()] = result.threat_counts[player.GetColor()];
+  thread_state.TotalMoves()[player.GetColor()] = 100;
+  thread_state.n_threats[player.GetColor()] = 10;
+
+  if (result.count > 0) {
+    is_next_king_capture = true;
+  } else {
+    result = board.GetPrevKingCaptureMoves(
+      moves,
+      kBufferPartitionSize,
+      pv_move.has_value() ? pv_move : tt_move);
+    thread_state.TotalMoves()[player.GetColor()] = 100;
+    thread_state.n_threats[player.GetColor()] = 10;
+    if (result.count > 0) {
+      is_prev_king_capture = true;
+    }
+  }
+
+  if (is_next_king_capture || is_prev_king_capture) {
+    // TODO: What if the teammate's king is captured by the next player?
+    alpha = beta; // fail hard
+    //value = kMateValue;
+    best_move = moves[0];
+    pvinfo.SetBestMove(*best_move);
+    int score = std::min(beta, std::max(alpha, -kMateValue));
+    return std::make_tuple(score, best_move);
+  }
+
+  if (!is_next_king_capture && !is_prev_king_capture) {
+    // illigal moves:
+    // move pinned piece
+    result = board.GetPseudoLegalMoves2(
+      moves,
+      kBufferPartitionSize,
+      pv_move.has_value() ? pv_move : tt_move);
+    thread_state.TotalMoves()[player.GetColor()] = result.mobility_counts[player.GetColor()];
+    thread_state.n_threats[player.GetColor()] = result.threat_counts[player.GetColor()];
+  }
 
   int eval = 0;
   if (tt_hit && tte->eval != value_none_tt) {
@@ -354,7 +397,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
                history_heuristic);
   
 
-  bool has_legal_moves = false;
   int move_count = 0;
   int invalid_moves = 0;
   bool fail_low = true;
@@ -395,6 +437,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
     board.MakeMove(move);
 
+    /*
     if (board.CheckWasLastMoveKingCapture() != IN_PROGRESS) {
       board.UndoMove();
 
@@ -404,28 +447,13 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       pvinfo.SetBestMove(move);
       break;
     }
+    */
 
     if (board.IsKingInCheck(player)) { // invalid move
       board.UndoMove();
 
       continue;
     }
-
-    int64_t current_hash = board.HashKey();
-    bool checkmate = depth >= 3 && IsKnownCheckmate(current_hash);
-    if (checkmate) {
-      board.UndoMove();
-
-      continue;
-    }
-    /*
-    if (checkmate) {
-      board.UndoMove();
-      return std::make_tuple(
-      std::min(beta, std::max(alpha, -kMateValue))
-        , best_move);
-    }
-    */
 
     has_legal_moves = true;
 
@@ -519,8 +547,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     ) { r = -1; }
 
     // lmr
-    if (!checkmate
-      && (depth >= 5)
+    if ((depth >= 5)
       && is_root_node
       && (move_count >= 2 + 2 * (depth > 5))) {
       // First search with reduced depth and null window
@@ -576,8 +603,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         }
       }
 
-    } else if (!checkmate
-      && (!is_pv_node || move_count > 1)) {
+    } else if (!is_pv_node || move_count > 1) {
 
       value_and_move_or = Search(
           ss+1, NonPV, thread_state, board, ply + 1, depth - 1
@@ -601,7 +627,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
                   || -std::get<0>(*value_and_move_or) < beta)
               ));
 
-    if (full_search || checkmate) {
+    if (full_search) {
       
       value_and_move_or = Search(
           ss+1, PV, thread_state, board, ply + 1, depth - 1
@@ -650,12 +676,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     call_countB++;
     // Track full searches and checkmate searches
     thread_local int64_t total_full_searches = 0;
-    thread_local int64_t total_checkmate_searches = 0;
-    thread_local int64_t total_checkmate_searches_nonpv = 0;
     
     if (full_search) total_full_searches++;
-    if (checkmate) total_checkmate_searches++;
-    if (checkmate && !full_search) total_checkmate_searches_nonpv++;
     
     if (call_countB % 400000 == 0) {
       auto avg_ns = total_timeB.count() / call_countB;
@@ -665,8 +687,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       //          << " Average: " << avg_ns << " ns,"
       //          << " Calls: " << call_countB
       //          << ", Full searches: " << total_full_searches
-      //          << ", Checkmate searches: " << total_checkmate_searches
-      //          << " / " << total_checkmate_searches_nonpv
       //          << std::endl;
     }
   }

@@ -947,7 +947,7 @@ size_t Board::GetAttackers2(
   }
 
   // Pawns - optimized attack detection
-  // Check for red pawns (attack down)
+  // Check for red pawns (attack up)
   if (loc_row < 13) {
     // Check bottom-left diagonal
     if (loc_col > 0) {
@@ -967,7 +967,7 @@ size_t Board::GetAttackers2(
     }
   }
   
-  // Check for yellow pawns (attack up)
+  // Check for yellow pawns (attack down)
   if (loc_row > 0) {
     // Check top-left diagonal
     if (loc_col > 0) {
@@ -987,7 +987,7 @@ size_t Board::GetAttackers2(
     }
   }
   
-  // Check for blue pawns (attack left/right)
+  // Check for blue pawns
   if (loc_col > 0) {
     // Check left side
     if (loc_row > 0) {
@@ -1006,7 +1006,7 @@ size_t Board::GetAttackers2(
     }
   }
   
-  // Check for green pawns (attack left/right)
+  // Check for green pawns
   if (loc_col < 13) {
     // Check right side
     if (loc_row > 0) {
@@ -1045,6 +1045,109 @@ size_t Board::GetAttackers2(
   }
 
   return pos;
+}
+
+// Optimized version of GetAttackers2 for limit=1 that returns as soon as it finds an attacker
+bool Board::IsAttackedByColor(PlayerColor color, const BoardLocation& location) const {
+  int loc_row = location.GetRow();
+  int loc_col = location.GetCol();
+
+  // Combined sliding piece attacks (rook, bishop, queen)
+  struct Direction {
+    int dr, dc;
+    bool is_rook_move;  // true for rook moves (orthogonal), false for bishop moves (diagonal)
+  };
+  
+  constexpr std::array<Direction, 8> sliding_directions = {{
+    // Orthogonal (rook/queen) moves
+    {0, 1, true},   // right
+    {1, 0, true},   // down
+    {0, -1, true},  // left
+    {-1, 0, true},  // up
+    // Diagonal (bishop/queen) moves
+    {1, 1, false},   // down-right
+    {1, -1, false},  // down-left
+    {-1, -1, false}, // up-left
+    {-1, 1, false}   // up-right
+  }};
+
+  for (const auto& dir : sliding_directions) {
+    int row = loc_row + dir.dr;
+    int col = loc_col + dir.dc;
+    
+    while (IsLegalLocation(row, col)) {
+      const auto piece = GetPiece(row, col);
+      if (piece.Present()) {
+        if (piece.GetColor() == color) {
+          PieceType type = piece.GetPieceType();
+          if (type == QUEEN || 
+              (dir.is_rook_move && type == ROOK) || 
+              (!dir.is_rook_move && type == BISHOP)) {
+            return true;
+          }
+        }
+        break;
+      }
+      row += dir.dr;
+      col += dir.dc;
+    }
+  }
+
+  // Check for knight attacks
+  constexpr std::array<std::pair<int, int>, 8> knight_moves = {{
+    {1, 2}, {1, -2}, {-1, 2}, {-1, -2}, {2, 1}, {2, -1}, {-2, 1}, {-2, -1}
+  }};
+
+  for (const auto& [dr, dc] : knight_moves) {
+    int row = loc_row + dr;
+    int col = loc_col + dc;
+    if (IsLegalLocation(row, col)) {
+      const auto piece = GetPiece(row, col);
+      if (piece.Present() && 
+          piece.GetColor() == color && 
+          piece.GetPieceType() == KNIGHT) {
+        return true;
+      }
+    }
+  }
+
+  // Combined pawn attack check
+  constexpr std::array<std::pair<int, int>, 8> pawn_attacks = {{
+    // Red pawn attacks (up-left, up-right)
+    {-1, -1}, {-1, 1},
+    // Yellow pawn attacks (down-left, down-right)
+    {1, -1}, {1, 1},
+    // Blue pawn attacks (up-right, down-right)
+    {-1, 1}, {1, 1},
+    // Green pawn attacks (up-left, down-left)
+    {-1, -1}, {1, -1}
+  }};
+
+  // Color check masks (one bit per color in order: RED, BLUE, YELLOW, GREEN)
+  constexpr uint8_t color_masks[8] = {
+    0b0001, 0b0001,  // Red
+    0b0100, 0b0100,  // Yellow
+    0b0010, 0b0010,  // Blue
+    0b1000, 0b1000   // Green
+  };
+
+  for (size_t i = 0; i < pawn_attacks.size(); ++i) {
+    const auto& [dr, dc] = pawn_attacks[i];
+    int row = loc_row + dr;
+    int col = loc_col + dc;
+    
+    if (IsLegalLocation(row, col)) {
+      const auto piece = GetPiece(row, col);
+      if (piece.Present() && 
+          piece.GetColor() == color && 
+          piece.GetPieceType() == PAWN &&
+          (color_masks[i] & (1 << piece.GetColor()))) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 // Optimized version of GetAttackers2 for limit=1 that returns as soon as it finds an attacker
@@ -1206,6 +1309,575 @@ bool Board::DiscoversCheck(
     col += incr_col;
   }
   return false;
+}
+
+Board::MoveGenResult Board::GetNextKingCaptureMoves(
+    Move* buffer, 
+    size_t limit, 
+    const std::optional<Move>& pv_move) {
+
+    
+    MoveGenResult result{0, -1}; // count = 0, pv_index = -1
+    if (buffer == nullptr || limit == 0) return result;
+    int pv_index = -1;  // -1 means PV move not found
+
+    const PlayerColor current_color = GetTurn().GetColor();
+
+    const auto& pieces = piece_list_[current_color];
+    const size_t num_pieces = pieces.size();
+
+    PlayerColor next_color = static_cast<PlayerColor>((static_cast<int>(current_color) + 1) % 4);
+    const BoardLocation& next_king_pos = king_locations_[next_color];
+
+
+    Move* current = buffer;
+    const Move* const end = buffer + limit;
+
+    for (size_t i = 0; i < num_pieces && current < end; ++i) {
+        const auto& placed_piece = pieces[i];
+        const auto& location = placed_piece.GetLocation();
+        const auto& piece = placed_piece.GetPiece();
+
+        const PieceType type = piece.GetPieceType();
+
+        Move* before = current;
+        
+        switch (type) {
+          case QUEEN: {
+            if (location.GetRow() == next_king_pos.GetRow()
+              || location.GetCol() == next_king_pos.GetCol()) {
+              
+              int row_step = (next_king_pos.GetRow() > location.GetRow()) ? 1 : 
+                            (next_king_pos.GetRow() < location.GetRow()) ? -1 : 0;
+              int col_step = (next_king_pos.GetCol() > location.GetCol()) ? 1 : 
+                            (next_king_pos.GetCol() < location.GetCol()) ? -1 : 0;
+
+              // Start from the square after the current piece
+              int r = location.GetRow() + row_step;
+              int c = location.GetCol() + col_step;
+              bool path_clear = true;
+
+              // Check all squares up to but not including the king's position
+              while (r != next_king_pos.GetRow() || c != next_king_pos.GetCol()) {
+                  if (GetPiece(BoardLocation(r, c)).Present()) {
+                      path_clear = false;
+                      break;
+                  }
+                  r += row_step;
+                  c += col_step;
+              }
+
+              if (path_clear) {
+                  *current++ = Move(location, next_king_pos, GetPiece(next_king_pos));
+              }
+            }
+            // Fall through to bishop moves
+          }
+          case BISHOP: {
+            // Check if the piece is on the same diagonal as the king
+            if (abs(location.GetRow() - next_king_pos.GetRow()) == 
+                abs(location.GetCol() - next_king_pos.GetCol())) {
+                
+                int row_step = (next_king_pos.GetRow() > location.GetRow()) ? 1 : -1;
+                int col_step = (next_king_pos.GetCol() > location.GetCol()) ? 1 : -1;
+
+                // Start from the square after the current piece
+                int r = location.GetRow() + row_step;
+                int c = location.GetCol() + col_step;
+                bool path_clear = true;
+
+                // Check all squares up to but not including the king's position
+                while (r != next_king_pos.GetRow() && c != next_king_pos.GetCol()) {
+                    if (GetPiece(BoardLocation(r, c)).Present()) {
+                        path_clear = false;
+                        break;
+                    }
+                    r += row_step;
+                    c += col_step;
+                }
+
+                if (path_clear) {
+                    *current++ = Move(location, next_king_pos, GetPiece(next_king_pos));
+                }
+            }
+            break;
+          }
+          case ROOK: {
+            if (location.GetRow() == next_king_pos.GetRow()
+              || location.GetCol() == next_king_pos.GetCol()) {
+              
+              int row_step = (next_king_pos.GetRow() > location.GetRow()) ? 1 : 
+                            (next_king_pos.GetRow() < location.GetRow()) ? -1 : 0;
+              int col_step = (next_king_pos.GetCol() > location.GetCol()) ? 1 : 
+                            (next_king_pos.GetCol() < location.GetCol()) ? -1 : 0;
+
+              // Start from the square after the current piece
+              int r = location.GetRow() + row_step;
+              int c = location.GetCol() + col_step;
+              bool path_clear = true;
+
+              // Check all squares up to but not including the king's position
+              while (r != next_king_pos.GetRow() || c != next_king_pos.GetCol()) {
+                  if (GetPiece(BoardLocation(r, c)).Present()) {
+                      path_clear = false;
+                      break;
+                  }
+                  r += row_step;
+                  c += col_step;
+              }
+
+              if (path_clear) {
+                  *current++ = Move(location, next_king_pos, GetPiece(next_king_pos));
+              }
+            }
+            break;
+          }
+        } // end switch
+    }
+        
+    result.count = current - buffer;
+
+    // Check if the PV move was generated
+    if (pv_move.has_value() && pv_index == -1) {
+        for (Move* m = buffer; m < current; ++m) {
+            if (*m == *pv_move) {
+                pv_index = m - buffer;
+                break;
+            }
+        }
+    }
+
+    // Final updates to the result
+    result.pv_index = pv_index;
+
+    return result;
+}
+
+Board::MoveGenResult Board::GetPrevKingCaptureMoves(
+    Move* buffer, 
+    size_t limit, 
+    const std::optional<Move>& pv_move) {
+
+    MoveGenResult result{0, -1};
+    if (buffer == nullptr || limit == 0) return result;
+    int pv_index = -1;  // -1 means PV move not found
+
+    const PlayerColor current_color = GetTurn().GetColor();
+
+    const auto& pieces = piece_list_[current_color];
+    const size_t num_pieces = pieces.size();
+
+    PlayerColor prev_color = static_cast<PlayerColor>((static_cast<int>(current_color) + 3) % 4);
+    const BoardLocation& prev_king_pos = king_locations_[prev_color];
+
+
+    Move* current = buffer;
+    const Move* const end = buffer + limit;
+
+    for (size_t i = 0; i < num_pieces && current < end; ++i) {
+        const auto& placed_piece = pieces[i];
+        const auto& location = placed_piece.GetLocation();
+        const auto& piece = placed_piece.GetPiece();
+
+        const PieceType type = piece.GetPieceType();
+
+        Move* before = current;
+        
+        switch (type) {
+          case QUEEN: {
+            if (location.GetRow() == prev_king_pos.GetRow()
+              || location.GetCol() == prev_king_pos.GetCol()) {
+              
+              int row_step = (prev_king_pos.GetRow() > location.GetRow()) ? 1 : 
+                            (prev_king_pos.GetRow() < location.GetRow()) ? -1 : 0;
+              int col_step = (prev_king_pos.GetCol() > location.GetCol()) ? 1 : 
+                            (prev_king_pos.GetCol() < location.GetCol()) ? -1 : 0;
+
+              // Start from the square after the current piece
+              int r = location.GetRow() + row_step;
+              int c = location.GetCol() + col_step;
+              bool path_clear = true;
+
+              // Check all squares up to but not including the king's position
+              while (r != prev_king_pos.GetRow() || c != prev_king_pos.GetCol()) {
+                  if (GetPiece(BoardLocation(r, c)).Present()) {
+                      path_clear = false;
+                      break;
+                  }
+                  r += row_step;
+                  c += col_step;
+              }
+
+              if (path_clear) {
+                  *current++ = Move(location, prev_king_pos, GetPiece(prev_king_pos));
+              }
+            }
+            // Fall through to bishop moves
+          }
+          case BISHOP: {
+            // Check if the piece is on the same diagonal as the king
+            if (abs(location.GetRow() - prev_king_pos.GetRow()) == 
+                abs(location.GetCol() - prev_king_pos.GetCol())) {
+                
+                int row_step = (prev_king_pos.GetRow() > location.GetRow()) ? 1 : -1;
+                int col_step = (prev_king_pos.GetCol() > location.GetCol()) ? 1 : -1;
+
+                // Start from the square after the current piece
+                int r = location.GetRow() + row_step;
+                int c = location.GetCol() + col_step;
+                bool path_clear = true;
+
+                // Check all squares up to but not including the king's position
+                while (r != prev_king_pos.GetRow() && c != prev_king_pos.GetCol()) {
+                    if (GetPiece(BoardLocation(r, c)).Present()) {
+                        path_clear = false;
+                        break;
+                    }
+                    r += row_step;
+                    c += col_step;
+                }
+
+                if (path_clear) {
+                    *current++ = Move(location, prev_king_pos, GetPiece(prev_king_pos));
+                }
+            }
+            break;
+          }
+          case ROOK: {
+            if (location.GetRow() == prev_king_pos.GetRow()
+              || location.GetCol() == prev_king_pos.GetCol()) {
+              
+              int row_step = (prev_king_pos.GetRow() > location.GetRow()) ? 1 : 
+                            (prev_king_pos.GetRow() < location.GetRow()) ? -1 : 0;
+              int col_step = (prev_king_pos.GetCol() > location.GetCol()) ? 1 : 
+                            (prev_king_pos.GetCol() < location.GetCol()) ? -1 : 0;
+
+              // Start from the square after the current piece
+              int r = location.GetRow() + row_step;
+              int c = location.GetCol() + col_step;
+              bool path_clear = true;
+
+              // Check all squares up to but not including the king's position
+              while (r != prev_king_pos.GetRow() || c != prev_king_pos.GetCol()) {
+                  if (GetPiece(BoardLocation(r, c)).Present()) {
+                      path_clear = false;
+                      break;
+                  }
+                  r += row_step;
+                  c += col_step;
+              }
+
+              if (path_clear) {
+                  *current++ = Move(location, prev_king_pos, GetPiece(prev_king_pos));
+              }
+            }
+            break;
+          }
+        } // end switch
+    }
+        
+    result.count = current - buffer;
+
+    // Check if the PV move was generated
+    if (pv_move.has_value() && pv_index == -1) {
+        for (Move* m = buffer; m < current; ++m) {
+            if (*m == *pv_move) {
+                pv_index = m - buffer;
+                break;
+            }
+        }
+    }
+
+    // Final updates to the result
+    result.pv_index = pv_index;
+
+    return result;
+}
+
+bool Board::IsPathClear(const BoardLocation& from, const BoardLocation& to) const {
+    int row_step = (to.GetRow() > from.GetRow()) ? 1 : (to.GetRow() < from.GetRow()) ? -1 : 0;
+    int col_step = (to.GetCol() > from.GetCol()) ? 1 : (to.GetCol() < from.GetCol()) ? -1 : 0;
+
+    int row = from.GetRow() + row_step;
+    int col = from.GetCol() + col_step;
+
+    while (row != to.GetRow() || col != to.GetCol()) {
+        if (GetPiece({row, col}) != Piece::kNoPiece) {
+            return false; // Path is blocked
+        }
+        row += row_step;
+        col += col_step;
+    }
+    return true; // Path is clear
+}
+
+Board::MoveGenResult Board::GetCheckPseudoLegalMoves(
+    Move* buffer, 
+    size_t limit, 
+    const std::optional<Move>& pv_move) {
+    
+    MoveGenResult result{0, -1};
+    if (buffer == nullptr || limit == 0) return result;
+    int pv_index = -1;  // -1 means PV move not found
+
+    const PlayerColor current_color = GetTurn().GetColor();
+    Team current_team = GetTeam(current_color);
+    Team other_team = OtherTeam(GetTeam(current_color));
+    const auto& king_loc = king_locations_[current_color];
+
+    PlacedPiece attackers_buffer[2];
+    size_t num_attackers = GetAttackers2(
+        attackers_buffer, 2,
+        other_team,
+        king_loc
+    );
+
+    if (num_attackers == 0 && IsKingInCheck(current_team)) {
+      std::cout << "GetCheckPseudoLegalMoves: No attackers found" << std::endl
+      << "IsKingInCheck: " << IsKingInCheck(current_team) << std::endl
+      << "num_attackers: " << num_attackers << std::endl
+      << "attackers_buffer: " << sizeof(attackers_buffer)/sizeof(attackers_buffer[0]) << std::endl;
+
+
+      abort();
+    }
+    
+    auto& attacker1 = attackers_buffer[0];
+    auto& a1_piece = attacker1.GetPiece();
+    auto& a1_loc = attacker1.GetLocation();
+
+    const auto& pieces = piece_list_[current_color];
+    const size_t num_pieces = pieces.size();
+
+    Move* current = buffer;
+    const Move* const end = buffer + limit;
+
+    // If in double check, only king moves are allowed
+    if (num_attackers > 1) {
+        // Only generate moves for the king
+        current = GetKingMovesDirect(current, end - current, king_loc, current_color);
+    } else { // no double check
+
+      std::vector<BoardLocation> squares_between;
+
+      switch(a1_piece.GetPieceType()) {
+      case QUEEN:
+      case BISHOP:
+      case ROOK: {
+          // For sliding pieces, calculate the line between them
+          int row_step = (a1_loc.GetRow() > king_loc.GetRow()) ? 1 : 
+                        (a1_loc.GetRow() < king_loc.GetRow()) ? -1 : 0;
+          int col_step = (a1_loc.GetCol() > king_loc.GetCol()) ? 1 : 
+                        (a1_loc.GetCol() < king_loc.GetCol()) ? -1 : 0;
+
+          // Start from the square next to the king
+          int r = king_loc.GetRow() + row_step;
+          int c = king_loc.GetCol() + col_step;
+
+          // Add all squares up to (but not including) the attacker
+          while (r != a1_loc.GetRow() || c != a1_loc.GetCol()) {
+              squares_between.emplace_back(r, c);
+              r += row_step;
+              c += col_step;
+          }
+          break;
+      }
+      case KNIGHT:
+          // Knights jump over pieces, so no squares in between
+          break;
+      case PAWN:
+          // Pawns can only give check diagonally (no en passant in this case)
+          // No squares between a pawn and the king it's attacking
+          break;
+      default:
+          break;
+      }
+
+      if (squares_between.size() > 0) {
+        // block attack
+        if (!squares_between.empty()) {
+        // For each piece that could potentially block
+        for (size_t i = 0; i < num_pieces && current < end; ++i) {
+            const auto& placed_piece = pieces[i];
+            const auto& location = placed_piece.GetLocation();
+            const auto& piece = placed_piece.GetPiece();
+            const PieceType type = piece.GetPieceType();
+
+            // Skip the king - it can't block
+            if (type == KING) continue;
+
+            // For each square that needs to be blocked
+            for (const auto& block_square : squares_between) {
+                // Check if this piece can move to the blocking square
+                bool can_block = false;
+                switch (type) {
+                    case QUEEN:
+                        can_block = QueenAttacks(location, block_square) && 
+                                  IsPathClear(location, block_square);
+                        break;
+                    case ROOK:
+                        can_block = RookAttacks(location, block_square) && 
+                                  IsPathClear(location, block_square);
+                        break;
+                    case BISHOP:
+                        can_block = BishopAttacks(location, block_square) && 
+                                  IsPathClear(location, block_square);
+                        break;
+                    case KNIGHT:
+                        can_block = KnightAttacks(location, block_square);
+                        break;
+                    case PAWN:
+                        switch (current_color) {
+                          case RED:
+                            if (location.GetRow() == 12) {
+                              if (block_square.GetRow() == location.GetRow() - 2 && 
+                                  block_square.GetCol() == location.GetCol()) {
+                                    can_block = IsPathClear(location, block_square);
+                                }
+                            }
+                            if (block_square.GetRow() == location.GetRow() - 1 && 
+                                block_square.GetCol() == location.GetCol()) {
+                                  can_block = true;
+                                }
+                            break;
+                          case BLUE:
+                            if (location.GetCol() == 2) {
+                              if (block_square.GetRow() == location.GetRow() && 
+                                  block_square.GetCol() == location.GetCol() - 2) {
+                                    can_block = IsPathClear(location, block_square);
+                                }
+                            }
+                            if (block_square.GetRow() == location.GetRow() && 
+                                block_square.GetCol() == location.GetCol() - 1) {
+                                  can_block = true;
+                                }
+                            break;
+                          case YELLOW:
+                            if (location.GetRow() == 2) {
+                              if (block_square.GetRow() == location.GetRow() + 2 && 
+                                  block_square.GetCol() == location.GetCol()) {
+                                    can_block = IsPathClear(location, block_square);
+                                }
+                            }
+                            if (block_square.GetRow() == location.GetRow() + 1 && 
+                                block_square.GetCol() == location.GetCol()) {
+                                  can_block = true;
+                                }
+                            break;
+                          case GREEN:
+                            if (location.GetCol() == 12) {
+                              if (block_square.GetRow() == location.GetRow() - 2 && 
+                                  block_square.GetCol() == location.GetCol()) {
+                                    can_block = IsPathClear(location, block_square);
+                                }
+                            }
+                            if (block_square.GetRow() == location.GetRow() && 
+                                block_square.GetCol() == location.GetCol() + 1) {
+                                  can_block = true;
+                                }
+                            break;
+                        }
+                        break;
+                    default:
+                        break;
+                }
+
+                if (can_block && current < end) {
+                    *current++ = Move(location, block_square);
+                }
+            }
+        }
+    }
+        
+      }
+      // capture attacker
+      for (size_t i = 0; i < num_pieces && current < end; ++i) {
+          const auto& placed_piece = pieces[i];
+          const auto& location = placed_piece.GetLocation();
+          const auto& piece = placed_piece.GetPiece();
+
+          const PieceType type = piece.GetPieceType();
+
+          bool can_capture = false;
+          switch (type) {
+              case QUEEN: 
+                can_capture = QueenAttacks(location, a1_loc) && 
+                          IsPathClear(location, a1_loc);
+                break;
+              case ROOK:
+                can_capture = RookAttacks(location, a1_loc) && 
+                          IsPathClear(location, a1_loc);
+                break;
+              case BISHOP:
+                can_capture = BishopAttacks(location, a1_loc) && 
+                          IsPathClear(location, a1_loc);
+                break;
+              case KNIGHT:
+                can_capture = KnightAttacks(location, a1_loc) && 
+                          IsPathClear(location, a1_loc);
+                break;
+              case KING:
+                can_capture = KingAttacks(location, a1_loc) && 
+                          IsPathClear(location, a1_loc);
+                break;
+              case PAWN:
+                switch (current_color) {
+                  case RED:
+                    if (a1_loc.GetRow() == location.GetRow() - 1 && 
+                        (a1_loc.GetCol() == location.GetCol() + 1 || 
+                        a1_loc.GetCol() == location.GetCol() - 1)) {
+                          can_capture = true;
+                        }
+                    break;
+                  case BLUE:
+                    if (a1_loc.GetCol() == location.GetCol() + 1 && 
+                        (a1_loc.GetRow() == location.GetRow() + 1 || 
+                        a1_loc.GetRow() == location.GetRow() - 1)) {
+                          can_capture = true;
+                        }
+                    
+                    break;
+                  case YELLOW:
+                    if (a1_loc.GetRow() == location.GetRow() + 1 && 
+                        (a1_loc.GetCol() == location.GetCol() + 1 || 
+                        a1_loc.GetCol() == location.GetCol() - 1)) {
+                          can_capture = true;
+                        }
+                    break;
+                  case GREEN:
+                    if (a1_loc.GetCol() == location.GetCol() - 1 && 
+                        (a1_loc.GetRow() == location.GetRow() + 1 || 
+                        a1_loc.GetRow() == location.GetRow() - 1)) {
+                          can_capture = true;
+                        }
+                    break;
+                }
+                break;
+              default: assert(false && "Movegen: Invalid piece type");
+          }
+
+          if (can_capture && current < end) {
+              *current++ = Move(location, a1_loc, GetPiece(a1_loc));
+          }
+      }
+    }
+
+    result.count = current - buffer;
+
+    // Check if the PV move was generated
+    if (pv_move.has_value() && pv_index == -1) {
+        for (Move* m = buffer; m < current; ++m) {
+            if (*m == *pv_move) {
+                pv_index = m - buffer;
+                break;
+            }
+        }
+    }
+
+    // Final updates to the result
+    result.pv_index = pv_index;
+
+    return result;
 }
 
 Board::MoveGenResult Board::GetPseudoLegalMoves2(
