@@ -655,22 +655,7 @@ class Board {
     int mobility_counts[4] = {0};  // One for each player color
     int threat_counts[4] = {0};    // One for each player color
   };
-
-  MoveGenResult GetNextKingCaptureMoves(
-    Move* buffer, 
-    size_t limit, 
-    const std::optional<Move>& pv_move = std::nullopt);
-
-  MoveGenResult GetPrevKingCaptureMoves(
-    Move* buffer, 
-    size_t limit, 
-    const std::optional<Move>& pv_move = std::nullopt);
   
-  MoveGenResult GetCheckPseudoLegalMoves(
-    Move* buffer, 
-    size_t limit, 
-    const std::optional<Move>& pv_move = std::nullopt);
-
   MoveGenResult GetPseudoLegalMoves2(
     Move* buffer, 
     size_t limit, 
@@ -700,10 +685,6 @@ class Board {
       Team team,
       const BoardLocation& location) const;
 
-  bool IsAttackedByColor(
-      PlayerColor color,
-      const BoardLocation& location) const;
-
 //  std::vector<PlacedPiece> GetAttackers(
 //      Team team, const BoardLocation& location,
 //      bool return_early = false) const;
@@ -730,10 +711,6 @@ class Board {
       const BoardLocation& from,
       const BoardLocation& to,
       const BoardLocation& between) const;
-  
-  // Check if the path between two squares is clear of any pieces
-  bool IsPathClear(const BoardLocation& from, const BoardLocation& to) const;
-  
   inline bool DiscoversCheck(
       const BoardLocation& king_location,
       const BoardLocation& move_from,
