@@ -265,9 +265,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   bool tt_hit = false;
 
   int64_t key = board.HashKey();
-  if (IsKnownCheckmate(key)) {
-    return std::make_tuple(kMateValue, std::nullopt);
-  }
 
   tte = transposition_table_->Get(key);
   if (tte != nullptr) {
@@ -297,6 +294,11 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       is_tt_pv = tte->is_pv;
     }
   }
+
+  if (IsKnownCheckmate(key)) {
+    return std::make_tuple(kMateValue, std::nullopt);
+  }
+
 
   Player player = board.GetTurn();
 
