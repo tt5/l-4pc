@@ -1234,22 +1234,22 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     
     auto sorted_pieces = pieces;
 
-    /*
     if (!sorted_pieces.empty()) {
-        // Single pass with insertion sort is faster for small N
-        for (size_t i = 1; i < num_pieces; ++i) {
-            const PlacedPiece& key = sorted_pieces[i];
-            int key_val = kPieceValues[key.GetPiece().GetPieceType()];
-            int j = i - 1;
-            
-            while (j >= 0 && kPieceValues[sorted_pieces[j].GetPiece().GetPieceType()] < key_val) {
-                sorted_pieces[j + 1] = sorted_pieces[j];
-                --j;
-            }
-            sorted_pieces[j + 1] = key;
-        }
+      // Single pass with insertion sort is faster for small N
+      for (size_t i = 1; i < num_pieces; ++i) {
+          const PlacedPiece& key = sorted_pieces[i];
+          int key_val = kPieceValues[key.GetPiece().GetPieceType()];
+          size_t j = i;
+          
+          while (j > 0 && kPieceValues[sorted_pieces[j-1].GetPiece().GetPieceType()] < key_val) {
+              sorted_pieces[j] = sorted_pieces[j-1];
+              --j;
+          }
+          if (j != i) {  // Only assign if we actually moved elements
+              sorted_pieces[j] = key;
+          }
+      }
     }
-    */
     
     Move* current = buffer;
     const Move* const end = buffer + limit;
@@ -1257,7 +1257,6 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     int threats = 0;
     
     for (size_t i = 0; i < num_pieces && current < end; ++i) {
-        //const auto& placed_piece = *sorted_pieces[i];
         const auto& placed_piece = sorted_pieces[i];
         const auto& location = placed_piece.GetLocation();
         const auto& piece = placed_piece.GetPiece();
@@ -1290,7 +1289,8 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
 
         for (Move* m = buffer + before_count; m < current; ++m) {
               if (!IsLegalLocation(m->From()) || !IsLegalLocation(m->To())) {
-        std::cerr << "Invalid move generated: " << m->DebugString() << "\n";
+        std::cout << "Invalid move generated: " << m->DebugString() << std::endl
+        << "type: " << static_cast<int>(type) << std::endl;
         std::abort();
     }
 }
@@ -1566,10 +1566,10 @@ void Board::MakeMove(const Move& move) {
     if (it != placed_pieces.end()) {
         placed_pieces.erase(it);
     } else {
-        std::cout << "MakeMove Failed to find captured piece in piece_list_: " << std::endl
+        std::cout << "MakeMove en passant: Failed to find captured piece in piece_list_: " << std::endl
         << "color: " << static_cast<int>(color) << std::endl
-        << "move: " << move << std::endl
-        << "captured piece: " << ep_capture << std::endl;
+        << "move: " << move << "piece: " << piece << std::endl
+        << "ep_capture: " << ep_capture << std::endl;
         std::cout << "  en_passant_targets_: " << en_passant_targets_[BLUE] << std::endl;
         for (const auto& placed_piece : piece_list_[BLUE]) {
           const auto& loc = placed_piece.GetLocation();
@@ -1608,12 +1608,33 @@ void Board::MakeMove(const Move& move) {
     if (it != placed_pieces.end()) {
         placed_pieces.erase(it);
     } else {
+      
+      this->PrintBoard();
+
         std::cout << "MakeMove Failed to find captured piece in piece_list_: " << std::endl
         << "color: " << static_cast<int>(color) << std::endl
         << "move: " << move << std::endl
         << "captured piece: " << standard_capture << std::endl;
+        std::cout << "  en_passant_targets_: " << en_passant_targets_[RED] << std::endl;
         std::cout << "  en_passant_targets_: " << en_passant_targets_[BLUE] << std::endl;
+        std::cout << "  en_passant_targets_: " << en_passant_targets_[YELLOW] << std::endl;
+        std::cout << "  en_passant_targets_: " << en_passant_targets_[GREEN] << std::endl;
+        for (const auto& placed_piece : piece_list_[RED]) {
+          const auto& loc = placed_piece.GetLocation();
+          const auto& piece = placed_piece.GetPiece();
+          std::cout << "  - " << piece << " at " << loc << std::endl;
+        }
         for (const auto& placed_piece : piece_list_[BLUE]) {
+          const auto& loc = placed_piece.GetLocation();
+          const auto& piece = placed_piece.GetPiece();
+          std::cout << "  - " << piece << " at " << loc << std::endl;
+        }
+        for (const auto& placed_piece : piece_list_[YELLOW]) {
+          const auto& loc = placed_piece.GetLocation();
+          const auto& piece = placed_piece.GetPiece();
+          std::cout << "  - " << piece << " at " << loc << std::endl;
+        }
+        for (const auto& placed_piece : piece_list_[GREEN]) {
           const auto& loc = placed_piece.GetLocation();
           const auto& piece = placed_piece.GetPiece();
           std::cout << "  - " << piece << " at " << loc << std::endl;

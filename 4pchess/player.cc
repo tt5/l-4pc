@@ -367,7 +367,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   call_countA++;
   if (call_countA % 400000 == 0) {
     auto avg_ns = total_timeA.count() / call_countA;
-    auto current_avg = durationA.count() / 1;  // Current call's time in ns
 
     std::cout << "[Search - before move]"
               << "Average: " << avg_ns << " ns, "
@@ -444,20 +443,16 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       child_pvinfo = std::make_shared<PVInfo>();
     }
 
-    int r = 1; 
+    int r = 1;
     
-    if (move_count >= 4) { r++; }
-    if (move_count >= 8) { r++; }
-
     r += is_cut_node;
 
     auto endA2 = std::chrono::high_resolution_clock::now();
     auto durationA2 = std::chrono::duration_cast<std::chrono::nanoseconds>(endA2 - startA2);
     total_timeA2 += durationA2;
     call_countA2++;
-    if (call_countA2 % 400000 == 0) {
+    if (call_countA2 % 800000 == 0) {
       auto avg_ns = total_timeA2.count() / call_countA2;
-      auto current_avg = durationA2.count() / 1;  // Current call's time in ns
 
       std::cout << "[Move - before recursion]"
                 << "Average: " << avg_ns << " ns, "
@@ -507,29 +502,33 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       }
     }
 
-    if (depth <= 1
-        && ply >= 4
-        //&& is_capture
-        && (
-         //(ss-1)->current_move.IsCapture() && (ss-1)->current_move.To() == to
-         //|| (ss-3)->current_move.IsCapture() && (ss-3)->current_move.To() == to
-         (ss-1)->current_move.To() == to
-         || (ss-3)->current_move.To() == to
-        )
-    ) { r = -1; }
+    static std::atomic<int64_t> capture_extension_count{0};
+    static std::atomic<int64_t> check_extension_count{0};
+
+    if (depth == 1
+        && ((ss-1)->current_move.To() == to
+            || (ss-3)->current_move.To() == to)) {
+        capture_extension_count++;
+        r = -1;
+    }
+
+    if (depth == 1
+      && in_check
+      && (ss-4)->in_check
+    ) {
+      check_extension_count++;
+      r = -1;
+    }
 
     // lmr
-    if (!checkmate
-      && (depth >= 5)
-      && is_root_node
-      && (move_count >= 2 + 2 * (depth > 5))) {
+    if (!is_root_node
+      && (move_count >= 4)) {
       // First search with reduced depth and null window
       value_and_move_or = Search(
           ss+1, NonPV, thread_state, board, ply + 1, depth - 1
-          - (depth/2)
-          - (depth/4)*(r > 0)
-          - (depth/8)*(r > 1)
-          - (depth/16)*(r > 2)
+          - (depth/2)*(depth>3)
+          - (depth/4)*(r > 0)*(depth>7)
+          - (depth/8)*(r > 1)*(depth>8)
           + (r < 0),
           -alpha-1, -alpha, !maximizing_player, expanded,
           deadline, *child_pvinfo, 0, !is_cut_node);
@@ -541,12 +540,11 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         if (score > alpha) {
           
           // If the score is not failing high by much, try a reduced-window search first
-          if (score < alpha + 150) {
+          if (score < alpha + 200) {
             value_and_move_or = Search(
                 ss+1, NonPV, thread_state, board, ply + 1, depth - 1
                 - (depth/2)*(r > 0)
                 - (depth/4)*(r > 1)
-                - (depth/8)*(r > 2)
                 + (r < 0) ,
                 -alpha-50, -alpha, !maximizing_player, expanded,
                 deadline, *child_pvinfo, 0, true);
@@ -557,7 +555,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
                 ss+1, NonPV, thread_state, board, ply + 1, depth - 1
                 - (depth/2)*(r > 0)
                 - (depth/4)*(r > 1)
-                - (depth/8)*(r > 2)
                 + (r < 0),
                 -beta, -alpha, !maximizing_player, expanded,
                 deadline, *child_pvinfo, 0, !is_cut_node);
@@ -568,7 +565,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
               ss+1, NonPV, thread_state, board, ply + 1, depth - 1
               - (depth/2)*(r > 0)
               - (depth/4)*(r > 1)
-              - (depth/8)*(r > 2)
               + (r < 0),
               -beta, -alpha, !maximizing_player, expanded,
               deadline, *child_pvinfo, 0, !is_cut_node);
@@ -576,14 +572,12 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         }
       }
 
-    } else if (!checkmate
-      && (!is_pv_node || move_count > 1)) {
+    } else if (move_count > 1) {
 
       value_and_move_or = Search(
           ss+1, NonPV, thread_state, board, ply + 1, depth - 1
-          - (depth/2)*(r > 0)*(depth>=2)
-          - (depth/4)*(r > 1)*(depth>=3)
-          - (depth/8)*(r > 2)*(depth>=4)
+          - (depth/2)*(r > 0)*(depth>2)
+          - (depth/4)*(r > 1)*(depth>3)
           + (r < 0),
           -alpha-1, -alpha, !maximizing_player, expanded,
           deadline, *child_pvinfo, 0, !is_cut_node);
@@ -593,15 +587,14 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     // high (in the latter case search only if value < beta), otherwise let the
     // parent node fail low with value <= alpha and try another move.
     bool full_search =
-      is_pv_node
-      && (move_count == 1
+      move_count == 1
           || (value_and_move_or.has_value()
               && -std::get<0>(*value_and_move_or) > alpha
               && (is_root_node
                   || -std::get<0>(*value_and_move_or) < beta)
-              ));
+              );
 
-    if (full_search || checkmate) {
+    if (full_search) {
       
       value_and_move_or = Search(
           ss+1, PV, thread_state, board, ply + 1, depth - 1
@@ -650,24 +643,19 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     call_countB++;
     // Track full searches and checkmate searches
     thread_local int64_t total_full_searches = 0;
-    thread_local int64_t total_checkmate_searches = 0;
-    thread_local int64_t total_checkmate_searches_nonpv = 0;
     
     if (full_search) total_full_searches++;
-    if (checkmate) total_checkmate_searches++;
-    if (checkmate && !full_search) total_checkmate_searches_nonpv++;
     
-    if (call_countB % 400000 == 0) {
+    if (call_countB % 800000 == 0) {
       auto avg_ns = total_timeB.count() / call_countB;
       auto current_avg = durationB.count() / 1;  // Current call's time in ns
 
       std::cout << "[Move - after recursion]"
                 << " Average: " << avg_ns << " ns,"
-                << " Calls: " << call_countB
-                << ", Full searches: " << total_full_searches
-                << ", Checkmate searches: " << total_checkmate_searches
-                << " / " << total_checkmate_searches_nonpv
-                << std::endl;
+                << " Calls: " << call_countB << std::endl
+                << "Full searches: " << total_full_searches
+                << " capture extension: " << capture_extension_count
+                << " check extension: " << check_extension_count << std::endl;
     }
   }
   static std::atomic<int64_t> total_checkmates_found = 0;
@@ -743,7 +731,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   auto durationC = std::chrono::duration_cast<std::chrono::nanoseconds>(endC - startC);
   total_timeC += durationC;
   call_countC++;
-  if (call_countC % 400000 == 0) {
+  if (call_countC % 800000 == 0) {
     auto avg_ns = total_timeB.count() / call_countC;
     auto current_avg = durationC.count() / 1;  // Current call's time in ns
 
@@ -950,7 +938,7 @@ int AlphaBetaPlayer::Evaluate(
     auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
     total_time += duration;
     call_count++;
-    if (call_count % 400000 == 0) {
+    if (call_count % 800000 == 0) {
       auto avg_ns = total_time.count() / call_count;
       auto current_avg = duration.count() / 1;  // Current call's time in ns
 
