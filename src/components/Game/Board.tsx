@@ -1196,7 +1196,7 @@ const Board: Component<BoardProps> = (props) => {
 
   // Function to analyze position with proper guards
   const analyzePosition = () => {
-    if (!isEngineReady() || isHandlingGoBack.current) return;
+    if (!isEngineReady() || isHandlingGoBack.current || !isAnalyzing()) return;
     
     // Convert move history to UCI format
     const uciMoveHistory = moveHistory().map(moveToUCI);
