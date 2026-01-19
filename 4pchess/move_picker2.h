@@ -29,25 +29,21 @@ struct MovePicker2 {
     size_t count;          // Total number of moves
     size_t current;        // Current move index
     const Move* pv_move;   // PV move to prioritize
-    const Move* killer1;   // First killer move
-    const Move* killer2;   // Second killer move
-    int phase;             // Current phase (0=PV, 1=Killer1, 2=Killer2, 3=Remaining)
-    const PieceToHistory* const* cont_hist; // Array of pointers to continuation history from previous plies
+    int phase;             // Current phase (0=PV, 1=Remaining)
+    const PieceToHistory* const* cont_hist; // Array of pointers to continuation history
     int (*history_heuristic)[14][14][14][14]; // Pointer to current ply's history heuristic
     std::vector<size_t> move_indices;   // To store sorted indices of remaining moves
     bool remaining_sorted; // Whether remaining moves are already sorted
     float history_weight;  // Weight for history score (0.0 to 1.0)
 };
 
-// Initialize with board, moves, optional PV move, and optional killer moves
+// Initialize with board, moves, and optional PV move
 inline void InitMovePicker2(
     MovePicker2* picker,
     const Board* board,
     const Move* moves, 
     size_t count,
     const Move* pv_move = nullptr,
-    const Move* killer1 = nullptr,
-    const Move* killer2 = nullptr,
     const PieceToHistory* const* cont_hist = nullptr,
     int (*history_heuristic)[14][14][14][14] = nullptr,
     float history_weight = 0.5f) 
@@ -57,8 +53,6 @@ inline void InitMovePicker2(
     picker->count = count;
     picker->current = 0;
     picker->pv_move = pv_move;
-    picker->killer1 = killer1;
-    picker->killer2 = killer2;
     picker->cont_hist = cont_hist;
     picker->phase = 0;
     picker->remaining_sorted = false;
@@ -99,29 +93,8 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                 }
                 // Fall through to next phase if no PV move
                 
-            // Phase 1: Return first killer move if available and not already played
-            case 1:
-                picker->phase++;
-                if (picker->killer1 && 
-                    !(picker->pv_move && *picker->killer1 == *picker->pv_move) &&
-                    MoveExists(picker->moves, picker->current, picker->count, *picker->killer1)) {
-                    return picker->killer1;
-                }
-                // Fall through to next phase
-                
-            // Phase 2: Return second killer move if available and not already played
-            case 2:
-                picker->phase++;
-                if (picker->killer2 && 
-                    !(picker->pv_move && *picker->killer2 == *picker->pv_move) &&
-                    !(picker->killer1 && *picker->killer2 == *picker->killer1) &&
-                    MoveExists(picker->moves, picker->current, picker->count, *picker->killer2)) {
-                    return picker->killer2;
-                }
-                // Fall through to next phase
-                
-            // Phase 3: Return remaining moves with history-aware ordering
-            case 3: {
+            // Phase 1: Return remaining moves with history-aware ordering
+            case 1: {
                 // Sort remaining moves by combined score if not already sorted
                 // Calculate once and reuse
                 const size_t remaining_moves = picker->count - picker->current;
@@ -245,10 +218,10 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                     }
                     
                     if (orderings_count % 800000 == 0) {
-                        std::cout << "Move ordering stats - "
-                                  << "Count: " << orderings_count << " "
-                                  << "Avg: " << total_ordering_time.count() / orderings_count << "ns "
-                                  << "Cur/Max moves: " << moves_this_time << "/" << max_moves_ordered << "\n";
+                        //std::cout << "Move ordering stats - "
+                        //          << "Count: " << orderings_count << " "
+                        //          << "Avg: " << total_ordering_time.count() / orderings_count << "ns "
+                        //          << "Cur/Max moves: " << moves_this_time << "/" << max_moves_ordered << "\n";
                     }
                 }
                 

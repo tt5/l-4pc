@@ -296,13 +296,14 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   }
 
   Player player = board.GetTurn();
+  PlayerColor player_color = player.GetColor();
+  Team other_team = OtherTeam(player.GetTeam());
 
-  (ss+2)->killers[0] = (ss+2)->killers[1] = Move();
   ss->move_count = 0;
   if (ply == 1) {
     ss->root_depth = depth;
   }
-  bool in_check = board.IsKingInCheck(player);
+  bool in_check = board.IsAttackedByTeam(other_team, board.GetKingLocation(player_color));
   ss->in_check = in_check;
 
   std::optional<Move> best_move;
@@ -315,8 +316,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     moves,
     kBufferPartitionSize,
     pv_move.has_value() ? pv_move : tt_move);
-  thread_state.TotalMoves()[player.GetColor()] = result.mobility_counts[player.GetColor()];
-  thread_state.n_threats[player.GetColor()] = result.threat_counts[player.GetColor()];
+  thread_state.TotalMoves()[player_color] = result.mobility_counts[player_color];
+  thread_state.n_threats[player_color] = result.threat_counts[player_color];
 
   int eval = 0;
   if (tt_hit && tte->eval != value_none_tt) {
@@ -333,8 +334,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   
   // Initialize move picker parameters
   size_t move_count2 = result.count;
-  const Move* killer1 = &ss->killers[0];
-  const Move* killer2 = &ss->killers[1];
+  /*
   const PieceToHistory* cont_hist[] = {
     (ss - 1)->continuation_history,
     (ss - 2)->continuation_history,
@@ -342,14 +342,21 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     (ss - 4)->continuation_history,
     (ss - 5)->continuation_history,
   };
+  */
+  static PieceToHistory dummy_history = {};  // Zero-initialized dummy history
+  const PieceToHistory* cont_hist[] = {
+      &dummy_history,  // (ss-1)
+      &dummy_history,  // (ss-2)
+      &dummy_history,  // (ss-3)
+      &dummy_history,  // (ss-4)
+      &dummy_history   // (ss-5)
+  };
   
   InitMovePicker2(&picker, 
                &board,
                moves, 
                move_count2,
                pv_ptr,
-               killer1,
-               killer2,
                cont_hist,
                history_heuristic);
   
@@ -359,7 +366,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   int invalid_moves = 0;
   bool fail_low = true;
   bool fail_high = false;
-  std::vector<Move> searched_moves;
+  //std::vector<Move> searched_moves;
 
   auto endA = std::chrono::high_resolution_clock::now();
   auto durationA = std::chrono::duration_cast<std::chrono::nanoseconds>(endA - startA);
@@ -368,9 +375,9 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   if (call_countA % 400000 == 0) {
     auto avg_ns = total_timeA.count() / call_countA;
 
-    std::cout << "[Search - before move]"
-              << "Average: " << avg_ns << " ns, "
-              << "Call count: " << call_countA << std::endl;
+    //std::cout << "[Search - before move]"
+    //          << "Average: " << avg_ns << " ns, "
+    //          << "Call count: " << call_countA << std::endl;
   }
   while (true) {
     const Move* move_ptr = GetNextMove2(&picker);
@@ -404,33 +411,28 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       break;
     }
 
-    if (board.IsKingInCheck(player)) { // invalid move
+    // not same king position if the king moved
+    if (board.IsAttackedByTeam(other_team, board.GetKingLocation(player_color))) { // invalid move
       board.UndoMove();
 
       continue;
     }
 
+    static std::atomic<int64_t> cm_skip_count{0};
     int64_t current_hash = board.HashKey();
-    bool checkmate = depth >= 3 && IsKnownCheckmate(current_hash);
+    bool checkmate = depth >= 4 && IsKnownCheckmate(current_hash);
     if (checkmate) {
       board.UndoMove();
+      thread_state.n_threats[player_color] = std::max(thread_state.n_threats[player_color] - 10, 0);
+
+      cm_skip_count++;
 
       continue;
     }
-    /*
-    if (checkmate) {
-      board.UndoMove();
-      return std::make_tuple(
-      std::min(beta, std::max(alpha, -kMateValue))
-        , best_move);
-    }
-    */
-
     has_legal_moves = true;
 
     ss->current_move = move;
     //ss->continuation_history = &continuation_history[in_check][is_capture][piece_type][to.GetRow()][to.GetCol()];
-    static PieceToHistory dummy_history = {};
     ss->continuation_history = &dummy_history;
     ss->move_count = move_count++;
 
@@ -454,23 +456,23 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     if (call_countA2 % 800000 == 0) {
       auto avg_ns = total_timeA2.count() / call_countA2;
 
-      std::cout << "[Move - before recursion]"
-                << "Average: " << avg_ns << " ns, "
-                << "Call count: " << call_countA2 << std::endl
-                << "Singular searches: " << GetNumSingularExtensionSearches() << std::endl
-                << "Singular hits: " << GetNumSingularExtensions()
-                << std::endl;
+      //std::cout << "[Move - before recursion]"
+      //          << "Average: " << avg_ns << " ns, "
+      //          << "Call count: " << call_countA2 << std::endl
+      //          << "Singular searches: " << GetNumSingularExtensionSearches() << std::endl
+      //          << "Singular hits: " << GetNumSingularExtensions() << std::endl
+      //          << "CM skips: " << cm_skip_count << std::endl;
     }
 
     // Singular extension search
     if (!is_root_node
-        && move_count >= 1
+        && move_count > 0
         && tt_move.has_value() && move == *tt_move
         && !ss->excludedMove.Present()
         && depth >= 8 // Only for reasonably deep searches
         && tte != nullptr && tte->score != value_none_tt && std::abs(tte->score) < kMateValue
         && tte->bound == LOWER_BOUND // The TT move was a fail-high
-        && tte->depth >= depth - 3
+        //&& tte->depth >= depth - 3
         )
     {
       num_singular_extension_searches_.fetch_add(1, std::memory_order_relaxed);
@@ -497,7 +499,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         // we didn't find a better move
         if (singular_score < singular_beta) {
           num_singular_extensions_.fetch_add(1, std::memory_order_relaxed);
-          r = 0; // no reduction
+          //r = 0; // no reduction
+          r = -1;
         }
       }
     }
@@ -522,7 +525,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
     // lmr
     if (!is_root_node
-      && (move_count >= 4)) {
+      && (move_count >= 1)) {
       // First search with reduced depth and null window
       value_and_move_or = Search(
           ss+1, NonPV, thread_state, board, ply + 1, depth - 1
@@ -572,7 +575,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         }
       }
 
-    } else if (move_count > 1) {
+    } else if (move_count > 0) {
 
       value_and_move_or = Search(
           ss+1, NonPV, thread_state, board, ply + 1, depth - 1
@@ -587,7 +590,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     // high (in the latter case search only if value < beta), otherwise let the
     // parent node fail low with value <= alpha and try another move.
     bool full_search =
-      move_count == 1
+      move_count == 0
           || (value_and_move_or.has_value()
               && -std::get<0>(*value_and_move_or) > alpha
               && (is_root_node
@@ -611,7 +614,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       return std::nullopt; // timeout
     }
     int score = -std::get<0>(*value_and_move_or);
-    searched_moves.push_back(move);
+    //searched_moves.push_back(move);
 
     if (score >= beta) {
       alpha = beta;
@@ -650,21 +653,40 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       auto avg_ns = total_timeB.count() / call_countB;
       auto current_avg = durationB.count() / 1;  // Current call's time in ns
 
-      std::cout << "[Move - after recursion]"
-                << " Average: " << avg_ns << " ns,"
-                << " Calls: " << call_countB << std::endl
-                << "Full searches: " << total_full_searches
-                << " capture extension: " << capture_extension_count
-                << " check extension: " << check_extension_count << std::endl;
+      //std::cout << "[Move - after recursion]"
+      //          << " Average: " << avg_ns << " ns,"
+      //          << " Calls: " << call_countB << std::endl
+      //          << "Full searches: " << total_full_searches
+      //          << " capture extension: " << capture_extension_count
+      //          << " check extension: " << check_extension_count << std::endl;
     }
   }
   static std::atomic<int64_t> total_checkmates_found = 0;
   thread_local int checkmates_in_this_search = 0;
   auto startC = std::chrono::high_resolution_clock::now();
 
-  if (!fail_low) {
-    UpdateStats(ss, thread_state, board, *best_move, depth, fail_high,
-                searched_moves);
+  if (!fail_low && best_move) {  // Add null check for best_move
+    auto from = best_move->From();  // Use best_move
+    auto to = best_move->To();      // Use best_move
+    Piece piece = board.GetPiece(from);  // Use best_move
+
+    int bonus = 1 << (fail_high ? depth + 1 : depth);
+
+    size_t lock_key = (from.GetRow() * 14 + from.GetCol()) * 196 + (to.GetRow() * 14 + to.GetCol());
+    std::lock_guard<std::mutex> lock(heuristic_mutexes_[lock_key % kHeuristicMutexes]);
+    history_heuristic[piece.GetPieceType()][from.GetRow()][from.GetCol()][to.GetRow()][to.GetCol()] += bonus;
+    /*
+    for (int i : {1, 2, 3, 4, 5, 6}) {
+      // Only update the first 2 continuation histories if we are in check
+      if (ss->in_check && i > 2) {
+        break;
+      }
+      if ((ss-i)->current_move.Present()) {
+        auto& entry = (*(ss-i)->continuation_history)[best_move->IsCapture()][piece.GetPieceType()];
+        entry[to.GetRow() * 14 + to.GetCol()] << bonus;
+      }
+    }
+    */
   }
 
   int score = alpha;
@@ -709,14 +731,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     best_move.has_value() ? EXACT : UPPER_BOUND;
   transposition_table_->Save(board.HashKey(), depth, best_move, score, ss->static_eval, bound, is_pv_node);
 
-  //if (best_move.has_value() && !best_move->IsCapture()) {
-  if (best_move.has_value()) {
-    if (ss->killers[0] != *best_move) {
-      ss->killers[1] = ss->killers[0];
-      ss->killers[0] = *best_move;
-    }
-  }
-
   // If no good move is found and the previous position was tt_pv, then the
   // previous opponent move is probably good and the new position is added to
   // the search tree.
@@ -735,11 +749,11 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     auto avg_ns = total_timeB.count() / call_countC;
     auto current_avg = durationC.count() / 1;  // Current call's time in ns
 
-    std::cout << "[Search - after move]"
-              << " Average: " << avg_ns << " ns,"
-              << " Call count: " << call_countC
-              << ", Checkmates (this search/total): " 
-              << checkmates_in_this_search << "/" << total_checkmates_found << std::endl;
+    //std::cout << "[Search - after move]"
+    //          << " Average: " << avg_ns << " ns,"
+    //          << " Call count: " << call_countC
+    //          << ", Checkmates (this search/total): " 
+    //          << checkmates_in_this_search << "/" << total_checkmates_found << std::endl;
   }
   return std::make_tuple(score, best_move);
 }
@@ -812,6 +826,12 @@ int AlphaBetaPlayer::Evaluate(
     }
   } else {
   auto start = std::chrono::high_resolution_clock::now();
+    int64_t current_hash = board.HashKey();
+    bool checkmate = IsKnownCheckmate(current_hash);
+    if (checkmate) {
+      eval = kMateValue;
+      return maximizing_player ? eval : -eval;
+    }
     int pbase=0;
     int pevalM=0;
     int pevalT=0;
