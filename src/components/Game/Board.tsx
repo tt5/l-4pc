@@ -1187,7 +1187,7 @@ const Board: Component<BoardProps> = (props) => {
     // 7. Force UI update and recalculate restricted squares with latest state
     await new Promise(resolve => setTimeout(resolve, 0));
 
-    analyzePosition();
+    analyzePosition(currentIndex);
     
   };
 
@@ -1195,11 +1195,12 @@ const Board: Component<BoardProps> = (props) => {
   const isHandlingGoBack = { current: false };
 
   // Function to analyze position with proper guards
-  const analyzePosition = () => {
+  const analyzePosition = (index: number) => {
     if (!isEngineReady() || isHandlingGoBack.current || !isAnalyzing()) return;
     
-    // Convert move history to UCI format
-    const uciMoveHistory = moveHistory().map(moveToUCI);
+    const uciMoveHistory = moveHistory()
+      .slice(0, index + 1)  // +1 because slice end is exclusive
+      .map(moveToUCI);
     
     // Small delay to let the board state settle
     setTimeout(() => {
@@ -1299,6 +1300,23 @@ const Board: Component<BoardProps> = (props) => {
       console.log('[handleGoBack] Starting analysis with moves:', uciMoveHistory);
       await startEngineAnalysis(uciMoveHistory);
       */
+      if (!isEngineReady() || !isAnalyzing()) return;
+      
+      const uciMoveHistory = moveHistory()
+        .slice(0, newIndex)
+        .map(moveToUCI);
+      
+      // Small delay to let the board state settle
+      setTimeout(() => {
+        try {
+          if (uciMoveHistory.length > 0) {
+            engine.startAnalysis(uciMoveHistory);
+          }
+        } catch (error) {
+          console.error('Engine analysis error:', error);
+        }
+      }, 50);
+
     } finally {
       isHandlingGoBack.current = false;
     }
