@@ -5,7 +5,7 @@ Analyse 4 player chess games.
 ``` bash
 cd 4pchess
 make -B cli
-cp ./cli ../cli
+cp cli ..
 ```
 
 # Bug
@@ -15,7 +15,6 @@ cp ./cli ../cli
 # TODO
 
 - [ ] engine castling
-- [X] engine en passant
 - [ ] engine promotion
 - [ ] client promotion
 - [ ] rotate board
