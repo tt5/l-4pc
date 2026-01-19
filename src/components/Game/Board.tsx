@@ -1186,12 +1186,9 @@ const Board: Component<BoardProps> = (props) => {
     
     // 7. Force UI update and recalculate restricted squares with latest state
     await new Promise(resolve => setTimeout(resolve, 0));
+
+    analyzePosition();
     
-    /*
-    // Trigger analysis after moving forward
-    const uciMoveHistory = history.slice(0, newIndex).map(moveToUCI);
-    startEngineAnalysis(uciMoveHistory);
-    */
   };
 
   // Track if we're currently handling a go back operation
@@ -1208,7 +1205,7 @@ const Board: Component<BoardProps> = (props) => {
     setTimeout(() => {
       try {
         if (uciMoveHistory.length > 0) {
-          startEngineAnalysis(uciMoveHistory);
+          engine.startAnalysis(uciMoveHistory);
         }
       } catch (error) {
         console.error('Engine analysis error:', error);
