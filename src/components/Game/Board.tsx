@@ -1121,6 +1121,8 @@ const Board: Component<BoardProps> = (props) => {
     setBasePoints(replayedPieces);
     setMoveHistory(newMoveHistory);
     setCurrentMoveIndex(Math.max(-1, currentIndex - 1));
+    const newTurnIndex = Math.max(0, currentIndex) % PLAYER_COLORS.length;
+    setCurrentTurnIndex(newTurnIndex);
   };
 
   const handleGoForward = async () => {

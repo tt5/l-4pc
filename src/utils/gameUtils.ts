@@ -1177,13 +1177,8 @@ export function getLegalMoves(
   // First check if the piece is pinned
   const { isPinned, pinDirection } = isPiecePinned(basePoint, allBasePoints, getTeamFn);
 
-  // If pinned, log the piece and its restricted moves
   if (isPinned) {
     const pinDir = pinDirection!;
-    console.log(`[PINNED PIECE] ${basePoint.pieceType} at (${basePoint.x},${basePoint.y}) is pinned in direction [${pinDir[0]},${pinDir[1]}]`);
-    
-    // Store original moves for logging
-    const originalMoveCount = possibleMoves.length;
     
     // For bishops, rooks, and queens, allow movement along the pin line
     if (['bishop', 'rook', 'queen'].includes(basePoint.pieceType)) {
@@ -1217,18 +1212,6 @@ export function getLegalMoves(
                 Math.sign(dx) === Math.sign(pinDir[0]) && 
                 Math.sign(dy) === Math.sign(pinDir[1]));
       });
-    }
-
-    // Log the restricted moves
-    console.log(`[PIN RESTRICTION] ${basePoint.pieceType} at (${basePoint.x},${basePoint.y}) - ` +
-                `Moves reduced from ${originalMoveCount} to ${possibleMoves.length}`);
-    
-    // Log the remaining valid moves
-    if (possibleMoves.length > 0) {
-      const moveList = possibleMoves.map(m => `(${m.x},${m.y}${m.canCapture ? ' (capture)' : ''})`).join(', ');
-      console.log(`[VALID MOVES] ${basePoint.pieceType} at (${basePoint.x},${basePoint.y}) can move to: ${moveList}`);
-    } else {
-      console.log(`[NO VALID MOVES] ${basePoint.pieceType} at (${basePoint.x},${basePoint.y}) has no legal moves due to pin`);
     }
   }
 
