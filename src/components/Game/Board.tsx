@@ -1068,9 +1068,12 @@ const Board: Component<BoardProps> = (props) => {
         });
       } else {
         // For main line moves, just remove the specific move
-        return prevFullHistory.filter(move => 
-          !(!move.branchName && move.moveNumber === currentMove.moveNumber)
-        );
+        return prevFullHistory.filter(move => {
+          // Keep the move if it's NOT the main line move we're deleting
+          const isMainLineMove = move.branchName === undefined || move.branchName === null;
+          const isTargetMove = move.moveNumber === currentMove.moveNumber;
+          return !(isMainLineMove && isTargetMove);
+        });
       }
     });
 
@@ -1111,18 +1114,30 @@ const Board: Component<BoardProps> = (props) => {
     if (props.onGameUpdate) {
       props.onGameUpdate();
     }
+    const saveFullMoveHistory = fullMoveHistory();
     resetBoardToInitialState();
+    setFullMoveHistory(saveFullMoveHistory)
     const movesToReplay = newMoveHistory.slice(0, currentIndex);
     
     const replayedPieces = replayMoves(movesToReplay, movesToReplay.length - 1);
     
     // Update local state
-    console.log(`[Delete] Updating state - New move index: ${Math.max(-1, currentIndex - 1)}`);
-    setBasePoints(replayedPieces);
-    setMoveHistory(newMoveHistory);
-    setCurrentMoveIndex(Math.max(-1, currentIndex - 1));
-    const newTurnIndex = Math.max(0, currentIndex) % PLAYER_COLORS.length;
-    setCurrentTurnIndex(newTurnIndex);
+    console.log(`[Delete] Updating state - New move index: ${Math.max(-1, currentIndex)}`);
+    batch(()=> {
+      setBasePoints(replayedPieces);
+      setMoveHistory(newMoveHistory);
+      const newMoveIndex = Math.max(-1, currentIndex);
+      const newTurnIndex = (newMoveIndex) % PLAYER_COLORS.length;
+      setCurrentMoveIndex(newMoveIndex);
+      setCurrentTurnIndex(newTurnIndex);
+
+      const currentBranch = currentBranchName();
+      if (currentBranch && currentBranch !== 'main') {
+        setCurrentBranchName(currentBranch);
+      } else {
+        setCurrentBranchName('main');
+      }
+    })
   };
 
   const handleGoForward = async () => {
@@ -1809,8 +1824,12 @@ const Board: Component<BoardProps> = (props) => {
 
             console.log(`[HandleGlobalMouseUp] attempting move: (${startX}, ${startY}) -> (${targetX}, ${targetY})`)
 
-            const nextMove = moveHistory()[currentIndex];
-            console.log(`[handleGlobalMouseUp] nextMove in branch: ${nextMove.fromX}, ${nextMove.fromY} -> ${nextMove.toX}, ${nextMove.toY}`)
+            const nextMove = currentIndex < moveHistory().length ? moveHistory()[currentIndex] : undefined;
+            if (!nextMove) {
+              console.log(`[handleGlobalMouseUp] No next move found at index ${currentIndex}, creating new move`);
+            } else {
+              console.log(`[handleGlobalMouseUp] nextMove in branch: ${nextMove.fromX}, ${nextMove.fromY} -> ${nextMove.toX}, ${nextMove.toY}`);
+            }
 
             if (nextMove && nextMove.fromX === startX && nextMove.fromY === startY &&
                 nextMove.toX === targetX && nextMove.toY === targetY) {
@@ -1839,40 +1858,58 @@ const Board: Component<BoardProps> = (props) => {
               handleGoForward();
               return;
             }
-            
-            console.log(`[handleGlobalMouseUp] Move does not match branch point`);
 
-            // If we get here, it's a new branch
-            isBranching = true;
-            console.log("[handleGlobalMouseUp] branching")
-            const parentBranch = currentBranchName() || 'main';
-            const nextMoveIdx = (currentIndex + 1) + 1; // currentIndex + 1 for 1-based, then +1 for next move
-            branchName = generateBranchName(nextMoveIdx, parentBranch);
+            if (currentIndex + 1 >= moveHistory().length) {
+              console.log(`[handleGlobalMouseUp] At end of line, continuing main line`);
+              // Continue with normal move creation without branching
+              isBranching = false;
+
+              // Check if we're in the main line or a branch
+              const currentBranch = currentBranchName();
+              if (currentBranch === 'main' || currentBranch === null) {
+                // We're in the main line, continue main line
+                setCurrentBranchName('main');
+              } else {
+                // We're in a branch, continue the same branch
+                setCurrentBranchName(currentBranch);
+              }
+            } else {
+              console.log(`[handleGlobalMouseUp] Move does not match branch point`);
+              // If we get here, it's a new branch
+              isBranching = true;
+            }
             
-            setBranchPoints(prev => {
-              // Ensure branchName is never null or undefined
-              const safeBranchName = branchName || `branch-${Date.now()}`;
+            if (isBranching) {
+              console.log("[handleGlobalMouseUp] branching")
+              const parentBranch = currentBranchName() || 'main';
+              const nextMoveIdx = (currentIndex + 1) + 1; // currentIndex + 1 for 1-based, then +1 for next move
+              branchName = generateBranchName(nextMoveIdx, parentBranch);
               
-              const newPoints = {
-                ...prev,
-                [currentIndex]: [
-                  ...(prev[currentIndex] || []),
-                  { 
-                    branchName: safeBranchName,
-                    parentBranch: parentBranch,  // Include parent branch information
-                    firstMove: {
-                      fromX: startX,
-                      fromY: startY,
-                      toX: targetX,
-                      toY: targetY
+              setBranchPoints(prev => {
+                // Ensure branchName is never null or undefined
+                const safeBranchName = branchName || `branch-${Date.now()}`;
+                
+                const newPoints = {
+                  ...prev,
+                  [currentIndex]: [
+                    ...(prev[currentIndex] || []),
+                    { 
+                      branchName: safeBranchName,
+                      parentBranch: parentBranch,  // Include parent branch information
+                      firstMove: {
+                        fromX: startX,
+                        fromY: startY,
+                        toX: targetX,
+                        toY: targetY
+                      }
                     }
-                  }
-                ]
-              };
-              
-              return newPoints;
-            });
-            setCurrentBranchName(branchName);
+                  ]
+                };
+                
+                return newPoints;
+              });
+              setCurrentBranchName(branchName);
+            }
           }
         }
 
@@ -1983,6 +2020,10 @@ const Board: Component<BoardProps> = (props) => {
           throw new Error(result.error || 'Failed to update base point');
         }
 
+        const currentHistory = moveHistory();
+        if (!currentHistory.some(move => move.id === newMove.id)) {
+          setMoveHistory([...currentHistory, newMove]);
+        }
         handleGoForward()
 
       } catch (error) {
