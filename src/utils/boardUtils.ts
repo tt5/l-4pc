@@ -2,7 +2,7 @@ import { BOARD_CONFIG, getTeamByColor } from '../constants/game';
 import { createPoint, Point, BasePoint, Direction, BasePoint as BasePointType } from '../types/board';
 import { createSignal, createEffect, onCleanup, onMount, batch, Accessor } from 'solid-js';
 import type { ApiResponse } from './api';
-import { getLegalMoves, isKingInCheck } from './gameUtils';
+import { getLegalMoves } from './gameUtils';
 
 export interface RestrictedByInfo {
   basePointId: string;
@@ -27,7 +27,6 @@ export interface RestrictedSquaresResult {
   restrictedSquaresInfo: RestrictedSquareInfo[];
 }
 
-// In boardUtils.ts, update the calculateRestrictedSquares function
 export function calculateRestrictedSquares(
   pieces: BasePoint[], 
   boardState: BasePoint[],
@@ -52,14 +51,6 @@ export function calculateRestrictedSquares(
   const restrictedSquares: number[] = [];
   const restrictedSquaresInfo: RestrictedSquareInfo[] = [];
   const getTeam = options.getTeamFn || getTeamByColor;
-
-  // Get the current player's king from their pieces
-  const currentKing = pieces.find(p => p.pieceType === 'king');
-
-  // Check if the current player's king is in check
-  const kingInCheck = currentKing ? 
-    isKingInCheck(currentKing, boardState, getTeam) : 
-    false;
 
   for (const piece of pieces) {
     
@@ -176,17 +167,6 @@ type ValidateSquarePlacementOptions = {
 };
 
 /**
- * Validates if a square can have a base point placed on it
- */
-/**
- * Updates a base point's position in the database
- * @param id The ID of the base point to update
- * @param x The new x-coordinate
- * @param y The new y-coordinate
- * @param moveNumber The current move number (optional)
- * @returns A promise that resolves to the API response with the updated base point
- */
-/**
  * Updates a base point's position in the database
  * @param id The ID of the base point to update
  * @param x The new x-coordinate
@@ -195,6 +175,8 @@ type ValidateSquarePlacementOptions = {
  * @param branchName The name of the branch (optional)
  * @param isNewBranch Whether this is a new branch (optional)
  * @param gameId The ID of the game (required for branching)
+ * @param fromX The source X coordinate (optional)
+ * @param fromY The source Y coordinate (optional)
  * @returns A promise that resolves to the API response with the updated base point
  */
 export const updateBasePoint = async (

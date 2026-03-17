@@ -1084,6 +1084,8 @@ const Board: Component<BoardProps> = (props) => {
       );
     }
 
+    console.log(`[Delete] (0) branchPoints: ${JSON.stringify(branchPoints())}`)
+    // TODO: fix
     // Clean up branchPoints when a move is deleted
     setBranchPoints(prevBranchPoints => {
       const newBranchPoints = { ...prevBranchPoints };
@@ -1115,8 +1117,16 @@ const Board: Component<BoardProps> = (props) => {
       props.onGameUpdate();
     }
     const saveFullMoveHistory = fullMoveHistory();
+    const saveCurrentBranchName = currentBranchName();
+    const saveMainLineMoves = mainLineMoves();
+    console.log(`[Delete] (1) branchPoints: ${JSON.stringify(branchPoints())}`)
+    const saveBranchPoints = branchPoints();
     resetBoardToInitialState();
-    setFullMoveHistory(saveFullMoveHistory)
+    setFullMoveHistory(saveFullMoveHistory);
+    setCurrentBranchName(saveCurrentBranchName);
+    setMainLineMoves(saveMainLineMoves);
+    setBranchPoints(saveBranchPoints);
+
     const movesToReplay = newMoveHistory.slice(0, currentIndex);
     
     const replayedPieces = replayMoves(movesToReplay, movesToReplay.length - 1);
@@ -1132,12 +1142,16 @@ const Board: Component<BoardProps> = (props) => {
       setCurrentTurnIndex(newTurnIndex);
 
       const currentBranch = currentBranchName();
+      console.log(`[Delete] (1) currentBranch: ${currentBranchName()}`);
       if (currentBranch && currentBranch !== 'main') {
         setCurrentBranchName(currentBranch);
       } else {
         setCurrentBranchName('main');
       }
     })
+    console.log(`[Delete] (2) currentBranch: ${currentBranchName()}`);
+    setMoveHistory(rebuildMoveHistory(currentBranchName()))
+    console.log(`[Delete] (2) branchPoints: ${JSON.stringify(branchPoints())}`)
   };
 
   const handleGoForward = async () => {
@@ -2040,6 +2054,7 @@ const Board: Component<BoardProps> = (props) => {
         setIsProcessingMove(false);
         cleanupDragState();
       }
+    console.log(`branchPoints: ${JSON.stringify(branchPoints())}`);
   };
 
   // Setup and cleanup event listeners
