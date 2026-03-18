@@ -462,7 +462,7 @@ const Board: Component<BoardProps> = (props) => {
 
           const branchMoves = moves.filter((move: Move) => move.branchName && move.branchName !== 'main');
           branchMoves.forEach((move: Move) => {
-            const branchPointMoveNumber = move.moveNumber;
+            const branchPointMoveNumber = move.moveNumber - 1;
             
             // Find the parent branch (look for moves with same moveNumber but different/no branchName)
             const parentMove = moves.find((m: Move) => 
