@@ -408,6 +408,8 @@ const Board: Component<BoardProps> = (props) => {
           props.onGameUpdate();
         }
         return;
+      } else {
+        console.log(`[loadGame] ${rawMoves.length} moves found`);
       }
       
       // Define the type for the move object from the API
@@ -447,8 +449,53 @@ const Board: Component<BoardProps> = (props) => {
       batch(() => {
         setGameId(gameIdToLoad);
         setFullMoveHistory(moves);
+        console.log(`[loadGame] fullMoveHistory: ${JSON.stringify(fullMoveHistory())}`)
         
         if (moves.length > 0) {
+
+          // Reconstruct branchPoints from fullMoveHistory
+          const reconstructedBranchPoints: Record<number, Array<{
+            branchName: string;
+            parentBranch: string;
+            firstMove: BranchMove;
+          }>> = {};
+
+          const branchMoves = moves.filter((move: Move) => move.branchName && move.branchName !== 'main');
+          branchMoves.forEach((move: Move) => {
+            const branchPointMoveNumber = move.moveNumber;
+            
+            // Find the parent branch (look for moves with same moveNumber but different/no branchName)
+            const parentMove = moves.find((m: Move) => 
+              m.moveNumber === branchPointMoveNumber && 
+              (!m.branchName || m.branchName === 'main')
+            );
+            
+            if (parentMove) {
+              if (!reconstructedBranchPoints[branchPointMoveNumber]) {
+                reconstructedBranchPoints[branchPointMoveNumber] = [];
+              }
+              
+              // Check if this branch is already added
+              const existingBranch = reconstructedBranchPoints[branchPointMoveNumber]
+                .find((bp: {branchName: string}) => bp.branchName === move.branchName);
+              
+              if (!existingBranch && move.branchName) {
+                reconstructedBranchPoints[branchPointMoveNumber].push({
+                  branchName: move.branchName,
+                  parentBranch: 'main', // Default to main, could be enhanced for nested branches
+                  firstMove: {
+                    fromX: move.fromX,
+                    fromY: move.fromY,
+                    toX: move.toX,
+                    toY: move.toY
+                  }
+                });
+              }
+            }
+          });
+
+          setBranchPoints(reconstructedBranchPoints);
+
           setMainLineMoves(moves.filter((move: Move) => !move.branchName || move.branchName === 'main'));
           setCurrentBranchName('main');
           setMoveHistory(rebuildMoveHistory('main'));
