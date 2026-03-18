@@ -10,7 +10,7 @@ cp cli ..
 
 # Bug
 
-- [ ] load game: branches not loaded
+- [X] load game: branches not loaded
 
 # TODO
 

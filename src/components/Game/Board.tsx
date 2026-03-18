@@ -1293,6 +1293,7 @@ const Board: Component<BoardProps> = (props) => {
     
     // Update local state
     console.log(`[Delete] Updating state - New move index: ${Math.max(-1, currentIndex)}`);
+    const currentBranch = currentBranchName();
     batch(()=> {
       setBasePoints(replayedPieces);
       setMoveHistory(newMoveHistory);
@@ -1301,7 +1302,6 @@ const Board: Component<BoardProps> = (props) => {
       setCurrentMoveIndex(newMoveIndex);
       setCurrentTurnIndex(newTurnIndex);
 
-      const currentBranch = currentBranchName();
       console.log(`[Delete] (1) currentBranch: ${currentBranchName()}`);
       if (currentBranch && currentBranch !== 'main') {
         setCurrentBranchName(currentBranch);
@@ -1311,7 +1311,7 @@ const Board: Component<BoardProps> = (props) => {
       setMoveHistory(rebuildMoveHistory(currentBranchName()))
     })
     handleGoBack()
-    //TODO: follows parent branch
+    setCurrentBranchName(currentBranch)
     handleGoForward()
     console.log(`[Delete] (2) currentBranch: ${currentBranchName()}`);
     console.log(`[Delete] (2) branchPoints: ${JSON.stringify(branchPoints())}`)
@@ -1515,6 +1515,7 @@ const Board: Component<BoardProps> = (props) => {
 
     } finally {
       isHandlingGoBack.current = false;
+      console.log(`[handleGoBack] currentBranchName: ${currentBranchName()}`)
     }
   };
 
