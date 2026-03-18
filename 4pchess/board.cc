@@ -1234,22 +1234,24 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     
     auto sorted_pieces = pieces;
 
+    /*
     if (!sorted_pieces.empty()) {
-        // Proper insertion sort
-        for (size_t i = 1; i < num_pieces; ++i) {
-            const PlacedPiece key = sorted_pieces[i];  // Make a copy of the key
-            int key_val = kPieceValues[key.GetPiece().GetPieceType()];
-            size_t j = i;
-            
-            while (j > 0 && kPieceValues[sorted_pieces[j-1].GetPiece().GetPieceType()] < key_val) {
-                sorted_pieces[j] = sorted_pieces[j-1];
-                --j;
-            }
-            if (j != i) {
-                sorted_pieces[j] = key;
-            }
-        }
+      // Single pass with insertion sort is faster for small N
+      for (size_t i = 1; i < num_pieces; ++i) {
+          const PlacedPiece& key = sorted_pieces[i];
+          int key_val = kPieceValues[key.GetPiece().GetPieceType()];
+          size_t j = i;
+          
+          while (j > 0 && kPieceValues[sorted_pieces[j-1].GetPiece().GetPieceType()] < key_val) {
+              sorted_pieces[j] = sorted_pieces[j-1];
+              --j;
+          }
+          if (j != i) {  // Only assign if we actually moved elements
+              sorted_pieces[j] = key;
+          }
+      }
     }
+    */
     
     Move* current = buffer;
     const Move* const end = buffer + limit;
