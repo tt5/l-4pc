@@ -2038,7 +2038,7 @@ const Board: Component<BoardProps> = (props) => {
               return;
             }
 
-            if (currentIndex + 1 >= moveHistory().length) {
+            if (currentIndex >= moveHistory().length) {
               console.log(`[handleGlobalMouseUp] At end of line, continuing main line`);
               // Continue with normal move creation without branching
               isBranching = false;
