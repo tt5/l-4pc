@@ -461,7 +461,14 @@ const Board: Component<BoardProps> = (props) => {
           }>> = {};
 
           const branchMoves = moves.filter((move: Move) => move.branchName && move.branchName !== 'main');
+          const processedBranches = new Set<string>();
+          
           branchMoves.forEach((move: Move) => {
+            // Skip if this branch has already been processed
+            if (processedBranches.has(move.branchName!)) {
+              return;
+            }
+            
             const branchPointMoveNumber = move.moveNumber - 1;
             
             // Find the parent branch (look for moves with same moveNumber but different/no branchName)
@@ -490,6 +497,9 @@ const Board: Component<BoardProps> = (props) => {
                     toY: move.toY
                   }
                 });
+                
+                // Mark this branch as processed
+                processedBranches.add(move.branchName);
               }
             }
           });
