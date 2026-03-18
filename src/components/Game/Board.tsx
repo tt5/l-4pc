@@ -1158,7 +1158,9 @@ const Board: Component<BoardProps> = (props) => {
       console.log("[Delete] historic position")
       const movesToDelete = moveHistory().slice(currentIndex,history.length)
       console.log(`[Delete] moves to delete: ${JSON.stringify(movesToDelete)}`)
-      await deleteLastMove()
+      for (let i = 0; i < movesToDelete.length; i++) {
+        await deleteLastMove()
+      }
       currentIndex -= 1;
     }
     
