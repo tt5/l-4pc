@@ -1118,17 +1118,14 @@ const Board: Component<BoardProps> = (props) => {
       // If the move has a branch name, we need to remove all moves in that branch
       if (currentMove.branchName) {
         const currentBranchName = currentMove.branchName;
-        // Remove all moves that are in the same branch or a sub-branch
         return prevFullHistory.filter(move => {
           return !move.branchName?.startsWith(currentBranchName + (currentBranchName.endsWith('/') ? '' : '/')) &&
             !(move.branchName === currentBranchName && move.moveNumber >= currentMove.moveNumber);
         });
       } else {
-        // For main line moves, just remove the specific move
         return prevFullHistory.filter(move => {
-          // Keep the move if it's NOT the main line move we're deleting
           const isMainLineMove = move.branchName === undefined || move.branchName === null;
-          const isTargetMove = move.moveNumber === currentMove.moveNumber;
+          const isTargetMove = move.moveNumber >= currentMove.moveNumber;
           return !(isMainLineMove && isTargetMove);
         });
       }
@@ -1137,7 +1134,7 @@ const Board: Component<BoardProps> = (props) => {
     // Also update mainLineMoves if the deleted move was in the main line
     if (!currentMove.branchName) {
       setMainLineMoves(prevMainLine => 
-        prevMainLine.filter(move => move.moveNumber !== currentMove.moveNumber)
+        prevMainLine.filter(move => move.moveNumber <= currentMove.moveNumber)
       );
     }
 
@@ -1151,8 +1148,6 @@ const Board: Component<BoardProps> = (props) => {
         const branchPoint = newBranchPoints[Number(moveNumber)];
         if (branchPoint) {
           newBranchPoints[Number(moveNumber)] = branchPoint.filter(bp => {
-              //TODO: delete later branchPoints
-              console.log(`[Delete] branchPoint: ${JSON.stringify(bp)}, moveNumber: ${Number(moveNumber)-1} currentMove.moveNumber - 1: ${currentMove.moveNumber - 1}, currentMove.branchName: ${currentMove.branchName}`)
               return !(((currentMove.moveNumber - 1) == Number(moveNumber)) && (currentMove.branchName == bp.branchName));
             }
           );
