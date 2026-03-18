@@ -1311,6 +1311,7 @@ const Board: Component<BoardProps> = (props) => {
       setMoveHistory(rebuildMoveHistory(currentBranchName()))
     })
     handleGoBack()
+    //TODO: follows parent branch
     handleGoForward()
     console.log(`[Delete] (2) currentBranch: ${currentBranchName()}`);
     console.log(`[Delete] (2) branchPoints: ${JSON.stringify(branchPoints())}`)
