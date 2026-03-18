@@ -1047,19 +1047,128 @@ const Board: Component<BoardProps> = (props) => {
     }
   };
 
+  const deleteLastMove = async () => {
+    console.log('[deleteLastMove]');
+    const history = moveHistory();
+    const currentIndex = Math.max(0, history.length - 1);
+    
+    const currentMove = history[currentIndex];
+    
+    // First try to delete on the server if we have the required data
+    if (currentMove?.fromX !== undefined && currentMove?.fromY !== undefined && 
+        currentMove?.toX !== undefined && currentMove?.toY !== undefined && 
+        currentMove?.moveNumber !== undefined && props.gameId) {
+      
+      const moveData = {
+        gameId: props.gameId,
+        fromX: currentMove.fromX,
+        fromY: currentMove.fromY,
+        toX: currentMove.toX,
+        toY: currentMove.toY,
+        moveNumber: currentMove.moveNumber
+      };
+      
+      try {
+        const response = await fetch('/api/moves/delete', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(moveData)
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => 'No error details');
+          console.error(`[deleteLastMove] Server error: ${response.status} - ${errorText}`);
+          throw new Error(`Server returned ${response.status}`);
+        }
+        
+        const result = await response.json();
+        console.log(`[deleteLastMove] Successfully deleted ${result.deletedCount} moves`);
+      } catch (error) {
+        console.error('[deleteLastMove] Failed to delete move:', error instanceof Error ? error.message : String(error));
+        // Don't update local state if server deletion fails
+        return;
+      }
+    }
+
+    // If we get here, server deletion succeeded or wasn't needed
+    const newMoveHistory = [...history];
+    console.log(`[deleteLastMove] Before deletion - History length: ${newMoveHistory.length}`);
+    
+    newMoveHistory.splice(currentIndex, 1);
+    console.log(`[deleteLastMove] After deletion - New history length: ${newMoveHistory.length}`);
+
+    // Update fullMoveHistory to remove the deleted move and its descendants
+    setFullMoveHistory(prevFullHistory => {
+      // If the move has a branch name, we need to remove all moves in that branch
+      if (currentMove.branchName) {
+        const currentBranchName = currentMove.branchName;
+        return prevFullHistory.filter(move => {
+          return !move.branchName?.startsWith(currentBranchName + (currentBranchName.endsWith('/') ? '' : '/')) &&
+            !(move.branchName === currentBranchName && move.moveNumber >= currentMove.moveNumber);
+        });
+      } else {
+        return prevFullHistory.filter(move => {
+          const isMainLineMove = move.branchName === undefined || move.branchName === null;
+          const isTargetMove = move.moveNumber >= currentMove.moveNumber;
+          return !(isMainLineMove && isTargetMove);
+        });
+      }
+    });
+
+    // Also update mainLineMoves if the deleted move was in the main line
+    if (!currentMove.branchName) {
+      setMainLineMoves(prevMainLine => 
+        prevMainLine.filter(move => move.moveNumber <= currentMove.moveNumber)
+      );
+    }
+
+    console.log(`[deleteLastMove] (0) branchPoints: ${JSON.stringify(branchPoints())}`)
+
+    // Clean up branchPoints when a move is deleted
+    setBranchPoints(prevBranchPoints => {
+      const newBranchPoints = { ...prevBranchPoints };
+      
+      Object.keys(newBranchPoints).forEach(moveNumber => {
+        const branchPoint = newBranchPoints[Number(moveNumber)];
+        if (branchPoint) {
+          newBranchPoints[Number(moveNumber)] = branchPoint.filter(bp => {
+              return !(((currentMove.moveNumber - 1) == Number(moveNumber)) && (currentMove.branchName == bp.branchName));
+            }
+          );
+        }
+      });
+
+      return newBranchPoints;
+    });
+    console.log(`[deleteLastMove] (2) branchPoints: ${JSON.stringify(branchPoints())}`)
+    setMoveHistory(newMoveHistory)
+    console.log(`[deleteLastMove] moveHistory length: ${moveHistory().length}`)
+  };
+
   const handleDeleteCurrentMove = async () => {
     console.log('[Delete] Delete button clicked');
-    const history = moveHistory();
+    let history = moveHistory();
     // Ensure we're pointing to the last move if current index is out of bounds
     let currentIndex = currentMoveIndex();
+    console.log(`currentIndex: ${currentIndex}, history.length: ${history.length}`)
+
+    if (currentIndex < history.length) {
+      console.log("[Delete] historic position")
+      const movesToDelete = moveHistory().slice(currentIndex,history.length)
+      console.log(`[Delete] moves to delete: ${JSON.stringify(movesToDelete)}`)
+      await deleteLastMove()
+      currentIndex -= 1;
+    }
     
     // If currentIndex is out of bounds, adjust it to point to the last move
     if (currentIndex >= history.length) {
       currentIndex = Math.max(0, history.length - 1);
       console.log(`[Delete] Adjusted currentIndex from ${currentMoveIndex()} to ${currentIndex}`);
     }
-    
-    console.log(`[Delete] Current index: ${currentIndex}, History length: ${history.length}`);
+    history = moveHistory();
+    console.log(`[Delete] updated moveHistory length: ${history.length}`)
     
     if (currentIndex < 0 || currentIndex >= history.length || history.length === 0) {
       console.log(`[Delete] No move to delete - Index ${currentIndex} is out of bounds for history length ${history.length}`);
@@ -1068,6 +1177,7 @@ const Board: Component<BoardProps> = (props) => {
 
     const currentMove = history[currentIndex];
     
+    console.log(`[Delete] currentMove: ${JSON.stringify(currentMove)}`)
     // First try to delete on the server if we have the required data
     if (currentMove?.fromX !== undefined && currentMove?.fromY !== undefined && 
         currentMove?.toX !== undefined && currentMove?.toY !== undefined && 
@@ -1196,10 +1306,14 @@ const Board: Component<BoardProps> = (props) => {
       } else {
         setCurrentBranchName('main');
       }
+      setMoveHistory(rebuildMoveHistory(currentBranchName()))
     })
+    handleGoBack()
+    handleGoForward()
     console.log(`[Delete] (2) currentBranch: ${currentBranchName()}`);
-    setMoveHistory(rebuildMoveHistory(currentBranchName()))
     console.log(`[Delete] (2) branchPoints: ${JSON.stringify(branchPoints())}`)
+    console.log(`[Delete] currentMoveIndex: ${currentMoveIndex()}`)
+    console.log(`[Delete] restrictedSquares: ${getRestrictedSquares()}`)
   };
 
   const handleGoForward = async () => {
@@ -2087,6 +2201,7 @@ const Board: Component<BoardProps> = (props) => {
           setMoveHistory([...currentHistory, newMove]);
         }
         handleGoForward()
+        console.log(`[handleGlobalMouseUp] currentMoveIndex: ${currentMoveIndex()}`)
 
       } catch (error) {
         // Handle errors and revert to original state
