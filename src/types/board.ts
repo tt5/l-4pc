@@ -1,9 +1,5 @@
 import { ApiResponse } from "~/utils/api";
 
-// Core types
-declare const brand: unique symbol;
-type Brand<T, B> = T & { [brand]: B };
-
 // Simple tuple type for better compatibility with spread operators
 export type Point = [number, number];
 
@@ -29,14 +25,6 @@ export interface BasePoint {
   castleType?: 'KING_SIDE' | 'QUEEN_SIDE' | null; // Type of castling (king-side or queen-side)
 }
 
-export interface Item {
-  id: number;
-  data: string;
-  created_at: string;
-  created_at_ms: number;
-  userId: string;
-}
-
 export type RestrictedSquares = number[];
 
 export interface BoardConfig {
@@ -60,40 +48,6 @@ export interface BoardConfig {
 }
 
 export interface AddBasePointResponse extends ApiResponse<BasePoint> {}
-
-// Game state types
-export interface Move {
-  id: number;
-  basePointId: number | string;  // Allow string for userId
-  // Flat coordinate format
-  fromX: number;
-  fromY: number;
-  toX: number;
-  toY: number;
-  
-  playerId: string;
-  timestamp: number;
-  color: string;
-  // For backward compatibility, alias userId to playerId
-  userId?: string;
-  // New fields
-  gameId?: string;
-  moveNumber: number;
-  pieceType?: string;
-  branch?: string; // For tracking move branches in game variations
-  capturedPieceId?: number | null;
-  capturedPiece?: {
-    x: number;
-    y: number;
-    color: string;
-    pieceType: string;
-  };
-  createdAtMs?: number;
-  isBranch?: boolean | number;  // Can be boolean or number (0/1) from API
-  branchName?: string;
-  parentBranchName?: string | null;  // Track parent branch for nested branches
-  isEnPassant?: boolean;  // Indicates if this is an en passant capture
-}
 
 export interface GameState {
   position: Point;
