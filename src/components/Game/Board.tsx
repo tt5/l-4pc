@@ -44,7 +44,10 @@ import {
   DEFAULT_GAME_ID, 
   INITIAL_RESTRICTED_SQUARES,
   INITIAL_RESTRICTED_SQUARES_INFO,
-  getTeamByColor
+  getTeamByColor,
+  BOARD_CONFIG,
+  isInNonPlayableCorner,
+  normalizeColor
 } from '~/constants/game';
 
 import styles from './Board.module.css';
