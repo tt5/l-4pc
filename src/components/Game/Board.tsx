@@ -21,7 +21,7 @@ import { useAuth } from '~/contexts/AuthContext';
 import { useRestrictedSquares } from '../../contexts/RestrictedSquaresContext';
 
 import { generateFen4, parseFen4 } from '~/utils/fen4Utils';
-import { getColorHex } from '~/utils/colorUtils';
+import { makeApiCall, parseApiResponse, generateRequestId } from '~/utils/clientApi';
 import { generateBranchName, buildFullBranchName } from '~/utils/branchUtils';
 import { MOVE_PATTERNS } from '~/constants/movePatterns';
 import { 
@@ -35,6 +35,7 @@ import {
   moveToUCI
 } from '~/utils/gameUtils';
 import { calculateRestrictedSquares, updateBasePoint } from '~/utils/boardUtils';
+import { getColorHex } from '~/utils/colorUtils';
 
 import type { Point, BasePoint, Move, BranchPoints } from '../../types/board';
 
@@ -916,25 +917,19 @@ const Board: Component<BoardProps> = (props) => {
         }
       }
       
-      const response = await fetch('/api/game/update-id', {
+      const requestId = generateRequestId();
+      console.log(`[${requestId}] [Save] Saving game with ID: ${newGameId}`);
+      
+      const response = await makeApiCall('/api/game/update-id', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
         body: JSON.stringify({
           currentGameId,
           newGameId
         })
       });
 
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.error || 'Failed to save game');
-      }
-      
-      const result = await response.json();
-      console.log(`[Save] Successfully saved game as ${newGameId}`);
+      const result = await parseApiResponse(response, requestId);
+      console.log(`[${requestId}] [Save] Successfully saved game as ${newGameId}`);
       
       // Update the game ID in the URL and state
       setGameId(newGameId);
@@ -955,7 +950,8 @@ const Board: Component<BoardProps> = (props) => {
   };
 
   const deleteLastMove = async () => {
-    console.log('[deleteLastMove]');
+    const requestId = generateRequestId();
+    console.log(`[${requestId}] [deleteLastMove]`);
     const history = moveHistory();
     const currentIndex = Math.max(0, history.length - 1);
     
@@ -976,24 +972,15 @@ const Board: Component<BoardProps> = (props) => {
       };
       
       try {
-        const response = await fetch('/api/moves/delete', {
+        const response = await makeApiCall('/api/moves/[id]', {
           method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-          },
           body: JSON.stringify(moveData)
         });
         
-        if (!response.ok) {
-          const errorText = await response.text().catch(() => 'No error details');
-          console.error(`[deleteLastMove] Server error: ${response.status} - ${errorText}`);
-          throw new Error(`Server returned ${response.status}`);
-        }
-        
-        const result = await response.json();
-        console.log(`[deleteLastMove] Successfully deleted ${result.deletedCount} moves`);
+        const result = await parseApiResponse(response, requestId);
+        console.log(`[${requestId}] [deleteLastMove] Successfully deleted ${result.data?.deletedCount || 0} moves`);
       } catch (error) {
-        console.error('[deleteLastMove] Failed to delete move:', error instanceof Error ? error.message : String(error));
+        console.error(`[${requestId}] [deleteLastMove] Failed to delete move:`, error instanceof Error ? error.message : String(error));
         // Don't update local state if server deletion fails
         return;
       }
@@ -1092,6 +1079,7 @@ const Board: Component<BoardProps> = (props) => {
         currentMove?.toX !== undefined && currentMove?.toY !== undefined && 
         currentMove?.moveNumber !== undefined && props.gameId) {
       
+      const requestId = generateRequestId();
       const moveData = {
         gameId: props.gameId,
         fromX: currentMove.fromX,
@@ -1102,24 +1090,15 @@ const Board: Component<BoardProps> = (props) => {
       };
       
       try {
-        const response = await fetch('/api/moves/delete', {
+        const response = await makeApiCall('/api/moves/[id]', {
           method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-          },
           body: JSON.stringify(moveData)
         });
         
-        if (!response.ok) {
-          const errorText = await response.text().catch(() => 'No error details');
-          console.error(`[Delete] Server error: ${response.status} - ${errorText}`);
-          throw new Error(`Server returned ${response.status}`);
-        }
-        
-        const result = await response.json();
-        console.log(`[Delete] Successfully deleted ${result.deletedCount} moves`);
+        const result = await parseApiResponse(response, requestId);
+        console.log(`[${requestId}] [Delete] Successfully deleted ${result.data?.deletedCount || 0} moves`);
       } catch (error) {
-        console.error('[Delete] Failed to delete move:', error instanceof Error ? error.message : String(error));
+        console.error(`[${requestId}] [Delete] Failed to delete move:`, error instanceof Error ? error.message : String(error));
         // Don't update local state if server deletion fails
         return;
       }
