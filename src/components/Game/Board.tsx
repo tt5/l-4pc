@@ -36,8 +36,7 @@ import {
 import { getTeamByColor } from '~/constants/game';
 import { calculateRestrictedSquares, updateBasePoint } from '~/utils/boardUtils';
 
-import type { Point, BasePoint } from '../../types/board';
-import type { Move } from '../../types/board.types';
+import type { Point, BasePoint, Move } from '../../types/board';
 
 import { 
   PLAYER_COLORS, 

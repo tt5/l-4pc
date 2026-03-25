@@ -1,9 +1,7 @@
 import { getTeamByColor, isInNonPlayableCorner, BOARD_CONFIG, normalizeColor } from '~/constants/game';
 import { MOVE_PATTERNS } from '~/constants/movePatterns';
 import { canCastle } from './moveCalculations';
-import type { BasePoint, PieceType } from '~/types/board';
-import type { Move } from '~/types/board.types';
-import type { RestrictedSquareInfo } from '../types/board.types';
+import type { BasePoint, PieceType, Move, RestrictedSquareInfo } from '~/types/board';
 
 type CastleColor = 'RED' | 'YELLOW' | 'BLUE' | 'GREEN';
 type CastleType = `${CastleColor}_${'KING_SIDE' | 'QUEEN_SIDE'}`;
