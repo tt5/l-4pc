@@ -34,7 +34,7 @@ import {
   isKingInCheck,
   moveToUCI
 } from '~/utils/gameUtils';
-import { calculateRestrictedSquares, updateBasePoint } from '~/utils/boardUtils';
+import { calculateRestrictedSquares, updateMove } from '~/utils/boardUtils';
 import { getColorHex } from '~/utils/colorUtils';
 
 import type { Point, BasePoint, Move, BranchPoints } from '../../types/board';
@@ -2070,7 +2070,7 @@ const Board: Component<BoardProps> = (props) => {
         setMoveHistory(linearHistory);
 
         // Updating base point in database
-        const result = await updateBasePoint(
+        const result = await updateMove(
           pointToMove.id, 
           targetX, 
           targetY, 
