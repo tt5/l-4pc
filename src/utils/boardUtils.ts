@@ -1,5 +1,5 @@
 import { BOARD_CONFIG, getTeamByColor } from '../constants/game';
-import { createPoint, Point, BasePoint, Direction, BasePoint as BasePointType } from '../types/board';
+import { createPoint, Point, BasePoint, Direction, BasePoint as BasePointType, SquareIndex } from '../types/board';
 import { createSignal, createEffect, onCleanup, onMount, batch, Accessor } from 'solid-js';
 import type { ApiResponse } from './api';
 import { getLegalMoves } from './gameUtils';
