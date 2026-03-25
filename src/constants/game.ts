@@ -84,6 +84,8 @@ export function getCurrentPlayerColor(turnIndex: number): PlayerColor {
   return TURN_ORDER[turnIndex % TURN_ORDER.length];
 }
 
+import type { RestrictedSquareInfo, SquareIndex } from '../types/board';
+
 export const DEFAULT_GAME_ID = 'default';
 
 // Initial board setup - matches the reset-board.ts configuration
@@ -206,3 +208,44 @@ export const NON_PLAYABLE_CORNERS = [
 export function isInNonPlayableCorner(x: number, y: number): boolean {
   return NON_PLAYABLE_CORNERS.some(corner => corner.x === x && corner.y === y);
 }
+
+// Precalculated restricted squares for the initial board position
+export const INITIAL_RESTRICTED_SQUARES: SquareIndex[] = [
+  33,31,38,36,35,49,34,48,50,47,32,46,37,51,45,52,
+  159,157,164,162,160,146,161,147,145,148,158,144,163,149,143,150
+];
+
+export const INITIAL_RESTRICTED_SQUARES_INFO: RestrictedSquareInfo[] = [
+  {"index":33,"x":5,"y":2,"restrictedBy":[{"basePointId":"5","basePointX":4,"basePointY":0},{"basePointId":"12","basePointX":5,"basePointY":1}],"canCapture":false,"pieceType":"knight","team":1},
+  {"index":31,"x":3,"y":2,"restrictedBy":[{"basePointId":"5","basePointX":4,"basePointY":0},{"basePointId":"15","basePointX":3,"basePointY":1}],"canCapture":false,"pieceType":"knight","team":1},
+  {"index":38,"x":10,"y":2,"restrictedBy":[{"basePointId":"6","basePointX":9,"basePointY":0},{"basePointId":"16","basePointX":10,"basePointY":1}],"canCapture":false,"pieceType":"knight","team":1},
+  {"index":36,"x":8,"y":2,"restrictedBy":[{"basePointId":"6","basePointX":9,"basePointY":0},{"basePointId":"11","basePointX":8,"basePointY":1}],"canCapture":false,"pieceType":"knight","team":1},
+  {"index":35,"x":7,"y":2,"restrictedBy":[{"basePointId":"9","basePointX":7,"basePointY":1}],"canCapture":false,"pieceType":"pawn","team":1},
+  {"index":49,"x":7,"y":3,"restrictedBy":[{"basePointId":"9","basePointX":7,"basePointY":1}],"canCapture":false,"pieceType":"pawn","team":1},
+  {"index":34,"x":6,"y":2,"restrictedBy":[{"basePointId":"10","basePointX":6,"basePointY":1}],"canCapture":false,"pieceType":"pawn","team":1},
+  {"index":48,"x":6,"y":3,"restrictedBy":[{"basePointId":"10","basePointX":6,"basePointY":1}],"canCapture":false,"pieceType":"pawn","team":1},
+  {"index":50,"x":8,"y":3,"restrictedBy":[{"basePointId":"11","basePointX":8,"basePointY":1}],"canCapture":false,"pieceType":"pawn","team":1},
+  {"index":47,"x":5,"y":3,"restrictedBy":[{"basePointId":"12","basePointX":5,"basePointY":1}],"canCapture":false,"pieceType":"pawn","team":1},
+  {"index":32,"x":4,"y":2,"restrictedBy":[{"basePointId":"13","basePointX":4,"basePointY":1}],"canCapture":false,"pieceType":"pawn","team":1},
+  {"index":46,"x":4,"y":3,"restrictedBy":[{"basePointId":"13","basePointX":4,"basePointY":1}],"canCapture":false,"pieceType":"pawn","team":1},
+  {"index":37,"x":9,"y":2,"restrictedBy":[{"basePointId":"14","basePointX":9,"basePointY":1}],"canCapture":false,"pieceType":"pawn","team":1},
+  {"index":51,"x":9,"y":3,"restrictedBy":[{"basePointId":"14","basePointX":9,"basePointY":1}],"canCapture":false,"pieceType":"pawn","team":1},
+  {"index":45,"x":3,"y":3,"restrictedBy":[{"basePointId":"15","basePointX":3,"basePointY":1}],"canCapture":false,"pieceType":"pawn","team":1},
+  {"index":52,"x":10,"y":3,"restrictedBy":[{"basePointId":"16","basePointX":10,"basePointY":1}],"canCapture":false,"pieceType":"pawn","team":1},
+  {"index":159,"x":5,"y":11,"restrictedBy":[{"basePointId":"21","basePointX":4,"basePointY":13},{"basePointId":"27","basePointX":5,"basePointY":12}],"canCapture":false,"pieceType":"knight","team":1},
+  {"index":157,"x":3,"y":11,"restrictedBy":[{"basePointId":"21","basePointX":4,"basePointY":13},{"basePointId":"31","basePointX":3,"basePointY":12}],"canCapture":false,"pieceType":"knight","team":1},
+  {"index":164,"x":10,"y":11,"restrictedBy":[{"basePointId":"22","basePointX":9,"basePointY":13},{"basePointId":"32","basePointX":10,"basePointY":12}],"canCapture":false,"pieceType":"knight","team":1},
+  {"index":162,"x":8,"y":11,"restrictedBy":[{"basePointId":"22","basePointX":9,"basePointY":13},{"basePointId":"28","basePointX":8,"basePointY":12}],"canCapture":false,"pieceType":"knight","team":1},
+  {"index":160,"x":6,"y":11,"restrictedBy":[{"basePointId":"25","basePointX":6,"basePointY":12}],"canCapture":false,"pieceType":"pawn","team":1},
+  {"index":146,"x":6,"y":10,"restrictedBy":[{"basePointId":"25","basePointX":6,"basePointY":12}],"canCapture":false,"pieceType":"pawn","team":1},
+  {"index":161,"x":7,"y":11,"restrictedBy":[{"basePointId":"26","basePointX":7,"basePointY":12}],"canCapture":false,"pieceType":"pawn","team":1},
+  {"index":147,"x":7,"y":10,"restrictedBy":[{"basePointId":"26","basePointX":7,"basePointY":12}],"canCapture":false,"pieceType":"pawn","team":1},
+  {"index":145,"x":5,"y":10,"restrictedBy":[{"basePointId":"27","basePointX":5,"basePointY":12}],"canCapture":false,"pieceType":"pawn","team":1},
+  {"index":148,"x":8,"y":10,"restrictedBy":[{"basePointId":"28","basePointX":8,"basePointY":12}],"canCapture":false,"pieceType":"pawn","team":1},
+  {"index":158,"x":4,"y":11,"restrictedBy":[{"basePointId":"29","basePointX":4,"basePointY":12}],"canCapture":false,"pieceType":"pawn","team":1},
+  {"index":144,"x":4,"y":10,"restrictedBy":[{"basePointId":"29","basePointX":4,"basePointY":12}],"canCapture":false,"pieceType":"pawn","team":1},
+  {"index":163,"x":9,"y":11,"restrictedBy":[{"basePointId":"30","basePointX":9,"basePointY":12}],"canCapture":false,"pieceType":"pawn","team":1},
+  {"index":149,"x":9,"y":10,"restrictedBy":[{"basePointId":"30","basePointX":9,"basePointY":12}],"canCapture":false,"pieceType":"pawn","team":1},
+  {"index":143,"x":3,"y":10,"restrictedBy":[{"basePointId":"31","basePointX":3,"basePointY":12}],"canCapture":false,"pieceType":"pawn","team":1},
+  {"index":150,"x":10,"y":10,"restrictedBy":[{"basePointId":"32","basePointX":10,"basePointY":12}],"canCapture":false,"pieceType":"pawn","team":1}
+];

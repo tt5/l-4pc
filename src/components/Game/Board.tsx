@@ -34,18 +34,17 @@ import {
   isKingInCheck,
   moveToUCI
 } from '~/utils/gameUtils';
-import { getTeamByColor } from '~/constants/game';
 import { calculateRestrictedSquares, updateBasePoint } from '~/utils/boardUtils';
 
 import type { Point, BasePoint, Move, BranchPoints } from '../../types/board';
 
 import { 
   PLAYER_COLORS, 
-  normalizeColor, 
-  isInNonPlayableCorner, 
-  BOARD_CONFIG, 
+  INITIAL_BASE_POINTS,
   DEFAULT_GAME_ID, 
-  INITIAL_BASE_POINTS 
+  INITIAL_RESTRICTED_SQUARES,
+  INITIAL_RESTRICTED_SQUARES_INFO,
+  getTeamByColor
 } from '~/constants/game';
 
 import styles from './Board.module.css';
@@ -727,37 +726,9 @@ const Board: Component<BoardProps> = (props) => {
     // Update king check status after resetting the board
     setKingInCheck(null)
     
-    const currentPlayerPieces = initialBasePoints.filter((p: BasePoint) => 
-      getTeamByColor(p.color) === 1  // Red team is team 1
-    );
-    
-    const isCurrentKingInCheck = false;
-    
-    const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(
-      currentPlayerPieces,
-      initialBasePoints,
-      { 
-        isKingInCheck: isCurrentKingInCheck,
-        wouldResolveCheck: (
-          from: [number, number],
-          to: [number, number],
-          color: string,
-          allBasePoints: BasePoint[],
-          getTeamFn: (color: string) => number,
-          isSquareUnderAttackFn: (x: number, y: number, team: number, points: BasePoint[], getTeam: (color: string) => number) => boolean,
-          isSquareBetweenFn: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean
-        ) => wouldResolveCheck(from, to, color, allBasePoints, getTeamFn, isSquareUnderAttackFn, isSquareBetweenFn),
-        isSquareUnderAttack: (x: number, y: number, team: number, points: BasePoint[], teamFn: (color: string) => number) => 
-          isSquareUnderAttack(x, y, team, points, teamFn),
-        isSquareBetween: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => 
-          isSquareBetween(from, to, x, y),
-        getTeamFn: getTeamByColor,
-        enPassantTarget: enPassantTargets()
-      }
-    );
-    
-    setRestrictedSquares(restrictedSquares);
-    setRestrictedSquaresInfo(restrictedSquaresInfo);
+    // Use precalculated restricted squares for initial position
+    setRestrictedSquares(INITIAL_RESTRICTED_SQUARES);
+    setRestrictedSquaresInfo(INITIAL_RESTRICTED_SQUARES_INFO);
   };
 
   /**
