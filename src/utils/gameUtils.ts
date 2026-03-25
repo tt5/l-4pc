@@ -619,7 +619,6 @@ export function validateSquarePlacement(
       return { isValid: false, reason: 'Piece not found' };
     }
 
-    // First check if this is a valid capture move based on server response
     const restrictionInfo = restrictedSquaresInfo().find(sq => {
       const [sqX, sqY] = [sq.index % BOARD_CONFIG.GRID_SIZE, Math.floor(sq.index / BOARD_CONFIG.GRID_SIZE)];
       return sqX === gridX && sqY === gridY;
@@ -673,29 +672,6 @@ export function validateSquarePlacement(
       
       return { isValid: true };
     }
-
-    // Add debug logging before checking for friendly pieces
-    const logData = {
-      from: [startX, startY],
-      to: [gridX, gridY],
-      movingPiece: movingPiece && {
-        id: movingPiece.id,
-        type: movingPiece.pieceType,
-        color: movingPiece.color,
-        team: getTeam(movingPiece.color)
-      },
-      targetPiece: basePoints().find(bp => bp.x === gridX && bp.y === gridY),
-      isRestrictedByPickedUp,
-      allRestrictedSquares: restrictedSquaresInfo()
-        .filter(sq => {
-          const [sqX, sqY] = [sq.index % BOARD_CONFIG.GRID_SIZE, Math.floor(sq.index / BOARD_CONFIG.GRID_SIZE)];
-          return sqX === gridX && sqY === gridY;
-        })
-        .map(sq => ({
-          index: sq.index,
-          restrictedBy: sq.restrictedBy
-        }))
-    };
 
     // Check for pieces at the target square
     const targetPiece = basePoints().find(bp => bp.x === gridX && bp.y === gridY);
