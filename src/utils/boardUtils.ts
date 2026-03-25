@@ -3,6 +3,7 @@ import { createPoint, Point, BasePoint, Direction, BasePoint as BasePointType, S
 import { createSignal, createEffect, onCleanup, onMount, batch, Accessor } from 'solid-js';
 import type { ApiResponse } from './api';
 import { getLegalMoves } from './gameUtils';
+import { makeApiCall, parseApiResponse, generateRequestId } from './clientApi';
 
 export interface RestrictedByInfo {
   basePointId: string;
@@ -210,13 +211,9 @@ export const updateBasePoint = async (
     
     // First create the move if we have a game context
     if (gameId && fromX !== undefined && fromY !== undefined) {
-      const moveResponse = await fetch('/api/moves', {
+      const requestId = generateRequestId();
+      const moveResponse = await makeApiCall('/api/moves', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        credentials: 'include',
         body: JSON.stringify({
           gameId,
           pieceType: 'piece', // This should be replaced with actual piece type
@@ -231,8 +228,8 @@ export const updateBasePoint = async (
       });
 
       if (!moveResponse.ok) {
-        const error = await moveResponse.text();
-        throw new Error('Failed to record move');
+        const result = await parseApiResponse(moveResponse, requestId);
+        throw new Error(result.error || 'Failed to record move');
       }
     }
 
