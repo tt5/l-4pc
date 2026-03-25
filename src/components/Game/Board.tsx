@@ -1614,49 +1614,14 @@ const Board: Component<BoardProps> = (props) => {
       enPassantTarget: enPassantTargets()
     });
 
-    // Check if there's a piece at the target position
-    const targetPiece = basePoints().find(p => p.x === targetX && p.y === targetY);
-    
     // Find the specific move
-    const move = legalMoves.find(m => {
-      const isSamePosition = m.x === targetX && m.y === targetY;
-      // For pawns, we need to check both position and capture status
-      if (pointToMove.pieceType === 'pawn') {
-        const isDiagonal = (Math.abs(targetX - startX) === 1 && Math.abs(targetY - startY) === 1) ||  // Standard diagonal
-                          (pointToMove.color === '#2196F3' && targetX - startX === 1 && Math.abs(targetY - startY) === 1) ||  // Blue pawn moving right
-                          (pointToMove.color === '#4CAF50' && startX - targetX === 1 && Math.abs(targetY - startY) === 1);    // Green pawn moving left
-        if (isDiagonal) {
-          // For diagonal moves, we need a valid capture
-          return isSamePosition && (m.canCapture || targetPiece);
-        }
-      }
-      return isSamePosition;
-    }); 
+    const move = legalMoves.find(m => m.x === targetX && m.y === targetY); 
 
     if (!move) {
       return { 
         isValid: false, 
-        error: `Invalid move for ${pointToMove.pieceType} at (${startX}, ${startY}) to (${targetX}, ${targetY})` 
+        error: `No legal move for ${pointToMove.pieceType} at (${startX}, ${startY}) to (${targetX}, ${targetY})` 
       };
-    }
-
-    // Additional validation for captures
-    if (targetPiece) {
-      if (!move.canCapture) {
-        return { 
-          isValid: false, 
-          error: `Cannot capture with ${pointToMove.pieceType} at (${startX}, ${startY}) to (${targetX}, ${targetY})` 
-        };
-      }
-      
-      // For pawns, ensure it's a diagonal capture
-      if (pointToMove.pieceType === 'pawn' && 
-          Math.abs(targetX - startX) !== 1) {
-        return { 
-          isValid: false, 
-          error: `Pawns can only capture diagonally` 
-        };
-      }
     }
 
     return { 
@@ -1664,8 +1629,8 @@ const Board: Component<BoardProps> = (props) => {
       pointToMove,
       isCastle: move.isCastle || false,
       castleType: move.castleType,
-      capturedPiece: targetPiece || move.capturedPiece,
-      isCapture: !!targetPiece
+      capturedPiece: move.capturedPiece,
+      isCapture: !!move.capturedPiece
     };
   };
 

@@ -1,7 +1,7 @@
 import { getTeamByColor, isInNonPlayableCorner, BOARD_CONFIG, normalizeColor } from '~/constants/game';
 import { MOVE_PATTERNS } from '~/constants/movePatterns';
 import { canCastle } from './moveCalculations';
-import type { BasePoint, PieceType, Move, RestrictedSquareInfo, SquareIndex } from '~/types/board';
+import type { BasePoint, PieceType, Move, RestrictedSquareInfo, SquareIndex, LegalMove } from '~/types/board';
 
 type CastleColor = 'RED' | 'YELLOW' | 'BLUE' | 'GREEN';
 type CastleType = `${CastleColor}_${'KING_SIDE' | 'QUEEN_SIDE'}`;
@@ -85,8 +85,8 @@ function getSquaresInDirection(
   dy: number,
   allBasePoints: BasePoint[],
   team: number
-): {x: number, y: number, canCapture: boolean}[] {
-  const result = [];
+): LegalMove[] {
+  const result: LegalMove[] = [];
   let x = startX + dx;
   let y = startY + dy;
   
@@ -749,20 +749,7 @@ export function getLegalMoves(
     getTeamFn?: (color: string) => number;
     enPassantTarget?: Record<string, {x: number, y: number, color: string} | null>;
   } = {}
-): Array<{
-  x: number;
-  y: number;
-  canCapture: boolean;
-  isCastle?: boolean;
-  castleType?: string;
-  isEnPassant?: boolean;
-  capturedPiece?: {
-    x: number;
-    y: number;
-    color: string;
-    pieceType: string;
-  };
-}> {
+): LegalMove[] {
 
   const { 
     isKingInCheck = false, 
@@ -772,22 +759,9 @@ export function getLegalMoves(
     getTeamFn = getTeamByColor
   } = options;
 
-  const pieceType = basePoint.pieceType || 'pawn'; // Default to pawn if not specified
+  const pieceType = basePoint.pieceType
   const team = getTeamByColor(basePoint.color);
-  let possibleMoves: Array<{
-    x: number;
-    y: number;
-    canCapture: boolean;
-    isCastle?: boolean;
-    castleType?: string;
-    isEnPassant?: boolean;
-    capturedPiece?: {
-      x: number;
-      y: number;
-      color: string;
-      pieceType: string;
-    };
-  }> = [];
+  let possibleMoves: LegalMove[] = [];
   
   if (pieceType === 'queen') {
     // Queen moves any number of squares in any direction
@@ -949,7 +923,7 @@ export function getLegalMoves(
     let dy = 0;
     let isVertical = true;
     let startPosition = 0;
-    const moves: {x: number, y: number, canCapture: boolean, isEnPassant?: boolean}[] = [];
+    const moves: LegalMove[] = [];
     
     // Determine direction toward center based on starting position
     if (basePoint.color === '#F44336') { // Red - starts at bottom, moves up

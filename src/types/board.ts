@@ -136,6 +136,21 @@ export interface MoveResult {
   };
 }
 
+export interface LegalMove {
+  x: number;
+  y: number;
+  canCapture: boolean;
+  isCastle?: boolean;
+  castleType?: string;
+  isEnPassant?: boolean;
+  capturedPiece?: {
+    x: number;
+    y: number;
+    color: string;
+    pieceType: string;
+  };
+}
+
 export type BranchPoints = Record<number, Array<{
   branchName: string;
   parentBranch: string;
