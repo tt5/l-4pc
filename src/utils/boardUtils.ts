@@ -23,7 +23,7 @@ export interface RestrictedSquareInfo {
 }
 
 export interface RestrictedSquaresResult {
-  restrictedSquares: number[];
+  restrictedSquares: SquareIndex[];
   restrictedSquaresInfo: RestrictedSquareInfo[];
 }
 

@@ -3,6 +3,8 @@ import { ApiResponse } from "~/utils/api";
 // Simple tuple type for better compatibility with spread operators
 export type Point = [number, number];
 
+export type SquareIndex = number;
+
 export function createPoint(x: number, y: number): Point {
   return [x, y] as Point;
 }
@@ -25,7 +27,7 @@ export interface BasePoint {
   castleType?: 'KING_SIDE' | 'QUEEN_SIDE' | null; // Type of castling (king-side or queen-side)
 }
 
-export type RestrictedSquares = number[];
+export type RestrictedSquares = SquareIndex[];
 
 export interface BoardConfig {
   readonly GRID_SIZE: number;

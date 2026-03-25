@@ -1,4 +1,4 @@
-import type { PieceType } from './board';
+import type { PieceType, SquareIndex } from './board';
 
 export interface RestrictedByInfo {
   basePointId: string;
@@ -7,7 +7,7 @@ export interface RestrictedByInfo {
 }
 
 export interface RestrictedSquareInfo {
-  index: number;
+  index: SquareIndex;
   x: number;
   y: number;
   canCapture?: boolean;

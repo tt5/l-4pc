@@ -3,7 +3,7 @@ import { MOVE_PATTERNS } from '~/constants/movePatterns';
 import { canCastle } from './moveCalculations';
 import type { BasePoint, PieceType } from '~/types/board';
 import type { Move } from '~/types/board.types';
-import type { RestrictedSquareInfo } from '../types/restrictedSquares';
+import type { RestrictedSquareInfo } from '../types/board.types';
 
 type CastleColor = 'RED' | 'YELLOW' | 'BLUE' | 'GREEN';
 type CastleType = `${CastleColor}_${'KING_SIDE' | 'QUEEN_SIDE'}`;
