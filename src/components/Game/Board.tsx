@@ -36,7 +36,7 @@ import {
 import { getTeamByColor } from '~/constants/game';
 import { calculateRestrictedSquares, updateBasePoint } from '~/utils/boardUtils';
 
-import type { Point, BasePoint, Move } from '../../types/board';
+import type { Point, BasePoint, Move, BranchPoints } from '../../types/board';
 
 import { 
   PLAYER_COLORS, 
@@ -48,7 +48,6 @@ import {
 } from '~/constants/game';
 
 import styles from './Board.module.css';
-import '../EngineControl/EngineControl.module.css';
 
 interface BoardProps {
   gameId?: string;
@@ -453,11 +452,7 @@ const Board: Component<BoardProps> = (props) => {
         if (moves.length > 0) {
 
           // Reconstruct branchPoints from fullMoveHistory
-          const reconstructedBranchPoints: Record<number, Array<{
-            branchName: string;
-            parentBranch: string;
-            firstMove: BranchMove;
-          }>> = {};
+          const reconstructedBranchPoints: BranchPoints = {};
 
           const branchMoves = moves.filter((move: Move) => move.branchName && move.branchName !== 'main');
           const processedBranches = new Set<string>();
@@ -488,6 +483,7 @@ const Board: Component<BoardProps> = (props) => {
               if (!existingBranch && move.branchName) {
                 reconstructedBranchPoints[branchPointMoveNumber].push({
                   branchName: move.branchName,
+                  //TODO
                   parentBranch: 'main', // Default to main, could be enhanced for nested branches
                   firstMove: {
                     fromX: move.fromX,
@@ -633,20 +629,8 @@ const Board: Component<BoardProps> = (props) => {
   // Branch name for the current move (if any)
   const [currentBranchName, setCurrentBranchName] = createSignal<string | null>(null);
   
-  // Type for simplified move coordinates in branch points
-  interface BranchMove {
-    fromX: number;
-    fromY: number;
-    toX: number;
-    toY: number;
-  }
-
   // Track branch points and their associated branches
-  const [branchPoints, setBranchPoints] = createSignal<Record<number, Array<{
-    branchName: string;
-    parentBranch: string;
-    firstMove: BranchMove;
-  }>>>({});
+  const [branchPoints, setBranchPoints] = createSignal<BranchPoints>({});
 
   const [fen4, setFen4] = createSignal<string>('');
 

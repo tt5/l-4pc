@@ -131,5 +131,17 @@ export interface MoveResult {
   };
 }
 
+export interface SimpleMove {
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+}
+
+export type BranchPoints = Record<number, Array<{
+  branchName: string;
+  parentBranch: string;
+  firstMove: SimpleMove;
+}>>;
 
 
