@@ -22,6 +22,7 @@ import { useRestrictedSquares } from '../../contexts/RestrictedSquaresContext';
 
 import { generateFen4, parseFen4 } from '~/utils/fen4Utils';
 import { getColorHex } from '~/utils/colorUtils';
+import { generateBranchName, buildFullBranchName } from '~/utils/branchUtils';
 import { MOVE_PATTERNS } from '~/constants/movePatterns';
 import { 
   getLegalMoves,
@@ -305,21 +306,8 @@ const Board: Component<BoardProps> = (props) => {
   onMount(async () => {
     try {
       if (props.gameId) {
-        // If we have a gameId prop, load that game
         await loadGame(props.gameId);
       } else {
-        /*
-        // Otherwise, try to load the latest game
-        const response = await fetch('/api/game/latest');
-        if (response.ok) {
-          const data = await response.json();
-          if (data?.gameId) {
-            await loadGame(data.gameId);
-            return; // Exit if we successfully loaded a game
-          }
-        }
-        // If we get here, either the API call failed or no game was found
-        */
         console.log('No game found, initializing new game');
         resetBoardToInitialState();
       }
@@ -645,47 +633,11 @@ const Board: Component<BoardProps> = (props) => {
 
   const getCurrentFen4 = (): string => fen4();
 
-  const generateBranchName = (moveNumber: number, parentBranch: string | null = null): string => {
-    const timestamp = Date.now().toString(36).slice(-4);
-    const branchSuffix = `branch-${moveNumber}-${timestamp}`;
-    return parentBranch ? `${parentBranch.split('/').slice(-1)}/${branchSuffix}` : branchSuffix;
-  };
-
-  const buildFullBranchName = (branchPath: string | null): string => {
-    if (!branchPath) {
-      branchPath = 'main';
-    }
-    const branchPathFull = branchPath?.split('/') || [];
-    const branchPathShort = branchPathFull.slice(-2);
-    let reconstructedBranchName = branchPathShort[1]
-    let count = 10;
-    let newBranchPathShort = [branchPathShort[0], 'main'];
-    let newCurrentHistoryParent = [];
-    while (true) {
-      reconstructedBranchName = newBranchPathShort[0] + '/' + reconstructedBranchName
-      if (newBranchPathShort[0] === 'main') {
-        break
-      };
-
-      newCurrentHistoryParent = fullMoveHistory().filter(m => m.branchName?.endsWith(newBranchPathShort[0]));
-      if (newCurrentHistoryParent[0]) {
-        newBranchPathShort = newCurrentHistoryParent[0].branchName?.split('/') || [];
-      }
-
-      count = count-1;
-      if (count === 0) break;
-    }
-    if (reconstructedBranchName === 'main/undefined') {
-      reconstructedBranchName = 'main'
-    }
-
-    return reconstructedBranchName
-  };
-
+  
   // Rebuild move history for a given target branch, handling nested branches
   const rebuildMoveHistory = (targetBranch: string | null): Move[] => {
 
-    const branchPath = buildFullBranchName(targetBranch)?.split('/') || [];
+    const branchPath = buildFullBranchName(targetBranch, fullMoveHistory())?.split('/') || [];
 
     // Start with main line
     let currentHistory = fullMoveHistory().filter(m => !m.branchName || m.branchName === 'main');
