@@ -5,6 +5,11 @@ import type { ApiResponse } from './api';
 import { getLegalMoves } from './gameUtils';
 import { makeApiCall, parseApiResponse, generateRequestId } from './clientApi';
 
+export const generateNewGameId = (): string => {
+  // Generate a random 8-character alphanumeric ID
+  return Math.random().toString(36).substring(2, 10);
+};
+
 export interface RestrictedByInfo {
   basePointId: string;
   basePointX: number;
@@ -49,7 +54,7 @@ export function calculateRestrictedSquares(
   } = {}
 ): RestrictedSquaresResult {
 
-  const restrictedSquares: number[] = [];
+  const restrictedSquares: SquareIndex[] = [];
   const restrictedSquaresInfo: RestrictedSquareInfo[] = [];
   const getTeam = options.getTeamFn || getTeamByColor;
 
@@ -65,7 +70,7 @@ export function calculateRestrictedSquares(
     });
     
     for (const { x, y, canCapture } of moves) {
-      const index = y * BOARD_CONFIG.GRID_SIZE + x;
+      const index: SquareIndex = (y * BOARD_CONFIG.GRID_SIZE + x) as SquareIndex;
       
       if (!restrictedSquares.includes(index)) {
         restrictedSquares.push(index);

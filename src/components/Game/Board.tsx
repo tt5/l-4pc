@@ -34,10 +34,10 @@ import {
   isKingInCheck,
   moveToUCI
 } from '~/utils/gameUtils';
-import { calculateRestrictedSquares, updateMove } from '~/utils/boardUtils';
+import { calculateRestrictedSquares, updateMove, generateNewGameId } from '~/utils/boardUtils';
 import { getColorHex } from '~/utils/colorUtils';
 
-import type { Point, BasePoint, Move, BranchPoints } from '../../types/board';
+import type { Point, BasePoint, Move, BranchPoints, SquareIndex } from '../../types/board';
 
 import { 
   PLAYER_COLORS, 
@@ -578,13 +578,16 @@ const Board: Component<BoardProps> = (props) => {
   const [kingsInCheck, setKingsInCheck] = createSignal<{[key: string]: boolean}>({});
   
   // Use the imported validation function
-  const validateSquarePlacementLocal = (index: number) => {
+  const validateSquarePlacementLocal = (index: SquareIndex) => {
     return validateSquarePlacement(
       index,
       basePoints,
       basePoints(),
       pickedUpBasePoint(),
-      restrictedSquaresInfo,
+      () => restrictedSquaresInfo().map(info => ({
+        ...info,
+        index: info.index as SquareIndex
+      })),
       getRestrictedSquares,
       kingInCheck,
       getTeam,
@@ -720,17 +723,10 @@ const Board: Component<BoardProps> = (props) => {
     setCurrentBranchName(null);
     setBranchPoints({});
     setMainLineMoves([]);
-    
-    // Reset gameId to default
     setGameId(DEFAULT_GAME_ID);
-
     const initialBasePoints = JSON.parse(JSON.stringify(INITIAL_BASE_POINTS));
     setBasePoints(initialBasePoints);
-    
-    // Update king check status after resetting the board
     setKingInCheck(null)
-    
-    // Use precalculated restricted squares for initial position
     setRestrictedSquares(INITIAL_RESTRICTED_SQUARES);
     setRestrictedSquaresInfo(INITIAL_RESTRICTED_SQUARES_INFO);
   };
@@ -858,11 +854,6 @@ const Board: Component<BoardProps> = (props) => {
     }
 
     return Array.from(positionMap.values());
-  };
-
-  const generateNewGameId = () => {
-    // Generate a random 8-character alphanumeric ID
-    return Math.random().toString(36).substring(2, 10);
   };
 
   const handleSaveGame = async () => {
@@ -1530,7 +1521,7 @@ const Board: Component<BoardProps> = (props) => {
     if (!basePoint) return false;
 
     const [targetX, targetY] = target;
-    const index = targetY * BOARD_CONFIG.GRID_SIZE + targetX;
+    const index: SquareIndex = (targetY * BOARD_CONFIG.GRID_SIZE + targetX) as SquareIndex;
     
     // Validate the target position
     const validation = validateSquarePlacementLocal(index);
@@ -1582,7 +1573,7 @@ const Board: Component<BoardProps> = (props) => {
 
   // Validates a move from start to target coordinates
   const validateMove = (startX: number, startY: number, targetX: number, targetY: number) => {
-    const index = targetY * BOARD_CONFIG.GRID_SIZE + targetX;
+    const index: SquareIndex = (targetY * BOARD_CONFIG.GRID_SIZE + targetX) as SquareIndex;
     const validation = validateSquarePlacementLocal(index);
     
     if (!validation.isValid) {

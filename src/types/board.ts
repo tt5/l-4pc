@@ -3,7 +3,9 @@ import { ApiResponse } from "~/utils/api";
 // Simple tuple type for better compatibility with spread operators
 export type Point = [number, number];
 
-export type SquareIndex = number;
+//export type SquareIndex = number;
+export type SquareIndex = number & { readonly __brand: 'SquareIndex' };
+
 
 export function createPoint(x: number, y: number): Point {
   return [x, y] as Point;
@@ -77,11 +79,14 @@ export interface RestrictedSquareInfo {
   restrictedBy: RestrictedByInfo[];
 }
 
-export interface Move {
+export interface SimpleMove {
   fromX: number;
   fromY: number;
   toX: number;
   toY: number;
+}
+
+export interface Move extends SimpleMove{
   pieceType: PieceType;
   id: string;
   basePointId?: string;
@@ -129,13 +134,6 @@ export interface MoveResult {
     color: string;
     pieceType: string;
   };
-}
-
-export interface SimpleMove {
-  fromX: number;
-  fromY: number;
-  toX: number;
-  toY: number;
 }
 
 export type BranchPoints = Record<number, Array<{
