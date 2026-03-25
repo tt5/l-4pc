@@ -23,9 +23,6 @@ export async function up(db: Database): Promise<void> {
       id TEXT PRIMARY KEY,
       username TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
-      game_joined INTEGER DEFAULT 0,
-      home_x INTEGER,
-      home_y INTEGER,
       created_at_ms INTEGER DEFAULT (strftime('%s', 'now') * 1000),
       updated_at_ms INTEGER DEFAULT (strftime('%s', 'now') * 1000)
     );
