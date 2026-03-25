@@ -725,15 +725,13 @@ const Board: Component<BoardProps> = (props) => {
     setBasePoints(initialBasePoints);
     
     // Update king check status after resetting the board
-    updateKingCheckStatus(initialBasePoints);
+    setKingInCheck(null)
     
     const currentPlayerPieces = initialBasePoints.filter((p: BasePoint) => 
       getTeamByColor(p.color) === 1  // Red team is team 1
     );
     
-    // Calculate restricted squares using the local function
-    const currentKingInCheck = kingInCheck();
-    const isCurrentKingInCheck = currentKingInCheck !== null && currentKingInCheck.team === 1; // Check if current team's king is in check
+    const isCurrentKingInCheck = false;
     
     const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(
       currentPlayerPieces,
