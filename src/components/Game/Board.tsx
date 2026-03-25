@@ -1203,16 +1203,15 @@ const Board: Component<BoardProps> = (props) => {
     const history = [...rebuildMoveHistory(currentBranchName() || 'main')]; // Create a copy of the move history array
     setMoveHistory(history);
     
-    const newIndex = currentIndex + 1;
-    
     // 1. Replay all moves up to the target index
-    const updatedBasePoints = replayMoves(history, newIndex-1);
+    const updatedBasePoints = replayMoves(history, currentIndex);
     
     // 2. Update board state and move index
     setBasePoints(updatedBasePoints);
+    const newIndex = currentIndex + 1;
     setCurrentMoveIndex(newIndex);
     
-    // Update king check status after the move
+    // 3. Update king check status after the move
     updateKingCheckStatus(updatedBasePoints);
     
     // 4. Update turn index (next player's turn)
@@ -1268,13 +1267,14 @@ const Board: Component<BoardProps> = (props) => {
   const isHandlingGoBack = { current: false };
 
   // Function to analyze position with proper guards
-  const analyzePosition = (index: number) => {
+  const analyzePosition = (moveIndex: number) => {
     if (!isEngineReady() || isHandlingGoBack.current || !isAnalyzing()) return;
     
     const uciMoveHistory = moveHistory()
-      .slice(0, index + 1)  // +1 because slice end is exclusive
+      .slice(0, moveIndex + 1)  // +1 because slice end is exclusive
       .map(moveToUCI);
     
+    engine.stopAnalysis();
     // Small delay to let the board state settle
     setTimeout(() => {
       try {
@@ -1671,10 +1671,8 @@ const Board: Component<BoardProps> = (props) => {
       return;
     }
 
-    // Set processing flag
     setIsProcessingMove(true);
 
-    // Get the starting position from pickedUpBasePoint
     const startPos = pickedUpBasePoint();
     if (!startPos) {
       cleanupDragState();
@@ -1712,7 +1710,6 @@ const Board: Component<BoardProps> = (props) => {
       return;
     }
 
-    // Validate the move
     const { isValid, pointToMove, error, isCastle, castleType, capturedPiece } = validateMove(startX, startY, targetX, targetY);
     if (!isValid || !pointToMove) {
       if (error) {
@@ -1777,22 +1774,22 @@ const Board: Component<BoardProps> = (props) => {
     // Save the current state for potential rollback
     const originalState = saveCurrentStateForRollback();
     
+    console.log(`[handleGlobalMouseUp] start, currentMoveIndex: ${currentMoveIndex()}`)
     try {
 
         // Check if we're making a move from a historical position (not the latest move)
-        console.log(`[handleGlobalMouseUp] currentMoveIndex: ${currentMoveIndex()}`)
-
         const isAtHistoricalPosition = currentMoveIndex() < moveHistory().length;
         let isBranching = false;
         let branchName: string | null = null;
+        branchName = currentBranchName();
         const currentIndex = currentMoveIndex();
         
         if (isAtHistoricalPosition) {
-          console.log(`[handleGlobalMouseUp] inside if at historic pos`)
+          console.log(`[handleGlobalMouseUp] historic position`)
           
           const nextMainLineMove = mainLineMoves()[currentIndex];
           const isMainLineMove = nextMainLineMove && 
-            nextMainLineMove.branchName === 'main' &&
+            (branchName === 'main' || branchName === undefined) &&
             nextMainLineMove.fromX === startX &&
             nextMainLineMove.fromY === startY &&
             nextMainLineMove.toX === targetX &&
@@ -1830,10 +1827,10 @@ const Board: Component<BoardProps> = (props) => {
                 .sort((a, b) => a.moveNumber - b.moveNumber);
 
               if (branchMoves.length === 0) {
-                console.error(`[handleGlobalMouseUp] No moves found in branch '${matchedBranchName}'`);
-                cleanupDragState();
-                isBranching = false;
-                return; // Exit early on failure
+                console.error(`[handleGlobalMouseUp] ERROR: No moves found in branch '${matchedBranchName}'`);
+                //cleanupDragState();
+                //isBranching = false;
+                throw new Error(`No moves found in branch '${matchedBranchName}'`);
               }
               
               handleGoForward();
@@ -1841,7 +1838,6 @@ const Board: Component<BoardProps> = (props) => {
               return; // Exit early since we've handled the branch following
             }
 
-            console.log(`[handleGlobalMouseUp] before branching ${currentIndex} -- ${currentBranchName()}`)
             setMoveHistory(rebuildMoveHistory(currentBranchName()))
 
             console.log(`[HandleGlobalMouseUp] attempting move: (${startX}, ${startY}) -> (${targetX}, ${targetY})`)
@@ -1855,14 +1851,14 @@ const Board: Component<BoardProps> = (props) => {
 
             if (nextMove && nextMove.fromX === startX && nextMove.fromY === startY &&
                 nextMove.toX === targetX && nextMove.toY === targetY) {
-              console.log(`[handleGlobalMouseUp] follow branch`);
+              console.log(`[handleGlobalMouseUp] follow same branch`);
               handleGoForward()
               cleanupDragState();
               isBranching = false;
               return;
             }
 
-            const branchPointMoves = branchPoints()[currentIndex+1]
+            const branchPointMoves = branchPoints()[currentIndex + 1]
               ?.filter(bp => bp.parentBranch === branchName)
               .map(bp => bp.firstMove);
             
@@ -1882,7 +1878,7 @@ const Board: Component<BoardProps> = (props) => {
             }
 
             if (currentIndex >= moveHistory().length) {
-              console.log(`[handleGlobalMouseUp] At end of line, continuing main line`);
+              console.log(`[handleGlobalMouseUp] at end of line`);
               // Continue with normal move creation without branching
               isBranching = false;
 
@@ -1896,20 +1892,19 @@ const Board: Component<BoardProps> = (props) => {
                 setCurrentBranchName(currentBranch);
               }
             } else {
-              console.log(`[handleGlobalMouseUp] Move does not match branch point`);
+              console.log(`[handleGlobalMouseUp] branching`);
               // If we get here, it's a new branch
               isBranching = true;
             }
             
             if (isBranching) {
-              console.log("[handleGlobalMouseUp] branching")
               const parentBranch = currentBranchName() || 'main';
               const nextMoveIdx = (currentIndex + 1) + 1; // currentIndex + 1 for 1-based, then +1 for next move
               branchName = generateBranchName(nextMoveIdx, parentBranch);
               
               setBranchPoints(prev => {
                 // Ensure branchName is never null or undefined
-                const safeBranchName = branchName || `branch-${Date.now()}`;
+                const safeBranchName = branchName!;
                 
                 const newPoints = {
                   ...prev,
@@ -1935,17 +1930,13 @@ const Board: Component<BoardProps> = (props) => {
           }
         }
 
-        console.log(`[handleGlobalMouseUp] after if at historic pos`)
-        
         // Add move to history before updating position
         // Get the current branch name from context or previous move
         const currentBranch = branchName || currentBranchName() || 'main';
                             
-        console.log(`[handleGlobalMouseUp] Current branch set to: ${currentBranch}`);
-                            
         const branchMoveNumber = currentMoveIndex() + 1;
         
-        console.log(`[handleGlobalMouseUp] currentBranch: '${currentBranch}' branchMoveNumber: ${branchMoveNumber}`);
+        console.log(`[handleGlobalMouseUp] new move, currentBranch: '${currentBranch}' branchMoveNumber: ${branchMoveNumber}`);
         
         const newMove: Move = {
           id: Date.now().toString(),
@@ -1967,7 +1958,6 @@ const Board: Component<BoardProps> = (props) => {
           isEnPassant: isEnPassantCapture,
           capturedPiece: isEnPassantCapture ? capturedPiece : undefined
         };
-        console.log(`[handleGlobalMouseUp] moveNumber: ${newMove.moveNumber}`)
         
         // If this is a branching move, update the current branch name
         if (isBranching && branchName) {
@@ -2025,7 +2015,7 @@ const Board: Component<BoardProps> = (props) => {
         const linearHistory = rebuildMoveHistory(currentBranchNameValue);
         setMoveHistory(linearHistory);
 
-        // Updating base point in database
+        // Updating move in database
         const result = await updateMove(
           pointToMove.id, 
           targetX, 
@@ -2063,7 +2053,6 @@ const Board: Component<BoardProps> = (props) => {
         setIsProcessingMove(false);
         cleanupDragState();
       }
-    console.log(`branchPoints: ${JSON.stringify(branchPoints())}`);
   };
 
   // Setup and cleanup event listeners
