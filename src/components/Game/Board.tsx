@@ -1366,32 +1366,13 @@ const Board: Component<BoardProps> = (props) => {
         setRestrictedSquares(restrictedSquares);
         setRestrictedSquaresInfo(restrictedSquaresInfo);
       });
-      
-      /*
-      // Trigger analysis after all state updates are complete
-      const uciMoveHistory = history.slice(0, newIndex).map(moveToUCI);
-      console.log('[handleGoBack] Starting analysis with moves:', uciMoveHistory);
-      await startEngineAnalysis(uciMoveHistory);
-      */
-      if (!isEngineReady() || !isAnalyzing()) return;
-      
-      const uciMoveHistory = moveHistory()
-        .slice(0, newIndex)
-        .map(moveToUCI);
-      
-      // Small delay to let the board state settle
-      setTimeout(() => {
-        try {
-          if (uciMoveHistory.length > 0) {
-            engine.startAnalysis(uciMoveHistory);
-          }
-        } catch (error) {
-          console.error('Engine analysis error:', error);
-        }
-      }, 50);
 
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      
     } finally {
       isHandlingGoBack.current = false;
+      analyzePosition(currentMoveIndex()-1);
       console.log(`[handleGoBack] currentBranchName: ${currentBranchName()}`)
     }
   };
