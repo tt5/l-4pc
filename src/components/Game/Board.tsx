@@ -583,8 +583,6 @@ const Board: Component<BoardProps> = (props) => {
       })),
       getRestrictedSquares,
       kingInCheck,
-      getTeam,
-      isSquareUnderAttack,
       wouldResolveCheck,
     );
   };
@@ -1224,18 +1222,6 @@ const Board: Component<BoardProps> = (props) => {
           color: string,
           allBasePoints: BasePoint[],
         ) => wouldResolveCheck(from, to, color, allBasePoints),
-        isSquareUnderAttack: (
-          x: number,
-          y: number,
-          team: number,
-          points: BasePoint[]
-        ) => isSquareUnderAttack(x, y, team, points),
-        isSquareBetween: (
-          from: Point,
-          to: Point,
-          x: number,
-          y: number
-        ) => isSquareBetween(from, to, x, y),
         enPassantTarget: enPassantTargets()
       }
     );
@@ -1337,10 +1323,6 @@ const Board: Component<BoardProps> = (props) => {
               color: string,
               allBasePoints: BasePoint[],
             ) => wouldResolveCheck(createPoint(from[0], from[1]), createPoint(to[0], to[1]), color, allBasePoints),
-            isSquareUnderAttack: (x: number, y: number, team: number, points: BasePoint[], teamFn: (color: string) => number) => 
-              isSquareUnderAttack(x, y, team, points),
-            isSquareBetween: (from: Point, to: Point, x: number, y: number) => 
-              isSquareBetween(from, to, x, y),
             enPassantTarget: enPassantTargets()
           }
         );
@@ -1560,9 +1542,6 @@ const Board: Component<BoardProps> = (props) => {
     // Get the legal moves for this piece
     const legalMoves = getLegalMoves(pointToMove, basePoints(), {
       isKingInCheck: kingInCheck()?.team === getTeamByColor(pointToMove.color),
-      wouldResolveCheck,
-      isSquareUnderAttack,
-      isSquareBetween,
       enPassantTarget: enPassantTargets()
     });
 

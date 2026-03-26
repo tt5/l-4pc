@@ -536,7 +536,7 @@ export function validateSquarePlacement(
   restrictedSquaresInfo: () => RestrictedSquareInfo[],
   getRestrictedSquares: () => number[],
   kingInCheck: () => { team: number } | null,
-  isSquareUnderAttack: (x: number, y: number, team: number, points: BasePoint[], getTeamFn: (color: string) => number) => boolean,
+  isSquareUnderAttack: (x: number, y: number, team: number, points: BasePoint[]) => boolean,
   wouldResolveCheck: (from: Point, to: Point, color: string, allBasePoints: BasePoint[]) => boolean,
 ): { isValid: boolean; reason?: string } {
   // Get the target position in world coordinates
@@ -575,7 +575,7 @@ export function validateSquarePlacement(
         if (movingPiece.pieceType === 'king') {
           const opponentTeam = getTeamByColor(movingPiece.color) === 1 ? 2 : 1;
 
-          if (isSquareUnderAttack(gridX, gridY, opponentTeam, basePoints(), getTeamByColor)) {
+          if (isSquareUnderAttack(gridX, gridY, opponentTeam, basePoints())) {
             return {
               isValid: false,
               reason: `Cannot move king into check ${gridX}, ${gridY} ${movingPiece.color}`
