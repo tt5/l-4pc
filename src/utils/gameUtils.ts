@@ -597,7 +597,7 @@ export function validateSquarePlacement(
   index: SquareIndex,
   basePoints: () => BasePoint[],
   userBasePoints: BasePoint[],
-  pickedUp: [number, number] | null,
+  pickedUp: Point | null,
   restrictedSquaresInfo: () => RestrictedSquareInfo[],
   getRestrictedSquares: () => number[],
   kingInCheck: () => { team: number } | null,
