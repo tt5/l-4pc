@@ -1,7 +1,7 @@
 import { getTeamByColor, isInNonPlayableCorner, BOARD_CONFIG, normalizeColor } from '~/constants/game';
 import { MOVE_PATTERNS } from '~/constants/movePatterns';
 import { canCastle } from './moveCalculations';
-import { type BasePoint, type PieceType, type Move, type RestrictedSquareInfo, type SquareIndex, type LegalMove, type Point, createPoint } from '~/types/board';
+import { type BasePoint, type PieceType, type Move, type RestrictedSquareInfo, type SquareIndex, type LegalMove, type Point, createPoint, RestrictedSquares } from '~/types/board';
 
 type CastleColor = 'RED' | 'YELLOW' | 'BLUE' | 'GREEN';
 type CastleType = `${CastleColor}_${'KING_SIDE' | 'QUEEN_SIDE'}`;
@@ -530,14 +530,11 @@ export function wouldResolveCheck(
 
 export function validateSquarePlacement(
   index: SquareIndex,
-  basePoints: () => BasePoint[],
-  userBasePoints: BasePoint[],
+  allBasePoints: BasePoint[],
   pickedUp: Point | null,
   restrictedSquaresInfo: () => RestrictedSquareInfo[],
-  getRestrictedSquares: () => number[],
+  getRestrictedSquares: () => RestrictedSquares,
   kingInCheck: () => { team: number } | null,
-  isSquareUnderAttack: (x: number, y: number, team: number, points: BasePoint[]) => boolean,
-  wouldResolveCheck: (from: Point, to: Point, color: string, allBasePoints: BasePoint[]) => boolean,
 ): { isValid: boolean; reason?: string } {
   // Get the target position in world coordinates
   const gridX = index % BOARD_CONFIG.GRID_SIZE;
@@ -546,7 +543,7 @@ export function validateSquarePlacement(
   // If we're moving a base point
   if (pickedUp) {
     const [startX, startY] = pickedUp;
-    const movingPiece = userBasePoints.find(bp => bp.x === startX && bp.y === startY);
+    const movingPiece = allBasePoints.find(bp => bp.x === startX && bp.y === startY);
     
     if (!movingPiece) {
       return { isValid: false, reason: 'Piece not found' };
@@ -566,7 +563,7 @@ export function validateSquarePlacement(
     // If this is a restricted square (including captures), check if it's a valid move
     if (isRestrictedByPickedUp) {
       // Check if the move captures an enemy king
-      const targetPiece = basePoints().find(bp => bp.x === gridX && bp.y === gridY);
+      const targetPiece = allBasePoints.find(bp => bp.x === gridX && bp.y === gridY);
       const isCapturingEnemyKing = targetPiece?.pieceType === 'king' && getTeamByColor(targetPiece.color) !== getTeamByColor(movingPiece.color);
       
       // If not capturing an enemy king, apply normal check rules
@@ -575,7 +572,7 @@ export function validateSquarePlacement(
         if (movingPiece.pieceType === 'king') {
           const opponentTeam = getTeamByColor(movingPiece.color) === 1 ? 2 : 1;
 
-          if (isSquareUnderAttack(gridX, gridY, opponentTeam, basePoints())) {
+          if (isSquareUnderAttack(gridX, gridY, opponentTeam, allBasePoints)) {
             return {
               isValid: false,
               reason: `Cannot move king into check ${gridX}, ${gridY} ${movingPiece.color}`
@@ -590,7 +587,7 @@ export function validateSquarePlacement(
             createPoint(startX, startY), 
             createPoint(gridX, gridY), 
             movingPiece.color,
-            basePoints(),
+            allBasePoints,
           )) {
             return { 
               isValid: false, 
@@ -604,7 +601,7 @@ export function validateSquarePlacement(
     }
 
     // Check for pieces at the target square
-    const targetPiece = basePoints().find(bp => bp.x === gridX && bp.y === gridY);
+    const targetPiece = allBasePoints.find(bp => bp.x === gridX && bp.y === gridY);
     if (targetPiece) {
       const targetTeam = getTeamByColor(targetPiece.color);
       const movingTeam = getTeamByColor(movingPiece.color);
@@ -645,7 +642,7 @@ export function validateSquarePlacement(
   }
   
   // For new base points, check if the user already has a base point at the target position
-  if (userBasePoints.some(bp => bp.x === gridX && bp.y === gridY)) {
+  if (allBasePoints.some(bp => bp.x === gridX && bp.y === gridY)) {
     return { isValid: false, reason: 'You already have a base point here' };
   }
   
@@ -665,21 +662,12 @@ export function getLegalMoves(
   allBasePoints: BasePoint[],
   options: {
     isKingInCheck?: boolean;
-    wouldResolveCheck?: (
-      from: Point,
-      to: Point,
-      color: string,
-      allBasePoints: BasePoint[],
-    ) => boolean;
-    isSquareUnderAttack?: (x: number, y: number, team: number, points: BasePoint[], getTeamFn: (color: string) => number) => boolean;
-    isSquareBetween?: (from: Point, to: Point, x: number, y: number) => boolean;
     enPassantTarget?: Record<string, {x: number, y: number, color: string} | null>;
   } = {}
 ): LegalMove[] {
 
   const { 
     isKingInCheck = false, 
-    wouldResolveCheck,
   } = options;
 
   const pieceType = basePoint.pieceType

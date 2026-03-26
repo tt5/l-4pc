@@ -37,7 +37,7 @@ import {
 import { calculateRestrictedSquares, updateMove, generateNewGameId } from '~/utils/boardUtils';
 import { getColorHex } from '~/utils/colorUtils';
 
-import { type Point, type BasePoint, type Move, type BranchPoints, type SquareIndex, createPoint, RestrictedSquareInfo } from '../../types/board';
+import { type Point, type BasePoint, type Move, type BranchPoints, type SquareIndex, createPoint, RestrictedSquareInfo, RestrictedSquares } from '../../types/board';
 
 import { 
   PLAYER_COLORS, 
@@ -574,16 +574,14 @@ const Board: Component<BoardProps> = (props) => {
   const validateSquarePlacementLocal = (index: SquareIndex) => {
     return validateSquarePlacement(
       index,
-      basePoints,
       basePoints(),
       pickedUpBasePoint(),
       () => restrictedSquaresInfo().map(info => ({
         ...info,
         index: info.index as SquareIndex
       })),
-      getRestrictedSquares,
+      () => getRestrictedSquares() as RestrictedSquares,
       kingInCheck,
-      wouldResolveCheck,
     );
   };
 
