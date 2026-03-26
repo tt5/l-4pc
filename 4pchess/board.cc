@@ -1663,25 +1663,25 @@ void Board::MakeMove(const Move& move) {
     player_piece_evaluations_[capture_color] -= piece_eval;
   }
 
-// Find the piece in the piece list
-auto& pieces = piece_list_[color];
-auto it = std::find_if(pieces.begin(), pieces.end(),
-    [&from](const auto& placed_piece) {
-        return placed_piece.GetLocation() == from;
-    });
-if (it != pieces.end()) {
-    // Update the piece's location by creating a new PlacedPiece with the same piece but new location
-    *it = PlacedPiece(to, it->GetPiece());
-} else {
-    std::cout << "MakeMove Failed to find moving piece in piece_list_: "
-    << move << std::endl;
-    for (const auto& placed_piece : piece_list_[BLUE]) {
-      const auto& loc = placed_piece.GetLocation();
-      const auto& piece = placed_piece.GetPiece();
-      std::cout << "  - " << piece << " at " << loc << std::endl;
-    }
-    abort();
-}
+  // Find the piece in the piece list
+  auto& pieces = piece_list_[color];
+  auto it = std::find_if(pieces.begin(), pieces.end(),
+      [&from](const auto& placed_piece) {
+          return placed_piece.GetLocation() == from;
+      });
+  if (it != pieces.end()) {
+      // Update the piece's location by creating a new PlacedPiece with the same piece but new location
+      *it = PlacedPiece(to, it->GetPiece());
+  } else {
+      std::cout << "MakeMove Failed to find moving piece in piece_list_: "
+      << move << std::endl;
+      for (const auto& placed_piece : piece_list_[BLUE]) {
+        const auto& loc = placed_piece.GetLocation();
+        const auto& piece = placed_piece.GetPiece();
+        std::cout << "  - " << piece << " at " << loc << std::endl;
+      }
+      abort();
+  }
   /*
   auto& placed_pieces = piece_list_[color];
   auto it = std::find_if(placed_pieces.begin(), placed_pieces.end(),
@@ -1740,7 +1740,6 @@ void Board::UndoMove() {
 
   assert(!moves_.empty());
   const Move& move = moves_.back();
-  Player turn_before = GetPreviousPlayer(turn_);
 
   const BoardLocation& to = move.To();
   const BoardLocation& from = move.From();
@@ -1754,20 +1753,26 @@ void Board::UndoMove() {
   }
   */
   const PlayerColor color = piece.GetColor();
+  Player turn_before = (color == RED)    ? kRedPlayer :
+                       (color == BLUE)   ? kBluePlayer :
+                       (color == YELLOW) ? kYellowPlayer :
+                       kGreenPlayer;
+  Player turn_before2 = GetPreviousPlayer(turn_);
+  assert(turn_before == turn_before2);
 
   // Find and update the moved piece's location in one pass
-auto& pieces = piece_list_[color];
-auto it = std::find_if(pieces.begin(), pieces.end(),
-    [&to](const auto& placed_piece) {
-        return placed_piece.GetLocation() == to;
-    });
-if (it != pieces.end()) {
-    // Update the piece's location by creating a new PlacedPiece
-    *it = PlacedPiece(from, it->GetPiece());
-} else {
-    std::cerr << "Failed to find moved piece in piece_list_ during UndoMove\n";
-    std::abort();
-}
+  auto& pieces = piece_list_[color];
+  auto it = std::find_if(pieces.begin(), pieces.end(),
+      [&to](const auto& placed_piece) {
+          return placed_piece.GetLocation() == to;
+      });
+  if (it != pieces.end()) {
+      // Update the piece's location by creating a new PlacedPiece
+      *it = PlacedPiece(from, it->GetPiece());
+  } else {
+      std::cerr << "Failed to find moved piece in piece_list_ during UndoMove\n";
+      std::abort();
+  }
 
   /*
   if (auto it = std::find_if(piece_list_[color].begin(), piece_list_[color].end(),

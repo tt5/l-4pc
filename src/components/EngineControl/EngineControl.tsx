@@ -60,45 +60,6 @@ export function EngineControl() {
     };
   });
 
-  // Send command to engine
-  const sendCommand = (command: string, data: any = {}) => {
-    if (!engine.isConnected()) {
-      console.warn('Cannot send command: Engine not connected');
-      return false;
-    }
-
-    try {
-      // Map commands to the appropriate WebSocket client methods
-      switch (command) {
-        case 'startAnalysis':
-          engine.startAnalysis(data.moveHistory || []);
-          break;
-        case 'stopAnalysis':
-          engine.stopAnalysis();
-          break;
-        case 'makeMove':
-          engine.makeMove(data.fen, data.move, data.moveHistory || []);
-          break;
-        case 'updatePosition':
-          engine.updatePosition(data.fen, data.moveHistory || []);
-          break;
-        case 'setThreads':
-          engine.setThreads(data.threads);
-          break;
-        default:
-          console.warn(`Unknown command: ${command}`);
-          return false;
-      }
-      
-      setIsLoading(true);
-      return true;
-    } catch (error) {
-      console.error('Error sending command:', error);
-      setError('Failed to send command to engine');
-      return false;
-    }
-  };
-
   // Handle start/stop engine
   const handleStart = async () => {
     if (isRunning() || isLoading()) return;
