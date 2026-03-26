@@ -164,7 +164,6 @@ export function canPieceAttack(
   targetX: number, 
   targetY: number,
   allBasePoints: BasePoint[],
-  getTeamFn?: (color: string) => number
 ): boolean {
   const dx = Math.abs(piece.x - targetX);
   const dy = Math.abs(piece.y - targetY);
@@ -172,7 +171,7 @@ export function canPieceAttack(
   const yDir = Math.sign(targetY - piece.y);
   
   // Get the piece's team if not already set
-  const pieceTeam = piece.team || (getTeamFn ? getTeamFn(piece.color) : 0);
+  const pieceTeam = piece.team || getTeamByColor(piece.color);
   
   // King movement (1 square in any direction)
   if (piece.pieceType === 'king') {
@@ -217,7 +216,7 @@ export function canPieceAttack(
     // Determine the attacking direction based on the piece's team
     const targetPiece = allBasePoints.find(p => p.x === targetX && p.y === targetY);
     if (targetPiece) {
-      const targetTeam = targetPiece.team || (getTeamFn ? getTeamFn(targetPiece.color) : 0);
+      const targetTeam = targetPiece.team || getTeamByColor(targetPiece.color);
       
       // Only consider it a valid attack if the target is an opponent's piece
       if (targetTeam !== pieceTeam) {
@@ -277,15 +276,14 @@ export function isSquareUnderAttack(
   y: number, 
   attackingTeam: number, 
   allBasePoints: BasePoint[],
-  getTeamFn: (color: string) => number
 ): boolean {
   return allBasePoints.some(attacker => {
     // Skip if this is a piece on the target square (can't attack its own square)
     if (attacker.x === x && attacker.y === y) {
       return false;
     }
-    if (getTeamFn(attacker.color) !== attackingTeam) return false;
-    return canPieceAttack(attacker, x, y, allBasePoints, getTeamFn);
+    if (getTeamByColor(attacker.color) !== attackingTeam) return false;
+    return canPieceAttack(attacker, x, y, allBasePoints);
   });
 }
 
@@ -471,27 +469,25 @@ export function isPiecePinned(
  * Check if a king is in check
  * @param king - The king to check
  * @param allBasePoints - All pieces on the board
- * @param getTeamFn - Function to get team from color
  * @returns True if the king is in check
  */
 export function isKingInCheck(
   king: BasePoint, 
   allBasePoints: BasePoint[],
-  getTeamFn: (color: string) => number
 ): boolean {
-  const opponentTeam = getTeamFn(king.color) === 1 ? 2 : 1;
+  const opponentTeam = getTeamByColor(king.color) === 1 ? 2 : 1;
   let isInCheck = false;
   
   // Check each opponent piece to see if it attacks the king
   for (const piece of allBasePoints) {
-    const pieceTeam = getTeamFn(piece.color);
+    const pieceTeam = getTeamByColor(piece.color);
     
     // Skip pieces that aren't opponents or are the king itself
     if (pieceTeam !== opponentTeam || (piece.x === king.x && piece.y === king.y)) {
       continue;
     }
     
-    const canAttack = canPieceAttack(piece, king.x, king.y, allBasePoints, getTeamFn);
+    const canAttack = canPieceAttack(piece, king.x, king.y, allBasePoints);
     
     if (canAttack) {
       isInCheck = true;
@@ -508,10 +504,7 @@ export function wouldResolveCheck(
   color: string,
   allBasePoints: BasePoint[],
   getTeamFn: (color: string) => number,
-  isSquareUnderAttackFn: (x: number, y: number, team: number, points: BasePoint[], getTeam: (color: string) => number) => boolean,
-  isSquareBetweenFn: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean
 ): boolean {
-  const currentTeam = getTeamFn(color);
 
   // Find the king of the current player (exact color match)
   const king = allBasePoints.find(p => {
@@ -525,7 +518,7 @@ export function wouldResolveCheck(
   }
   
   // Check if the king is currently in check
-  const currentCheck = isKingInCheck(king, allBasePoints, getTeamFn);
+  const currentCheck = isKingInCheck(king, allBasePoints);
   if (!currentCheck) {
     return true;
   }
@@ -537,8 +530,7 @@ export function wouldResolveCheck(
 
   // If the piece being moved is the king, check if the new position is safe
   if (movingPiece.pieceType === 'king') {
-    const newPositionSafe = !isSquareUnderAttackFn(to[0], to[1], getTeamFn(color) === 1 ? 2 : 1, allBasePoints, getTeamFn);
-    return newPositionSafe;
+    return !isSquareUnderAttack(to[0], to[1], getTeamByColor(color) === 1 ? 2 : 1, allBasePoints);
   }
 
   // Reuse the king variable that was already found at the start of the function
