@@ -38,7 +38,7 @@ const getFile = (x: number): string => String.fromCharCode(97 + x);
 const getRank = (y: number): string => (14 - y).toString();
 
 // Convert coordinates to 4-player chess notation (a1-p16)
-export const toChessNotation = (move: Move, basePoints: BasePoint[] = []): string => {
+export const toChessNotation = (move: Move): string => {
   
   const { fromX, fromY, toX, toY, pieceType = 'pawn', color, isCapture = false, isCheck = false, promotionPiece } = move;
   
@@ -52,21 +52,8 @@ export const toChessNotation = (move: Move, basePoints: BasePoint[] = []): strin
     else if (colorLower.includes('yellow') || colorLower === '#ffeb3b') colorPrefix = 'y';
     else if (colorLower.includes('green') || colorLower === '#4caf50') colorPrefix = 'g';
     
-  } else {
-    // Fallback to finding the piece in basePoints
-    const piece = basePoints.find(p => p.x === fromX && p.y === fromY);
-    
-    if (piece && piece.color) {
-      const pieceColor = piece.color.toLowerCase();
-      
-      if (pieceColor.includes('red') || pieceColor === '#f44336') colorPrefix = 'r';
-      else if (pieceColor.includes('blue') || pieceColor === '#2196f3') colorPrefix = 'b';
-      else if (pieceColor.includes('yellow') || pieceColor === '#ffeb3b') colorPrefix = 'y';
-      else if (pieceColor.includes('green') || pieceColor === '#4caf50') colorPrefix = 'g';
-      
-    }
-  }
-  
+  }  
+
   // Determine piece notation
   let pieceNotation = '';
   if (pieceType) {
@@ -106,35 +93,12 @@ export const toChessNotation = (move: Move, basePoints: BasePoint[] = []): strin
 };
 
 // Format a move for display in the move history
-export const formatMove = (move: Move, basePoints: BasePoint[] = []): string => {
+export const formatMove = (move: Move): string => {
   try {
     // If we have coordinates, try to format with chess notation
     if (move.fromX !== undefined && move.fromY !== undefined) {
-      // If pieceType is missing, try to find it in basePoints
-      if (!move.pieceType && basePoints.length > 0) {
-        const piece = basePoints.find(p => 
-          p.x === move.fromX && 
-          p.y === move.fromY
-        );
-        
-        if (piece) {
-          return toChessNotation({
-            ...move,
-            pieceType: piece.pieceType,
-            color: piece.color
-          }, basePoints);
-        }
-      }
       
-      // If we still don't have pieceType, use a default
-      if (!move.pieceType) {
-        return toChessNotation({
-          ...move,
-          pieceType: 'pawn' // Default to pawn if we can't determine the piece type
-        }, basePoints);
-      }
-      
-      return toChessNotation(move, basePoints);
+      return toChessNotation(move);
     }
     // Fall back to coordinate notation
     return `(${move.fromX},${move.fromY}) → (${move.toX},${move.toY})`;
