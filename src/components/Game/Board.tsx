@@ -586,7 +586,6 @@ const Board: Component<BoardProps> = (props) => {
       getTeam,
       isSquareUnderAttack,
       wouldResolveCheck,
-      isSquareBetween
     );
   };
 
@@ -1224,13 +1223,19 @@ const Board: Component<BoardProps> = (props) => {
           to: Point,
           color: string,
           allBasePoints: BasePoint[],
-          getTeamFn: (color: string) => number,
-        ) => wouldResolveCheck(from, to, color, allBasePoints, getTeamFn),
-        isSquareUnderAttack: (x: number, y: number, team: number, points: BasePoint[], teamFn: (color: string) => number) => 
-          isSquareUnderAttack(x, y, team, points),
-        isSquareBetween: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => 
-          isSquareBetween(from, to, x, y),
-        getTeamFn: getTeamByColor,
+        ) => wouldResolveCheck(from, to, color, allBasePoints),
+        isSquareUnderAttack: (
+          x: number,
+          y: number,
+          team: number,
+          points: BasePoint[]
+        ) => isSquareUnderAttack(x, y, team, points),
+        isSquareBetween: (
+          from: Point,
+          to: Point,
+          x: number,
+          y: number
+        ) => isSquareBetween(from, to, x, y),
         enPassantTarget: enPassantTargets()
       }
     );
@@ -1331,15 +1336,11 @@ const Board: Component<BoardProps> = (props) => {
               to: Point,
               color: string,
               allBasePoints: BasePoint[],
-              getTeamFn: (color: string) => number,
-              isSquareUnderAttackFn: (x: number, y: number, team: number, points: BasePoint[], getTeam: (color: string) => number) => boolean,
-              isSquareBetweenFn: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean
-            ) => wouldResolveCheck(createPoint(from[0], from[1]), createPoint(to[0], to[1]), color, allBasePoints, getTeamFn),
+            ) => wouldResolveCheck(createPoint(from[0], from[1]), createPoint(to[0], to[1]), color, allBasePoints),
             isSquareUnderAttack: (x: number, y: number, team: number, points: BasePoint[], teamFn: (color: string) => number) => 
               isSquareUnderAttack(x, y, team, points),
-            isSquareBetween: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => 
+            isSquareBetween: (from: Point, to: Point, x: number, y: number) => 
               isSquareBetween(from, to, x, y),
-            getTeamFn: getTeamByColor,
             enPassantTarget: enPassantTargets()
           }
         );
@@ -1410,7 +1411,7 @@ const Board: Component<BoardProps> = (props) => {
       .filter(bp => bp.pieceType === 'king')
       .forEach(king => {
         const kingIndex = king.y * BOARD_CONFIG.GRID_SIZE + king.x;
-        const kingTeam = getTeam(king.color);
+        const kingTeam = getTeamByColor(king.color);
         
         if (restrictedSquares.includes(kingIndex)) {
           // Check if any opponent pieces are threatening this king
@@ -1421,7 +1422,7 @@ const Board: Component<BoardProps> = (props) => {
                 bp.x === r.basePointX && 
                 bp.y === r.basePointY
               );
-              return attacker && getTeam(attacker.color) !== kingTeam;
+              return attacker && getTeamByColor(attacker.color) !== kingTeam;
             })
           );
           
@@ -1562,7 +1563,6 @@ const Board: Component<BoardProps> = (props) => {
       wouldResolveCheck,
       isSquareUnderAttack,
       isSquareBetween,
-      getTeamFn: getTeamByColor,
       enPassantTarget: enPassantTargets()
     });
 

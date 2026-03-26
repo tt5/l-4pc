@@ -241,36 +241,27 @@ export function canPieceAttack(
  * @returns True if the square is between from and to in a straight line (exclusive)
  */
 export function isSquareBetween(
-  from: {x: number, y: number}, 
-  to: {x: number, y: number}, 
+  from: Point, 
+  to: Point, 
   x: number, 
   y: number
 ): boolean {
   // Check if all three points are in a straight line
-  const dx1 = to.x - from.x;
-  const dy1 = to.y - from.y;
-  const dx2 = x - from.x;
-  const dy2 = y - from.y;
+  const dx1 = to[0] - from[0];
+  const dy1 = to[1] - from[1];
+  const dx2 = x - from[0];
+  const dy2 = y - from[1];
   
   // If not in a straight line, return false
   if (dx1 * dy2 !== dx2 * dy1) return false;
   
   // Check if (x,y) is between from and to (exclusive)
-  const isBetweenX = (from.x <= x && x <= to.x) || (from.x >= x && x >= to.x);
-  const isBetweenY = (from.y <= y && y <= to.y) || (from.y >= y && y >= to.y);
+  const isBetweenX = (from[0] <= x && x <= to[0]) || (from[0] >= x && x >= to[0]);
+  const isBetweenY = (from[1] <= y && y <= to[1]) || (from[1] >= y && y >= to[1]);
   
-  return isBetweenX && isBetweenY && (x !== from.x || y !== from.y) && (x !== to.x || y !== to.y);
+  return isBetweenX && isBetweenY && (x !== from[0] || y !== from[1]) && (x !== to[0] || y !== to[1]);
 }
 
-/**
- * Check if a square is under attack by any piece of the given team
- * @param x - X coordinate of the square to check
- * @param y - Y coordinate of the square to check
- * @param attackingTeam - The team number (1 or 2) that might be attacking
- * @param allBasePoints - Array of all base points on the board
- * @param getTeamFn - Function to get the team number from a color
- * @returns True if the square is under attack by the specified team
- */
 export function isSquareUnderAttack(
   x: number, 
   y: number, 
@@ -292,7 +283,6 @@ function canPieceAttackThroughLine(
   pinnedPiece: BasePoint,
   king: BasePoint,
   allBasePoints: BasePoint[],
-  getTeamFn: (color: string) => number
 ): boolean {
   
   // Calculate direction from pinned piece to king
@@ -364,17 +354,9 @@ function canPieceAttackThroughLine(
   return false;
 }
 
-/**
- * Checks if a piece is pinned to its king
- * @param piece - The piece to check
- * @param allBasePoints - All pieces on the board
- * @param getTeamFn - Function to get team from color
- * @returns Object with pin status and direction if pinned
- */
 export function isPiecePinned(
   piece: BasePoint,
   allBasePoints: BasePoint[],
-  getTeamFn: (color: string) => number
 ): { isPinned: boolean; pinDirection?: [number, number] } {
   // Find the king of the same color
   const king = allBasePoints.find(p => 
@@ -421,12 +403,12 @@ export function isPiecePinned(
     
     if (pieceInLine) {
       // Only consider pieces that can attack through the line (queen, rook, bishop)
-      const isAttacker = getTeamFn(pieceInLine.color) !== getTeamFn(piece.color) && 
+      const isAttacker = getTeamByColor(pieceInLine.color) !== getTeamByColor(piece.color) && 
                        ['queen', 'rook', 'bishop'].includes(pieceInLine.pieceType);
       
       if (isAttacker) {
         // Check if the attacker can attack through the line
-        const canAttack = canPieceAttackThroughLine(pieceInLine, piece, king, allBasePoints, getTeamFn);
+        const canAttack = canPieceAttackThroughLine(pieceInLine, piece, king, allBasePoints);
         if (canAttack) {
           foundAttacker = true;
         }
@@ -448,29 +430,6 @@ export function isPiecePinned(
   };
 }
 
-/**
- * Calculate all legal moves for a given piece
- * @param basePoint - The piece to calculate moves for
- * @param allBasePoints - Array of all pieces on the board
- * @returns Array of legal moves with their coordinates and capture status
- */
-/**
- * Check if a move would resolve a check
- * @param from - Starting position [x, y]
- * @param to - Target position [x, y]
- * @param color - Color of the moving piece
- * @param allBasePoints - Array of all pieces on the board
- * @param getTeamFn - Function to get team from color
- * @param isSquareUnderAttackFn - Function to check if a square is under attack
- * @param isSquareBetweenFn - Function to check if a square is between two points
- * @returns True if the move would resolve the check
- */
-/**
- * Check if a king is in check
- * @param king - The king to check
- * @param allBasePoints - All pieces on the board
- * @returns True if the king is in check
- */
 export function isKingInCheck(
   king: BasePoint, 
   allBasePoints: BasePoint[],
@@ -503,7 +462,6 @@ export function wouldResolveCheck(
   to: Point,
   color: string,
   allBasePoints: BasePoint[],
-  getTeamFn: (color: string) => number,
 ): boolean {
 
   // Find the king of the current player (exact color match)
@@ -538,7 +496,7 @@ export function wouldResolveCheck(
 
   // Get all squares that are attacking the king
   const attackers = allBasePoints.filter(attacker => 
-    getTeamFn(attacker.color) !== getTeamFn(color) &&
+    getTeamByColor(attacker.color) !== getTeamByColor(color) &&
     canPieceAttack(attacker, king.x, king.y, allBasePoints)
   );
 
@@ -562,7 +520,7 @@ export function wouldResolveCheck(
   }
 
   // Check if the move blocks the attack
-  const blocksAttack = isSquareBetween(attacker, king, to[0], to[1]);
+  const blocksAttack = isSquareBetween(createPoint(attacker.x, attacker.y), createPoint(king.x, king.y), to[0], to[1]);
   if (blocksAttack) {
     return true;
   }
@@ -570,21 +528,6 @@ export function wouldResolveCheck(
   return false;
 }
 
-/**
- * Validates if a piece can be placed or moved to a specific square
- * @param index - The index of the target square
- * @param basePoints - Array of all base points on the board
- * @param userBasePoints - Array of base points belonging to the current user
- * @param pickedUp - The coordinates of the picked up piece [x, y] or null if placing a new piece
- * @param restrictedSquaresInfo - Array of restricted squares information
- * @param getRestrictedSquares - Function that returns array of restricted square indices
- * @param kingInCheck - Function that returns the current check status
- * @param getTeam - Function to get team from color
- * @param isSquareUnderAttack - Function to check if a square is under attack
- * @param wouldResolveCheck - Function to check if a move would resolve check
- * @param isSquareBetween - Function to check if a square is between two other squares in a straight line
- * @returns Object with validation result and optional reason for failure
- */
 export function validateSquarePlacement(
   index: SquareIndex,
   basePoints: () => BasePoint[],
@@ -593,10 +536,8 @@ export function validateSquarePlacement(
   restrictedSquaresInfo: () => RestrictedSquareInfo[],
   getRestrictedSquares: () => number[],
   kingInCheck: () => { team: number } | null,
-  getTeam: (color: string) => number,
   isSquareUnderAttack: (x: number, y: number, team: number, points: BasePoint[], getTeamFn: (color: string) => number) => boolean,
-  wouldResolveCheck: (from: Point, to: Point, color: string, allBasePoints: BasePoint[], getTeamFn: (color: string) => number, isSquareUnderAttackFn: any, isSquareBetweenFn: any) => boolean,
-  isSquareBetween: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean
+  wouldResolveCheck: (from: Point, to: Point, color: string, allBasePoints: BasePoint[]) => boolean,
 ): { isValid: boolean; reason?: string } {
   // Get the target position in world coordinates
   const gridX = index % BOARD_CONFIG.GRID_SIZE;
@@ -626,15 +567,15 @@ export function validateSquarePlacement(
     if (isRestrictedByPickedUp) {
       // Check if the move captures an enemy king
       const targetPiece = basePoints().find(bp => bp.x === gridX && bp.y === gridY);
-      const isCapturingEnemyKing = targetPiece?.pieceType === 'king' && getTeam(targetPiece.color) !== getTeam(movingPiece.color);
+      const isCapturingEnemyKing = targetPiece?.pieceType === 'king' && getTeamByColor(targetPiece.color) !== getTeamByColor(movingPiece.color);
       
       // If not capturing an enemy king, apply normal check rules
       if (!isCapturingEnemyKing) {
         // If the piece being moved is a king, check if the target square is under attack
         if (movingPiece.pieceType === 'king') {
-          const opponentTeam = getTeam(movingPiece.color) === 1 ? 2 : 1;
+          const opponentTeam = getTeamByColor(movingPiece.color) === 1 ? 2 : 1;
 
-          if (isSquareUnderAttack(gridX, gridY, opponentTeam, basePoints(), getTeam)) {
+          if (isSquareUnderAttack(gridX, gridY, opponentTeam, basePoints(), getTeamByColor)) {
             return {
               isValid: false,
               reason: `Cannot move king into check ${gridX}, ${gridY} ${movingPiece.color}`
@@ -644,15 +585,12 @@ export function validateSquarePlacement(
         
         // If the current player's king is in check, verify the move resolves it
         const currentCheck = kingInCheck();
-        if (currentCheck && getTeam(movingPiece.color) === currentCheck.team) {
+        if (currentCheck && getTeamByColor(movingPiece.color) === currentCheck.team) {
           if (!wouldResolveCheck(
             createPoint(startX, startY), 
             createPoint(gridX, gridY), 
             movingPiece.color,
             basePoints(),
-            getTeam,
-            isSquareUnderAttack,
-            isSquareBetween
           )) {
             return { 
               isValid: false, 
@@ -668,8 +606,8 @@ export function validateSquarePlacement(
     // Check for pieces at the target square
     const targetPiece = basePoints().find(bp => bp.x === gridX && bp.y === gridY);
     if (targetPiece) {
-      const targetTeam = getTeam(targetPiece.color);
-      const movingTeam = getTeam(movingPiece.color);
+      const targetTeam = getTeamByColor(targetPiece.color);
+      const movingTeam = getTeamByColor(movingPiece.color);
       
       // Block friendly pieces
       if (targetTeam === movingTeam) {
@@ -732,13 +670,9 @@ export function getLegalMoves(
       to: Point,
       color: string,
       allBasePoints: BasePoint[],
-      getTeamFn: (color: string) => number,
-      isSquareUnderAttackFn: any,
-      isSquareBetweenFn: any
     ) => boolean;
     isSquareUnderAttack?: (x: number, y: number, team: number, points: BasePoint[], getTeamFn: (color: string) => number) => boolean;
-    isSquareBetween?: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean;
-    getTeamFn?: (color: string) => number;
+    isSquareBetween?: (from: Point, to: Point, x: number, y: number) => boolean;
     enPassantTarget?: Record<string, {x: number, y: number, color: string} | null>;
   } = {}
 ): LegalMove[] {
@@ -746,9 +680,6 @@ export function getLegalMoves(
   const { 
     isKingInCheck = false, 
     wouldResolveCheck,
-    isSquareUnderAttack,
-    isSquareBetween,
-    getTeamFn = getTeamByColor
   } = options;
 
   const pieceType = basePoint.pieceType
@@ -857,8 +788,6 @@ export function getLegalMoves(
           castleType: 'QUEEN_SIDE'
         });
       }
-
-      
     }
     
     possibleMoves = [...standardMoves, ...castlingMoves];
@@ -1115,7 +1044,7 @@ export function getLegalMoves(
   }
 
   // First check if the piece is pinned
-  const { isPinned, pinDirection } = isPiecePinned(basePoint, allBasePoints, getTeamFn);
+  const { isPinned, pinDirection } = isPiecePinned(basePoint, allBasePoints);
 
   if (isPinned) {
     const pinDir = pinDirection!;
@@ -1165,9 +1094,6 @@ export function getLegalMoves(
         createPoint(move.x, move.y),
         playerColor,
         allBasePoints,
-        getTeamByColor,
-        isSquareUnderAttack,
-        isSquareBetween
       );
     });
   }

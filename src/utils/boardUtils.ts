@@ -25,20 +25,15 @@ export function calculateRestrictedSquares(
       to: Point,
       color: string,
       allBasePoints: BasePoint[],
-      getTeamFn: (color: string) => number,
-      isSquareUnderAttackFn: any,
-      isSquareBetweenFn: any
     ) => boolean;
     isSquareUnderAttack?: (x: number, y: number, team: number, points: BasePoint[], getTeamFn: (color: string) => number) => boolean;
-    isSquareBetween?: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean;
-    getTeamFn?: (color: string) => number;
+    isSquareBetween?: (from: Point, to: Point, x: number, y: number) => boolean;
     enPassantTarget?: Record<string, {x: number, y: number, color: string} | null>;
   } = {}
 ): RestrictedSquaresResult {
 
   const restrictedSquares: SquareIndex[] = [];
   const restrictedSquaresInfo: RestrictedSquareInfo[] = [];
-  const getTeam = options.getTeamFn || getTeamByColor;
 
   for (const piece of pieces) {
     
@@ -47,7 +42,6 @@ export function calculateRestrictedSquares(
       wouldResolveCheck: options.wouldResolveCheck,
       isSquareUnderAttack: options.isSquareUnderAttack,
       isSquareBetween: options.isSquareBetween,
-      getTeamFn: options.getTeamFn || getTeamByColor,
       enPassantTarget: options.enPassantTarget
     });
     
@@ -80,7 +74,7 @@ export function calculateRestrictedSquares(
           restrictedBy: [restrictionInfo],
           canCapture,
           pieceType: piece.pieceType,
-          team: getTeam(piece.color)
+          team: getTeamByColor(piece.color)
         });
       }
     }
