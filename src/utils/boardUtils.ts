@@ -1,5 +1,5 @@
 import { BOARD_CONFIG, getTeamByColor } from '../constants/game';
-import { BasePoint, Direction, BasePoint as BasePointType, SquareIndex, RestrictedByInfo, RestrictedSquareInfo } from '../types/board';
+import { BasePoint, Direction, BasePoint as BasePointType, SquareIndex, RestrictedByInfo, RestrictedSquareInfo, Point } from '../types/board';
 import { createSignal, createEffect, onCleanup, onMount, batch, Accessor } from 'solid-js';
 import type { ApiResponse } from './api';
 import { getLegalMoves } from './gameUtils';
@@ -21,8 +21,8 @@ export function calculateRestrictedSquares(
   options: {
     isKingInCheck?: boolean;
     wouldResolveCheck?: (
-      from: [number, number],
-      to: [number, number],
+      from: Point,
+      to: Point,
       color: string,
       allBasePoints: BasePoint[],
       getTeamFn: (color: string) => number,

@@ -1,7 +1,7 @@
 import { getTeamByColor, isInNonPlayableCorner, BOARD_CONFIG, normalizeColor } from '~/constants/game';
 import { MOVE_PATTERNS } from '~/constants/movePatterns';
 import { canCastle } from './moveCalculations';
-import type { BasePoint, PieceType, Move, RestrictedSquareInfo, SquareIndex, LegalMove } from '~/types/board';
+import { type BasePoint, type PieceType, type Move, type RestrictedSquareInfo, type SquareIndex, type LegalMove, type Point, createPoint } from '~/types/board';
 
 type CastleColor = 'RED' | 'YELLOW' | 'BLUE' | 'GREEN';
 type CastleType = `${CastleColor}_${'KING_SIDE' | 'QUEEN_SIDE'}`;
@@ -503,8 +503,8 @@ export function isKingInCheck(
 }
 
 export function wouldResolveCheck(
-  from: [number, number],
-  to: [number, number],
+  from: Point,
+  to: Point,
   color: string,
   allBasePoints: BasePoint[],
   getTeamFn: (color: string) => number,
@@ -603,7 +603,7 @@ export function validateSquarePlacement(
   kingInCheck: () => { team: number } | null,
   getTeam: (color: string) => number,
   isSquareUnderAttack: (x: number, y: number, team: number, points: BasePoint[], getTeamFn: (color: string) => number) => boolean,
-  wouldResolveCheck: (from: [number, number], to: [number, number], color: string, allBasePoints: BasePoint[], getTeamFn: (color: string) => number, isSquareUnderAttackFn: any, isSquareBetweenFn: any) => boolean,
+  wouldResolveCheck: (from: Point, to: Point, color: string, allBasePoints: BasePoint[], getTeamFn: (color: string) => number, isSquareUnderAttackFn: any, isSquareBetweenFn: any) => boolean,
   isSquareBetween: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean
 ): { isValid: boolean; reason?: string } {
   // Get the target position in world coordinates
@@ -654,8 +654,8 @@ export function validateSquarePlacement(
         const currentCheck = kingInCheck();
         if (currentCheck && getTeam(movingPiece.color) === currentCheck.team) {
           if (!wouldResolveCheck(
-            [startX, startY], 
-            [gridX, gridY], 
+            createPoint(startX, startY), 
+            createPoint(gridX, gridY), 
             movingPiece.color,
             basePoints(),
             getTeam,
@@ -736,8 +736,8 @@ export function getLegalMoves(
   options: {
     isKingInCheck?: boolean;
     wouldResolveCheck?: (
-      from: [number, number],
-      to: [number, number],
+      from: Point,
+      to: Point,
       color: string,
       allBasePoints: BasePoint[],
       getTeamFn: (color: string) => number,
@@ -1169,8 +1169,8 @@ export function getLegalMoves(
     
     possibleMoves = possibleMoves.filter(move => {
       return wouldResolveCheck(
-        [basePoint.x, basePoint.y],
-        [move.x, move.y],
+        createPoint(basePoint.x, basePoint.y),
+        createPoint(move.x, move.y),
         playerColor,
         allBasePoints,
         getTeamByColor,

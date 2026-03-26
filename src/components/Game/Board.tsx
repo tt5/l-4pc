@@ -1221,8 +1221,8 @@ const Board: Component<BoardProps> = (props) => {
       { 
         isKingInCheck: isCurrentKingInCheck,
         wouldResolveCheck: (
-          from: [number, number],
-          to: [number, number],
+          from: Point,
+          to: Point,
           color: string,
           allBasePoints: BasePoint[],
           getTeamFn: (color: string) => number,
@@ -1330,14 +1330,14 @@ const Board: Component<BoardProps> = (props) => {
           { 
             isKingInCheck: isCurrentKingInCheck,
             wouldResolveCheck: (
-              from: [number, number],
-              to: [number, number],
+              from: Point,
+              to: Point,
               color: string,
               allBasePoints: BasePoint[],
               getTeamFn: (color: string) => number,
               isSquareUnderAttackFn: (x: number, y: number, team: number, points: BasePoint[], getTeam: (color: string) => number) => boolean,
               isSquareBetweenFn: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => boolean
-            ) => wouldResolveCheck(from, to, color, allBasePoints, getTeamFn, isSquareUnderAttackFn, isSquareBetweenFn),
+            ) => wouldResolveCheck(createPoint(from[0], from[1]), createPoint(to[0], to[1]), color, allBasePoints, getTeamFn, isSquareUnderAttackFn, isSquareBetweenFn),
             isSquareUnderAttack: (x: number, y: number, team: number, points: BasePoint[], teamFn: (color: string) => number) => 
               isSquareUnderAttack(x, y, team, points, teamFn),
             isSquareBetween: (from: {x: number, y: number}, to: {x: number, y: number}, x: number, y: number) => 
