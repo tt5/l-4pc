@@ -1,6 +1,5 @@
 import { getTeamByColor, isInNonPlayableCorner, BOARD_CONFIG, normalizeColor } from '~/constants/game';
-import { MOVE_PATTERNS } from '~/constants/movePatterns';
-import { canCastle } from './moveCalculations';
+import { MOVE_PATTERNS, PIECE_TYPES } from '~/constants/movePatterns';
 import { type BasePoint, type PieceType, type Move, type RestrictedSquareInfo, type SquareIndex, type LegalMove, type Point, createPoint, RestrictedSquares } from '~/types/board';
 
 type CastleColor = 'RED' | 'YELLOW' | 'BLUE' | 'GREEN';
@@ -1089,3 +1088,124 @@ export function getLegalMoves(
   return possibleMoves;
   
 }
+
+type CastlingKey = keyof typeof MOVE_PATTERNS.CASTLING;
+
+// Track moved pieces for castling
+const movedPieces = new Set<string>();
+
+// Helper to get piece key for tracking
+const getPieceKey = (piece: BasePoint): string => {
+  return `${piece.id}-${piece.pieceType}-${piece.team}`;
+};
+
+export const canCastle = (
+  king: BasePoint,
+  allBasePoints: BasePoint[],
+  castleType: string,  // Now accepts any string for the castling type
+  currentTeam: number,
+): boolean => {
+
+    // Check if king has moved - we'll rely on the movedPieces set
+  const kingKey = getPieceKey(king);
+  if (movedPieces.has(kingKey)) {
+    return false;
+  }
+
+  // Get the color name from the color code (case-insensitive)
+  const getColorName = (colorCode: string): string => {
+    if (!colorCode) {
+      return '';
+    }
+    
+    // Normalize to uppercase for comparison
+    const normalizedCode = colorCode.toUpperCase();
+    
+    const colorMap: Record<string, string> = {
+      '#F44336': 'RED',
+      '#FFEB3B': 'YELLOW',
+      '#2196F3': 'BLUE',
+      '#4CAF50': 'GREEN',
+      // Add direct color name mappings
+      'RED': 'RED',
+      'YELLOW': 'YELLOW',
+      'BLUE': 'BLUE',
+      'GREEN': 'GREEN'
+    };
+    
+    
+    // Try exact match first
+    if (colorMap[normalizedCode]) {
+      return colorMap[normalizedCode];
+    }
+    
+    // Try to find a match by value (in case the key is different)
+    for (const [code, name] of Object.entries(colorMap)) {
+      if (code.toUpperCase() === normalizedCode) {
+        return name;
+      }
+    }
+    
+    return '';
+  };
+
+  // Extract color and side from castleType
+  const [colorCode, ...sideParts] = castleType.split('_');
+  const side = sideParts.join('_'); // This will handle "KING_SIDE" or "QUEEN_SIDE"
+  
+  const colorName = getColorName(colorCode);
+  
+  if (!colorName) {
+    return false;
+  }
+
+  const castlingKey = `${colorName}_${side}` as CastlingKey;
+  const castlingConfig = MOVE_PATTERNS.CASTLING[castlingKey];
+  
+  if (!castlingConfig) {
+    return false;
+  }
+
+  const [dx, dy, , rookX, rookY] = castlingConfig;
+  
+  // Find the rook for this castling move
+  const rook = allBasePoints.find(p => 
+    p.pieceType === PIECE_TYPES.ROOK && 
+    p.x === rookX && 
+    p.y === rookY &&
+    p.team === king.team
+  );
+
+  if (!rook) {
+    return false;
+  }
+  const rookKey = getPieceKey(rook);
+  if (movedPieces.has(rookKey)) {
+    return false;
+  }
+
+  // Determine the direction of castling (horizontal or vertical)
+  const stepX = dx !== 0 ? (dx > 0 ? 1 : -1) : 0;
+  const stepY = dy !== 0 ? (dy > 0 ? 1 : -1) : 0;
+  
+  // Check squares between king and rook are empty and not under attack
+  let x = king.x + stepX;
+  let y = king.y + stepY;
+  const endX = king.x + dx;
+  const endY = king.y + dy;
+
+  while (x !== endX || y !== endY) {
+    const occupied = isSquareOccupied(x, y, allBasePoints);
+
+    const opponentTeam = currentTeam === 1 ? 2 : 1;
+    const underAttack = isSquareUnderAttack(x, y, opponentTeam, allBasePoints);
+    
+    if (occupied || underAttack) {
+      return false;
+    }
+    x += stepX || 0;
+    y += stepY || 0;
+  }
+
+  return true;
+};
