@@ -2228,6 +2228,7 @@ const Board: Component<BoardProps> = (props) => {
       </div>
       <MoveHistory 
         moves={moveHistory()}
+        mainLineMoves={mainLineMoves()}
         currentMoveIndex={currentMoveIndex()}
         currentPlayerColor={currentPlayerColor}
         branchPoints={branchPoints()}

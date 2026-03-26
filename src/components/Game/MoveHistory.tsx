@@ -7,6 +7,7 @@ type HistoryMove = Partial<Move>
 
 type MoveHistoryProps = {
   moves: Move[];
+  mainLineMoves: Move[];
   currentMoveIndex: number;
   currentPlayerColor: () => string;
   branchPoints?: Record<number, Array<{
@@ -61,7 +62,7 @@ export const MoveHistory = (props: MoveHistoryProps) => {
   const formatMoveDisplay = (move: HistoryMove) => {
     try {
       
-      const fallbackMove = {
+      const formatingMove = {
         fromX: move.fromX!,
         fromY: move.fromY!,
         toX: move.toX!,
@@ -73,7 +74,7 @@ export const MoveHistory = (props: MoveHistoryProps) => {
         //promotionPiece: move.promotionPiece
       };
       
-      const result = formatMove(fallbackMove);
+      const result = formatMove(formatingMove);
       return result;
     } catch (error) {
       console.error('Error formatting move:', error);
@@ -121,6 +122,8 @@ export const MoveHistory = (props: MoveHistoryProps) => {
                   data-move-index={index()}
                   data-move-number={moveNumber}
                 >
+                  {props.moves[moveNumber-1].parentBranchName}
+                  {props.moves[moveNumber-1].branchName}
                   <span class={styles.moveNumber}>{displayMoveNumber}.</span>
                   <div class={styles.moveDetails}>
                     <div class={styles.moveCoords}>
@@ -139,12 +142,37 @@ export const MoveHistory = (props: MoveHistoryProps) => {
                       <div class={styles.branchInfo}>
                         <For each={getBranches(index())}>
                           {(branch) => {
+                            if (moveNumber > 2 && props.moves[moveNumber-2].branchName === 'main' &&
+                               branch.branchName === props.moves[moveNumber-1].branchName) {
+                              return (
+                                <div class={styles.branchContainer}>
+                                  {branch.branchName}
+                                  <div class={styles.branchMoves}>
+                                    <div class={styles.branchMoveItem}>
+                                      <span class={styles.moveCoords}>
+                                        main
+                      {formatMoveDisplay({
+                        
+                        fromX: props.mainLineMoves[moveNumber-1].fromX,
+                        fromY: props.mainLineMoves[moveNumber-1].fromY,
+                        toX: props.mainLineMoves[moveNumber-1].toX,
+                        toY: props.mainLineMoves[moveNumber-1].toY,
+                        pieceType: props.mainLineMoves[moveNumber-1].pieceType,
+                        //isCapture: !!move.capturedPiece,
+                        //isCheck: move.isCheck,
+                        //promotionPiece: move.promotionPiece
+                      })}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            }
                             return (
                               <div class={styles.branchContainer}>
                                 {branch.branchName}
                                 <div class={styles.branchMoves}>
                                   <div class={styles.branchMoveItem}>
-                                    <span class={styles.moveNumber}>{displayMoveNumber}.</span>
                                     <span class={styles.moveCoords}>
                                       {formatMoveDisplay(branch.firstMove)}
                                     </span>
@@ -157,7 +185,6 @@ export const MoveHistory = (props: MoveHistoryProps) => {
                       </div>
                     )}
                   </div>
-                  <div class={styles.moveMeta}></div>
                 </div>
               );
             }}
