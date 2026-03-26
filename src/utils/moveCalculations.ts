@@ -1,5 +1,4 @@
 import { BasePoint } from '../types/board';
-import { MoveResult } from '../types/board.types';
 import { BOARD_CONFIG, COLOR_TO_HEX, getTeamByColor } from '../constants/game';
 import { isInNonPlayableCorner } from '../constants/game';
 import { MOVE_PATTERNS, PIECE_MOVEMENT, PIECE_TYPES } from '../constants/movePatterns';
@@ -22,7 +21,6 @@ export const canCastle = (
   allBasePoints: BasePoint[],
   castleType: string,  // Now accepts any string for the castling type
   currentTeam: number,
-  getTeamFn: (color: string) => number = getTeamByColor
 ): boolean => {
 
     // Check if king has moved - we'll rely on the movedPieces set
@@ -117,7 +115,7 @@ export const canCastle = (
     const occupied = isSquareOccupied(x, y, allBasePoints);
 
     const opponentTeam = currentTeam === 1 ? 2 : 1;
-    const underAttack = isSquareUnderAttack(x, y, opponentTeam, allBasePoints, getTeamFn);
+    const underAttack = isSquareUnderAttack(x, y, opponentTeam, allBasePoints);
     
     if (occupied || underAttack) {
       return false;

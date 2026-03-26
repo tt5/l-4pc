@@ -1,6 +1,5 @@
 import { BOARD_CONFIG, getTeamByColor } from '../constants/game';
-import { BasePoint, Direction, BasePoint as BasePointType, SquareIndex, RestrictedByInfo, RestrictedSquareInfo, Point } from '../types/board';
-import { createSignal, createEffect, onCleanup, onMount, batch, Accessor } from 'solid-js';
+import { BasePoint, SquareIndex, RestrictedByInfo, RestrictedSquareInfo, Point } from '../types/board';
 import type { ApiResponse } from './api';
 import { getLegalMoves } from './gameUtils';
 import { makeApiCall, parseApiResponse, generateRequestId } from './clientApi';
@@ -20,14 +19,6 @@ export function calculateRestrictedSquares(
   boardState: BasePoint[],
   options: {
     isKingInCheck?: boolean;
-    wouldResolveCheck?: (
-      from: Point,
-      to: Point,
-      color: string,
-      allBasePoints: BasePoint[],
-    ) => boolean;
-    isSquareUnderAttack?: (x: number, y: number, team: number, points: BasePoint[], getTeamFn: (color: string) => number) => boolean;
-    isSquareBetween?: (from: Point, to: Point, x: number, y: number) => boolean;
     enPassantTarget?: Record<string, {x: number, y: number, color: string} | null>;
   } = {}
 ): RestrictedSquaresResult {
@@ -39,9 +30,6 @@ export function calculateRestrictedSquares(
     
     const moves = getLegalMoves(piece, boardState, {
       isKingInCheck: options.isKingInCheck,
-      wouldResolveCheck: options.wouldResolveCheck,
-      isSquareUnderAttack: options.isSquareUnderAttack,
-      isSquareBetween: options.isSquareBetween,
       enPassantTarget: options.enPassantTarget
     });
     

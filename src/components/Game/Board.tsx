@@ -27,8 +27,6 @@ import { MOVE_PATTERNS } from '~/constants/movePatterns';
 import { 
   getLegalMoves,
   isValidPieceType,
-  isSquareBetween,
-  isSquareUnderAttack,
   wouldResolveCheck,
   validateSquarePlacement,
   isKingInCheck,
@@ -37,7 +35,7 @@ import {
 import { calculateRestrictedSquares, updateMove, generateNewGameId } from '~/utils/boardUtils';
 import { getColorHex } from '~/utils/colorUtils';
 
-import { type Point, type BasePoint, type Move, type BranchPoints, type SquareIndex, createPoint, RestrictedSquareInfo, RestrictedSquares } from '../../types/board';
+import { type Point, type BasePoint, type Move, type BranchPoints, type SquareIndex, createPoint, RestrictedSquareInfo, RestrictedSquares, PieceType } from '../../types/board';
 
 import { 
   PLAYER_COLORS, 
@@ -399,7 +397,7 @@ const Board: Component<BoardProps> = (props) => {
         id: number;
         gameId: string;
         userId: string;
-        pieceType: string;
+        pieceType: PieceType;
         fromX: number;
         fromY: number;
         toX: number;
@@ -550,7 +548,6 @@ const Board: Component<BoardProps> = (props) => {
     }
   });
 
-  // Clean up drag state
   const cleanupDragState = () => {
     setIsDragging(false);
     setPickedUpBasePoint(null);
@@ -564,13 +561,8 @@ const Board: Component<BoardProps> = (props) => {
     setError(null);
   };
 
-  // Use the imported getTeamByColor from game constants
-  const getTeam = getTeamByColor;
-  
-  // Track which squares have kings in check
   const [kingsInCheck, setKingsInCheck] = createSignal<{[key: string]: boolean}>({});
   
-  // Use the imported validation function
   const validateSquarePlacementLocal = (index: SquareIndex) => {
     return validateSquarePlacement(
       index,
@@ -595,12 +587,12 @@ const Board: Component<BoardProps> = (props) => {
   } = useRestrictedSquares();
   
   const [error, setError] = createSignal<string | null>(null);
-  const [dragStartPosition, setDragStartPosition] = createSignal<[number, number] | null>(null);
+  const [dragStartPosition, setDragStartPosition] = createSignal<Point | null>(null);
   const [pickedUpBasePoint, setPickedUpBasePoint] = createSignal<Point | null>(null);
   const [isDragging, setIsDragging] = createSignal(false);
-  const [targetPosition, setTargetPosition] = createSignal<[number, number] | null>(null);
+  const [targetPosition, setTargetPosition] = createSignal<Point | null>(null);
   const [isProcessingMove, setIsProcessingMove] = createSignal(false);
-  const [hoveredCell, setHoveredCell] = createSignal<[number, number] | null>(null);
+  const [hoveredCell, setHoveredCell] = createSignal<Point | null>(null);
   
   const [fullMoveHistory, setFullMoveHistory] = createSignal<Move[]>([]);
   const [mainLineMoves, setMainLineMoves] = createSignal<Move[]>([]);
@@ -686,7 +678,7 @@ const Board: Component<BoardProps> = (props) => {
       if (isInCheck) {
         setKingInCheck({
           team: getTeamByColor(king.color) as 1 | 2,
-          position: [king.x, king.y]
+          position: createPoint(king.x, king.y)
         });
         checkFound = true;
         // Continue checking other kings to ensure we don't miss any checks
@@ -891,16 +883,20 @@ const Board: Component<BoardProps> = (props) => {
       const requestId = generateRequestId();
       console.log(`[${requestId}] [Save] Saving game with ID: ${newGameId}`);
       
-      const response = await makeApiCall('/api/game/update-id', {
-        method: 'POST',
-        body: JSON.stringify({
-          currentGameId,
-          newGameId
-        })
-      });
-
-      const result = await parseApiResponse(response, requestId);
-      console.log(`[${requestId}] [Save] Successfully saved game as ${newGameId}`);
+      try {
+        const response = await makeApiCall('/api/game/update-id', {
+          method: 'POST',
+          body: JSON.stringify({
+            currentGameId,
+            newGameId
+          })
+        });
+        await parseApiResponse(response, requestId);
+        console.log(`[${requestId}] [Save] Successfully saved game as ${newGameId}`);
+      } catch (error) {
+        console.error(`[${requestId}] [Save] Failed to save game:`, error);
+        throw error;
+      }
       
       // Update the game ID in the URL and state
       setGameId(newGameId);
@@ -1214,12 +1210,6 @@ const Board: Component<BoardProps> = (props) => {
       updatedBasePoints,
       { 
         isKingInCheck: isCurrentKingInCheck,
-        wouldResolveCheck: (
-          from: Point,
-          to: Point,
-          color: string,
-          allBasePoints: BasePoint[],
-        ) => wouldResolveCheck(from, to, color, allBasePoints),
         enPassantTarget: enPassantTargets()
       }
     );
@@ -1315,12 +1305,6 @@ const Board: Component<BoardProps> = (props) => {
           updatedBasePoints,
           { 
             isKingInCheck: isCurrentKingInCheck,
-            wouldResolveCheck: (
-              from: Point,
-              to: Point,
-              color: string,
-              allBasePoints: BasePoint[],
-            ) => wouldResolveCheck(createPoint(from[0], from[1]), createPoint(to[0], to[1]), color, allBasePoints),
             enPassantTarget: enPassantTargets()
           }
         );
@@ -1339,12 +1323,12 @@ const Board: Component<BoardProps> = (props) => {
     }
   };
 
-  const [kingInCheck, setKingInCheck] = createSignal<{team: 1 | 2, position: [number, number]} | null>(null);
+  const [kingInCheck, setKingInCheck] = createSignal<{team: 1 | 2, position: Point} | null>(null);
   
   // Track restricted squares with their origin information
   const [restrictedSquaresInfo, setRestrictedSquaresInfo] = createSignal<RestrictedSquareInfo[]>([]);
 
-  const [lastHoveredCell, setLastHoveredCell] = createSignal<[number, number] | null>(null);
+  const [lastHoveredCell, setLastHoveredCell] = createSignal<Point | null>(null);
   
   // Base points are managed by the client state
   const [basePoints, setBasePoints] = createSignal<BasePoint[]>([]);
@@ -1415,7 +1399,7 @@ const Board: Component<BoardProps> = (props) => {
             if (king.color.toLowerCase() === currentPlayerHex) {
               setKingInCheck({
                 team: kingTeam,
-                position: [king.x, king.y]
+                position: createPoint(king.x, king.y)
               });
             }
           }
@@ -1444,7 +1428,7 @@ const Board: Component<BoardProps> = (props) => {
     }
     
     setPickedUpBasePoint(createPoint(x, y));
-    setDragStartPosition([x, y]);
+    setDragStartPosition(createPoint(x, y));
     setIsDragging(true);
   };
 
@@ -1499,7 +1483,7 @@ const Board: Component<BoardProps> = (props) => {
     });
 
     // Update the drag start position to the new position
-    setDragStartPosition([targetX, targetY]);
+    setDragStartPosition(createPoint(targetX, targetY));
     
     return true;
   };
@@ -1564,7 +1548,7 @@ const Board: Component<BoardProps> = (props) => {
   };
 
   // Helper function to get the target position for a move
-  const getMoveTarget = (): [number, number] | null => {
+  const getMoveTarget = (): Point | null => {
     // Try to get the target from the target position state
     const target = targetPosition();
     if (target) return target;
@@ -1572,7 +1556,7 @@ const Board: Component<BoardProps> = (props) => {
     // Fall back to the hovered cell if no explicit target
     const hovered = hoveredCell();
     if (hovered) {
-      const newTarget: [number, number] = [...hovered];
+      const newTarget: Point = createPoint(hovered[0], hovered[1]);
       setTargetPosition(newTarget);
       return newTarget;
     }
@@ -2012,7 +1996,7 @@ const Board: Component<BoardProps> = (props) => {
           return;
         }
 
-        const currentCell: [number, number] = [gridX, gridY];
+        const currentCell: Point = createPoint(gridX, gridY);
         
         // Always update the hovered cell during drag
         setHoveredCell(currentCell);
@@ -2023,10 +2007,10 @@ const Board: Component<BoardProps> = (props) => {
         // If we don't have a last hovered cell or it's different from current cell
         if (!lastCell || (lastCell[0] !== currentCell[0] || lastCell[1] !== currentCell[1])) {
           // Only update the target position and UI, don't make API calls yet
-          setTargetPosition([...currentCell]);
+          setTargetPosition(currentCell);
           updateBasePointUI(currentCell);
           // Update the last hovered cell
-          setLastHoveredCell([...currentCell]);
+          setLastHoveredCell(currentCell);
         }
       }
     };
@@ -2158,7 +2142,7 @@ const Board: Component<BoardProps> = (props) => {
               pickedUpBasePoint={pickedUpBasePoint()}
               onHover={(hovered) => {
                 if (hovered) {
-                  setHoveredCell([x, y]);
+                  setHoveredCell(createPoint(x, y));
                 } else if (hoveredCell()?.[0] === x && hoveredCell()?.[1] === y) {
                   setHoveredCell(null);
                 }

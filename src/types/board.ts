@@ -17,7 +17,7 @@ export interface BasePoint {
   x: number;
   y: number;
   userId: string;
-  color: string; // CSS color value
+  color: string;
   pieceType: PieceType;
   team: 1 | 2; // 1 for team 1 (red/yellow), 2 for team 2 (blue/green)
   createdAtMs: number;
