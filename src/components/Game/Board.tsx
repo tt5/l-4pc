@@ -37,7 +37,7 @@ import {
 import { calculateRestrictedSquares, updateMove, generateNewGameId } from '~/utils/boardUtils';
 import { getColorHex } from '~/utils/colorUtils';
 
-import { type Point, type BasePoint, type Move, type BranchPoints, type SquareIndex, createPoint } from '../../types/board';
+import { type Point, type BasePoint, type Move, type BranchPoints, type SquareIndex, createPoint, RestrictedSquareInfo } from '../../types/board';
 
 import { 
   PLAYER_COLORS, 
@@ -60,7 +60,6 @@ interface BoardProps {
 }
 
 const Board: Component<BoardProps> = (props) => {
-  // moveToUCI function has been moved to gameUtils
 
   const auth = useAuth();
   const navigate = useNavigate();
@@ -111,12 +110,6 @@ const Board: Component<BoardProps> = (props) => {
           
           console.log('[Board] Successfully connected to engine');
           
-          /*
-          // Initial analysis if we have a position
-          if (fullMoveHistory().length > 0) {
-            analyzePosition();
-          }
-          */
         } catch (err) {
           console.error('[Board] Error connecting to engine:', err);
         }
@@ -639,7 +632,6 @@ const Board: Component<BoardProps> = (props) => {
 
   const getCurrentFen4 = (): string => fen4();
 
-  
   // Rebuild move history for a given target branch, handling nested branches
   const rebuildMoveHistory = (targetBranch: string | null): Move[] => {
 
@@ -648,7 +640,6 @@ const Board: Component<BoardProps> = (props) => {
     // Start with main line
     let currentHistory = fullMoveHistory().filter(m => !m.branchName || m.branchName === 'main');
 
-    
     for (const branch of branchPath) {
       const branchMoves = fullMoveHistory().filter(m => 
         m.branchName && m.branchName.endsWith(branch)
@@ -728,7 +719,7 @@ const Board: Component<BoardProps> = (props) => {
     setBasePoints(initialBasePoints);
     setKingInCheck(null)
     setRestrictedSquares(INITIAL_RESTRICTED_SQUARES);
-    setRestrictedSquaresInfo(INITIAL_RESTRICTED_SQUARES_INFO);
+    setRestrictedSquaresInfo(INITIAL_RESTRICTED_SQUARES_INFO as RestrictedSquareInfo[]);
   };
 
   /**
@@ -746,8 +737,7 @@ const Board: Component<BoardProps> = (props) => {
     for (let i = 0; i <= endIndex; i++) {
       const move = moves[i];
       if (!move) {
-        console.warn(`[replayMoves] Missing move at index ${i}`);
-        continue;
+        throw new Error(`[replayMoves] Missing move at index ${i}`);
       }
 
       const { 
@@ -767,8 +757,7 @@ const Board: Component<BoardProps> = (props) => {
       
       // Validate move coordinates
       if ([fromX, fromY, toX, toY].some(coord => coord === undefined)) {
-        console.error('[replayMoves] Invalid move coordinates:', { move, index: i, moveNumber });
-        continue;
+        throw new Error(`[replayMoves] Invalid move coordinates: ${JSON.stringify({ move, index: i, moveNumber })}`);
       }
 
       const fromKey = `${fromX},${fromY}`;
@@ -776,10 +765,7 @@ const Board: Component<BoardProps> = (props) => {
       const piece = positionMap.get(fromKey);
 
       if (!piece) {
-        console.error(`[replayMoves] No piece at source position (${fromX},${fromY}) in move:`, { 
-          move, index: i, moveNumber 
-        });
-        continue;
+        throw new Error(`[replayMoves] No piece at source position (${fromX},${fromY}) in move: ${JSON.stringify({ move, index: i, moveNumber })}`);
       }
 
       // Handle castling moves
@@ -1033,11 +1019,10 @@ const Board: Component<BoardProps> = (props) => {
   };
 
   const handleDeleteCurrentMove = async () => {
-    console.log('[Delete] Delete button clicked');
+    console.log('[Delete]');
     let history = moveHistory();
-    // Ensure we're pointing to the last move if current index is out of bounds
     let currentIndex = currentMoveIndex();
-    console.log(`currentIndex: ${currentIndex}, history.length: ${history.length}`)
+    console.log(`[Delete] currentIndex: ${currentIndex}, history.length: ${history.length}`)
 
     if (currentIndex < history.length) {
       console.log("[Delete] historic position")
@@ -1260,7 +1245,6 @@ const Board: Component<BoardProps> = (props) => {
     await new Promise(resolve => setTimeout(resolve, 0));
 
     analyzePosition(currentIndex);
-    
   };
 
   // Track if we're currently handling a go back operation
@@ -1380,17 +1364,7 @@ const Board: Component<BoardProps> = (props) => {
   const [kingInCheck, setKingInCheck] = createSignal<{team: 1 | 2, position: [number, number]} | null>(null);
   
   // Track restricted squares with their origin information
-  const [restrictedSquaresInfo, setRestrictedSquaresInfo] = createSignal<Array<{
-    index: number;
-    x: number;
-    y: number;
-    restrictedBy: Array<{
-      basePointId: string;
-      basePointX: number;
-      basePointY: number;
-      direction?: string;
-    }>;
-  }>>([]);
+  const [restrictedSquaresInfo, setRestrictedSquaresInfo] = createSignal<RestrictedSquareInfo[]>([]);
 
   const [lastHoveredCell, setLastHoveredCell] = createSignal<[number, number] | null>(null);
   

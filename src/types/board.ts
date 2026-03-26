@@ -87,12 +87,7 @@ export interface Move extends SimpleMove{
   castleType?: 'KING_SIDE' | 'QUEEN_SIDE' | null;
   isBranch?: boolean;
   isEnPassant?: boolean;
-  capturedPiece?: {
-    x: number;
-    y: number;
-    color: string;
-    pieceType: string;
-  };
+  capturedPiece?: CapturedPiece;
   capturedPieceId?: string | null;
   gameId?: string;
   userId?: string;
@@ -100,6 +95,13 @@ export interface Move extends SimpleMove{
 
 export interface BoardProps {
   gameId?: string;
+}
+
+interface CapturedPiece {
+    x: number;
+    y: number;
+    color: string;
+    pieceType: PieceType;
 }
 
 export interface MoveResult {
@@ -115,12 +117,7 @@ export interface MoveResult {
   rookNewY?: number;
   dx?: number;
   dy?: number;
-  capturedPiece?: {
-    x: number;
-    y: number;
-    color: string;
-    pieceType: string;
-  };
+  capturedPiece?: CapturedPiece;
 }
 
 export interface LegalMove {
@@ -130,12 +127,7 @@ export interface LegalMove {
   isCastle?: boolean;
   castleType?: string;
   isEnPassant?: boolean;
-  capturedPiece?: {
-    x: number;
-    y: number;
-    color: string;
-    pieceType: string;
-  };
+  capturedPiece?: CapturedPiece;
 }
 
 export type BranchPoints = Record<number, Array<{

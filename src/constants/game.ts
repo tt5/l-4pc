@@ -210,12 +210,12 @@ export function isInNonPlayableCorner(x: number, y: number): boolean {
 }
 
 // Precalculated restricted squares for the initial board position
-export const INITIAL_RESTRICTED_SQUARES: SquareIndex[] = [
+export const INITIAL_RESTRICTED_SQUARES = [
   33,31,38,36,35,49,34,48,50,47,32,46,37,51,45,52,
   159,157,164,162,160,146,161,147,145,148,158,144,163,149,143,150
 ];
 
-export const INITIAL_RESTRICTED_SQUARES_INFO: RestrictedSquareInfo[] = [
+export const INITIAL_RESTRICTED_SQUARES_INFO = [
   {"index":33,"x":5,"y":2,"restrictedBy":[{"basePointId":"5","basePointX":4,"basePointY":0},{"basePointId":"12","basePointX":5,"basePointY":1}],"canCapture":false,"pieceType":"knight","team":1},
   {"index":31,"x":3,"y":2,"restrictedBy":[{"basePointId":"5","basePointX":4,"basePointY":0},{"basePointId":"15","basePointX":3,"basePointY":1}],"canCapture":false,"pieceType":"knight","team":1},
   {"index":38,"x":10,"y":2,"restrictedBy":[{"basePointId":"6","basePointX":9,"basePointY":0},{"basePointId":"16","basePointX":10,"basePointY":1}],"canCapture":false,"pieceType":"knight","team":1},
