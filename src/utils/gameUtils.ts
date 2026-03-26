@@ -570,7 +570,7 @@ export function wouldResolveCheck(
   }
 
   // Check if the move blocks the attack
-  const blocksAttack = isSquareBetweenFn(attacker, king, to[0], to[1]);
+  const blocksAttack = isSquareBetween(attacker, king, to[0], to[1]);
   if (blocksAttack) {
     return true;
   }
