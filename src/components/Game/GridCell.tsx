@@ -1,9 +1,7 @@
 import { type Component, JSX } from 'solid-js';
 import styles from './Board.module.css';
-import type { BasePoint } from '../../types/board';
+import { createPoint, type Point } from '../../types/board';
 import { King, Queen, Pawn, Bishop, Knight, Rook } from './ChessPieces';
-
-type Point = [number, number];
 
 interface CellState {
   isBasePoint: boolean;
@@ -35,7 +33,7 @@ export const GridCell: Component<GridCellProps> = (props) => {
   
   const handleMouseDown = (e: MouseEvent) => {
     if (isBasePoint) {
-      props.onBasePointPickup([x, y]);
+      props.onBasePointPickup(createPoint(x, y));
       e.stopPropagation();
     }
   };

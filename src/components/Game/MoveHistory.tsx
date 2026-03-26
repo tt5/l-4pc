@@ -1,7 +1,7 @@
 import { For, Show, createEffect, createSignal, onCleanup } from 'solid-js';
 import styles from './MoveHistory.module.css';
 import { formatMove } from '../../utils/chessNotation';
-import type { Move, SimpleMove } from '../../types/board';
+import type { BranchPoints, Move, SimpleMove } from '../../types/board';
 
 type HistoryMove = Partial<Move>
 
@@ -10,11 +10,7 @@ type MoveHistoryProps = {
   mainLineMoves: Move[];
   currentMoveIndex: number;
   currentPlayerColor: () => string;
-  branchPoints?: Record<number, Array<{
-    branchName: string;
-    parentBranch: string;
-    firstMove: SimpleMove;
-  }>>;
+  branchPoints?: BranchPoints;
 };
 
 export const MoveHistory = (props: MoveHistoryProps) => {
@@ -150,18 +146,17 @@ export const MoveHistory = (props: MoveHistoryProps) => {
                                   <div class={styles.branchMoves}>
                                     <div class={styles.branchMoveItem}>
                                       <span class={styles.moveCoords}>
-                                        main
-                      {formatMoveDisplay({
-                        
-                        fromX: props.mainLineMoves[moveNumber-1].fromX,
-                        fromY: props.mainLineMoves[moveNumber-1].fromY,
-                        toX: props.mainLineMoves[moveNumber-1].toX,
-                        toY: props.mainLineMoves[moveNumber-1].toY,
-                        pieceType: props.mainLineMoves[moveNumber-1].pieceType,
-                        //isCapture: !!move.capturedPiece,
-                        //isCheck: move.isCheck,
-                        //promotionPiece: move.promotionPiece
-                      })}
+                                        {formatMoveDisplay({
+                                          
+                                          fromX: props.mainLineMoves[moveNumber-1].fromX,
+                                          fromY: props.mainLineMoves[moveNumber-1].fromY,
+                                          toX: props.mainLineMoves[moveNumber-1].toX,
+                                          toY: props.mainLineMoves[moveNumber-1].toY,
+                                          pieceType: props.mainLineMoves[moveNumber-1].pieceType,
+                                          //isCapture: !!move.capturedPiece,
+                                          //isCheck: move.isCheck,
+                                          //promotionPiece: move.promotionPiece
+                                        })}
                                       </span>
                                     </div>
                                   </div>

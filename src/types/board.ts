@@ -1,15 +1,12 @@
 import { ApiResponse } from "~/utils/api";
 
-// Simple tuple type for better compatibility with spread operators
-export type Point = [number, number];
-
-//export type SquareIndex = number;
-export type SquareIndex = number & { readonly __brand: 'SquareIndex' };
-
-
+export type Point = [number, number] & { readonly __brand: 'Point' };
 export function createPoint(x: number, y: number): Point {
   return [x, y] as Point;
 }
+
+export type SquareIndex = number & { readonly __brand: 'SquareIndex' };
+export type RestrictedSquares = SquareIndex[];
 
 export type Direction = 'up' | 'down' | 'left' | 'right';
 
@@ -28,8 +25,6 @@ export interface BasePoint {
   isCastle?: boolean; // Indicates if this is a castling move
   castleType?: 'KING_SIDE' | 'QUEEN_SIDE' | null; // Type of castling (king-side or queen-side)
 }
-
-export type RestrictedSquares = SquareIndex[];
 
 export interface BoardConfig {
   readonly GRID_SIZE: number;
@@ -52,14 +47,6 @@ export interface BoardConfig {
 }
 
 export interface AddBasePointResponse extends ApiResponse<BasePoint> {}
-
-export interface GameState {
-  position: Point;
-  direction: Direction | null;
-  selectedSquares: number[];
-  basePoints: BasePoint[];
-  gridSize: number;
-}
 
 export interface RestrictedByInfo {
   basePointId: string;

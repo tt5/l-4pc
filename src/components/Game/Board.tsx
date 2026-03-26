@@ -37,7 +37,7 @@ import {
 import { calculateRestrictedSquares, updateMove, generateNewGameId } from '~/utils/boardUtils';
 import { getColorHex } from '~/utils/colorUtils';
 
-import type { Point, BasePoint, Move, BranchPoints, SquareIndex } from '../../types/board';
+import { type Point, type BasePoint, type Move, type BranchPoints, type SquareIndex, createPoint } from '../../types/board';
 
 import { 
   PLAYER_COLORS, 
@@ -608,7 +608,7 @@ const Board: Component<BoardProps> = (props) => {
   
   const [error, setError] = createSignal<string | null>(null);
   const [dragStartPosition, setDragStartPosition] = createSignal<[number, number] | null>(null);
-  const [pickedUpBasePoint, setPickedUpBasePoint] = createSignal<[number, number] | null>(null);
+  const [pickedUpBasePoint, setPickedUpBasePoint] = createSignal<Point | null>(null);
   const [isDragging, setIsDragging] = createSignal(false);
   const [targetPosition, setTargetPosition] = createSignal<[number, number] | null>(null);
   const [isProcessingMove, setIsProcessingMove] = createSignal(false);
@@ -1491,7 +1491,7 @@ const Board: Component<BoardProps> = (props) => {
       return; // Don't allow picking up opponent's pieces or moving out of turn
     }
     
-    setPickedUpBasePoint([x, y]);
+    setPickedUpBasePoint(createPoint(x, y));
     setDragStartPosition([x, y]);
     setIsDragging(true);
   };

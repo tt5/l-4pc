@@ -1,5 +1,5 @@
 import { BOARD_CONFIG, getTeamByColor } from '../constants/game';
-import { createPoint, Point, BasePoint, Direction, BasePoint as BasePointType, SquareIndex } from '../types/board';
+import { BasePoint, Direction, BasePoint as BasePointType, SquareIndex, RestrictedByInfo, RestrictedSquareInfo } from '../types/board';
 import { createSignal, createEffect, onCleanup, onMount, batch, Accessor } from 'solid-js';
 import type { ApiResponse } from './api';
 import { getLegalMoves } from './gameUtils';
@@ -9,24 +9,6 @@ export const generateNewGameId = (): string => {
   // Generate a random 8-character alphanumeric ID
   return Math.random().toString(36).substring(2, 10);
 };
-
-export interface RestrictedByInfo {
-  basePointId: string;
-  basePointX: number;
-  basePointY: number;
-}
-
-export interface RestrictedSquareInfo {
-  index: number;
-  x: number;
-  y: number;
-  canCapture?: boolean;
-  originX?: number;
-  originY?: number;
-  pieceType?: string;
-  team?: number;
-  restrictedBy: RestrictedByInfo[];
-}
 
 export interface RestrictedSquaresResult {
   restrictedSquares: SquareIndex[];
@@ -107,69 +89,11 @@ export function calculateRestrictedSquares(
   return { restrictedSquares, restrictedSquaresInfo };
 }
 
-type FetchBasePointsOptions = {
-  user: () => any;
-  lastFetchTime: () => number;
-  isFetching: () => boolean;
-  setBasePoints: (value: BasePoint[] | ((prev: BasePoint[]) => BasePoint[])) => void;
-  setLastFetchTime: (value: number | ((prev: number) => number)) => void;
-  setIsFetching: (value: boolean | ((prev: boolean) => boolean)) => void;
-}
-
-
-export const indicesToPoints = (indices: number[]): Point[] => 
-  indices.map(index => createPoint(
-    index % BOARD_CONFIG.GRID_SIZE,
-    Math.floor(index / BOARD_CONFIG.GRID_SIZE)
-  ));
-
-export const pointsToIndices = (points: Point[]): number[] => 
-  points.map(([x, y]) => y * BOARD_CONFIG.GRID_SIZE + x);
-
-/**
- * Converts between grid coordinates and world coordinates (which are the same in this implementation)
- * @overload Converts a grid index to world coordinates
- * @param index The grid index to convert
- * @returns [worldX, worldY] in world coordinates (same as grid coordinates)
- * 
- * @overload Converts grid coordinates to world coordinates
- * @param x X coordinate in grid space
- * @param y Y coordinate in grid space
- * @returns [worldX, worldY] in world coordinates (same as grid coordinates)
- */
-export function gridToWorld(index: number, _offset?: Point): Point;
-export function gridToWorld(x: number, y: number, _offsetX?: number, _offsetY?: number): Point;
-export function gridToWorld(
-  first: number | Point,
-  second?: number | Point,
-  _offsetX?: number,
-  _offsetY?: number
-): Point {
-  // Handle the index overload
-  if (typeof second === 'undefined' || Array.isArray(second)) {
-    const index = first as number;
-    const gridSize = BOARD_CONFIG.GRID_SIZE;
-    return createPoint(index % gridSize, Math.floor(index / gridSize));
-  }
-  
-  // Handle the x, y coordinates overload
-  return createPoint(first as number, second as number);
-}
-
 /**
  * Checks if a base point exists at the given coordinates
  */
 export const isBasePoint = (x: number, y: number, basePoints: BasePoint[]): boolean => {
   return basePoints.some(point => point.x === x && point.y === y);
-};
-
-type ValidationResult = { isValid: boolean; reason?: string };
-
-type ValidateSquarePlacementOptions = {
-  index: number;
-  currentPosition: Point;
-  basePoints: BasePoint[];
-  restrictedSquares: number[];
 };
 
 /**
@@ -239,28 +163,4 @@ export const updateMove = async (
       timestamp: Date.now()
     };
   }
-};
-
-export const validateSquarePlacement = ({
-  index,
-  currentPosition,
-  basePoints,
-  restrictedSquares
-}: ValidateSquarePlacementOptions): ValidationResult => {
-
-  const [gridX, gridY] = indicesToPoints([index])[0];
-  const [offsetX, offsetY] = currentPosition;
-  const [worldX, worldY] = gridToWorld(gridX, gridY, offsetX, offsetY);
-
-  // Check if already a base point
-  if (isBasePoint(worldX, worldY, basePoints)) {
-    return { isValid: false, reason: 'Base point already exists here' };
-  }
-
-  // Check if it's a restricted square
-  if (restrictedSquares.includes(index)) {
-    return { isValid: false, reason: 'Cannot place in restricted area' };
-  }
-
-  return { isValid: true };
 };
