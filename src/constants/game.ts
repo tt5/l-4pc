@@ -1,11 +1,11 @@
 import { createPoint } from '../types/board';
 
 // Team color definitions
-export const TEAM_1_COLORS = ['red', 'yellow'] as const;
-export const TEAM_2_COLORS = ['blue', 'green'] as const;
+export const TEAM_1_COLORS = ['RED', 'YELLOW'] as const;
+export const TEAM_2_COLORS = ['BLUE', 'GREEN'] as const;
 
 // Keep the original turn order: red -> blue -> yellow -> green
-export const PLAYER_COLORS = ['red', 'blue', 'yellow', 'green'] as const;
+export const PLAYER_COLORS = ['RED', 'BLUE', 'YELLOW', 'GREEN'] as const;
 
 export type PlayerColor = typeof PLAYER_COLORS[number];
 
@@ -13,18 +13,18 @@ export const TURN_ORDER = PLAYER_COLORS;
 
 // Map of hex colors to their corresponding color names
 const HEX_TO_COLOR: Record<string, PlayerColor> = {
-  '#F44336': 'red',
-  '#FFEB3B': 'yellow',
-  '#2196F3': 'blue',
-  '#4CAF50': 'green'
+  '#F44336': 'RED',
+  '#FFEB3B': 'YELLOW',
+  '#2196F3': 'BLUE',
+  '#4CAF50': 'GREEN'
 } as const;
 
 // Map of color names to their hex values
 export const COLOR_TO_HEX: Record<PlayerColor, string> = {
-  'red': '#F44336',
-  'yellow': '#FFEB3B',
-  'blue': '#2196F3',
-  'green': '#4CAF50'
+  'RED': '#F44336',
+  'YELLOW': '#FFEB3B',
+  'BLUE': '#2196F3',
+  'GREEN': '#4CAF50'
 } as const;
 
 /**
@@ -63,10 +63,10 @@ export function normalizeColor(color: string): PlayerColor | undefined {
   
   // Map of hex codes to color names
   const hexToColorMap: Record<string, PlayerColor> = {
-    '#F44336': 'red',
-    '#FFEB3B': 'yellow',
-    '#2196F3': 'blue',
-    '#4CAF50': 'green'
+    '#F44336': 'RED',
+    '#FFEB3B': 'YELLOW',
+    '#2196F3': 'BLUE',
+    '#4CAF50': 'GREEN'
   };
   
   // Try to match hex code (case insensitive)

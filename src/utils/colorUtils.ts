@@ -1,18 +1,21 @@
 import { PlayerColor } from '~/constants/game';
+import { HexColor } from '~/types/board';
 
-type ColorMap = Record<PlayerColor, string>;
+type ColorMap = Record<string, HexColor>;
 
 export const COLOR_MAP: ColorMap = {
   'RED': '#F44336',
   'BLUE': '#2196F3',
   'YELLOW': '#FFEB3B',
-  'GREEN': '#4CAF50'
+  'GREEN': '#4CAF50',
+  '#F44336': '#F44336',
+  '#2196F3': '#2196F3',
+  '#FFEB3B': '#FFEB3B',
+  '#4CAF50': '#4CAF50'
 } as const;
 
-export function getColorHex(color: string): string {
-  if (!color) return '';
-  const normalizedColor = color.toUpperCase() as PlayerColor;
-  return COLOR_MAP[normalizedColor] || color;
+export function getColorHex(color: string): HexColor {
+  return COLOR_MAP[color];
 }
 
 export function isPlayerColor(color: string): color is PlayerColor {

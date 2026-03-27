@@ -1,5 +1,5 @@
 // src/utils/fen4Utils.ts
-import type { BasePoint, PieceType } from '~/types/board';
+import type { BasePoint, Color, PieceType } from '~/types/board';
 
 const PIECE_TO_FEN: Record<string, string> = {
   pawn: 'P',
@@ -135,7 +135,7 @@ export const parseFen4 = (fen4: string): {
       const colorPrefix = element[0].toLowerCase();
       const pieceCode = element[1]?.toUpperCase() || 'P';
       
-      const color = PREFIX_TO_COLOR[colorPrefix] || 'RED';
+      const color = PREFIX_TO_COLOR[colorPrefix] as Color;
       const pieceType = FEN_TO_PIECE[pieceCode] || 'pawn';
       const team = ['r', 'y'].includes(colorPrefix) ? 1 : 2;
       

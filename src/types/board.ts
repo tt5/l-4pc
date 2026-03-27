@@ -12,12 +12,16 @@ export type Direction = 'up' | 'down' | 'left' | 'right';
 
 export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king';
 
+export type NamedColor = 'RED' | 'BLUE' | 'YELLOW' | 'GREEN'
+export type HexColor = '#F44336' | '#2196F3' | '#FFEB3B' | '#4CAF50'
+export type Color = NamedColor | HexColor
+
 export interface BasePoint {
   readonly id: number;
   x: number;
   y: number;
   userId: string;
-  color: string;
+  color: Color;
   pieceType: PieceType;
   team: 1 | 2; // 1 for team 1 (red/yellow), 2 for team 2 (blue/green)
   hasMoved?: boolean; // Tracks if the piece has moved from its starting position
@@ -78,7 +82,7 @@ export interface Move extends SimpleMove{
   basePointId?: string;
   timestamp?: number;
   playerId?: string;
-  color?: string;
+  color: HexColor;
   branchName?: string;
   parentBranchName?: string | null;
   moveNumber: number;

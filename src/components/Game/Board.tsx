@@ -1860,7 +1860,7 @@ const Board: Component<BoardProps> = (props) => {
           toY: targetY,
           timestamp: Date.now(),
           playerId: pointToMove.userId,
-          color: pointToMove.color,
+          color: getColorHex(pointToMove.color),
           branchName: currentBranch,
           parentBranchName: currentBranch === 'main' ? null : currentBranch.split('/').slice(0, -1).join('/') || null,
           moveNumber: branchMoveNumber,  // Use the branch-aware move number
