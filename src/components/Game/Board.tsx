@@ -765,7 +765,7 @@ const Board: Component<BoardProps> = (props) => {
             '#2196F3': 'BLUE',
             '#4CAF50': 'GREEN'
           };
-          return colorMap[color.toUpperCase()] || '';
+          return colorMap[color] || '';
         };
         
         const colorName = getColorName(piece.color || '');
@@ -1194,10 +1194,10 @@ const Board: Component<BoardProps> = (props) => {
     setCurrentTurnIndex(newTurnIndex);
     
     // 5. Get current player's pieces
-    const playerColorName = PLAYER_COLORS[newTurnIndex].toLowerCase();
+    const playerColorName = PLAYER_COLORS[newTurnIndex];
     const currentPlayerPieces = updatedBasePoints.filter(p => 
-      p.color?.toLowerCase() === playerColorName || 
-      p.color?.toLowerCase() === getColorHex(playerColorName)?.toLowerCase()
+      p.color === playerColorName || 
+      p.color === getColorHex(playerColorName)
     );
 
     // 6. Calculate and update restricted squares
@@ -1290,10 +1290,10 @@ const Board: Component<BoardProps> = (props) => {
         
         updateKingCheckStatus(updatedBasePoints);
         
-        const playerColorName = PLAYER_COLORS[newTurnIndex].toLowerCase();
+        const playerColorName = PLAYER_COLORS[newTurnIndex];
         const currentPlayerPieces = updatedBasePoints.filter(p => 
-          p.color?.toLowerCase() === playerColorName || 
-          p.color?.toLowerCase() === getColorHex(playerColorName)?.toLowerCase()
+          p.color === playerColorName || 
+          p.color === getColorHex(playerColorName)
         );
 
         const currentKingInCheck = kingInCheck();
@@ -1396,7 +1396,7 @@ const Board: Component<BoardProps> = (props) => {
             // Update the current player's king check state if it's their turn
             const currentPlayer = currentPlayerColor();
             const currentPlayerHex = getColorHex(currentPlayer);
-            if (king.color.toLowerCase() === currentPlayerHex) {
+            if (king.color === currentPlayerHex) {
               setKingInCheck({
                 team: kingTeam,
                 position: createPoint(king.x, king.y)
@@ -1420,7 +1420,7 @@ const Board: Component<BoardProps> = (props) => {
     
     const currentTurnColorName = currentPlayerColor();
     const currentTurnHexColor = getColorHex(currentTurnColorName);
-    const pieceColor = basePoint.color.toLowerCase();
+    const pieceColor = basePoint.color;
     
     // Check if it's this player's turn to move (based on piece color)
     if (pieceColor !== currentTurnHexColor) {
@@ -1509,8 +1509,8 @@ const Board: Component<BoardProps> = (props) => {
     }
 
     // Check if it's this color's turn
-    const currentColor = pointToMove.color.toLowerCase();
-    const currentTurn = currentPlayerColor().toLowerCase();
+    const currentColor = pointToMove.color;
+    const currentTurn = currentPlayerColor();
     const normalizedCurrentColor = normalizeColor(currentColor);
     const normalizedTurnColor = normalizeColor(currentTurn);
 
@@ -1860,7 +1860,7 @@ const Board: Component<BoardProps> = (props) => {
           toY: targetY,
           timestamp: Date.now(),
           playerId: pointToMove.userId,
-          color: pointToMove.color.toLowerCase(),
+          color: pointToMove.color,
           branchName: currentBranch,
           parentBranchName: currentBranch === 'main' ? null : currentBranch.split('/').slice(0, -1).join('/') || null,
           moveNumber: branchMoveNumber,  // Use the branch-aware move number

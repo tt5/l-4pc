@@ -13,21 +13,19 @@ export const TURN_ORDER = PLAYER_COLORS;
 
 // Map of hex colors to their corresponding color names
 const HEX_TO_COLOR: Record<string, PlayerColor> = {
-  '#f44336': 'red',
-  '#ffeb3b': 'yellow',
-  '#2196f3': 'blue',
-  '#4caf50': 'green'
+  '#F44336': 'red',
+  '#FFEB3B': 'yellow',
+  '#2196F3': 'blue',
+  '#4CAF50': 'green'
 } as const;
 
 // Map of color names to their hex values
 export const COLOR_TO_HEX: Record<PlayerColor, string> = {
-  'red': '#f44336',
-  'yellow': '#ffeb3b',
-  'blue': '#2196f3',
-  'green': '#4caf50'
+  'red': '#F44336',
+  'yellow': '#FFEB3B',
+  'blue': '#2196F3',
+  'green': '#4CAF50'
 } as const;
-
-type TeamNumber = 1 | 2;
 
 /**
  * Gets the team number (1 or 2) for a given color
@@ -35,7 +33,7 @@ type TeamNumber = 1 | 2;
  * @returns The team number (1 or 2)
  * @throws Will throw an error if the color is not a valid player color
  */
-export function getTeamByColor(color: string): TeamNumber {
+export function getTeamByColor(color: string): 1 | 2 {
   if (!color) {
     throw new Error('Color cannot be empty');
   }
@@ -57,22 +55,22 @@ export function getTeamByColor(color: string): TeamNumber {
 export function normalizeColor(color: string): PlayerColor | undefined {
   if (!color) return undefined;
   
-  const lowerColor = color.toLowerCase().trim();
+  const upperColor = color.toUpperCase().trim();
   
   // First try direct match with PLAYER_COLORS
-  const directMatch = PLAYER_COLORS.find(c => c === lowerColor);
+  const directMatch = PLAYER_COLORS.find(c => c === upperColor);
   if (directMatch) return directMatch;
   
   // Map of hex codes to color names
   const hexToColorMap: Record<string, PlayerColor> = {
-    '#f44336': 'red',
-    '#ffeb3b': 'yellow',
-    '#2196f3': 'blue',
-    '#4caf50': 'green'
+    '#F44336': 'red',
+    '#FFEB3B': 'yellow',
+    '#2196F3': 'blue',
+    '#4CAF50': 'green'
   };
   
   // Try to match hex code (case insensitive)
-  return hexToColorMap[lowerColor];
+  return hexToColorMap[upperColor];
 }
 
 /**
@@ -84,83 +82,81 @@ export function getCurrentPlayerColor(turnIndex: number): PlayerColor {
   return TURN_ORDER[turnIndex % TURN_ORDER.length];
 }
 
-import type { RestrictedSquareInfo, SquareIndex } from '../types/board';
-
 export const DEFAULT_GAME_ID = 'default';
 
 // Initial board setup - matches the reset-board.ts configuration
 export const INITIAL_BASE_POINTS = [
   // Yellow pieces (top)
-  { id: 1, x: 7, y: 0, userId: 'system', color: '#FFEB3B', pieceType: 'queen', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 2, x: 8, y: 0, userId: 'system', color: '#FFEB3B', pieceType: 'bishop', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 3, x: 6, y: 0, userId: 'system', color: '#FFEB3B', pieceType: 'king', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 4, x: 5, y: 0, userId: 'system', color: '#FFEB3B', pieceType: 'bishop', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 5, x: 4, y: 0, userId: 'system', color: '#FFEB3B', pieceType: 'knight', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 6, x: 9, y: 0, userId: 'system', color: '#FFEB3B', pieceType: 'knight', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 7, x: 3, y: 0, userId: 'system', color: '#FFEB3B', pieceType: 'rook', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 8, x: 10, y: 0, userId: 'system', color: '#FFEB3B', pieceType: 'rook', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 9, x: 7, y: 1, userId: 'system', color: '#FFEB3B', pieceType: 'pawn', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 10, x: 6, y: 1, userId: 'system', color: '#FFEB3B', pieceType: 'pawn', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 11, x: 8, y: 1, userId: 'system', color: '#FFEB3B', pieceType: 'pawn', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 12, x: 5, y: 1, userId: 'system', color: '#FFEB3B', pieceType: 'pawn', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 13, x: 4, y: 1, userId: 'system', color: '#FFEB3B', pieceType: 'pawn', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 14, x: 9, y: 1, userId: 'system', color: '#FFEB3B', pieceType: 'pawn', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 15, x: 3, y: 1, userId: 'system', color: '#FFEB3B', pieceType: 'pawn', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 16, x: 10, y: 1, userId: 'system', color: '#FFEB3B', pieceType: 'pawn', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
+  { id: 1, x: 7, y: 0, userId: 'system', color: '#FFEB3B', pieceType: 'queen', team: 1, isCastle: false, castleType: null },
+  { id: 2, x: 8, y: 0, userId: 'system', color: '#FFEB3B', pieceType: 'bishop', team: 1, isCastle: false, castleType: null },
+  { id: 3, x: 6, y: 0, userId: 'system', color: '#FFEB3B', pieceType: 'king', team: 1, isCastle: false, castleType: null },
+  { id: 4, x: 5, y: 0, userId: 'system', color: '#FFEB3B', pieceType: 'bishop', team: 1, isCastle: false, castleType: null },
+  { id: 5, x: 4, y: 0, userId: 'system', color: '#FFEB3B', pieceType: 'knight', team: 1, isCastle: false, castleType: null },
+  { id: 6, x: 9, y: 0, userId: 'system', color: '#FFEB3B', pieceType: 'knight', team: 1, isCastle: false, castleType: null },
+  { id: 7, x: 3, y: 0, userId: 'system', color: '#FFEB3B', pieceType: 'rook', team: 1, isCastle: false, castleType: null },
+  { id: 8, x: 10, y: 0, userId: 'system', color: '#FFEB3B', pieceType: 'rook', team: 1, isCastle: false, castleType: null },
+  { id: 9, x: 7, y: 1, userId: 'system', color: '#FFEB3B', pieceType: 'pawn', team: 1, isCastle: false, castleType: null },
+  { id: 10, x: 6, y: 1, userId: 'system', color: '#FFEB3B', pieceType: 'pawn', team: 1, isCastle: false, castleType: null },
+  { id: 11, x: 8, y: 1, userId: 'system', color: '#FFEB3B', pieceType: 'pawn', team: 1, isCastle: false, castleType: null },
+  { id: 12, x: 5, y: 1, userId: 'system', color: '#FFEB3B', pieceType: 'pawn', team: 1, isCastle: false, castleType: null },
+  { id: 13, x: 4, y: 1, userId: 'system', color: '#FFEB3B', pieceType: 'pawn', team: 1, isCastle: false, castleType: null },
+  { id: 14, x: 9, y: 1, userId: 'system', color: '#FFEB3B', pieceType: 'pawn', team: 1, isCastle: false, castleType: null },
+  { id: 15, x: 3, y: 1, userId: 'system', color: '#FFEB3B', pieceType: 'pawn', team: 1, isCastle: false, castleType: null },
+  { id: 16, x: 10, y: 1, userId: 'system', color: '#FFEB3B', pieceType: 'pawn', team: 1, isCastle: false, castleType: null },
   
   // Red pieces (bottom)
-  { id: 17, x: 6, y: 13, userId: 'system', color: '#F44336', pieceType: 'queen', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 18, x: 5, y: 13, userId: 'system', color: '#F44336', pieceType: 'bishop', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 19, x: 7, y: 13, userId: 'system', color: '#F44336', pieceType: 'king', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 20, x: 8, y: 13, userId: 'system', color: '#F44336', pieceType: 'bishop', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 21, x: 4, y: 13, userId: 'system', color: '#F44336', pieceType: 'knight', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 22, x: 9, y: 13, userId: 'system', color: '#F44336', pieceType: 'knight', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 23, x: 3, y: 13, userId: 'system', color: '#F44336', pieceType: 'rook', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 24, x: 10, y: 13, userId: 'system', color: '#F44336', pieceType: 'rook', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 25, x: 6, y: 12, userId: 'system', color: '#F44336', pieceType: 'pawn', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 26, x: 7, y: 12, userId: 'system', color: '#F44336', pieceType: 'pawn', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 27, x: 5, y: 12, userId: 'system', color: '#F44336', pieceType: 'pawn', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 28, x: 8, y: 12, userId: 'system', color: '#F44336', pieceType: 'pawn', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 29, x: 4, y: 12, userId: 'system', color: '#F44336', pieceType: 'pawn', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 30, x: 9, y: 12, userId: 'system', color: '#F44336', pieceType: 'pawn', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 31, x: 3, y: 12, userId: 'system', color: '#F44336', pieceType: 'pawn', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 32, x: 10, y: 12, userId: 'system', color: '#F44336', pieceType: 'pawn', team: 1, createdAtMs: Date.now(), isCastle: false, castleType: null },
+  { id: 17, x: 6, y: 13, userId: 'system', color: '#F44336', pieceType: 'queen', team: 1, isCastle: false, castleType: null },
+  { id: 18, x: 5, y: 13, userId: 'system', color: '#F44336', pieceType: 'bishop', team: 1, isCastle: false, castleType: null },
+  { id: 19, x: 7, y: 13, userId: 'system', color: '#F44336', pieceType: 'king', team: 1, isCastle: false, castleType: null },
+  { id: 20, x: 8, y: 13, userId: 'system', color: '#F44336', pieceType: 'bishop', team: 1, isCastle: false, castleType: null },
+  { id: 21, x: 4, y: 13, userId: 'system', color: '#F44336', pieceType: 'knight', team: 1, isCastle: false, castleType: null },
+  { id: 22, x: 9, y: 13, userId: 'system', color: '#F44336', pieceType: 'knight', team: 1, isCastle: false, castleType: null },
+  { id: 23, x: 3, y: 13, userId: 'system', color: '#F44336', pieceType: 'rook', team: 1, isCastle: false, castleType: null },
+  { id: 24, x: 10, y: 13, userId: 'system', color: '#F44336', pieceType: 'rook', team: 1, isCastle: false, castleType: null },
+  { id: 25, x: 6, y: 12, userId: 'system', color: '#F44336', pieceType: 'pawn', team: 1, isCastle: false, castleType: null },
+  { id: 26, x: 7, y: 12, userId: 'system', color: '#F44336', pieceType: 'pawn', team: 1, isCastle: false, castleType: null },
+  { id: 27, x: 5, y: 12, userId: 'system', color: '#F44336', pieceType: 'pawn', team: 1, isCastle: false, castleType: null },
+  { id: 28, x: 8, y: 12, userId: 'system', color: '#F44336', pieceType: 'pawn', team: 1, isCastle: false, castleType: null },
+  { id: 29, x: 4, y: 12, userId: 'system', color: '#F44336', pieceType: 'pawn', team: 1, isCastle: false, castleType: null },
+  { id: 30, x: 9, y: 12, userId: 'system', color: '#F44336', pieceType: 'pawn', team: 1, isCastle: false, castleType: null },
+  { id: 31, x: 3, y: 12, userId: 'system', color: '#F44336', pieceType: 'pawn', team: 1, isCastle: false, castleType: null },
+  { id: 32, x: 10, y: 12, userId: 'system', color: '#F44336', pieceType: 'pawn', team: 1, isCastle: false, castleType: null },
   
   // Blue pieces (left)
-  { id: 33, x: 0, y: 6, userId: 'system', color: '#2196F3', pieceType: 'queen', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 34, x: 0, y: 5, userId: 'system', color: '#2196F3', pieceType: 'bishop', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 35, x: 0, y: 7, userId: 'system', color: '#2196F3', pieceType: 'king', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 36, x: 0, y: 8, userId: 'system', color: '#2196F3', pieceType: 'bishop', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 37, x: 0, y: 4, userId: 'system', color: '#2196F3', pieceType: 'knight', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 38, x: 0, y: 9, userId: 'system', color: '#2196F3', pieceType: 'knight', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 39, x: 0, y: 3, userId: 'system', color: '#2196F3', pieceType: 'rook', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 40, x: 0, y: 10, userId: 'system', color: '#2196F3', pieceType: 'rook', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 41, x: 1, y: 6, userId: 'system', color: '#2196F3', pieceType: 'pawn', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 42, x: 1, y: 7, userId: 'system', color: '#2196F3', pieceType: 'pawn', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 43, x: 1, y: 5, userId: 'system', color: '#2196F3', pieceType: 'pawn', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 44, x: 1, y: 8, userId: 'system', color: '#2196F3', pieceType: 'pawn', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 45, x: 1, y: 4, userId: 'system', color: '#2196F3', pieceType: 'pawn', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 46, x: 1, y: 9, userId: 'system', color: '#2196F3', pieceType: 'pawn', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 47, x: 1, y: 3, userId: 'system', color: '#2196F3', pieceType: 'pawn', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 48, x: 1, y: 10, userId: 'system', color: '#2196F3', pieceType: 'pawn', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
+  { id: 33, x: 0, y: 6, userId: 'system', color: '#2196F3', pieceType: 'queen', team: 2, isCastle: false, castleType: null },
+  { id: 34, x: 0, y: 5, userId: 'system', color: '#2196F3', pieceType: 'bishop', team: 2, isCastle: false, castleType: null },
+  { id: 35, x: 0, y: 7, userId: 'system', color: '#2196F3', pieceType: 'king', team: 2, isCastle: false, castleType: null },
+  { id: 36, x: 0, y: 8, userId: 'system', color: '#2196F3', pieceType: 'bishop', team: 2, isCastle: false, castleType: null },
+  { id: 37, x: 0, y: 4, userId: 'system', color: '#2196F3', pieceType: 'knight', team: 2, isCastle: false, castleType: null },
+  { id: 38, x: 0, y: 9, userId: 'system', color: '#2196F3', pieceType: 'knight', team: 2, isCastle: false, castleType: null },
+  { id: 39, x: 0, y: 3, userId: 'system', color: '#2196F3', pieceType: 'rook', team: 2, isCastle: false, castleType: null },
+  { id: 40, x: 0, y: 10, userId: 'system', color: '#2196F3', pieceType: 'rook', team: 2, isCastle: false, castleType: null },
+  { id: 41, x: 1, y: 6, userId: 'system', color: '#2196F3', pieceType: 'pawn', team: 2, isCastle: false, castleType: null },
+  { id: 42, x: 1, y: 7, userId: 'system', color: '#2196F3', pieceType: 'pawn', team: 2, isCastle: false, castleType: null },
+  { id: 43, x: 1, y: 5, userId: 'system', color: '#2196F3', pieceType: 'pawn', team: 2, isCastle: false, castleType: null },
+  { id: 44, x: 1, y: 8, userId: 'system', color: '#2196F3', pieceType: 'pawn', team: 2, isCastle: false, castleType: null },
+  { id: 45, x: 1, y: 4, userId: 'system', color: '#2196F3', pieceType: 'pawn', team: 2, isCastle: false, castleType: null },
+  { id: 46, x: 1, y: 9, userId: 'system', color: '#2196F3', pieceType: 'pawn', team: 2, isCastle: false, castleType: null },
+  { id: 47, x: 1, y: 3, userId: 'system', color: '#2196F3', pieceType: 'pawn', team: 2, isCastle: false, castleType: null },
+  { id: 48, x: 1, y: 10, userId: 'system', color: '#2196F3', pieceType: 'pawn', team: 2, isCastle: false, castleType: null },
   
   // Green pieces (right)
-  { id: 49, x: 13, y: 7, userId: 'system', color: '#4CAF50', pieceType: 'queen', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 50, x: 13, y: 8, userId: 'system', color: '#4CAF50', pieceType: 'bishop', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 51, x: 13, y: 6, userId: 'system', color: '#4CAF50', pieceType: 'king', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 52, x: 13, y: 5, userId: 'system', color: '#4CAF50', pieceType: 'bishop', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 53, x: 13, y: 4, userId: 'system', color: '#4CAF50', pieceType: 'knight', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 54, x: 13, y: 9, userId: 'system', color: '#4CAF50', pieceType: 'knight', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 55, x: 13, y: 3, userId: 'system', color: '#4CAF50', pieceType: 'rook', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 56, x: 13, y: 10, userId: 'system', color: '#4CAF50', pieceType: 'rook', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 57, x: 12, y: 7, userId: 'system', color: '#4CAF50', pieceType: 'pawn', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 58, x: 12, y: 6, userId: 'system', color: '#4CAF50', pieceType: 'pawn', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 59, x: 12, y: 8, userId: 'system', color: '#4CAF50', pieceType: 'pawn', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 60, x: 12, y: 5, userId: 'system', color: '#4CAF50', pieceType: 'pawn', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 61, x: 12, y: 4, userId: 'system', color: '#4CAF50', pieceType: 'pawn', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 62, x: 12, y: 9, userId: 'system', color: '#4CAF50', pieceType: 'pawn', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 63, x: 12, y: 3, userId: 'system', color: '#4CAF50', pieceType: 'pawn', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null },
-  { id: 64, x: 12, y: 10, userId: 'system', color: '#4CAF50', pieceType: 'pawn', team: 2, createdAtMs: Date.now(), isCastle: false, castleType: null }
+  { id: 49, x: 13, y: 7, userId: 'system', color: '#4CAF50', pieceType: 'queen', team: 2, isCastle: false, castleType: null },
+  { id: 50, x: 13, y: 8, userId: 'system', color: '#4CAF50', pieceType: 'bishop', team: 2, isCastle: false, castleType: null },
+  { id: 51, x: 13, y: 6, userId: 'system', color: '#4CAF50', pieceType: 'king', team: 2, isCastle: false, castleType: null },
+  { id: 52, x: 13, y: 5, userId: 'system', color: '#4CAF50', pieceType: 'bishop', team: 2, isCastle: false, castleType: null },
+  { id: 53, x: 13, y: 4, userId: 'system', color: '#4CAF50', pieceType: 'knight', team: 2, isCastle: false, castleType: null },
+  { id: 54, x: 13, y: 9, userId: 'system', color: '#4CAF50', pieceType: 'knight', team: 2, isCastle: false, castleType: null },
+  { id: 55, x: 13, y: 3, userId: 'system', color: '#4CAF50', pieceType: 'rook', team: 2, isCastle: false, castleType: null },
+  { id: 56, x: 13, y: 10, userId: 'system', color: '#4CAF50', pieceType: 'rook', team: 2, isCastle: false, castleType: null },
+  { id: 57, x: 12, y: 7, userId: 'system', color: '#4CAF50', pieceType: 'pawn', team: 2, isCastle: false, castleType: null },
+  { id: 58, x: 12, y: 6, userId: 'system', color: '#4CAF50', pieceType: 'pawn', team: 2, isCastle: false, castleType: null },
+  { id: 59, x: 12, y: 8, userId: 'system', color: '#4CAF50', pieceType: 'pawn', team: 2, isCastle: false, castleType: null },
+  { id: 60, x: 12, y: 5, userId: 'system', color: '#4CAF50', pieceType: 'pawn', team: 2, isCastle: false, castleType: null },
+  { id: 61, x: 12, y: 4, userId: 'system', color: '#4CAF50', pieceType: 'pawn', team: 2, isCastle: false, castleType: null },
+  { id: 62, x: 12, y: 9, userId: 'system', color: '#4CAF50', pieceType: 'pawn', team: 2, isCastle: false, castleType: null },
+  { id: 63, x: 12, y: 3, userId: 'system', color: '#4CAF50', pieceType: 'pawn', team: 2, isCastle: false, castleType: null },
+  { id: 64, x: 12, y: 10, userId: 'system', color: '#4CAF50', pieceType: 'pawn', team: 2, isCastle: false, castleType: null }
 ] as const;
 
 export const BOARD_CONFIG = {

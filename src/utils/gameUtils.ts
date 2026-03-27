@@ -1,4 +1,4 @@
-import { getTeamByColor, isInNonPlayableCorner, BOARD_CONFIG, normalizeColor } from '~/constants/game';
+import { getTeamByColor, isInNonPlayableCorner, BOARD_CONFIG } from '~/constants/game';
 import { MOVE_PATTERNS, PIECE_TYPES } from '~/constants/movePatterns';
 import { type BasePoint, type PieceType, type Move, type RestrictedSquareInfo, type SquareIndex, type LegalMove, type Point, createPoint, RestrictedSquares } from '~/types/board';
 
@@ -40,10 +40,10 @@ export function isSquareOccupied(x: number, y: number, basePoints: BasePoint[]):
 
 // Color mapping for consistent color handling across the game
 export const COLOR_MAP: Record<string, string> = {
-  'red': '#f44336',
-  'blue': '#2196f3',
-  'yellow': '#ffeb3b',
-  'green': '#4caf50'
+  'RED': '#F44336',
+  'BLUE': '#2196F3',
+  'YELLOW': '#FFEB3B',
+  'GREEN': '#4CAF50'
 };
 
 /**
@@ -53,8 +53,8 @@ export const COLOR_MAP: Record<string, string> = {
  */
 export function colorToHex(color: string): string {
   if (!color) return '';
-  const lowerColor = color.toLowerCase();
-  return COLOR_MAP[lowerColor] || color;
+  const upperColor = color.toUpperCase();
+  return COLOR_MAP[upperColor] || color;
 }
 
 /**
@@ -97,7 +97,7 @@ function getSquaresInDirection(
     
     const occupied = isSquareOccupied(x, y, allBasePoints);
     const piece = allBasePoints.find(p => p.x === x && p.y === y);
-    const teammate = piece ? getTeamByColor(piece.color) === team : false;
+    const teammate = piece ? piece.team === team : false;
     
     if (occupied) {
       if (!teammate) {
@@ -169,8 +169,7 @@ export function canPieceAttack(
   const xDir = Math.sign(targetX - piece.x);
   const yDir = Math.sign(targetY - piece.y);
   
-  // Get the piece's team if not already set
-  const pieceTeam = piece.team || getTeamByColor(piece.color);
+  const pieceTeam = piece.team;
   
   // King movement (1 square in any direction)
   if (piece.pieceType === 'king') {
@@ -215,7 +214,7 @@ export function canPieceAttack(
     // Determine the attacking direction based on the piece's team
     const targetPiece = allBasePoints.find(p => p.x === targetX && p.y === targetY);
     if (targetPiece) {
-      const targetTeam = targetPiece.team || getTeamByColor(targetPiece.color);
+      const targetTeam = targetPiece.team;
       
       // Only consider it a valid attack if the target is an opponent's piece
       if (targetTeam !== pieceTeam) {
@@ -272,7 +271,7 @@ export function isSquareUnderAttack(
     if (attacker.x === x && attacker.y === y) {
       return false;
     }
-    if (getTeamByColor(attacker.color) !== attackingTeam) return false;
+    if (attacker.team !== attackingTeam) return false;
     return canPieceAttack(attacker, x, y, allBasePoints);
   });
 }
@@ -402,7 +401,7 @@ export function isPiecePinned(
     
     if (pieceInLine) {
       // Only consider pieces that can attack through the line (queen, rook, bishop)
-      const isAttacker = getTeamByColor(pieceInLine.color) !== getTeamByColor(piece.color) && 
+      const isAttacker = pieceInLine.team !== piece.team && 
                        ['queen', 'rook', 'bishop'].includes(pieceInLine.pieceType);
       
       if (isAttacker) {
@@ -433,12 +432,12 @@ export function isKingInCheck(
   king: BasePoint, 
   allBasePoints: BasePoint[],
 ): boolean {
-  const opponentTeam = getTeamByColor(king.color) === 1 ? 2 : 1;
+  const opponentTeam = king.team === 1 ? 2 : 1;
   let isInCheck = false;
   
   // Check each opponent piece to see if it attacks the king
   for (const piece of allBasePoints) {
-    const pieceTeam = getTeamByColor(piece.color);
+    const pieceTeam = piece.team;
     
     // Skip pieces that aren't opponents or are the king itself
     if (pieceTeam !== opponentTeam || (piece.x === king.x && piece.y === king.y)) {
@@ -495,7 +494,7 @@ export function wouldResolveCheck(
 
   // Get all squares that are attacking the king
   const attackers = allBasePoints.filter(attacker => 
-    getTeamByColor(attacker.color) !== getTeamByColor(color) &&
+    attacker.team !== getTeamByColor(color) &&
     canPieceAttack(attacker, king.x, king.y, allBasePoints)
   );
 
@@ -563,13 +562,13 @@ export function validateSquarePlacement(
     if (isRestrictedByPickedUp) {
       // Check if the move captures an enemy king
       const targetPiece = allBasePoints.find(bp => bp.x === gridX && bp.y === gridY);
-      const isCapturingEnemyKing = targetPiece?.pieceType === 'king' && getTeamByColor(targetPiece.color) !== getTeamByColor(movingPiece.color);
+      const isCapturingEnemyKing = targetPiece?.pieceType === 'king' && targetPiece.team !== movingPiece.team;
       
       // If not capturing an enemy king, apply normal check rules
       if (!isCapturingEnemyKing) {
         // If the piece being moved is a king, check if the target square is under attack
         if (movingPiece.pieceType === 'king') {
-          const opponentTeam = getTeamByColor(movingPiece.color) === 1 ? 2 : 1;
+          const opponentTeam = movingPiece.team === 1 ? 2 : 1;
 
           if (isSquareUnderAttack(gridX, gridY, opponentTeam, allBasePoints)) {
             return {
@@ -581,7 +580,7 @@ export function validateSquarePlacement(
         
         // If the current player's king is in check, verify the move resolves it
         const currentCheck = kingInCheck();
-        if (currentCheck && getTeamByColor(movingPiece.color) === currentCheck.team) {
+        if (currentCheck && movingPiece.team === currentCheck.team) {
           if (!wouldResolveCheck(
             createPoint(startX, startY), 
             createPoint(gridX, gridY), 
@@ -602,8 +601,8 @@ export function validateSquarePlacement(
     // Check for pieces at the target square
     const targetPiece = allBasePoints.find(bp => bp.x === gridX && bp.y === gridY);
     if (targetPiece) {
-      const targetTeam = getTeamByColor(targetPiece.color);
-      const movingTeam = getTeamByColor(movingPiece.color);
+      const targetTeam = targetPiece.team;
+      const movingTeam = movingPiece.team;
       
       // Block friendly pieces
       if (targetTeam === movingTeam) {
@@ -670,7 +669,7 @@ export function getLegalMoves(
   } = options;
 
   const pieceType = basePoint.pieceType
-  const team = getTeamByColor(basePoint.color);
+  const team = basePoint.team;
   let possibleMoves: LegalMove[] = [];
   
   if (pieceType === 'queen') {
@@ -711,10 +710,10 @@ export function getLegalMoves(
       
       // Check if the square is occupied
       const targetPiece = allBasePoints.find(bp => bp.x === x && bp.y === y);
-      const isCapture = targetPiece && getTeamByColor(targetPiece.color) !== team;
+      const isCapture = targetPiece && targetPiece.team !== team;
       
       // If occupied by a teammate, can't move there
-      if (targetPiece && getTeamByColor(targetPiece.color) === team) {
+      if (targetPiece && targetPiece.team === team) {
         return null;
       }
       
@@ -732,7 +731,7 @@ export function getLegalMoves(
 
     // Add castling moves if available
     const castlingMoves: Array<{x: number, y: number, canCapture: boolean, isCastle: boolean, castleType: string}> = [];
-    const color = basePoint.color?.toUpperCase();
+    const color = basePoint.color;
     
     // Get color name from hex code
     const getColorName = (hexColor: string): CastleColor | undefined => {
@@ -742,7 +741,7 @@ export function getLegalMoves(
         '#2196F3': 'BLUE',
         '#4CAF50': 'GREEN'
       };
-      return colorMap[hexColor.toUpperCase()];
+      return colorMap[hexColor];
     };
     
     if (color) {
@@ -935,7 +934,7 @@ export function getLegalMoves(
         });
         
         if (targetPiece) {
-          const targetTeam = getTeamByColor(targetPiece.color);
+          const targetTeam = targetPiece.team;
           const checkInfo = {
             targetTeam,
             currentTeam: team,
@@ -1002,12 +1001,12 @@ export function getLegalMoves(
         const targetPiece = allBasePoints.find(bp => bp.x === x && bp.y === y);
         
         // If occupied by a teammate, can't move there
-        if (targetPiece && getTeamByColor(targetPiece.color) === team) {
+        if (targetPiece && targetPiece.team === team) {
           return null;
         }
         
         // If occupied by an enemy, can capture
-        const canCapture = targetPiece ? getTeamByColor(targetPiece.color) !== team : false;
+        const canCapture = targetPiece ? targetPiece.team !== team : false;
         
         return {
           x,
@@ -1073,13 +1072,12 @@ export function getLegalMoves(
 
   // Then filter moves that would leave the king in check
   if (isKingInCheck && wouldResolveCheck && pieceType !== 'king') {
-    const playerColor = basePoint.color;
     
     possibleMoves = possibleMoves.filter(move => {
       return wouldResolveCheck(
         createPoint(basePoint.x, basePoint.y),
         createPoint(move.x, move.y),
-        playerColor,
+        basePoint.color,
         allBasePoints,
       );
     });

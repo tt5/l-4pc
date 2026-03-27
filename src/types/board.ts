@@ -13,14 +13,13 @@ export type Direction = 'up' | 'down' | 'left' | 'right';
 export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king';
 
 export interface BasePoint {
-  id: number;
+  readonly id: number;
   x: number;
   y: number;
   userId: string;
   color: string;
   pieceType: PieceType;
   team: 1 | 2; // 1 for team 1 (red/yellow), 2 for team 2 (blue/green)
-  createdAtMs: number;
   hasMoved?: boolean; // Tracks if the piece has moved from its starting position
   isCastle?: boolean; // Indicates if this is a castling move
   castleType?: 'KING_SIDE' | 'QUEEN_SIDE' | null; // Type of castling (king-side or queen-side)
@@ -61,7 +60,7 @@ export interface RestrictedSquareInfo {
   canCapture?: boolean;
   originX?: number;
   originY?: number;
-  pieceType?: string;
+  pieceType?: PieceType;
   team?: number;
   restrictedBy: RestrictedByInfo[];
 }
@@ -88,7 +87,7 @@ export interface Move extends SimpleMove{
   isBranch?: boolean;
   isEnPassant?: boolean;
   capturedPiece?: CapturedPiece;
-  capturedPieceId?: string | null;
+  capturedPieceId?: number | null;
   gameId?: string;
   userId?: string;
 }
@@ -104,20 +103,13 @@ interface CapturedPiece {
     pieceType: PieceType;
 }
 
-export interface MoveResult {
-  x: number;
-  y: number;
-  canCapture: boolean;
-  isCastle?: boolean;
-  castleType?: string;
-  isEnPassant?: boolean;
+export interface MoveResult extends LegalMove{
   rookX?: number;
   rookY?: number;
   rookNewX?: number;
   rookNewY?: number;
   dx?: number;
   dy?: number;
-  capturedPiece?: CapturedPiece;
 }
 
 export interface LegalMove {
@@ -125,7 +117,7 @@ export interface LegalMove {
   y: number;
   canCapture: boolean;
   isCastle?: boolean;
-  castleType?: string;
+  castleType?: 'KING_SIDE' | 'QUEEN_SIDE' | null;
   isEnPassant?: boolean;
   capturedPiece?: CapturedPiece;
 }

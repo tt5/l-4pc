@@ -30,7 +30,7 @@ const extractDataAttributes = (props: ChessPieceProps) => {
 
 export const King: Component<ChessPieceProps> = (props) => {
   const dataAttrs = extractDataAttributes(props);
-  const color = props.color || '#000000'; // Default to black if no color provided
+  const color = props.color
   
   return (
     <svg 
@@ -61,7 +61,7 @@ export const King: Component<ChessPieceProps> = (props) => {
 
 export const Pawn: Component<ChessPieceProps> = (props) => {
   const dataAttrs = extractDataAttributes(props);
-  const color = props.color || '#000000';
+  const color = props.color
   
   return (
     <svg 
@@ -96,7 +96,7 @@ export const Pawn: Component<ChessPieceProps> = (props) => {
 
 export const Queen: Component<ChessPieceProps> = (props) => {
   const dataAttrs = extractDataAttributes(props);
-  const color = props.color || '#000000';
+  const color = props.color
   
   return (
     <svg 
@@ -133,7 +133,7 @@ export const Queen: Component<ChessPieceProps> = (props) => {
 
 export const Bishop: Component<ChessPieceProps> = (props) => {
   const dataAttrs = extractDataAttributes(props);
-  const color = props.color || '#000000';
+  const color = props.color
   
   return (
     <svg 
@@ -245,7 +245,7 @@ export const Rook: Component<ChessPieceProps> = (props) => {
 
 export const Knight: Component<ChessPieceProps> = (props) => {
   const dataAttrs = extractDataAttributes(props);
-  const color = props.color || '#000000';
+  const color = props.color
   
   return (
     <svg 

@@ -27,10 +27,10 @@ const COLOR_TO_PREFIX: Record<string, string> = {
 } as const;
 
 const PREFIX_TO_COLOR: Record<string, string> = {
-  'r': 'red',
-  'b': 'blue',
-  'y': 'yellow',
-  'g': 'green'
+  'r': 'RED',
+  'b': 'BLUE',
+  'y': 'YELLOW',
+  'g': 'GREEN'
 } as const;
 
 export const generateFen4 = (
@@ -52,8 +52,8 @@ export const generateFen4 = (
   basePoints.forEach(point => {
     const { x, y, pieceType, color } = point;
     if (x >= 0 && x < 14 && y >= 0 && y < 14) {
-      const colorPrefix = COLOR_TO_PREFIX[color.toLowerCase()] || 'r';
-      const pieceChar = PIECE_TO_FEN[pieceType.toLowerCase()] || 'P';
+      const colorPrefix = COLOR_TO_PREFIX[color] || 'r';
+      const pieceChar = PIECE_TO_FEN[pieceType] || 'P';
       board[y][x] = `${colorPrefix}${pieceChar}`;
     }
   });
@@ -135,7 +135,7 @@ export const parseFen4 = (fen4: string): {
       const colorPrefix = element[0].toLowerCase();
       const pieceCode = element[1]?.toUpperCase() || 'P';
       
-      const color = PREFIX_TO_COLOR[colorPrefix] || 'red';
+      const color = PREFIX_TO_COLOR[colorPrefix] || 'RED';
       const pieceType = FEN_TO_PIECE[pieceCode] || 'pawn';
       const team = ['r', 'y'].includes(colorPrefix) ? 1 : 2;
       
@@ -148,7 +148,6 @@ export const parseFen4 = (fen4: string): {
           pieceType,
           userId: '',
           team,
-          createdAtMs: Date.now(),
           hasMoved: false
         });
       }

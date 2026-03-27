@@ -1,4 +1,3 @@
-import { BasePoint } from '../types/board';
 
 type Move = {
   fromX: number;
@@ -25,10 +24,10 @@ const PIECE_NOTATION: Record<string, string> = {
 
 // Map colors to their prefixes
 const COLOR_PREFIXES: Record<string, string> = {
-  '#f44336': 'r', // red
-  '#2196f3': 'b', // blue
-  '#ffeb3b': 'y', // yellow
-  '#4caf50': 'g'  // green
+  '#F44336': 'r', // red
+  '#2196F3': 'b', // blue
+  '#FFEB3B': 'y', // yellow
+  '#4CAF50': 'g'  // green
 };
 
 // Convert x coordinate to file (a-p)
@@ -45,19 +44,19 @@ export const toChessNotation = (move: Move): string => {
   // Get the moving piece's color prefix (r, b, y, g)
   let colorPrefix = '';
   if (color) {
-    const colorLower = color.toLowerCase();
+    const colorUpper = color.toUpperCase();
     
-    if (colorLower.includes('red') || colorLower === '#f44336') colorPrefix = 'r';
-    else if (colorLower.includes('blue') || colorLower === '#2196f3') colorPrefix = 'b';
-    else if (colorLower.includes('yellow') || colorLower === '#ffeb3b') colorPrefix = 'y';
-    else if (colorLower.includes('green') || colorLower === '#4caf50') colorPrefix = 'g';
+    if (colorUpper.includes('red') || colorUpper === '#F44336') colorPrefix = 'r';
+    else if (colorUpper.includes('blue') || colorUpper === '#2196F3') colorPrefix = 'b';
+    else if (colorUpper.includes('yellow') || colorUpper === '#FFEB3B') colorPrefix = 'y';
+    else if (colorUpper.includes('green') || colorUpper === '#4CAF50') colorPrefix = 'g';
     
   }  
 
   // Determine piece notation
   let pieceNotation = '';
   if (pieceType) {
-    pieceNotation = PIECE_NOTATION[pieceType.toLowerCase()] || '';
+    pieceNotation = PIECE_NOTATION[pieceType] || '';
   } else {
     // Default to pawn if piece type is missing
     pieceNotation = '';
