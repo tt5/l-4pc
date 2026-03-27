@@ -35,7 +35,7 @@ import {
 import { calculateRestrictedSquares, updateMove, generateNewGameId } from '~/utils/boardUtils';
 import { getColorHex } from '~/utils/colorUtils';
 
-import { type Point, type BasePoint, type Move, type BranchPoints, type SquareIndex, createPoint, RestrictedSquareInfo, RestrictedSquares, PieceType } from '../../types/board';
+import { type Point, type BasePoint, type Move, type BranchPoints, type SquareIndex, createPoint, RestrictedSquareInfo, RestrictedSquares, PieceType, HexColor } from '../../types/board';
 
 import { 
   PLAYER_COLORS, 
@@ -677,7 +677,7 @@ const Board: Component<BoardProps> = (props) => {
       
       if (isInCheck) {
         setKingInCheck({
-          team: getTeamByColor(king.color) as 1 | 2,
+          team: king.team,
           position: createPoint(king.x, king.y)
         });
         checkFound = true;
@@ -1375,7 +1375,7 @@ const Board: Component<BoardProps> = (props) => {
       .filter(bp => bp.pieceType === 'king')
       .forEach(king => {
         const kingIndex = king.y * BOARD_CONFIG.GRID_SIZE + king.x;
-        const kingTeam = getTeamByColor(king.color);
+        const kingTeam = king.team;
         
         if (restrictedSquares.includes(kingIndex)) {
           // Check if any opponent pieces are threatening this king
@@ -1386,7 +1386,7 @@ const Board: Component<BoardProps> = (props) => {
                 bp.x === r.basePointX && 
                 bp.y === r.basePointY
               );
-              return attacker && getTeamByColor(attacker.color) !== kingTeam;
+              return attacker && attacker.team !== kingTeam;
             })
           );
           
@@ -1523,7 +1523,7 @@ const Board: Component<BoardProps> = (props) => {
 
     // Get the legal moves for this piece
     const legalMoves = getLegalMoves(pointToMove, basePoints(), {
-      isKingInCheck: kingInCheck()?.team === getTeamByColor(pointToMove.color),
+      isKingInCheck: kingInCheck()?.team === pointToMove.team,
       enPassantTarget: enPassantTargets()
     });
 
@@ -1860,7 +1860,7 @@ const Board: Component<BoardProps> = (props) => {
           toY: targetY,
           timestamp: Date.now(),
           playerId: pointToMove.userId,
-          color: getColorHex(pointToMove.color),
+          color: getColorHex(pointToMove.color) as HexColor,
           branchName: currentBranch,
           parentBranchName: currentBranch === 'main' ? null : currentBranch.split('/').slice(0, -1).join('/') || null,
           moveNumber: branchMoveNumber,  // Use the branch-aware move number
@@ -2129,7 +2129,7 @@ const Board: Component<BoardProps> = (props) => {
             isBestMoveFrom,
             isBestMoveTo,
             id: basePoint?.id,
-            color: basePoint?.color,
+            color: getColorHex(basePoint?.color),
             pieceType: basePoint?.pieceType
           };
 

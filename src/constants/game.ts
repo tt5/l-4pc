@@ -12,7 +12,7 @@ export type PlayerColor = typeof PLAYER_COLORS[number];
 export const TURN_ORDER = PLAYER_COLORS;
 
 // Map of hex colors to their corresponding color names
-const HEX_TO_COLOR: Record<string, PlayerColor> = {
+export const HEX_TO_COLOR: Record<string, PlayerColor> = {
   '#F44336': 'RED',
   '#FFEB3B': 'YELLOW',
   '#2196F3': 'BLUE',

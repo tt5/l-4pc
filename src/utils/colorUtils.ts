@@ -14,7 +14,10 @@ export const COLOR_MAP: ColorMap = {
   '#4CAF50': '#4CAF50'
 } as const;
 
-export function getColorHex(color: string): HexColor {
+export function getColorHex(color: string | undefined): HexColor | undefined {
+  if (!color) {
+    return undefined
+  }
   return COLOR_MAP[color];
 }
 
