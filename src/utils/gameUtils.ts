@@ -259,7 +259,7 @@ export function isSquareBetween(
 export function isSquareUnderAttack(
   x: number, 
   y: number, 
-  attackingTeam: number, 
+  attackingTeam: 1 | 2, 
   allBasePoints: BasePoint[],
 ): boolean {
   return allBasePoints.some(attacker => {
@@ -458,8 +458,9 @@ export function wouldResolveCheck(
   allBasePoints: BasePoint[],
 ): boolean {
 
+  const team = getTeamByColor(color);
   const king = allBasePoints.find(p => {
-    const isKing = p.pieceType === 'king' && normalizeColor(p.color) === color;
+    const isKing = p.pieceType === 'king' && p.color === color;
     return isKing;
   });
   
@@ -479,12 +480,12 @@ export function wouldResolveCheck(
 
   // If the piece being moved is the king, check if the new position is safe
   if (movingPiece.pieceType === 'king') {
-    return !isSquareUnderAttack(to[0], to[1], getTeamByColor(color) === 1 ? 2 : 1, allBasePoints);
+    return !isSquareUnderAttack(to[0], to[1], team === 1 ? 2 : 1, allBasePoints);
   }
 
   // Get all squares that are attacking the king
   const attackers = allBasePoints.filter(attacker => 
-    attacker.team !== getTeamByColor(color) &&
+    attacker.team !== team &&
     canPieceAttack(attacker, king.x, king.y, allBasePoints)
   );
 

@@ -62,7 +62,7 @@ export function calculateRestrictedSquares(
           restrictedBy: [restrictionInfo],
           canCapture,
           pieceType: piece.pieceType,
-          team: getTeamByColor(piece.color)
+          team: piece.team
         });
       }
     }

@@ -21,7 +21,7 @@ export interface BasePoint {
   x: number;
   y: number;
   userId: string;
-  color: Color;
+  color: NamedColor;
   pieceType: PieceType;
   team: 1 | 2; // 1 for team 1 (red/yellow), 2 for team 2 (blue/green)
   hasMoved?: boolean; // Tracks if the piece has moved from its starting position
