@@ -1,4 +1,4 @@
-import { BOARD_CONFIG, getTeamByColor } from '../constants/game';
+import { BOARD_CONFIG } from '../constants/game';
 import { BasePoint, SquareIndex, RestrictedByInfo, RestrictedSquareInfo, Point } from '../types/board';
 import type { ApiResponse } from './api';
 import { getLegalMoves } from './gameUtils';

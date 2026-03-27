@@ -28,7 +28,6 @@ import {
   getLegalMoves,
   isValidPieceType,
   wouldResolveCheck,
-  validateSquarePlacement,
   isKingInCheck,
   moveToUCI
 } from '~/utils/gameUtils';
@@ -55,6 +54,20 @@ interface BoardProps {
   gameId?: string;
   onGameIdChange?: (gameId: string) => void;
   onGameUpdate?: () => void;
+}
+
+export function validateSquarePlacement(
+  index: SquareIndex,
+  getRestrictedSquares: () => RestrictedSquares,
+): { isValid: boolean } {
+    
+  if (!getRestrictedSquares().includes(index)) {
+    return { 
+      isValid: false, 
+    };
+  }
+  
+  return { isValid: true };
 }
 
 const Board: Component<BoardProps> = (props) => {
@@ -566,14 +579,7 @@ const Board: Component<BoardProps> = (props) => {
   const validateSquarePlacementLocal = (index: SquareIndex) => {
     return validateSquarePlacement(
       index,
-      basePoints(),
-      pickedUpBasePoint(),
-      () => restrictedSquaresInfo().map(info => ({
-        ...info,
-        index: info.index as SquareIndex
-      })),
       () => getRestrictedSquares() as RestrictedSquares,
-      kingInCheck,
     );
   };
 
@@ -1439,7 +1445,7 @@ const Board: Component<BoardProps> = (props) => {
     // Validate the target position
     const validation = validateSquarePlacementLocal(index);
     if (!validation.isValid) {
-      setError(`Invalid placement: ${validation.reason || 'Unknown reason'}`);
+      setError(`Invalid placement`);
       return false;
     }
 
@@ -1492,7 +1498,7 @@ const Board: Component<BoardProps> = (props) => {
     if (!validation.isValid) {
       return { 
         isValid: false, 
-        error: `Invalid placement: ${validation.reason || 'Unknown reason'}` 
+        error: `Invalid placement` 
       };
     }
 

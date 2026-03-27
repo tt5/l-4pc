@@ -1,9 +1,8 @@
-import { getTeamByColor, isInNonPlayableCorner, BOARD_CONFIG, normalizeColor } from '~/constants/game';
+import { getTeamByColor, isInNonPlayableCorner, BOARD_CONFIG } from '~/constants/game';
 import { MOVE_PATTERNS, PIECE_TYPES } from '~/constants/movePatterns';
-import { type BasePoint, type PieceType, type Move, type RestrictedSquareInfo, type SquareIndex, type LegalMove, type Point, createPoint, RestrictedSquares, NamedColor, Color } from '~/types/board';
+import { type BasePoint, type PieceType, type Move, type RestrictedSquareInfo, type SquareIndex, type LegalMove, type Point, createPoint, RestrictedSquares, NamedColor, Color, HexColor } from '~/types/board';
 
-type CastleColor = 'RED' | 'YELLOW' | 'BLUE' | 'GREEN';
-type CastleType = `${CastleColor}_${'KING_SIDE' | 'QUEEN_SIDE'}`;
+type CastleType = `${NamedColor}_${'KING_SIDE' | 'QUEEN_SIDE'}`;
 
 type EightDirections = 
     [0, 1]|   // up
@@ -50,7 +49,7 @@ export function isSquareOccupied(target: Point, basePoints: BasePoint[]): boolea
 }
 
 // Color mapping for consistent color handling across the game
-export const COLOR_MAP: Record<string, string> = {
+export const COLOR_MAP: Record<NamedColor, HexColor> = {
   'RED': '#F44336',
   'BLUE': '#2196F3',
   'YELLOW': '#FFEB3B',
@@ -62,10 +61,9 @@ export const COLOR_MAP: Record<string, string> = {
  * @param color - The color to convert (can be color name or hex value)
  * @returns The color in hex format, or the original string if not found in COLOR_MAP
  */
-export function colorToHex(color: string): string {
-  if (!color) return '';
-  const upperColor = color.toUpperCase();
-  return COLOR_MAP[upperColor] || color;
+export function colorToHex(color: NamedColor): HexColor | undefined {
+  if (!color) return undefined;
+  return COLOR_MAP[color];
 }
 
 /**
@@ -130,6 +128,14 @@ export function isPathClear(
   y2: number,
   allBasePoints: BasePoint[]
 ): boolean {
+  /*
+  bishop, rook, queen
+
+  Math.sign() returns:
+  1 if the number is positive (moving right/down)
+  -1 if the number is negative (moving left/up)
+  0 if the number is zero (no movement in that direction)
+  */
   const dx = Math.sign(x2 - x1);
   const dy = Math.sign(y2 - y1);
   let x = x1 + dx;
@@ -237,23 +243,22 @@ export function canPieceAttack(
 export function isSquareBetween(
   from: Point, 
   to: Point, 
-  x: number, 
-  y: number
+  between: Point
 ): boolean {
   // Check if all three points are in a straight line
   const dx1 = to[0] - from[0];
   const dy1 = to[1] - from[1];
-  const dx2 = x - from[0];
-  const dy2 = y - from[1];
+  const dx2 = between[0] - from[0];
+  const dy2 = between[1] - from[1];
   
   // If not in a straight line, return false
   if (dx1 * dy2 !== dx2 * dy1) return false;
   
   // Check if (x,y) is between from and to (exclusive)
-  const isBetweenX = (from[0] <= x && x <= to[0]) || (from[0] >= x && x >= to[0]);
-  const isBetweenY = (from[1] <= y && y <= to[1]) || (from[1] >= y && y >= to[1]);
+  const isBetweenX = (from[0] <= between[0] && between[0] <= to[0]) || (from[0] >= between[0] && between[0] >= to[0]);
+  const isBetweenY = (from[1] <= between[1] && between[1] <= to[1]) || (from[1] >= between[1] && between[1] >= to[1]);
   
-  return isBetweenX && isBetweenY && (x !== from[0] || y !== from[1]) && (x !== to[0] || y !== to[1]);
+  return isBetweenX && isBetweenY && (between[0] !== from[0] || between[1] !== from[1]) && (between[0] !== to[0] || between[1] !== to[1]);
 }
 
 export function isSquareUnderAttack(
@@ -506,7 +511,7 @@ export function wouldResolveCheck(
   }
 
   // Check if the move blocks the attack
-  const blocksAttack = isSquareBetween(createPoint(attacker.x, attacker.y), createPoint(king.x, king.y), to[0], to[1]);
+  const blocksAttack = isSquareBetween(createPoint(attacker.x, attacker.y), createPoint(king.x, king.y), to);
   if (blocksAttack) {
     return true;
   }
@@ -517,15 +522,16 @@ export function wouldResolveCheck(
 export function validateSquarePlacement(
   index: SquareIndex,
   allBasePoints: BasePoint[],
-  pickedUp: Point | null,
+  pickedUp: Point,
   restrictedSquaresInfo: () => RestrictedSquareInfo[],
   getRestrictedSquares: () => RestrictedSquares,
-  kingInCheck: () => { team: number } | null,
+  kingInCheck: () => { team: 1 | 2 } | null,
 ): { isValid: boolean; reason?: string } {
   // Get the target position in world coordinates
   const gridX = index % BOARD_CONFIG.GRID_SIZE;
   const gridY = Math.floor(index / BOARD_CONFIG.GRID_SIZE);
     
+  /*
   // If we're moving a base point
   if (pickedUp) {
     const [startX, startY] = pickedUp;
@@ -626,13 +632,8 @@ export function validateSquarePlacement(
       reason: 'Base points can only be moved to squares they restrict' 
     };
   }
+  */
   
-  // For new base points, check if the user already has a base point at the target position
-  if (allBasePoints.some(bp => bp.x === gridX && bp.y === gridY)) {
-    return { isValid: false, reason: 'You already have a base point here' };
-  }
-  
-  // For new base points, they can only be placed on restricted squares
   if (!getRestrictedSquares().includes(index)) {
     return { 
       isValid: false, 
@@ -658,7 +659,7 @@ export function getLegalMoves(
 
   const pieceType = basePoint.pieceType
   const team = basePoint.team;
-  const color = normalizeColor(basePoint.color);
+  const color = basePoint.color;
   let possibleMoves: LegalMove[] = [];
 
   if (pieceType === 'queen') {
@@ -795,7 +796,7 @@ export function getLegalMoves(
           capturedPiece: {
             x: captureX,
             y: captureY,
-            color: normalizeColor(currentEnPassantTarget.color)!,
+            color: currentEnPassantTarget.color as NamedColor,
             pieceType: 'pawn'
           }
         });
@@ -1053,7 +1054,7 @@ export function getLegalMoves(
       return wouldResolveCheck(
         createPoint(basePoint.x, basePoint.y),
         createPoint(move.x, move.y),
-        color!,
+        color,
         allBasePoints,
       );
     });
@@ -1076,7 +1077,7 @@ export const canCastle = (
   king: BasePoint,
   allBasePoints: BasePoint[],
   castleType: string,  // Now accepts any string for the castling type
-  currentTeam: number,
+  currentTeam: 1 | 2,
 ): boolean => {
 
     // Check if king has moved - we'll rely on the movedPieces set
@@ -1085,48 +1086,9 @@ export const canCastle = (
     return false;
   }
 
-  // Get the color name from the color code (case-insensitive)
-  const getColorName = (colorCode: string): string => {
-    if (!colorCode) {
-      return '';
-    }
-    
-    // Normalize to uppercase for comparison
-    const normalizedCode = colorCode.toUpperCase();
-    
-    const colorMap: Record<string, string> = {
-      '#F44336': 'RED',
-      '#FFEB3B': 'YELLOW',
-      '#2196F3': 'BLUE',
-      '#4CAF50': 'GREEN',
-      // Add direct color name mappings
-      'RED': 'RED',
-      'YELLOW': 'YELLOW',
-      'BLUE': 'BLUE',
-      'GREEN': 'GREEN'
-    };
-    
-    
-    // Try exact match first
-    if (colorMap[normalizedCode]) {
-      return colorMap[normalizedCode];
-    }
-    
-    // Try to find a match by value (in case the key is different)
-    for (const [code, name] of Object.entries(colorMap)) {
-      if (code.toUpperCase() === normalizedCode) {
-        return name;
-      }
-    }
-    
-    return '';
-  };
-
   // Extract color and side from castleType
-  const [colorCode, ...sideParts] = castleType.split('_');
+  const [colorName, ...sideParts] = castleType.split('_');
   const side = sideParts.join('_'); // This will handle "KING_SIDE" or "QUEEN_SIDE"
-  
-  const colorName = getColorName(colorCode);
   
   if (!colorName) {
     return false;
