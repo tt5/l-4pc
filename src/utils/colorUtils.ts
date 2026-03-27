@@ -1,7 +1,6 @@
-import { PlayerColor } from '~/constants/game';
-import { HexColor } from '~/types/board';
+import { Color, HexColor } from '~/types/board';
 
-type ColorMap = Record<string, HexColor>;
+type ColorMap = Record<Color, HexColor>;
 
 export const COLOR_MAP: ColorMap = {
   'RED': '#F44336',
@@ -14,13 +13,9 @@ export const COLOR_MAP: ColorMap = {
   '#4CAF50': '#4CAF50'
 } as const;
 
-export function getColorHex(color: string | undefined): HexColor | undefined {
+export function getColorHex(color: Color | undefined): HexColor | undefined {
   if (!color) {
     return undefined
   }
   return COLOR_MAP[color];
-}
-
-export function isPlayerColor(color: string): color is PlayerColor {
-  return Object.keys(COLOR_MAP).includes(color.toUpperCase());
 }

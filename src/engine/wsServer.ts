@@ -144,6 +144,7 @@ export function createEngineWebSocketServer(port: number = 8080) {
             // Send the current status
             sendEngineStatus(ws);
             break;
+
           case 'startAnalysis':
             await initialize();
             
@@ -178,38 +179,6 @@ export function createEngineWebSocketServer(port: number = 8080) {
                 data: 'Failed to initialize chess engine'
               }));
             }
-            break;
-
-          case 'updatePosition':
-            const initialized = await initialize();
-            if (!initialized || !engine) {
-              console.error('Failed to initialize engine');
-              return;
-            }
-            
-            engine.stopInfiniteAnalysis();
-            
-            // Set the position using move history if available
-            if (data.moveHistory && data.moveHistory.length > 0) {
-              engine.setPosition({
-                fen: 'startpos',
-                moves: data.moveHistory
-              });
-            } else {
-              engine.setPosition('startpos');
-            }
-            engine.startInfiniteAnalysis();
-            break;
-
-          case 'makeMove':
-            await initialize();
-            if (!engine) {
-              throw new Error('Failed to initialize engine');
-            }
-            engine.setPosition({
-              fen: 'startpos',
-              moves: [...(data.moveHistory || []), data.move]
-            });
             break;
 
           case 'stopAnalysis':

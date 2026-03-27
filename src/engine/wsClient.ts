@@ -11,8 +11,6 @@ export interface EngineClient {
   stopAnalysis: () => boolean;
   stopEngine: () => Promise<boolean>;
   setThreads: (threads: number) => boolean;
-  updatePosition: (fen: string, moveHistory?: string[]) => void;
-  makeMove: (fen: string, move: string, moveHistory: string[]) => void;
   isReady: () => boolean;
   analysis: () => AnalysisUpdate | null;
   error: () => Error | null;
@@ -74,7 +72,6 @@ function createEngineClient(): EngineClient {
   const MAX_RECONNECT_ATTEMPTS = 5;
   const RECONNECT_DELAY = 3000; // 3 seconds
   let reconnectTimeout: number | null = null;
-  let lastFen: string | null = null; // Track the last sent FEN
   const events: EventMap = {}; // Store event listeners
   let isIntentionalDisconnect = false; // Track if disconnection was intentional
   
@@ -422,34 +419,6 @@ function createEngineClient(): EngineClient {
     }
   };
   
-  const makeMove = (fen: string, move: string, moveHistory: string[] = []): void => {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    
-    ws.send(JSON.stringify({
-      type: 'makeMove',
-      data: { fen, move, moveHistory }
-    }));
-  };
-  
-  const updatePosition = (fen: string, moveHistory: string[] = []): boolean => {
-    lastFen = fen; // Update the last known FEN
-    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
-    
-    try {
-      ws.send(JSON.stringify({
-        type: 'updatePosition',
-        data: { 
-          fen,
-          moveHistory 
-        }
-      }));
-      return true;
-    } catch (error) {
-      console.error('Failed to update position:', error);
-      return false;
-    }
-  };
-
   const setThreads = (threads: number) => {
     console.log('[wsClient] setThreads called with:', threads);
     
@@ -544,8 +513,6 @@ function createEngineClient(): EngineClient {
     startAnalysis,
     stopAnalysis,
     stopEngine,
-    makeMove,
-    updatePosition,
     setThreads,
     on,
     off,
