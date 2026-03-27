@@ -52,7 +52,7 @@ export interface BoardConfig {
 export interface AddBasePointResponse extends ApiResponse<BasePoint> {}
 
 export interface RestrictedByInfo {
-  basePointId: string;
+  basePointId: number;
   basePointX: number;
   basePointY: number;
 }
@@ -65,7 +65,7 @@ export interface RestrictedSquareInfo {
   originX?: number;
   originY?: number;
   pieceType?: PieceType;
-  team?: number;
+  team?: 1 | 2;
   restrictedBy: RestrictedByInfo[];
 }
 
@@ -103,7 +103,7 @@ export interface BoardProps {
 interface CapturedPiece {
     x: number;
     y: number;
-    color: string;
+    color: NamedColor;
     pieceType: PieceType;
 }
 

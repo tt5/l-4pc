@@ -1,9 +1,20 @@
-import { getTeamByColor, isInNonPlayableCorner, BOARD_CONFIG } from '~/constants/game';
+import { getTeamByColor, isInNonPlayableCorner, BOARD_CONFIG, normalizeColor } from '~/constants/game';
 import { MOVE_PATTERNS, PIECE_TYPES } from '~/constants/movePatterns';
-import { type BasePoint, type PieceType, type Move, type RestrictedSquareInfo, type SquareIndex, type LegalMove, type Point, createPoint, RestrictedSquares } from '~/types/board';
+import { type BasePoint, type PieceType, type Move, type RestrictedSquareInfo, type SquareIndex, type LegalMove, type Point, createPoint, RestrictedSquares, NamedColor, Color } from '~/types/board';
 
 type CastleColor = 'RED' | 'YELLOW' | 'BLUE' | 'GREEN';
 type CastleType = `${CastleColor}_${'KING_SIDE' | 'QUEEN_SIDE'}`;
+
+type EightDirections = 
+    [0, 1]|   // up
+    [1, 0]|   // right
+    [0, -1]|  // down
+    [-1, 0]|  // left
+    [1, 1]|   // up-right
+    [1, -1]|  // down-right
+    [-1, -1]| // down-left
+    [-1, 1]   // up-left
+  
 
 /**
  * Converts a move object to UCI (Universal Chess Interface) format
@@ -34,8 +45,8 @@ export function isValidPieceType(str: string): str is PieceType {
  * @param basePoints - Array of base points to check against
  * @returns True if the square is occupied, false otherwise
  */
-export function isSquareOccupied(x: number, y: number, basePoints: BasePoint[]): boolean {
-  return basePoints.some(point => point.x === x && point.y === y);
+export function isSquareOccupied(target: Point, basePoints: BasePoint[]): boolean {
+  return basePoints.some(point => point.x === target[0] && point.y === target[1]);
 }
 
 // Color mapping for consistent color handling across the game
@@ -62,32 +73,19 @@ export function colorToHex(color: string): string {
  * @param turnIndex - The current turn index
  * @returns The color of the current player
  */
-export function getCurrentPlayerColor(turnIndex: number, playerColors: string[]): string {
+export function getCurrentPlayerColor(turnIndex: number, playerColors: NamedColor[]): NamedColor {
   return playerColors[turnIndex % playerColors.length];
 }
 
-
-/**
- * Get all squares in a direction until an obstacle is hit
- * @param startX - Starting X coordinate
- * @param startY - Starting Y coordinate
- * @param dx - X direction (-1, 0, or 1)
- * @param dy - Y direction (-1, 0, or 1)
- * @param allBasePoints - Array of all base points on the board
- * @param team - Current team (1 or 2)
- * @returns Array of valid squares in the given direction
- */
 function getSquaresInDirection(
-  startX: number,
-  startY: number,
-  dx: number,
-  dy: number,
+  start: Point,
+  directionStep: EightDirections,
   allBasePoints: BasePoint[],
-  team: number
+  team: 1 | 2
 ): LegalMove[] {
   const result: LegalMove[] = [];
-  let x = startX + dx;
-  let y = startY + dy;
+  let x = start[0] + directionStep[0];
+  let y = start[1] + directionStep[1];
   
   while (x >= 0 && x < BOARD_CONFIG.GRID_SIZE && y >= 0 && y < BOARD_CONFIG.GRID_SIZE) {
     // Skip non-playable corner squares
@@ -95,7 +93,7 @@ function getSquaresInDirection(
       break;
     }
     
-    const occupied = isSquareOccupied(x, y, allBasePoints);
+    const occupied = isSquareOccupied(createPoint(x, y), allBasePoints);
     const piece = allBasePoints.find(p => p.x === x && p.y === y);
     const teammate = piece ? piece.team === team : false;
     
@@ -109,8 +107,8 @@ function getSquaresInDirection(
     
     // Add empty square
     result.push({x, y, canCapture: false});
-    x += dx;
-    y += dy;
+    x += directionStep[0];
+    y += directionStep[1];
   }
   
   return result;
@@ -166,8 +164,6 @@ export function canPieceAttack(
 ): boolean {
   const dx = Math.abs(piece.x - targetX);
   const dy = Math.abs(piece.y - targetY);
-  const xDir = Math.sign(targetX - piece.x);
-  const yDir = Math.sign(targetY - piece.y);
   
   const pieceTeam = piece.team;
   
@@ -439,8 +435,8 @@ export function isKingInCheck(
   for (const piece of allBasePoints) {
     const pieceTeam = piece.team;
     
-    // Skip pieces that aren't opponents or are the king itself
-    if (pieceTeam !== opponentTeam || (piece.x === king.x && piece.y === king.y)) {
+    // Skip pieces that aren't opponents
+    if (pieceTeam !== opponentTeam) {
       continue;
     }
     
@@ -458,22 +454,19 @@ export function isKingInCheck(
 export function wouldResolveCheck(
   from: Point,
   to: Point,
-  color: string,
+  color: Color,
   allBasePoints: BasePoint[],
 ): boolean {
 
-  // Find the king of the current player (exact color match)
   const king = allBasePoints.find(p => {
-    const isKing = p.pieceType === 'king' && p.color === color;
+    const isKing = p.pieceType === 'king' && normalizeColor(p.color) === color;
     return isKing;
   });
   
-  // If no king found, can't be in check
   if (!king) {
     return true;
   }
   
-  // Check if the king is currently in check
   const currentCheck = isKingInCheck(king, allBasePoints);
   if (!currentCheck) {
     return true;
@@ -489,17 +482,11 @@ export function wouldResolveCheck(
     return !isSquareUnderAttack(to[0], to[1], getTeamByColor(color) === 1 ? 2 : 1, allBasePoints);
   }
 
-  // Reuse the king variable that was already found at the start of the function
-  // If we got here, king should be defined since we already checked !king earlier
-
   // Get all squares that are attacking the king
   const attackers = allBasePoints.filter(attacker => 
     attacker.team !== getTeamByColor(color) &&
     canPieceAttack(attacker, king.x, king.y, allBasePoints)
   );
-
-  attackers.forEach((attacker, i) => {
-  });
 
   // If there are multiple attackers, only a king move can resolve check
   if (attackers.length > 1) {
@@ -670,8 +657,9 @@ export function getLegalMoves(
 
   const pieceType = basePoint.pieceType
   const team = basePoint.team;
+  const color = normalizeColor(basePoint.color);
   let possibleMoves: LegalMove[] = [];
-  
+
   if (pieceType === 'queen') {
     // Queen moves any number of squares in any direction
     const directions = [
@@ -686,7 +674,7 @@ export function getLegalMoves(
     ];
     
     possibleMoves = directions.flatMap(([dx, dy]) => 
-      getSquaresInDirection(basePoint.x, basePoint.y, dx, dy, allBasePoints, team)
+      getSquaresInDirection(createPoint(basePoint.x, basePoint.y), [dx, dy] as EightDirections, allBasePoints, team)
     );
   } else if (pieceType === 'king') {
     // Standard king moves (1 square in any direction)
@@ -730,28 +718,15 @@ export function getLegalMoves(
     });
 
     // Add castling moves if available
-    const castlingMoves: Array<{x: number, y: number, canCapture: boolean, isCastle: boolean, castleType: string}> = [];
-    const color = basePoint.color;
-    
-    // Get color name from hex code
-    const getColorName = (hexColor: string): CastleColor | undefined => {
-      const colorMap: Record<string, CastleColor> = {
-        '#F44336': 'RED',
-        '#FFEB3B': 'YELLOW',
-        '#2196F3': 'BLUE',
-        '#4CAF50': 'GREEN'
-      };
-      return colorMap[hexColor];
-    };
+    const castlingMoves = [];
     
     if (color) {
-      const colorName = getColorName(color);
-      if (!colorName) {
+      if (!color) {
         return standardMoves; // Return standard moves without castling
       }
       
       // King-side castling
-      const kingSideCastleType: CastleType = `${colorName}_KING_SIDE`;
+      const kingSideCastleType: CastleType = `${color}_KING_SIDE`;
       if (canCastle(basePoint, allBasePoints, kingSideCastleType, team)) {
         const [dx, dy] = MOVE_PATTERNS.CASTLING[kingSideCastleType];
         castlingMoves.push({
@@ -763,7 +738,7 @@ export function getLegalMoves(
         });
       }
       // Queen-side castling
-      const queenSideCastleType: CastleType = `${colorName}_QUEEN_SIDE`;
+      const queenSideCastleType: CastleType = `${color}_QUEEN_SIDE`;
       if (canCastle(basePoint, allBasePoints, queenSideCastleType, team)) {
         const [dx, dy] = MOVE_PATTERNS.CASTLING[queenSideCastleType];
         castlingMoves.push({
@@ -782,16 +757,16 @@ export function getLegalMoves(
     const enPassantTargets = options.enPassantTarget || {};
     
     // Check all en passant targets for valid captures
-    for (const [color, currentEnPassantTarget] of Object.entries(enPassantTargets)) {
-      if (!currentEnPassantTarget || color === basePoint.color) continue;
+    for (const [colorEP, currentEnPassantTarget] of Object.entries(enPassantTargets)) {
+      if (!currentEnPassantTarget || colorEP === color) continue;
       
       // For en passant, the target should be adjacent to the pawn
       const dx = Math.abs(currentEnPassantTarget.x - basePoint.x);
       const dy = Math.abs(currentEnPassantTarget.y - basePoint.y);
       
       // Check if the pawn is in position to capture en passant
-      const isVertical = basePoint.color === '#F44336' || basePoint.color === '#FFEB3B';
-      const isHorizontal = basePoint.color === '#2196F3' || basePoint.color === '#4CAF50';
+      const isVertical = basePoint.team === 1;
+      const isHorizontal = basePoint.team === 2;
       
       // For en passant, we need to check diagonal adjacency (dx=1, dy=1)
       // since the capturing pawn moves diagonally to capture
@@ -806,9 +781,9 @@ export function getLegalMoves(
         
         // Determine the captured pawn's position based on movement direction
         if (isVertical) {
-          captureX += (basePoint.color === '#F44336' ? -1 : 1);
+          captureX += (color === 'RED' ? -1 : 1);
         } else {
-          captureY += (basePoint.color === '#2196F3' ? -1 : 1);
+          captureY += (color === 'BLUE' ? -1 : 1);
         }
         
         possibleMoves.push({
@@ -819,7 +794,7 @@ export function getLegalMoves(
           capturedPiece: {
             x: captureX,
             y: captureY,
-            color: currentEnPassantTarget.color,
+            color: normalizeColor(currentEnPassantTarget.color)!,
             pieceType: 'pawn'
           }
         });
@@ -833,17 +808,17 @@ export function getLegalMoves(
     const moves: LegalMove[] = [];
     
     // Determine direction toward center based on starting position
-    if (basePoint.color === '#F44336') { // Red - starts at bottom, moves up
+    if (color === 'RED') { // Red - starts at bottom, moves up
       dy = -1; // Move up (decreasing y)
       startPosition = BOARD_CONFIG.GRID_SIZE - 2; // Start near bottom
-    } else if (basePoint.color === '#FFEB3B') { // Yellow - starts at top, moves down
+    } else if (color === 'YELLOW') { // Yellow - starts at top, moves down
       dy = 1; // Move down (increasing y)
       startPosition = 1; // Start near top
-    } else if (basePoint.color === '#2196F3') { // Blue - starts at left, moves right
+    } else if (color === 'BLUE') { // Blue - starts at left, moves right
       dx = 1; // Move right (increasing x)
       isVertical = false;
       startPosition = 1; // Start near left
-    } else if (basePoint.color === '#4CAF50') { // Green - starts at right, moves left
+    } else if (color === 'GREEN') { // Green - starts at right, moves left
       dx = -1; // Move left (decreasing x)
       isVertical = false;
       startPosition = BOARD_CONFIG.GRID_SIZE - 2; // Start near right
@@ -861,7 +836,7 @@ export function getLegalMoves(
       // Check if one square forward is valid and not occupied
       if (oneForward.x >= 0 && oneForward.x < BOARD_CONFIG.GRID_SIZE &&
           oneForward.y >= 0 && oneForward.y < BOARD_CONFIG.GRID_SIZE &&
-          !isSquareOccupied(oneForward.x, oneForward.y, allBasePoints)) {
+          !isSquareOccupied(createPoint(oneForward.x, oneForward.y), allBasePoints)) {
         moves.push(oneForward);
         
         // Check two squares forward from starting position
@@ -878,7 +853,7 @@ export function getLegalMoves(
           
           if (twoForward.x >= 0 && twoForward.x < BOARD_CONFIG.GRID_SIZE &&
               twoForward.y >= 0 && twoForward.y < BOARD_CONFIG.GRID_SIZE &&
-              !isSquareOccupied(twoForward.x, twoForward.y, allBasePoints)) {
+              !isSquareOccupied(createPoint(twoForward.x, twoForward.y), allBasePoints)) {
             moves.push(twoForward);
           }
         }
@@ -889,22 +864,22 @@ export function getLegalMoves(
     let captureOffsets: Array<{dx: number, dy: number}> = [];
     
     // Set capture directions based on pawn color
-    if (basePoint.color === '#F44336') { // Red - moves up
+    if (color === 'RED') { // Red - moves up
       captureOffsets = [
         { dx: -1, dy: -1 },  // Left-up
         { dx: 1, dy: -1 }    // Right-up
       ];
-    } else if (basePoint.color === '#FFEB3B') { // Yellow - moves down
+    } else if (color === 'YELLOW') { // Yellow - moves down
       captureOffsets = [
         { dx: -1, dy: 1 },   // Left-down
         { dx: 1, dy: 1 }     // Right-down
       ];
-    } else if (basePoint.color === '#2196F3') { // Blue - moves right
+    } else if (color === 'BLUE') { // Blue - moves right
       captureOffsets = [
         { dx: 1, dy: -1 },   // Right-up
         { dx: 1, dy: 1 }     // Right-down
       ];
-    } else if (basePoint.color === '#4CAF50') { // Green - moves left
+    } else if (color === 'GREEN') { // Green - moves left
       captureOffsets = [
         { dx: -1, dy: -1 },  // Left-up
         { dx: -1, dy: 1 }    // Left-down
@@ -912,7 +887,7 @@ export function getLegalMoves(
     }
     
     // First process capture moves into a separate array
-    const captureMoves: {x: number, y: number, canCapture: boolean}[] = [];
+    const captureMoves = [];
     
     for (const offset of captureOffsets) {
       const captureX = basePoint.x + offset.dx;
@@ -967,7 +942,7 @@ export function getLegalMoves(
     ];
     
     possibleMoves = [...directions.flatMap(([dx, dy]) => 
-      getSquaresInDirection(basePoint.x, basePoint.y, dx, dy, allBasePoints, team)
+      getSquaresInDirection(createPoint(basePoint.x, basePoint.y), [dx, dy] as EightDirections, allBasePoints, team)
     )];
   } else if (pieceType === 'knight') {
     // Knight moves in an L-shape: 2 squares in one direction and then 1 square perpendicular
@@ -1014,7 +989,7 @@ export function getLegalMoves(
           canCapture
         };
       })
-      .filter(Boolean) as {x: number, y: number, canCapture: boolean}[]];
+      .filter(Boolean) as LegalMove[]];
   } else {
     // Default movement for any other piece type (like rook)
     const directions = [
@@ -1025,7 +1000,7 @@ export function getLegalMoves(
     ];
     
     possibleMoves = [...directions.flatMap(([dx, dy]) => 
-      getSquaresInDirection(basePoint.x, basePoint.y, dx, dy, allBasePoints, team)
+      getSquaresInDirection(createPoint(basePoint.x, basePoint.y), [dx, dy] as EightDirections, allBasePoints, team)
     )];
   }
 
@@ -1077,14 +1052,13 @@ export function getLegalMoves(
       return wouldResolveCheck(
         createPoint(basePoint.x, basePoint.y),
         createPoint(move.x, move.y),
-        basePoint.color,
+        color!,
         allBasePoints,
       );
     });
   }
 
   return possibleMoves;
-  
 }
 
 type CastlingKey = keyof typeof MOVE_PATTERNS.CASTLING;
@@ -1193,7 +1167,7 @@ export const canCastle = (
   const endY = king.y + dy;
 
   while (x !== endX || y !== endY) {
-    const occupied = isSquareOccupied(x, y, allBasePoints);
+    const occupied = isSquareOccupied(createPoint(x, y), allBasePoints);
 
     const opponentTeam = currentTeam === 1 ? 2 : 1;
     const underAttack = isSquareUnderAttack(x, y, opponentTeam, allBasePoints);

@@ -42,7 +42,7 @@ export function calculateRestrictedSquares(
       
       const existingInfo = restrictedSquaresInfo.find(info => info.x === x && info.y === y);
       const restrictionInfo: RestrictedByInfo = {
-        basePointId: String(piece.id),
+        basePointId: piece.id,
         basePointX: piece.x,
         basePointY: piece.y
       };

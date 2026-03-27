@@ -1631,14 +1631,16 @@ const Board: Component<BoardProps> = (props) => {
       cleanupDragState();
       return;
     }
+
+    const color = normalizeColor(pointToMove.color);
     
     // Handle en passant
     let isEnPassantCapture = false;
     if (pointToMove.pieceType === 'pawn') {
       // For vertical pawns (red and yellow)
-      const isVerticalPawn = pointToMove.color === '#F44336' || pointToMove.color === '#FFEB3B';
+      const isVerticalPawn = color === 'RED' || color === 'YELLOW';
       // For horizontal pawns (blue and green)
-      const isHorizontalPawn = pointToMove.color === '#2196F3' || pointToMove.color === '#4CAF50';
+      const isHorizontalPawn = color === 'BLUE' || color === 'GREEN';
       
       // Check if this is a two-square pawn move
       if ((isVerticalPawn && Math.abs(targetY - startY) === 2) || 
@@ -1649,10 +1651,10 @@ const Board: Component<BoardProps> = (props) => {
           const enPassantY = startY + (targetY > startY ? 1 : -1);
           setEnPassantTargets(prev => ({
             ...prev,
-            [pointToMove.color]: {
+            [color]: {
               x: targetX,
               y: enPassantY,
-              color: pointToMove.color
+              color: color
             }
           }));
         } 
@@ -1661,10 +1663,10 @@ const Board: Component<BoardProps> = (props) => {
           const enPassantX = startX + (targetX > startX ? 1 : -1);
           setEnPassantTargets(prev => ({
             ...prev,
-            [pointToMove.color]: {
+            [color]: {
               x: enPassantX,
               y: targetY,
-              color: pointToMove.color
+              color: color
             }
           }));
         }
