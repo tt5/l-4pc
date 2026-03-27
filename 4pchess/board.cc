@@ -1337,11 +1337,11 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
 }
 
 GameResult Board::GetGameResult() {
-  if (!GetKingLocation(turn_.GetColor()).Present()) {
+  if (!GetKingLocation(GetTurn().GetColor()).Present()) {
     // other team won
-    return turn_.GetTeam() == RED_YELLOW ? WIN_BG : WIN_RY;
+    return GetTurn().GetTeam() == RED_YELLOW ? WIN_BG : WIN_RY;
   }
-  Player player = turn_;
+  Player player = GetTurn();
 
   auto result = GetPseudoLegalMoves2(move_buffer_2_, move_buffer_size_);
   size_t num_moves = result.count;
@@ -1449,7 +1449,7 @@ void Board::RemovePiece(const BoardLocation& location) {
   if (!piece.Present()) {
     std::cerr << "Remove FATAL: Attempted to remove non-present piece at " 
               << location.PrettyStr() 
-              << "\n  Current turn: " << turn_
+              << "\n  Current turn: " << GetTurn()
               << "\n  Board state at " << location.PrettyStr() << ": "
               << (GetPiece(location).Present() ? "Present" : "Missing")
               << "\n  Piece type at location: " << static_cast<int>(GetPiece(location).GetPieceType())
@@ -1489,7 +1489,7 @@ void Board::RemovePiece(const BoardLocation& location) {
 
   // Update king location
   if (piece.GetPieceType() == KING) {
-    castling_rights_[turn_.GetColor()] = CastlingRights(false, false);
+    castling_rights_[GetTurn().GetColor()] = CastlingRights(false, false);
     king_locations_[piece.GetColor()] = BoardLocation::kNoLocation;
   }
   // Update piece eval
@@ -1508,7 +1508,7 @@ void Board::InitializeHash() {
       UpdatePieceHash(placed_piece.GetPiece(), placed_piece.GetLocation());
     }
   }
-  UpdateTurnHash(static_cast<int>(turn_.GetColor()));
+  UpdateTurnHash(static_cast<int>(GetTurn().GetColor()));
 }
 
 void Board::MakeMove(const Move& move) {
@@ -1725,7 +1725,7 @@ void Board::MakeMove(const Move& move) {
   UpdateTurnHash(t);
   UpdateTurnHash((t+1)%4);
 
-  turn_ = GetNextPlayer(turn_);
+  turn_ = GetNextPlayer(GetTurn());
   moves_.push_back(move);
 }
 
@@ -1746,19 +1746,26 @@ void Board::UndoMove() {
 
   // Move the piece back.
   const auto piece = GetPiece(to);
-  /*
+  
   if (piece.Missing()) {
     std::cout << "piece missing in UndoMove" << std::endl;
     abort();
   }
-  */
+  
   const PlayerColor color = piece.GetColor();
   Player turn_before = (color == RED)    ? kRedPlayer :
                        (color == BLUE)   ? kBluePlayer :
                        (color == YELLOW) ? kYellowPlayer :
                        kGreenPlayer;
-  Player turn_before2 = GetPreviousPlayer(turn_);
-  assert(turn_before == turn_before2);
+  Player turn_before2 = GetPreviousPlayer(GetTurn());
+  if (turn_before != turn_before2) {
+    std::cout << "[UndoMove] Error: Turn mismatch: color=" << static_cast<int>(color) 
+          << " current_turn=" << static_cast<int>(GetTurn().GetColor())
+          << " turn_before=" << static_cast<int>(turn_before.GetColor())
+          << " turn_before2=" << static_cast<int>(turn_before2.GetColor()) 
+          << std::endl;
+    abort();
+  }
 
   // Find and update the moved piece's location in one pass
   auto& pieces = piece_list_[color];
@@ -1844,7 +1851,7 @@ void Board::UndoMove() {
   
   turn_ = turn_before;
   moves_.pop_back();
-  int t = static_cast<int>(turn_.GetColor());
+  int t = static_cast<int>(GetTurn().GetColor());
   UpdateTurnHash(t);
   UpdateTurnHash((t+1)%4);
 }
@@ -1868,47 +1875,6 @@ int Board::PieceEvaluation() const {
 
 int Board::PieceEvaluation(PlayerColor color) const {
   return player_piece_evaluations_[color];
-}
-
-int Board::MobilityEvaluation(const Player& player) {
-  Player turn = turn_;
-  turn_ = player;
-  int mobility = 0;
-  auto result = GetPseudoLegalMoves2(move_buffer_2_, move_buffer_size_);
-  int player_mobility = static_cast<int>(result.count);
-
-  if (player.GetTeam() == RED_YELLOW) {
-    mobility += player_mobility;
-  } else {
-    mobility -= player_mobility;
-  }
-
-  mobility *= kMobilityMultiplier;
-
-  turn_ = turn;
-  return mobility;
-}
-
-int Board::MobilityEvaluation() {
-  Player turn = turn_;
-
-  int mobility = 0;
-  for (int player_color = 0; player_color < 4; ++player_color) {
-    turn_ = Player(static_cast<PlayerColor>(player_color));
-    auto result = GetPseudoLegalMoves2(move_buffer_2_, move_buffer_size_);
-    int player_mobility = static_cast<int>(result.count);
-
-    if (turn_.GetTeam() == RED_YELLOW) {
-      mobility += player_mobility;
-    } else {
-      mobility -= player_mobility;
-    }
-  }
-
-  mobility *= kMobilityMultiplier;
-
-  turn_ = turn;
-  return mobility;
 }
 
 Board::Board(
@@ -2204,7 +2170,7 @@ std::ostream& operator<<(
     os << std::endl;
   }
 
-  os << "Turn: " << board.turn_ << std::endl;
+  os << "Turn: " << board.GetTurn() << std::endl;
 
   os << "All moves: " << std::endl;
   for (const auto& move : board.moves_) {
@@ -2314,22 +2280,6 @@ bool Board::DeliversCheck(const Move& move) {
   }
 
   return checks;
-}
-
-void Board::MakeNullMove() {
-  int t = static_cast<int>(turn_.GetColor());
-  UpdateTurnHash(t);
-  UpdateTurnHash((t+1)%4);
-
-  turn_ = GetNextPlayer(turn_);
-}
-
-void Board::UndoNullMove() {
-  turn_ = GetPreviousPlayer(turn_);
-
-  int t = static_cast<int>(turn_.GetColor());
-  UpdateTurnHash(t);
-  UpdateTurnHash((t+1)%4);
 }
 
 bool Move::DeliversCheck(Board& board) const {
@@ -2823,7 +2773,7 @@ void Board::PrintBoard() const {
   std::cout << "  +" << std::string(14 * 2 + 1, '-') << "+\n";
 
   // Print current turn
-  std::cout << "\nCurrent turn: " << ToStr(turn_.GetColor()) << "\n";
+  std::cout << "\nCurrent turn: " << ToStr(GetTurn().GetColor()) << "\n";
 }
 
 }  // namespace chess

@@ -776,13 +776,6 @@ class Board {
   friend std::ostream& operator<<(
       std::ostream& os, const Board& board);
 
-  // Use with caution: after you set the player you must reset it to its
-  // original value before calling UndoMove past the current moves.
-  // These functions may be used by things such as null move pruning.
-  void SetPlayer(const Player& player) { turn_ = player; }
-  void MakeNullMove();
-  void UndoNullMove();
-
   static std::chrono::nanoseconds total_time;
   static size_t call_count;
 
