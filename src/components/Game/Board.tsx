@@ -27,7 +27,6 @@ import { MOVE_PATTERNS } from '~/constants/movePatterns';
 import { 
   getLegalMoves,
   isValidPieceType,
-  wouldResolveCheck,
   isKingInCheck,
   moveToUCI
 } from '~/utils/gameUtils';
@@ -45,7 +44,6 @@ import {
   getTeamByColor,
   BOARD_CONFIG,
   isInNonPlayableCorner,
-  normalizeColor
 } from '~/constants/game';
 
 import styles from './Board.module.css';
@@ -1202,7 +1200,7 @@ const Board: Component<BoardProps> = (props) => {
     // 5. Get current player's pieces
     const playerColorName = PLAYER_COLORS[newTurnIndex];
     const currentPlayerPieces = updatedBasePoints.filter(p => 
-      normalizeColor(p.color) === playerColorName
+      p.color === playerColorName
     );
 
     // 6. Calculate and update restricted squares
@@ -1297,7 +1295,7 @@ const Board: Component<BoardProps> = (props) => {
         
         const playerColorName = PLAYER_COLORS[newTurnIndex];
         const currentPlayerPieces = updatedBasePoints.filter(p => 
-          normalizeColor(p.color) === playerColorName
+          p.color === playerColorName
         );
 
         const currentKingInCheck = kingInCheck();
@@ -1399,7 +1397,7 @@ const Board: Component<BoardProps> = (props) => {
             
             // Update the current player's king check state if it's their turn
             const currentPlayer = currentPlayerColor();
-            if (normalizeColor(king.color) === currentPlayer) {
+            if (king.color === currentPlayer) {
               setKingInCheck({
                 team: kingTeam,
                 position: createPoint(king.x, king.y)
@@ -1422,7 +1420,7 @@ const Board: Component<BoardProps> = (props) => {
     if (!basePoint) return;
     
     const currentTurnColor = currentPlayerColor();
-    const pieceColor = normalizeColor(basePoint.color);
+    const pieceColor = basePoint.color;
     
     // Check if it's this player's turn to move (based on piece color)
     if (pieceColor !== currentTurnColor) {
@@ -1511,7 +1509,7 @@ const Board: Component<BoardProps> = (props) => {
     }
 
     // Check if it's this color's turn
-    const currentColor = normalizeColor(pointToMove.color);
+    const currentColor = pointToMove.color;
     const currentTurnColor = currentPlayerColor();
 
     if (currentColor !== currentTurnColor) {
@@ -1632,7 +1630,7 @@ const Board: Component<BoardProps> = (props) => {
       return;
     }
 
-    const color = normalizeColor(pointToMove.color);
+    const color = pointToMove.color;
     
     // Handle en passant
     let isEnPassantCapture = false;
