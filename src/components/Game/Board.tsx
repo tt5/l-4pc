@@ -592,7 +592,7 @@ const Board: Component<BoardProps> = (props) => {
   
   const [error, setError] = createSignal<string | null>(null);
   const [dragStartPosition, setDragStartPosition] = createSignal<Point | null>(null);
-  const [pickedUpBasePoint, setPickedUpBasePoint] = createSignal<Point | null>(null);
+  const [pickedUpBasePoint, setPickedUpBasePoint] = createSignal<BasePoint | null>(null);
   const [isDragging, setIsDragging] = createSignal(false);
   const [targetPosition, setTargetPosition] = createSignal<Point | null>(null);
   const [isProcessingMove, setIsProcessingMove] = createSignal(false);
@@ -1404,15 +1404,22 @@ const Board: Component<BoardProps> = (props) => {
       return; // Don't allow picking up opponent's pieces or moving out of turn
     }
     
-    setPickedUpBasePoint(createPoint(x, y));
+    setPickedUpBasePoint(basePoint);
     setDragStartPosition(createPoint(x, y));
     setIsDragging(true);
   };
 
   // Helper function to update base point UI during drag
   const updateBasePointUI = (target: [number, number]): boolean => {
-    const basePoint = pickedUpBasePoint();
-    if (!basePoint) return false;
+    if (!pickedUpBasePoint()) {
+      return false
+    }
+
+    const currentBasePoint = pickedUpBasePoint();
+    if (!currentBasePoint) {
+      return false
+    }
+    const basePoint = createPoint(currentBasePoint.x, currentBasePoint.y);
 
     const [targetX, targetY] = target;
     const index: SquareIndex = (targetY * BOARD_CONFIG.GRID_SIZE + targetX) as SquareIndex;
@@ -1560,12 +1567,14 @@ const Board: Component<BoardProps> = (props) => {
 
     setIsProcessingMove(true);
 
-    const startPos = pickedUpBasePoint();
-    if (!startPos) {
+    const currentBasePoint = pickedUpBasePoint();
+
+    if (!currentBasePoint) {
       cleanupDragState();
       return;
     }
-    const [startX, startY] = startPos;
+    const startX = currentBasePoint.x
+    const startY = currentBasePoint.y
 
     // Clear the en passant target for the current player at the start of their move
     const currentColor = basePoints().find(p => p.x === startX && p.y === startY)?.color;
@@ -1579,10 +1588,6 @@ const Board: Component<BoardProps> = (props) => {
     // Get and validate the move target
     const target = getMoveTarget();
     if (!target) {
-      cleanupDragState();
-      return;
-    }
-    if (!startPos) {
       cleanupDragState();
       return;
     }
@@ -2070,8 +2075,8 @@ const Board: Component<BoardProps> = (props) => {
               ? restrictedSquaresInfo().some(info => 
                   info.index === index && 
                   info.restrictedBy.some(r => 
-                    r.basePointX === draggedBasePoint[0] && 
-                    r.basePointY === draggedBasePoint[1]
+                    r.basePointX === draggedBasePoint.x && 
+                    r.basePointY === draggedBasePoint.y
                   )
                 )
               : true
@@ -2115,7 +2120,7 @@ const Board: Component<BoardProps> = (props) => {
               y={y}
               state={cellState}
               isDragging={isDragging()}
-              pickedUpBasePoint={pickedUpBasePoint()}
+              pickedUpBasePoint={draggedBasePoint ? createPoint(draggedBasePoint.x,draggedBasePoint.y) : null}
               onHover={(hovered) => {
                 if (hovered) {
                   setHoveredCell(createPoint(x, y));

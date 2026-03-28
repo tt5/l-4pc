@@ -37,18 +37,10 @@ export function isValidPieceType(str: string): str is PieceType {
   return ['pawn', 'rook', 'knight', 'bishop', 'queen', 'king'].includes(str);
 }
 
-/**
- * Check if a square is occupied by any base point
- * @param x - X coordinate to check
- * @param y - Y coordinate to check
- * @param basePoints - Array of base points to check against
- * @returns True if the square is occupied, false otherwise
- */
 export function isSquareOccupied(target: Point, basePoints: BasePoint[]): boolean {
   return basePoints.some(point => point.x === target[0] && point.y === target[1]);
 }
 
-// Color mapping for consistent color handling across the game
 export const COLOR_MAP: Record<NamedColor, HexColor> = {
   'RED': '#F44336',
   'BLUE': '#2196F3',
@@ -56,11 +48,6 @@ export const COLOR_MAP: Record<NamedColor, HexColor> = {
   'GREEN': '#4CAF50'
 };
 
-/**
- * Converts color names to hex values
- * @param color - The color to convert (can be color name or hex value)
- * @returns The color in hex format, or the original string if not found in COLOR_MAP
- */
 export function colorToHex(color: NamedColor): HexColor | undefined {
   if (!color) return undefined;
   return COLOR_MAP[color];
@@ -161,12 +148,11 @@ export function isPathClear(
  */
 export function canPieceAttack(
   piece: BasePoint, 
-  targetX: number, 
-  targetY: number,
+  target: Point,
   allBasePoints: BasePoint[],
 ): boolean {
-  const dx = Math.abs(piece.x - targetX);
-  const dy = Math.abs(piece.y - targetY);
+  const dx = Math.abs(piece.x - target[0]);
+  const dy = Math.abs(piece.y - target[1]);
   
   const pieceTeam = piece.team;
   
@@ -178,16 +164,16 @@ export function canPieceAttack(
   // Queen movement (any number of squares in any direction)
   if (piece.pieceType === 'queen') {
     // Check if moving in a straight line or diagonal
-    if (piece.x === targetX || piece.y === targetY || Math.abs(dx) === Math.abs(dy)) {
-      return isPathClear(createPoint(piece.x, piece.y), createPoint(targetX, targetY), allBasePoints);
+    if (piece.x === target[0] || piece.y === target[1] || Math.abs(dx) === Math.abs(dy)) {
+      return isPathClear(createPoint(piece.x, piece.y), target, allBasePoints);
     }
     return false;
   }
 
   // Rook movement (any number of squares horizontally or vertically)
   if (piece.pieceType === 'rook') {
-    if (piece.x === targetX || piece.y === targetY) {
-      return isPathClear(createPoint(piece.x, piece.y), createPoint(targetX, targetY), allBasePoints);
+    if (piece.x === target[0] || piece.y === target[1]) {
+      return isPathClear(createPoint(piece.x, piece.y), target, allBasePoints);
     }
     return false;
   }
@@ -195,7 +181,7 @@ export function canPieceAttack(
   // Bishop movement (any number of squares diagonally)
   if (piece.pieceType === 'bishop') {
     if (dx === dy) {
-      return isPathClear(createPoint(piece.x, piece.y), createPoint(targetX, targetY), allBasePoints);
+      return isPathClear(createPoint(piece.x, piece.y), target, allBasePoints);
     }
     return false;
   }
@@ -211,16 +197,16 @@ export function canPieceAttack(
     if (dx !== 1 || dy !== 1) return false;
     
     // Determine the attacking direction based on the piece's team
-    const targetPiece = allBasePoints.find(p => p.x === targetX && p.y === targetY);
+    const targetPiece = allBasePoints.find(p => p.x === target[0] && p.y === target[1]);
     if (targetPiece) {
       const targetTeam = targetPiece.team;
       
       // Only consider it a valid attack if the target is an opponent's piece
       if (targetTeam !== pieceTeam) {
         // For team 1 (red), pawns move up (decreasing y)
-        if (pieceTeam === 1 && targetY < piece.y) return true;
+        if (pieceTeam === 1 && target[1] < piece.y) return true;
         // For team 2 (blue), pawns move down (increasing y)
-        if (pieceTeam === 2 && targetY > piece.y) return true;
+        if (pieceTeam === 2 && target[1] > piece.y) return true;
       }
     }
     return false;
@@ -270,7 +256,7 @@ export function isSquareUnderAttack(
       return false;
     }
     if (attacker.team !== attackingTeam) return false;
-    return canPieceAttack(attacker, x, y, allBasePoints);
+    return canPieceAttack(attacker, createPoint(x, y), allBasePoints);
   });
 }
 
@@ -442,7 +428,7 @@ export function isKingInCheck(
       continue;
     }
     
-    const canAttack = canPieceAttack(piece, king.x, king.y, allBasePoints);
+    const canAttack = canPieceAttack(piece, createPoint(king.x, king.y), allBasePoints);
     
     if (canAttack) {
       isInCheck = true;
@@ -484,7 +470,7 @@ export function wouldResolveCheck(
   // Get all squares that are attacking the king
   const attackers = allBasePoints.filter(attacker => 
     attacker.team !== team &&
-    canPieceAttack(attacker, king.x, king.y, allBasePoints)
+    canPieceAttack(attacker, createPoint(king.x, king.y), allBasePoints)
   );
 
   // If there are multiple attackers, only a king move can resolve check
