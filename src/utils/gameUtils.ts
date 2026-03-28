@@ -1,6 +1,6 @@
 import { isInNonPlayableCorner, BOARD_CONFIG } from '~/constants/game';
 import { MOVE_PATTERNS, PIECE_TYPES } from '~/constants/movePatterns';
-import { type BasePoint, type PieceType, type Move, type RestrictedSquareInfo, type SquareIndex, type LegalMove, type Point, createPoint, RestrictedSquares, NamedColor, Color, HexColor } from '~/types/board';
+import { type BasePoint, type PieceType, type Move, type LegalMove, type Point, createPoint, NamedColor, Color, HexColor } from '~/types/board';
 
 type CastleType = `${NamedColor}_${'KING_SIDE' | 'QUEEN_SIDE'}`;
 
@@ -516,7 +516,6 @@ export function getLegalMoves(
   basePoint: BasePoint,
   allBasePoints: BasePoint[],
   options: {
-    isKingInCheck?: boolean;
     enPassantTarget?: Record<string, {x: number, y: number, color: string} | null>;
   } = {}
 ): LegalMove[] {

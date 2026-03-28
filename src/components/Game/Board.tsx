@@ -680,18 +680,15 @@ const Board: Component<BoardProps> = (props) => {
       );
       
       if (isInCheck) {
-        setKingInCheck({
-          team: king.team,
-          position: createPoint(king.x, king.y)
-        });
         checkFound = true;
+        console.log("[updateKingCheckStatus] check found")
         // Continue checking other kings to ensure we don't miss any checks
       }
     }
     
     // If no kings are in check, clear the check state
     if (!checkFound) {
-      setKingInCheck(null);
+      console.log("[updateKingCheckStatus] no check found")
     }
   };
 
@@ -1204,18 +1201,10 @@ const Board: Component<BoardProps> = (props) => {
     );
 
     // 6. Calculate and update restricted squares
-    const currentKingInCheck = kingInCheck();
-    if (currentKingInCheck != null) {
-      //TODO
-    }
-    const isCurrentKingInCheck = currentKingInCheck !== null && 
-      getTeamByColor(PLAYER_COLORS[currentTurnIndex() % PLAYER_COLORS.length]) === currentKingInCheck.team;
-      
     const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(
       currentPlayerPieces,
       updatedBasePoints,
       { 
-        isKingInCheck: isCurrentKingInCheck,
         enPassantTarget: enPassantTargets()
       }
     );
@@ -1301,15 +1290,10 @@ const Board: Component<BoardProps> = (props) => {
           p.color === playerColorName
         );
 
-        const currentKingInCheck = kingInCheck();
-        const isCurrentKingInCheck = currentKingInCheck !== null && 
-          currentKingInCheck.team === getTeamByColor(playerColorName);
-        
         const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(
           currentPlayerPieces,
           updatedBasePoints,
           { 
-            isKingInCheck: isCurrentKingInCheck,
             enPassantTarget: enPassantTargets()
           }
         );
@@ -1372,7 +1356,6 @@ const Board: Component<BoardProps> = (props) => {
     const restrictedInfo = restrictedSquaresInfo();
     
     // Reset check states
-    setKingInCheck(null);
     const newKingsInCheck: {[key: string]: boolean} = {};
     
     // Check each king on the board
@@ -1397,15 +1380,6 @@ const Board: Component<BoardProps> = (props) => {
           
           if (isInCheck) {
             newKingsInCheck[`${king.x},${king.y}`] = true;
-            
-            // Update the current player's king check state if it's their turn
-            const currentPlayer = currentPlayerColor();
-            if (king.color === currentPlayer) {
-              setKingInCheck({
-                team: kingTeam,
-                position: createPoint(king.x, king.y)
-              });
-            }
           }
         }
       });
@@ -1524,7 +1498,6 @@ const Board: Component<BoardProps> = (props) => {
 
     // Get the legal moves for this piece
     const legalMoves = getLegalMoves(pointToMove, basePoints(), {
-      isKingInCheck: kingInCheck()?.team === pointToMove.team,
       enPassantTarget: enPassantTargets()
     });
 
