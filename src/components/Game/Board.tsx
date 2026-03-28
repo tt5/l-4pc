@@ -44,6 +44,7 @@ import {
   getTeamByColor,
   BOARD_CONFIG,
   isInNonPlayableCorner,
+  NamedColor,
 } from '~/constants/game';
 
 import styles from './Board.module.css';
@@ -147,11 +148,11 @@ const Board: Component<BoardProps> = (props) => {
 
   const [cellSize, setCellSize] = createSignal(50); // Default cell size
 
-  const [enPassantTargets, setEnPassantTargets] = createSignal<Record<string, {x: number, y: number, color: string} | null>>({
-    '#F44336': null,  // Red
-    '#FFEB3B': null,  // Yellow
-    '#2196F3': null,  // Blue
-    '#4CAF50': null   // Green
+  const [enPassantTargets, setEnPassantTargets] = createSignal<Record<NamedColor, {x: number, y: number, color: NamedColor} | null>>({
+    'RED': null,
+    'YELLOW': null,
+    'BLUE': null,
+    'GREEN': null
   });
   
   const startEngineAnalysis = async (moves: string[]): Promise<boolean> => {
