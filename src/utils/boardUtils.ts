@@ -1,5 +1,5 @@
 import { BOARD_CONFIG } from '../constants/game';
-import { BasePoint, SquareIndex, RestrictedByInfo, RestrictedSquareInfo, Point } from '../types/board';
+import { BasePoint, SquareIndex, RestrictedByInfo, RestrictedSquareInfo, Point, NamedColor } from '../types/board';
 import type { ApiResponse } from './api';
 import { getLegalMoves } from './gameUtils';
 import { makeApiCall, parseApiResponse, generateRequestId } from './clientApi';
@@ -18,8 +18,7 @@ export function calculateRestrictedSquares(
   pieces: BasePoint[], 
   boardState: BasePoint[],
   options: {
-    isKingInCheck?: boolean;
-    enPassantTarget?: Record<string, {x: number, y: number, color: string} | null>;
+    enPassantTarget?: Record<NamedColor, {x: number, y: number, color: NamedColor} | null>;
   } = {}
 ): RestrictedSquaresResult {
 
@@ -69,13 +68,6 @@ export function calculateRestrictedSquares(
 
   return { restrictedSquares, restrictedSquaresInfo };
 }
-
-/**
- * Checks if a base point exists at the given coordinates
- */
-export const isBasePoint = (x: number, y: number, basePoints: BasePoint[]): boolean => {
-  return basePoints.some(point => point.x === x && point.y === y);
-};
 
 /**
  * Records a move in the game history

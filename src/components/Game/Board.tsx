@@ -705,7 +705,6 @@ const Board: Component<BoardProps> = (props) => {
     setGameId(DEFAULT_GAME_ID);
     const initialBasePoints = JSON.parse(JSON.stringify(INITIAL_BASE_POINTS));
     setBasePoints(initialBasePoints);
-    setKingInCheck(null)
     setRestrictedSquares(INITIAL_RESTRICTED_SQUARES);
     setRestrictedSquaresInfo(INITIAL_RESTRICTED_SQUARES_INFO as RestrictedSquareInfo[]);
   };
@@ -1313,8 +1312,6 @@ const Board: Component<BoardProps> = (props) => {
     }
   };
 
-  const [kingInCheck, setKingInCheck] = createSignal<{team: 1 | 2, position: Point} | null>(null);
-  
   // Track restricted squares with their origin information
   const [restrictedSquaresInfo, setRestrictedSquaresInfo] = createSignal<RestrictedSquareInfo[]>([]);
 
@@ -1389,24 +1386,21 @@ const Board: Component<BoardProps> = (props) => {
     setKingsInCheck(newKingsInCheck);
   });
 
-  // Handle base point pickup
   const handleBasePointPickup = (point: Point) => {
     const [x, y] = point;
     
-    // Find the base point being picked up
     const basePoint = basePoints().find(bp => bp.x === x && bp.y === y);
     if (!basePoint) return;
     
     const currentTurnColor = currentPlayerColor();
     const pieceColor = basePoint.color;
     
-    // Check if it's this player's turn to move (based on piece color)
     if (pieceColor !== currentTurnColor) {
-      return; // Don't allow picking up opponent's pieces or moving out of turn
+      return;
     }
     
     setPickedUpBasePoint(basePoint);
-    setDragStartPosition(createPoint(x, y));
+    setDragStartPosition(point);
     setIsDragging(true);
   };
 

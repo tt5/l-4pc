@@ -53,15 +53,6 @@ export function colorToHex(color: NamedColor): HexColor | undefined {
   return COLOR_MAP[color];
 }
 
-/**
- * Gets the current player's color based on the turn index
- * @param turnIndex - The current turn index
- * @returns The color of the current player
- */
-export function getCurrentPlayerColor(turnIndex: number, playerColors: NamedColor[]): NamedColor {
-  return playerColors[turnIndex % playerColors.length];
-}
-
 function getSquaresInDirection(
   start: Point,
   directionStep: EightDirections,
@@ -99,15 +90,6 @@ function getSquaresInDirection(
   return result;
 }
 
-/**
- * Check if the path between two squares is clear of other pieces
- * @param x1 - Starting X coordinate
- * @param y1 - Starting Y coordinate
- * @param x2 - Target X coordinate
- * @param y2 - Target Y coordinate
- * @param allBasePoints - Array of all base points on the board
- * @returns True if the path is clear, false if there are pieces in the way
- */
 export function isPathClear(
   a: Point,
   b: Point,
@@ -138,14 +120,6 @@ export function isPathClear(
   return true;
 }
 
-/**
- * Check if a piece can attack a specific square
- * @param piece - The piece to check
- * @param targetX - Target X coordinate
- * @param targetY - Target Y coordinate
- * @param allBasePoints - Array of all base points on the board
- * @returns True if the piece can attack the target square
- */
 export function canPieceAttack(
   piece: BasePoint, 
   target: Point,
@@ -215,14 +189,6 @@ export function canPieceAttack(
   return false;
 }
 
-/**
- * Check if a square is between two other squares in a straight line
- * @param from - The starting point
- * @param to - The ending point
- * @param x - X coordinate of the square to check
- * @param y - Y coordinate of the square to check
- * @returns True if the square is between from and to in a straight line (exclusive)
- */
 export function isSquareBetween(
   from: Point, 
   to: Point, 
@@ -245,18 +211,17 @@ export function isSquareBetween(
 }
 
 export function isSquareUnderAttack(
-  x: number, 
-  y: number, 
+  target: Point,
   attackingTeam: 1 | 2, 
   allBasePoints: BasePoint[],
 ): boolean {
   return allBasePoints.some(attacker => {
     // Skip if this is a piece on the target square (can't attack its own square)
-    if (attacker.x === x && attacker.y === y) {
+    if (attacker.x === target[0] && attacker.y === target[1]) {
       return false;
     }
     if (attacker.team !== attackingTeam) return false;
-    return canPieceAttack(attacker, createPoint(x, y), allBasePoints);
+    return canPieceAttack(attacker, target, allBasePoints);
   });
 }
 
@@ -464,7 +429,7 @@ export function wouldResolveCheck(
   
   // If the piece being moved is the king, check if the new position is safe
   if (movingPiece.pieceType === 'king') {
-    return !isSquareUnderAttack(to[0], to[1], team === 1 ? 2 : 1, allBasePoints);
+    return !isSquareUnderAttack(to, team === 1 ? 2 : 1, allBasePoints);
   }
 
   // Get all squares that are attacking the king
@@ -502,7 +467,7 @@ export function getLegalMoves(
   basePoint: BasePoint,
   allBasePoints: BasePoint[],
   options: {
-    enPassantTarget?: Record<string, {x: number, y: number, color: string} | null>;
+    enPassantTarget?: Record<NamedColor, {x: number, y: number, color: NamedColor} | null>;
   } = {}
 ): LegalMove[] {
 
@@ -608,7 +573,9 @@ export function getLegalMoves(
     const enPassantTargets = options.enPassantTarget || {};
     
     // Check all en passant targets for valid captures
-    for (const [colorEP, currentEnPassantTarget] of Object.entries(enPassantTargets)) {
+    for (const [colorEP, currentEnPassantTarget]
+       of Object.entries(enPassantTargets) as [NamedColor, {x: number, y: number, color: NamedColor} | null][]
+      ) {
       if (!currentEnPassantTarget || colorEP === color) continue;
       
       // For en passant, the target should be adjacent to the pawn
@@ -911,8 +878,6 @@ export function getLegalMoves(
   return possibleMoves;
 }
 
-type CastlingKey = keyof typeof MOVE_PATTERNS.CASTLING;
-
 // Track moved pieces for castling
 const movedPieces = new Set<string>();
 
@@ -972,7 +937,7 @@ export const canCastle = (
     const occupied = isSquareOccupied(createPoint(x, y), allBasePoints);
 
     const opponentTeam = king.team === 1 ? 2 : 1;
-    const underAttack = isSquareUnderAttack(x, y, opponentTeam, allBasePoints);
+    const underAttack = isSquareUnderAttack(createPoint(x, y), opponentTeam, allBasePoints);
     
     if (occupied || underAttack) {
       return false;

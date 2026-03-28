@@ -23,7 +23,7 @@ interface GridCellProps {
   isDragging: boolean;
   pickedUpBasePoint: Point | null;
   onHover: (isHovered: boolean) => void;
-  onClick?: () => void;  // Made optional with ?
+  onClick?: () => void;
   onBasePointPickup: (point: Point) => void;
 }
 
@@ -48,17 +48,11 @@ export const GridCell: Component<GridCellProps> = (props) => {
     const classes = [styles.square];
     if (isBasePoint) classes.push(styles.basePoint);
     if (isSelected) classes.push(styles.selected);
-    else if (isHovered && !state.isNonPlayable) {
-      classes.push((!isSelected && !isBasePoint) ? styles['valid-hover'] : styles['invalid-hover']);
-    }
     if (isDraggingProp && pickedUpBasePoint && isBasePoint) {
       classes.push(styles.dragging);
     }
     if (isBasePoint && state.isInCheck) {
       classes.push(styles.inCheck);
-    }
-    if (state.isNonPlayable) {
-      classes.push(styles.nonPlayable);
     }
     if (state.isBestMoveFrom) {
       classes.push(styles.bestMoveFrom);
@@ -66,14 +60,11 @@ export const GridCell: Component<GridCellProps> = (props) => {
     if (state.isBestMoveTo) {
       classes.push(styles.bestMoveTo);
     }
+    if (isHovered && isDraggingProp && pickedUpBasePoint !== null) {
+      classes.push(styles['valid-drop']);
+    }
     return classes.join(' ');
   };
-
-  // Create class list with proper typing
-  const classList = {
-    [styles.draggable]: isBasePoint,
-    [styles['valid-drop']]: isHovered && isDraggingProp && pickedUpBasePoint !== null,
-  } as Record<string, boolean>;
 
   return (
     <button
@@ -83,16 +74,14 @@ export const GridCell: Component<GridCellProps> = (props) => {
       onMouseUp={handleMouseUp}
       onMouseLeave={() => props.onHover(false)}
       onClick={props.onClick}
-      classList={classList}
     >
       {isBasePoint ? (
         <div 
           class={`${styles.basePoint} ${styles.basePointMarker}`}
-          style={{ 'background-color': state.color || '#4CAF50', '--piece-color': state.color || '#4CAF50' }}
+          style={{ 'background-color': state.color, '--piece-color': state.color}}
           data-piece={state.pieceType}
           data-x={x}
           data-y={y}
-          data-color={state.color}
           data-testid={`piece-${x}-${y}`}
         >
           {pieceType === 'queen' && state.id != null && state.color && (
