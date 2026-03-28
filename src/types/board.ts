@@ -79,22 +79,35 @@ export interface SimpleMove {
 export interface Move extends SimpleMove{
   pieceType: PieceType;
   id: string;
-  basePointId?: string;
-  timestamp?: number;
-  playerId?: string;
   color: HexColor;
-  branchName?: string;
-  parentBranchName?: string | null;
+  branchName: string;
+  parentBranchName: string | null;
   moveNumber: number;
-  isCastle?: boolean;
-  castleType?: 'KING_SIDE' | 'QUEEN_SIDE' | null;
-  isBranch?: boolean;
-  isEnPassant?: boolean;
+  isCastle: boolean;
+  castleType: 'KING_SIDE' | 'QUEEN_SIDE' | null;
+  isBranch: boolean;
+  isEnPassant: boolean;
   capturedPiece?: CapturedPiece;
   capturedPieceId?: number | null;
-  gameId?: string;
-  userId?: string;
 }
+
+export interface ApiMove {
+  id: string;
+  gameId: string;
+  userId: string;
+  pieceType: PieceType;
+  color: HexColor;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  moveNumber: number;
+  capturedPieceId: number | null;
+  createdAtMs: number;
+  isBranch: boolean;
+  branchName: string;
+}
+      
 
 export interface BoardProps {
   gameId?: string;

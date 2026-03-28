@@ -33,7 +33,7 @@ import {
 import { calculateRestrictedSquares, updateMove, generateNewGameId } from '~/utils/boardUtils';
 import { getColorHex } from '~/utils/colorUtils';
 
-import { type Point, type BasePoint, type Move, type BranchPoints, type SquareIndex, createPoint, RestrictedSquareInfo, RestrictedSquares, PieceType, HexColor } from '../../types/board';
+import { type Point, type BasePoint, type Move, type BranchPoints, type SquareIndex, createPoint, RestrictedSquareInfo, RestrictedSquares, PieceType, HexColor, ApiMove } from '../../types/board';
 
 import { 
   PLAYER_COLORS, 
@@ -404,38 +404,28 @@ const Board: Component<BoardProps> = (props) => {
         console.log(`[loadGame] ${rawMoves.length} moves found`);
       }
       
-      // Define the type for the move object from the API
-      interface ApiMove {
-        id: number;
-        gameId: string;
-        userId: string;
-        pieceType: PieceType;
-        fromX: number;
-        fromY: number;
-        toX: number;
-        toY: number;
-        moveNumber: number;
-        capturedPieceId: number | null;
-        createdAtMs: number;
-        isBranch?: boolean;
-        branchName?: string | null;
+      function convertApiMove(move: ApiMove): Move {
+        return {
+            fromX: move.fromX,
+            fromY: move.fromY,
+            toX: move.toX,
+            toY: move.toY,
+            pieceType: move.pieceType,
+            id: move.id,
+            moveNumber: move.moveNumber,
+            isBranch: move.isBranch || false,
+            branchName: move.branchName || 'main',
+            color: move.color,
+            parentBranchName: move.branchName === 'main' ? null : move.branchName?.split('/').slice(0, -1).join('/') || null,
+            isCastle: false,
+            castleType: null,
+            isEnPassant: false,
+            capturedPiece: undefined
+
+        }
       }
-      
-      const moves = rawMoves.map((move: ApiMove) => ({
-        fromX: move.fromX,
-        fromY: move.fromY,
-        toX: move.toX,
-        toY: move.toY,
-        pieceType: move.pieceType,
-        userId: move.userId,
-        id: move.id,
-        gameId: move.gameId,
-        moveNumber: move.moveNumber,
-        capturedPieceId: move.capturedPieceId,
-        createdAtMs: move.createdAtMs,
-        isBranch: move.isBranch || false,
-        branchName: move.branchName || null
-      }));
+      const moves: Move[] = rawMoves.map(convertApiMove);
+
       
       // Update state in a batch
       batch(() => {
@@ -515,8 +505,6 @@ const Board: Component<BoardProps> = (props) => {
           //navigate(`/game/${gameIdToLoad}`, { replace: true });
         }
       });
-      
-      return moves;
     } catch (error) {
       console.error('Error loading game:', error);
       // Reset to a clean state on error
@@ -575,7 +563,7 @@ const Board: Component<BoardProps> = (props) => {
 
   const [kingsInCheck, setKingsInCheck] = createSignal<{[key: string]: boolean}>({});
   
-  const validateSquarePlacementLocal = (index: SquareIndex) => {
+  const validateSquarePlacementLocal = (index: SquareIndex): {isValid: boolean} => {
     return validateSquarePlacement(
       index,
       () => getRestrictedSquares() as RestrictedSquares,
@@ -1405,10 +1393,7 @@ const Board: Component<BoardProps> = (props) => {
   };
 
   // Helper function to update base point UI during drag
-  const updateBasePointUI = (target: [number, number]): boolean => {
-    if (!pickedUpBasePoint()) {
-      return false
-    }
+  const updateBasePointUI = (target: Point): boolean => {
 
     const currentBasePoint = pickedUpBasePoint();
     if (!currentBasePoint) {
@@ -1462,7 +1447,7 @@ const Board: Component<BoardProps> = (props) => {
     });
 
     // Update the drag start position to the new position
-    setDragStartPosition(createPoint(targetX, targetY));
+    setDragStartPosition(target);
     
     return true;
   };
@@ -1572,15 +1557,12 @@ const Board: Component<BoardProps> = (props) => {
     const startY = currentBasePoint.y
 
     // Clear the en passant target for the current player at the start of their move
-    const currentColor = basePoints().find(p => p.x === startX && p.y === startY)?.color;
-    if (currentColor) {
-      setEnPassantTargets(prev => ({
-        ...prev,
-        [currentColor]: null
-      }));
-    }
+    const color = currentBasePoint.color;
+    setEnPassantTargets(prev => ({
+      ...prev,
+      [color]: null
+    }));
 
-    // Get and validate the move target
     const target = getMoveTarget();
     if (!target) {
       cleanupDragState();
@@ -1606,8 +1588,6 @@ const Board: Component<BoardProps> = (props) => {
       return;
     }
 
-    const color = pointToMove.color;
-    
     // Handle en passant
     let isEnPassantCapture = false;
     if (pointToMove.pieceType === 'pawn') {
@@ -1669,8 +1649,7 @@ const Board: Component<BoardProps> = (props) => {
         // Check if we're making a move from a historical position (not the latest move)
         const isAtHistoricalPosition = currentMoveIndex() < moveHistory().length;
         let isBranching = false;
-        let branchName: string | null = null;
-        branchName = currentBranchName();
+        let branchName = currentBranchName();
         const currentIndex = currentMoveIndex();
         
         if (isAtHistoricalPosition) {
@@ -1678,7 +1657,7 @@ const Board: Component<BoardProps> = (props) => {
           
           const nextMainLineMove = mainLineMoves()[currentIndex];
           const isMainLineMove = nextMainLineMove && 
-            (branchName === 'main' || branchName === undefined) &&
+            (branchName === 'main' || branchName === undefined)
             nextMainLineMove.fromX === startX &&
             nextMainLineMove.fromY === startY &&
             nextMainLineMove.toX === targetX &&
@@ -1687,135 +1666,134 @@ const Board: Component<BoardProps> = (props) => {
           if (isMainLineMove) {
             console.log(`[handleGlobalMouseUp] Move matches main line at index ${currentIndex}`)
             setCurrentBranchName('main');
-            cleanupDragState();
             handleGoForward();
+            cleanupDragState();
             return;
+          }
+
+          const currentBranches = branchPoints()[currentIndex] || [];
+          
+          // Find a matching branch for this move
+          const matchingBranch = currentBranches.find(branch => {
+            const parentBranch = branch.parentBranch;
+            const move = branch.firstMove;
+            return parentBranch === currentBranchName() &&
+                    move.fromX === startX && 
+                    move.fromY === startY &&
+                    move.toX === targetX && 
+                    move.toY === targetY;
+          });
+          
+          if (matchingBranch) {
+            console.log(`[handleGlobalMouseUp] branch`);
+            
+            const { branchName: matchedBranchName } = matchingBranch;
+            setCurrentBranchName(matchedBranchName);
+            
+            // Get all moves in this branch, sorted by move number
+            const branchMoves = fullMoveHistory()
+              .filter(move => move && move.branchName === matchedBranchName)
+              .sort((a, b) => a.moveNumber - b.moveNumber);
+
+            if (branchMoves.length === 0) {
+              console.error(`[handleGlobalMouseUp] ERROR: No moves found in branch '${matchedBranchName}'`);
+              //cleanupDragState();
+              //isBranching = false;
+              throw new Error(`No moves found in branch '${matchedBranchName}'`);
+            }
+            
+            handleGoForward();
+            cleanupDragState();
+            return; // Exit early since we've handled the branch following
+          }
+
+          setMoveHistory(rebuildMoveHistory(currentBranchName()))
+
+          console.log(`[HandleGlobalMouseUp] attempting move: (${startX}, ${startY}) -> (${targetX}, ${targetY})`)
+
+          const nextMove = currentIndex < moveHistory().length ? moveHistory()[currentIndex] : undefined;
+          if (!nextMove) {
+            console.log(`[handleGlobalMouseUp] No next move found at index ${currentIndex}, creating new move`);
           } else {
-            const currentBranches = branchPoints()[currentIndex] || [];
-            
-            // Find a matching branch for this move
-            const matchingBranch = currentBranches.find(branch => {
-              const parentBranch = branch.parentBranch;
-              const move = branch.firstMove;
-              return parentBranch === currentBranchName() &&
-                     move.fromX === startX && 
-                     move.fromY === startY &&
-                     move.toX === targetX && 
-                     move.toY === targetY;
-            });
-            
-            if (matchingBranch) {
-              console.log(`[handleGlobalMouseUp] branch`);
-              
-              const { branchName: matchedBranchName } = matchingBranch;
-              setCurrentBranchName(matchedBranchName);
-              
-              // Get all moves in this branch, sorted by move number
-              const branchMoves = fullMoveHistory()
-                .filter(move => move && move.branchName === matchedBranchName)
-                .sort((a, b) => a.moveNumber - b.moveNumber);
+            console.log(`[handleGlobalMouseUp] nextMove in branch: ${nextMove.fromX}, ${nextMove.fromY} -> ${nextMove.toX}, ${nextMove.toY}`);
+          }
 
-              if (branchMoves.length === 0) {
-                console.error(`[handleGlobalMouseUp] ERROR: No moves found in branch '${matchedBranchName}'`);
-                //cleanupDragState();
-                //isBranching = false;
-                throw new Error(`No moves found in branch '${matchedBranchName}'`);
-              }
-              
-              handleGoForward();
-              isBranching = false;
-              return; // Exit early since we've handled the branch following
-            }
+          if (nextMove && nextMove.fromX === startX && nextMove.fromY === startY &&
+              nextMove.toX === targetX && nextMove.toY === targetY) {
+            console.log(`[handleGlobalMouseUp] follow same branch`);
+            handleGoForward()
+            cleanupDragState();
+            return;
+          }
 
-            setMoveHistory(rebuildMoveHistory(currentBranchName()))
+          const branchPointMoves = branchPoints()[currentIndex + 1]
+            ?.filter(bp => bp.parentBranch === branchName)
+            .map(bp => bp.firstMove);
+          
+          const isBranchPointMove = branchPointMoves?.some(branchMove => {
+            return branchMove.fromX === startX &&
+                    branchMove.fromY === startY &&
+                    branchMove.toX === targetX &&
+                    branchMove.toY === targetY;
+          });
 
-            console.log(`[HandleGlobalMouseUp] attempting move: (${startX}, ${startY}) -> (${targetX}, ${targetY})`)
+          if (isBranchPointMove) {
+            console.log(`[handleGlobalMouseUp] Move matches branch point`);
+            setCurrentBranchName(branchName || 'main');
+            handleGoForward();
+            cleanupDragState();
+            return;
+          }
 
-            const nextMove = currentIndex < moveHistory().length ? moveHistory()[currentIndex] : undefined;
-            if (!nextMove) {
-              console.log(`[handleGlobalMouseUp] No next move found at index ${currentIndex}, creating new move`);
+          if (currentIndex >= moveHistory().length) {
+            console.log(`[handleGlobalMouseUp] at end of line`);
+            // Continue with normal move creation without branching
+            isBranching = false;
+
+            // Check if we're in the main line or a branch
+            const currentBranch = currentBranchName();
+            if (currentBranch === 'main' || currentBranch === null) {
+              // We're in the main line, continue main line
+              setCurrentBranchName('main');
             } else {
-              console.log(`[handleGlobalMouseUp] nextMove in branch: ${nextMove.fromX}, ${nextMove.fromY} -> ${nextMove.toX}, ${nextMove.toY}`);
+              // We're in a branch, continue the same branch
+              setCurrentBranchName(currentBranch);
             }
-
-            if (nextMove && nextMove.fromX === startX && nextMove.fromY === startY &&
-                nextMove.toX === targetX && nextMove.toY === targetY) {
-              console.log(`[handleGlobalMouseUp] follow same branch`);
-              handleGoForward()
-              cleanupDragState();
-              isBranching = false;
-              return;
-            }
-
-            const branchPointMoves = branchPoints()[currentIndex + 1]
-              ?.filter(bp => bp.parentBranch === branchName)
-              .map(bp => bp.firstMove);
+          } else {
+            console.log(`[handleGlobalMouseUp] branching`);
+            // If we get here, it's a new branch
+            isBranching = true;
+          }
+          
+          if (isBranching) {
+            const parentBranch = currentBranchName() || 'main';
+            const nextMoveIdx = (currentIndex + 1) + 1; // currentIndex + 1 for 1-based, then +1 for next move
+            branchName = generateBranchName(nextMoveIdx, parentBranch);
             
-            const isBranchPointMove = branchPointMoves?.some(branchMove => {
-              return branchMove.fromX === startX &&
-                     branchMove.fromY === startY &&
-                     branchMove.toX === targetX &&
-                     branchMove.toY === targetY;
-            });
-
-            if (isBranchPointMove) {
-              console.log(`[handleGlobalMouseUp] Move matches branch point`);
-              setCurrentBranchName(branchName || 'main');
-              cleanupDragState();
-              handleGoForward();
-              return;
-            }
-
-            if (currentIndex >= moveHistory().length) {
-              console.log(`[handleGlobalMouseUp] at end of line`);
-              // Continue with normal move creation without branching
-              isBranching = false;
-
-              // Check if we're in the main line or a branch
-              const currentBranch = currentBranchName();
-              if (currentBranch === 'main' || currentBranch === null) {
-                // We're in the main line, continue main line
-                setCurrentBranchName('main');
-              } else {
-                // We're in a branch, continue the same branch
-                setCurrentBranchName(currentBranch);
-              }
-            } else {
-              console.log(`[handleGlobalMouseUp] branching`);
-              // If we get here, it's a new branch
-              isBranching = true;
-            }
-            
-            if (isBranching) {
-              const parentBranch = currentBranchName() || 'main';
-              const nextMoveIdx = (currentIndex + 1) + 1; // currentIndex + 1 for 1-based, then +1 for next move
-              branchName = generateBranchName(nextMoveIdx, parentBranch);
+            setBranchPoints(prev => {
+              // Ensure branchName is never null or undefined
+              const safeBranchName = branchName!;
               
-              setBranchPoints(prev => {
-                // Ensure branchName is never null or undefined
-                const safeBranchName = branchName!;
-                
-                const newPoints = {
-                  ...prev,
-                  [currentIndex]: [
-                    ...(prev[currentIndex] || []),
-                    { 
-                      branchName: safeBranchName,
-                      parentBranch: parentBranch,  // Include parent branch information
-                      firstMove: {
-                        fromX: startX,
-                        fromY: startY,
-                        toX: targetX,
-                        toY: targetY
-                      }
+              const newPoints = {
+                ...prev,
+                [currentIndex]: [
+                  ...(prev[currentIndex] || []),
+                  { 
+                    branchName: safeBranchName,
+                    parentBranch: parentBranch,  // Include parent branch information
+                    firstMove: {
+                      fromX: startX,
+                      fromY: startY,
+                      toX: targetX,
+                      toY: targetY
                     }
-                  ]
-                };
-                
-                return newPoints;
-              });
-              setCurrentBranchName(branchName);
-            }
+                  }
+                ]
+              };
+              
+              return newPoints;
+            });
+            setCurrentBranchName(branchName);
           }
         }
 
@@ -1829,13 +1807,11 @@ const Board: Component<BoardProps> = (props) => {
         
         const newMove: Move = {
           id: Date.now().toString(),
-          basePointId: pointToMove.id.toString(),
+          //basePointId: pointToMove.id.toString(),
           fromX: startX,
           fromY: startY,
           toX: targetX,
           toY: targetY,
-          timestamp: Date.now(),
-          playerId: pointToMove.userId,
           color: getColorHex(pointToMove.color) as HexColor,
           branchName: currentBranch,
           parentBranchName: currentBranch === 'main' ? null : currentBranch.split('/').slice(0, -1).join('/') || null,
@@ -1864,7 +1840,7 @@ const Board: Component<BoardProps> = (props) => {
         }
         
         // Add the new move to the full history
-        let newFullHistory;
+        let newFullHistory: Move[] = [];
         if (isBranching) {
           console.log(`[handleGlobalMouseUp] inside isBranching`)
           const currentHistory = fullMoveHistory();
@@ -1906,7 +1882,7 @@ const Board: Component<BoardProps> = (props) => {
 
         // Updating move in database
         const result = await updateMove(
-          pointToMove.id, 
+          pointToMove.pieceType,
           targetX, 
           targetY, 
           newMove.moveNumber,  // Use the move number from newMove
@@ -1982,10 +1958,8 @@ const Board: Component<BoardProps> = (props) => {
         
         // If we don't have a last hovered cell or it's different from current cell
         if (!lastCell || (lastCell[0] !== currentCell[0] || lastCell[1] !== currentCell[1])) {
-          // Only update the target position and UI, don't make API calls yet
           setTargetPosition(currentCell);
           updateBasePointUI(currentCell);
-          // Update the last hovered cell
           setLastHoveredCell(currentCell);
         }
       }

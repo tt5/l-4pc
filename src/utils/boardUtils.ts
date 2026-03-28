@@ -1,5 +1,5 @@
 import { BOARD_CONFIG } from '../constants/game';
-import { BasePoint, SquareIndex, RestrictedByInfo, RestrictedSquareInfo, Point, NamedColor } from '../types/board';
+import { BasePoint, SquareIndex, RestrictedByInfo, RestrictedSquareInfo, Point, NamedColor, PieceType } from '../types/board';
 import type { ApiResponse } from './api';
 import { getLegalMoves } from './gameUtils';
 import { makeApiCall, parseApiResponse, generateRequestId } from './clientApi';
@@ -69,21 +69,8 @@ export function calculateRestrictedSquares(
   return { restrictedSquares, restrictedSquaresInfo };
 }
 
-/**
- * Records a move in the game history
- * @param id The ID of the base point being moved
- * @param x The new x-coordinate
- * @param y The new y-coordinate
- * @param moveNumber The current move number (optional)
- * @param branchName The name of the branch (optional)
- * @param isNewBranch Whether this is a new branch (optional)
- * @param gameId The ID of the game (required for branching)
- * @param fromX The source X coordinate (optional)
- * @param fromY The source Y coordinate (optional)
- * @returns A promise that resolves to the API response
- */
 export const updateMove = async (
-  id: number, 
+  pieceType: PieceType,
   x: number, 
   y: number, 
   moveNumber?: number, 
@@ -106,7 +93,7 @@ export const updateMove = async (
         method: 'POST',
         body: JSON.stringify({
           gameId,
-          pieceType: 'piece', // This should be replaced with actual piece type
+          pieceType: pieceType, // This should be replaced with actual piece type
           fromX,
           fromY,
           toX: x,

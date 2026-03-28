@@ -90,6 +90,7 @@ export class MoveRepository {
         game_id as gameId,
         user_id as userId, 
         piece_type as pieceType,
+        color,
         from_x as fromX,
         from_y as fromY,
         to_x as toX,
