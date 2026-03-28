@@ -1205,6 +1205,9 @@ const Board: Component<BoardProps> = (props) => {
 
     // 6. Calculate and update restricted squares
     const currentKingInCheck = kingInCheck();
+    if (currentKingInCheck != null) {
+      //TODO
+    }
     const isCurrentKingInCheck = currentKingInCheck !== null && 
       getTeamByColor(PLAYER_COLORS[currentTurnIndex() % PLAYER_COLORS.length]) === currentKingInCheck.team;
       

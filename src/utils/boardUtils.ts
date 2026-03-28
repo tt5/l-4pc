@@ -29,7 +29,6 @@ export function calculateRestrictedSquares(
   for (const piece of pieces) {
     
     const moves = getLegalMoves(piece, boardState, {
-      isKingInCheck: options.isKingInCheck,
       enPassantTarget: options.enPassantTarget
     });
     

@@ -1,4 +1,4 @@
-import { getTeamByColor, isInNonPlayableCorner, BOARD_CONFIG } from '~/constants/game';
+import { isInNonPlayableCorner, BOARD_CONFIG } from '~/constants/game';
 import { MOVE_PATTERNS, PIECE_TYPES } from '~/constants/movePatterns';
 import { type BasePoint, type PieceType, type Move, type RestrictedSquareInfo, type SquareIndex, type LegalMove, type Point, createPoint, RestrictedSquares, NamedColor, Color, HexColor } from '~/types/board';
 
@@ -122,10 +122,8 @@ function getSquaresInDirection(
  * @returns True if the path is clear, false if there are pieces in the way
  */
 export function isPathClear(
-  x1: number, 
-  y1: number, 
-  x2: number, 
-  y2: number,
+  a: Point,
+  b: Point,
   allBasePoints: BasePoint[]
 ): boolean {
   /*
@@ -136,14 +134,13 @@ export function isPathClear(
   -1 if the number is negative (moving left/up)
   0 if the number is zero (no movement in that direction)
   */
-  const dx = Math.sign(x2 - x1);
-  const dy = Math.sign(y2 - y1);
-  let x = x1 + dx;
-  let y = y1 + dy;
+  const dx = Math.sign(a[1] - a[0]);
+  const dy = Math.sign(b[1] - b[0]);
+  let x = a[0] + dx;
+  let y = b[0] + dy;
 
   // Only check up to, but not including, the end position
-  // The end position is where the king is, and it's expected to be occupied
-  while (!(x === x2 && y === y2)) {
+  while (!(x === a[1] && y === b[1])) {
     if (allBasePoints.some(p => p.x === x && p.y === y)) {
       return false;
     }
@@ -182,7 +179,7 @@ export function canPieceAttack(
   if (piece.pieceType === 'queen') {
     // Check if moving in a straight line or diagonal
     if (piece.x === targetX || piece.y === targetY || Math.abs(dx) === Math.abs(dy)) {
-      return isPathClear(piece.x, piece.y, targetX, targetY, allBasePoints);
+      return isPathClear(createPoint(piece.x, piece.y), createPoint(targetX, targetY), allBasePoints);
     }
     return false;
   }
@@ -190,7 +187,7 @@ export function canPieceAttack(
   // Rook movement (any number of squares horizontally or vertically)
   if (piece.pieceType === 'rook') {
     if (piece.x === targetX || piece.y === targetY) {
-      return isPathClear(piece.x, piece.y, targetX, targetY, allBasePoints);
+      return isPathClear(createPoint(piece.x, piece.y), createPoint(targetX, targetY), allBasePoints);
     }
     return false;
   }
@@ -198,7 +195,7 @@ export function canPieceAttack(
   // Bishop movement (any number of squares diagonally)
   if (piece.pieceType === 'bishop') {
     if (dx === dy) {
-      return isPathClear(piece.x, piece.y, targetX, targetY, allBasePoints);
+      return isPathClear(createPoint(piece.x, piece.y), createPoint(targetX, targetY), allBasePoints);
     }
     return false;
   }
@@ -457,13 +454,13 @@ export function isKingInCheck(
 }
 
 export function wouldResolveCheck(
-  from: Point,
+  movingPiece: BasePoint,
   to: Point,
   color: Color,
   allBasePoints: BasePoint[],
 ): boolean {
 
-  const team = getTeamByColor(color);
+  const team = movingPiece.team;
   const king = allBasePoints.find(p => {
     const isKing = p.pieceType === 'king' && p.color === color;
     return isKing;
@@ -473,16 +470,12 @@ export function wouldResolveCheck(
     return true;
   }
   
+  // this is necessary! 
   const currentCheck = isKingInCheck(king, allBasePoints);
   if (!currentCheck) {
     return true;
   }
   
-  const movingPiece = allBasePoints.find(bp => bp.x === from[0] && bp.y === from[1]);
-  if (!movingPiece) {
-    return false;
-  }
-
   // If the piece being moved is the king, check if the new position is safe
   if (movingPiece.pieceType === 'king') {
     return !isSquareUnderAttack(to[0], to[1], team === 1 ? 2 : 1, allBasePoints);
@@ -510,7 +503,7 @@ export function wouldResolveCheck(
     return true;
   }
 
-  // Check if the move blocks the attack
+  // Check if the move blocks the attack from queen, rook or bishop
   const blocksAttack = isSquareBetween(createPoint(attacker.x, attacker.y), createPoint(king.x, king.y), to);
   if (blocksAttack) {
     return true;
@@ -527,10 +520,6 @@ export function getLegalMoves(
     enPassantTarget?: Record<string, {x: number, y: number, color: string} | null>;
   } = {}
 ): LegalMove[] {
-
-  const { 
-    isKingInCheck = false, 
-  } = options;
 
   const pieceType = basePoint.pieceType
   const team = basePoint.team;
@@ -604,7 +593,7 @@ export function getLegalMoves(
       
       // King-side castling
       const kingSideCastleType: CastleType = `${color}_KING_SIDE`;
-      if (canCastle(basePoint, allBasePoints, kingSideCastleType, team)) {
+      if (canCastle(basePoint, allBasePoints, kingSideCastleType)) {
         const [dx, dy] = MOVE_PATTERNS.CASTLING[kingSideCastleType];
         castlingMoves.push({
           x: basePoint.x + dx,
@@ -616,7 +605,7 @@ export function getLegalMoves(
       }
       // Queen-side castling
       const queenSideCastleType: CastleType = `${color}_QUEEN_SIDE`;
-      if (canCastle(basePoint, allBasePoints, queenSideCastleType, team)) {
+      if (canCastle(basePoint, allBasePoints, queenSideCastleType)) {
         const [dx, dy] = MOVE_PATTERNS.CASTLING[queenSideCastleType];
         castlingMoves.push({
           x: basePoint.x + dx,
@@ -923,11 +912,10 @@ export function getLegalMoves(
   }
 
   // Then filter moves that would leave the king in check
-  if (isKingInCheck && wouldResolveCheck && pieceType !== 'king') {
-    
+  if (pieceType !== 'king') {
     possibleMoves = possibleMoves.filter(move => {
       return wouldResolveCheck(
-        createPoint(basePoint.x, basePoint.y),
+        basePoint,
         createPoint(move.x, move.y),
         color,
         allBasePoints,
@@ -951,8 +939,7 @@ const getPieceKey = (piece: BasePoint): string => {
 export const canCastle = (
   king: BasePoint,
   allBasePoints: BasePoint[],
-  castleType: string,  // Now accepts any string for the castling type
-  currentTeam: 1 | 2,
+  castleType: CastleType,
 ): boolean => {
 
     // Check if king has moved - we'll rely on the movedPieces set
@@ -961,16 +948,7 @@ export const canCastle = (
     return false;
   }
 
-  // Extract color and side from castleType
-  const [colorName, ...sideParts] = castleType.split('_');
-  const side = sideParts.join('_'); // This will handle "KING_SIDE" or "QUEEN_SIDE"
-  
-  if (!colorName) {
-    return false;
-  }
-
-  const castlingKey = `${colorName}_${side}` as CastlingKey;
-  const castlingConfig = MOVE_PATTERNS.CASTLING[castlingKey];
+  const castlingConfig = MOVE_PATTERNS.CASTLING[castleType];
   
   if (!castlingConfig) {
     return false;
@@ -989,6 +967,7 @@ export const canCastle = (
   if (!rook) {
     return false;
   }
+
   const rookKey = getPieceKey(rook);
   if (movedPieces.has(rookKey)) {
     return false;
@@ -1007,7 +986,7 @@ export const canCastle = (
   while (x !== endX || y !== endY) {
     const occupied = isSquareOccupied(createPoint(x, y), allBasePoints);
 
-    const opponentTeam = currentTeam === 1 ? 2 : 1;
+    const opponentTeam = king.team === 1 ? 2 : 1;
     const underAttack = isSquareUnderAttack(x, y, opponentTeam, allBasePoints);
     
     if (occupied || underAttack) {
