@@ -17,12 +17,10 @@ export const generateBranchName = (moveNumber: number, parentBranch: string | nu
  * @returns The full branch path
  */
 export const buildFullBranchName = (
-  branchPath: string | null, 
+  branchPath: string, 
   fullMoveHistory?: any[]
 ): string => {
-  if (!branchPath) {
-    branchPath = 'main';
-  }
+
   const branchPathFull = branchPath?.split('/') || [];
   const branchPathShort = branchPathFull.slice(-2);
   let reconstructedBranchName = branchPathShort[1];

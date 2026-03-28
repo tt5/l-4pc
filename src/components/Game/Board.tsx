@@ -351,6 +351,9 @@ const Board: Component<BoardProps> = (props) => {
     }
   };
 
+  // unordered moves
+  const [fullMoveHistory, setFullMoveHistory] = createSignal<Move[]>([]);
+
   const loadGame = async (gameIdToLoad: string) => {
     console.log(`[loadGame] Starting to load game with ID: ${gameIdToLoad}`);
     
@@ -414,7 +417,7 @@ const Board: Component<BoardProps> = (props) => {
             id: move.id,
             moveNumber: move.moveNumber,
             isBranch: move.isBranch || false,
-            branchName: move.branchName || 'main',
+            branchName: move.branchName,
             color: move.color,
             parentBranchName: move.branchName === 'main' ? null : move.branchName?.split('/').slice(0, -1).join('/') || null,
             isCastle: false,
@@ -426,7 +429,6 @@ const Board: Component<BoardProps> = (props) => {
       }
       const moves: Move[] = rawMoves.map(convertApiMove);
 
-      
       // Update state in a batch
       batch(() => {
         setGameId(gameIdToLoad);
@@ -587,14 +589,13 @@ const Board: Component<BoardProps> = (props) => {
   const [isProcessingMove, setIsProcessingMove] = createSignal(false);
   const [hoveredCell, setHoveredCell] = createSignal<Point | null>(null);
   
-  const [fullMoveHistory, setFullMoveHistory] = createSignal<Move[]>([]);
   const [mainLineMoves, setMainLineMoves] = createSignal<Move[]>([]);
   // Current move history up to the end of branch
   const [moveHistory, setMoveHistory] = createSignal<Move[]>([]);
   // Current position in the move history (for going back/forward)
   const [currentMoveIndex, setCurrentMoveIndex] = createSignal(-1);
   // Branch name for the current move (if any)
-  const [currentBranchName, setCurrentBranchName] = createSignal<string | null>(null);
+  const [currentBranchName, setCurrentBranchName] = createSignal<string>('main');
   
   // Track branch points and their associated branches
   const [branchPoints, setBranchPoints] = createSignal<BranchPoints>({});
@@ -613,7 +614,7 @@ const Board: Component<BoardProps> = (props) => {
   const getCurrentFen4 = (): string => fen4();
 
   // Rebuild move history for a given target branch, handling nested branches
-  const rebuildMoveHistory = (targetBranch: string | null): Move[] => {
+  const rebuildMoveHistory = (targetBranch: string): Move[] => {
 
     const branchPath = buildFullBranchName(targetBranch, fullMoveHistory())?.split('/') || [];
 
@@ -687,7 +688,7 @@ const Board: Component<BoardProps> = (props) => {
     setCurrentMoveIndex(0);
     setMoveHistory([]);
     setCurrentTurnIndex(0);
-    setCurrentBranchName(null);
+    setCurrentBranchName('main');
     setBranchPoints({});
     setMainLineMoves([]);
     setGameId(DEFAULT_GAME_ID);
@@ -1266,7 +1267,7 @@ const Board: Component<BoardProps> = (props) => {
         setCurrentMoveIndex(newIndex);
         
         const targetMove = history[newIndex];
-        setCurrentBranchName(targetMove?.branchName || null);
+        setCurrentBranchName(targetMove.branchName);
         
         const newTurnIndex = newIndex % PLAYER_COLORS.length;
         setCurrentTurnIndex(newTurnIndex);
@@ -1657,7 +1658,7 @@ const Board: Component<BoardProps> = (props) => {
           
           const nextMainLineMove = mainLineMoves()[currentIndex];
           const isMainLineMove = nextMainLineMove && 
-            (branchName === 'main' || branchName === undefined)
+            branchName === 'main' &&
             nextMainLineMove.fromX === startX &&
             nextMainLineMove.fromY === startY &&
             nextMainLineMove.toX === targetX &&
@@ -1839,41 +1840,7 @@ const Board: Component<BoardProps> = (props) => {
           });
         }
         
-        // Add the new move to the full history
-        let newFullHistory: Move[] = [];
-        if (isBranching) {
-          console.log(`[handleGlobalMouseUp] inside isBranching`)
-          const currentHistory = fullMoveHistory();
-          const currentBranch = currentBranchName();
-          
-          // Find all moves in the current branch
-          const currentBranchMoves = currentHistory.filter(move => 
-            move.branchName === currentBranch
-          );
-          
-          // The branch point is the last move in the current branch
-          const branchPointMove = currentBranchMoves[currentBranchMoves.length - 1];
-          
-          // Find the index of the branch point in the full history
-          const branchPointIndex = currentHistory.findIndex(move => 
-            move === branchPointMove
-          );
-          
-          // Insert the new move after the branch point
-          newFullHistory = [
-            ...currentHistory.slice(0, branchPointIndex + 1),
-            newMove,
-            ...currentHistory.slice(branchPointIndex + 1)
-          ];
-        } else {
-          // Normal case - just append to the end
-          newFullHistory = [...fullMoveHistory(), newMove];
-          console.log(`[handleGlobalMouseUp] normal case`)
-        }
-
-        console.log(`[handleGlobalMouseUp] after isBranching`)
-        
-        setFullMoveHistory(newFullHistory);
+        setFullMoveHistory([...fullMoveHistory(), newMove]);
         
         // Rebuild the move history for the current branch
         const currentBranchNameValue = currentBranchName();
