@@ -1,17 +1,18 @@
 import { APIEvent } from '@solidjs/start/server';
 import { getDb } from '~/lib/server/db';
+import { getAuthUser } from '~/lib/server/auth/jwt';
 
 export async function GET({ request }: APIEvent) {
   try {
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader) {
+    const user = await getAuthUser(request);
+    
+    if (!user) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    const token = authHeader.replace('Bearer ', '');
     const db = await getDb();
     
     // Get all unique game IDs for the user
@@ -20,7 +21,7 @@ export async function GET({ request }: APIEvent) {
        FROM moves 
        WHERE user_id = ? 
        ORDER BY created_at_ms DESC`,
-      [token]
+      [user.userId]
     );
 
     const gameIds = games.map(g => g.game_id);
