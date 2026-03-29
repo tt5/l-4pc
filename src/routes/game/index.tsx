@@ -58,10 +58,15 @@ function GameContent() {
     if (!user()) return;
     
     try {
+      const userToken = getToken();
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (userToken) {
+        headers['Authorization'] = `Bearer ${userToken}`;
+      }
+
       const response = await fetch('/api/game/latest', {
-        headers: {
-          'Authorization': `Bearer ${user()?.id}`
-        }
+        headers,
+        credentials: 'include'
       });
       
       if (response.ok) {
