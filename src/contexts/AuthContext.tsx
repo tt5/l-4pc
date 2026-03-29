@@ -8,6 +8,7 @@ interface AuthStore {
   logout: () => Promise<void>;
   isInitialized: () => boolean;
   getToken: () => string | null;
+  updateUser: (userData: User) => void;
 }
 
 const AuthContext = createContext<AuthStore>();
@@ -276,7 +277,8 @@ const createAuthStore = (): AuthStore => {
     login,
     logout,
     isInitialized,
-    getToken
+    getToken,
+    updateUser
   };
 };
 

@@ -1,5 +1,6 @@
 import type { APIEvent } from '@solidjs/start/server';
 import { getDb } from '~/lib/server/db';
+import { generateToken } from '~/lib/server/auth/jwt';
 import { randomBytes } from 'crypto';
 
 function json(data: any, { status = 200, headers = {} } = {}) {
@@ -56,13 +57,20 @@ export async function POST({ request }: APIEvent) {
         [userId, username, password]
       );
       
+      // Generate JWT token for immediate use
+      const token = generateToken({
+        userId: userId,
+        username: username
+      });
+      
       // Commit the transaction
       await db.exec('COMMIT');
       
       return json({ 
         user: { 
           id: userId, 
-          username
+          username: username,
+          token: token
         } 
       }, { status: 201 });
       

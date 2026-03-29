@@ -1,5 +1,6 @@
 import { createSignal } from 'solid-js';
 import { A, useNavigate } from '@solidjs/router';
+import { useAuth } from '~/contexts/AuthContext';
 import styles from './Login.module.css';
 
 export default function RegisterForm() {
@@ -8,6 +9,7 @@ export default function RegisterForm() {
   const [error, setError] = createSignal('');
   const [isLoading, setIsLoading] = createSignal(false);
   const navigate = useNavigate();
+  const { updateUser } = useAuth();
 
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
@@ -32,8 +34,11 @@ export default function RegisterForm() {
         throw new Error(data.error || 'Registration failed');
       }
 
-      // Redirect to login page after successful registration
-      navigate('/login', { state: { registered: true } });
+      // Update user context with token
+      updateUser(data.user);
+
+      // Navigate directly to game page
+      navigate('/game');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
