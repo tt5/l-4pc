@@ -2,7 +2,8 @@ import { BOARD_CONFIG } from '../constants/game';
 import { BasePoint, SquareIndex, RestrictedByInfo, RestrictedSquareInfo, Point, NamedColor, PieceType } from '../types/board';
 import type { ApiResponse } from './api';
 import { getLegalMoves } from './gameUtils';
-import { makeApiCall, parseApiResponse, generateRequestId } from './clientApi';
+import { makeAuthenticatedApiCall, parseApiResponse, generateRequestId } from './clientApi';
+import { useAuth } from '../contexts/AuthContext';
 
 export const generateNewGameId = (): string => {
   // Generate a random 8-character alphanumeric ID
@@ -89,11 +90,11 @@ export const updateMove = async (
     // First create the move if we have a game context
     if (gameId && fromX !== undefined && fromY !== undefined) {
       const requestId = generateRequestId();
-      const moveResponse = await makeApiCall('/api/moves', {
+      const moveResponse = await makeAuthenticatedApiCall('/api/moves', {
         method: 'POST',
         body: JSON.stringify({
           gameId,
-          pieceType: pieceType, // This should be replaced with actual piece type
+          pieceType: pieceType,
           fromX,
           fromY,
           toX: x,
