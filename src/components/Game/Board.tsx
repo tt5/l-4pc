@@ -1743,6 +1743,7 @@ const Board: Component<BoardProps> = (props) => {
         setMoveHistory(linearHistory);
 
         // Updating move in database
+        const userToken = auth.getToken();
         const result = await updateMove(
           pointToMove.pieceType,
           targetX, 
@@ -1752,7 +1753,8 @@ const Board: Component<BoardProps> = (props) => {
           Boolean(newMove.isBranch),  // Explicitly convert to boolean
           gameId(),         // Pass the current game ID
           startX,           // fromX (source X coordinate)
-          startY            // fromY (source Y coordinate)
+          startY,           // fromY (source Y coordinate)
+          userToken || undefined  // Pass the auth token
         );
         
         if (!result.success) {

@@ -1,6 +1,6 @@
 import { Component, createSignal } from 'solid-js';
 import { useAuth } from '../../contexts/AuthContext';
-import { makeAuthenticatedApiCall } from '../../utils/clientApi';
+import { makeApiCall } from '../../utils/clientApi';
 import styles from './BoardControls.module.css';
 
 type BoardControlsProps = {
@@ -38,13 +38,13 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
     
     setIsResetting(true);
     try {
-      const response = await makeAuthenticatedApiCall('/api/reset-board', {
+      const response = await makeApiCall('/api/reset-board', {
         method: 'POST',
         body: JSON.stringify({ 
           userId: currentUser.id,
           gameId: props.gameId
         })
-      });
+      }, currentUser.token);
 
       if (!response.ok) {
         throw new Error('Failed to reset board');

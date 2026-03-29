@@ -79,7 +79,8 @@ export const updateMove = async (
   isNewBranch?: boolean,
   gameId?: string,
   fromX?: number,  // Source X coordinate
-  fromY?: number   // Source Y coordinate
+  fromY?: number,   // Source Y coordinate
+  token?: string   // JWT token for authentication
 ): Promise<ApiResponse<BasePoint>> => {
   try {
     // Validate input
@@ -90,7 +91,7 @@ export const updateMove = async (
     // First create the move if we have a game context
     if (gameId && fromX !== undefined && fromY !== undefined) {
       const requestId = generateRequestId();
-      const moveResponse = await makeAuthenticatedApiCall('/api/moves', {
+      const moveResponse = await makeApiCall('/api/moves', {
         method: 'POST',
         body: JSON.stringify({
           gameId,
@@ -103,7 +104,7 @@ export const updateMove = async (
           isBranch: isNewBranch,
           branchName: branchName ?? 'main'
         })
-      });
+      }, token);
 
       if (!moveResponse.ok) {
         const result = await parseApiResponse(moveResponse, requestId);
