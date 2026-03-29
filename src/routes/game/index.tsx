@@ -5,6 +5,7 @@ import { useAuth } from '~/contexts/AuthContext';
 import { RestrictedSquaresProvider } from '~/contexts/RestrictedSquaresContext';
 import Board from '~/components/Game/Board';
 import { DEFAULT_GAME_ID } from '~/constants/game';
+import { makeAuthenticatedApiCall, parseApiResponse } from '~/utils/clientApi';
 import styles from './game.module.css';
 
 function GameContent() {
@@ -22,21 +23,9 @@ function GameContent() {
     async (userId) => {
       if (!userId) return [];
       try {
-        const userToken = getToken();
-        const headers: HeadersInit = { 'Content-Type': 'application/json' };
-        if (userToken) {
-          headers['Authorization'] = `Bearer ${userToken}`;
-        }
-
-        const response = await fetch('/api/game/list', {
-          headers
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          return data.gameIds || [];
-        }
-        return [];
+        const response = await makeAuthenticatedApiCall('/api/game/list');
+        const data = await parseApiResponse(response, 'list-games');
+        return data.data?.gameIds || [];
       } catch (error) {
         console.error('Failed to fetch game list:', error);
         return [];
@@ -57,21 +46,10 @@ function GameContent() {
     if (!user()) return;
     
     try {
-      const userToken = getToken();
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      if (userToken) {
-        headers['Authorization'] = `Bearer ${userToken}`;
-      }
-
-      const response = await fetch('/api/game/latest', {
-        headers
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data.gameId) {
-          setGameId(data.gameId);
-        }
+      const response = await makeAuthenticatedApiCall('/api/game/latest');
+      const data = await parseApiResponse(response, 'latest-game');
+      if (data.data?.gameId) {
+        setGameId(data.data.gameId);
       }
     } catch (error) {
       console.error('Failed to fetch latest game ID:', error);

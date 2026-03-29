@@ -1,6 +1,7 @@
 import { createContext, createEffect, createSignal, useContext, type ParentComponent } from 'solid-js';
 import { getEnvVar } from '../lib/utils/env';
 import type { User, NullableUser } from '../types/user';
+import { makeApiCall, parseApiResponse } from '../utils/clientApi';
 
 interface AuthStore {
   user: () => NullableUser;
@@ -103,76 +104,26 @@ const createAuthStore = (): AuthStore => {
     try {
       setIsInitialized(false);
       
-      const response = await fetch('/api/auth/verify', {
+      const token = savedUser?.token;
+      if (!token) {
+        console.log('No token available for session verification');
+        updateUser(null);
+        return;
+      }
+      
+      const response = await makeApiCall('/api/auth/verify', {
         method: 'GET',
-        credentials: 'include',
         headers: { 
-          'Content-Type': 'application/json',
           'Cache-Control': 'no-cache',
           'Pragma': 'no-cache'
         }
-      });
+      }, token);
 
-      const data = await response.json();
+      const data = await parseApiResponse(response, 'verify-session');
       
-      if (data.valid && data.user) {
-        console.log('Session verified:', data.user);
-        return {
-          user,
-          isInitialized,
-          login: async (username: string, password: string) => {
-            try {
-              const response = await fetch('/api/auth/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ 
-                  username, 
-                  password
-                })
-              });
-
-              const data = await response.json();
-              
-              if (!response.ok) {
-                throw new Error(data?.error || 'Login failed');
-              }
-
-              if (!data.user) {
-                throw new Error('Invalid server response: missing user data');
-              }
-              
-              updateUser(data.user);
-              return data.user;
-            } catch (error) {
-              console.error('Login error:', error);
-              throw error;
-            }
-          },
-          logout: async () => {
-            try {
-              const response = await fetch('/api/auth/logout', { 
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include'
-              });
-              
-              if (!response.ok) {
-                throw new Error('Logout failed');
-              }
-              
-              // Clear the user from local storage and state
-              updateUser(null);
-              
-              // Force a full page reload to clear any application state
-              window.location.href = '/';
-            } catch (error) {
-              // Even if the API call fails, clear the user from state
-              updateUser(null);
-              window.location.href = '/';
-            }
-          }
-        };
+      if (data.data?.valid && data.data.user) {
+        console.log('Session verified:', data.data.user);
+        updateUser(data.data.user);
       } else {
         console.log('No valid session found');
         updateUser(null);
@@ -194,28 +145,22 @@ const createAuthStore = (): AuthStore => {
       
   const login = async (username: string, password: string) => {
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await makeApiCall('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ 
           username, 
           password
         })
       });
 
-      const data = await response.json();
+      const data = await parseApiResponse(response, 'login');
       
-      if (!response.ok) {
-        throw new Error(data?.error || 'Login failed');
-      }
-
-      if (!data.user) {
+      if (!data.data?.user) {
         throw new Error('Invalid server response: missing user data');
       }
       
-      updateUser(data.user);
-      return data.user;
+      updateUser(data.data.user);
+      return data.data.user;
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -224,34 +169,30 @@ const createAuthStore = (): AuthStore => {
 
   const logout = async () => {
     try {
+      const token = getToken();
+      
       // First, leave the game if the user is in a game
-      try {
-        const gameResponse = await fetch('/api/game/leave', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include'
-        });
-        
-        if (!gameResponse.ok) {
-          console.warn('Failed to leave game before logout:', await gameResponse.text());
-          // Continue with logout even if leaving game fails
-        } else {
+      if (token) {
+        try {
+          const gameResponse = await makeApiCall('/api/game/leave', {
+            method: 'POST'
+          }, token);
+          
+          const gameData = await parseApiResponse(gameResponse, 'leave-game');
           console.log('Successfully left game before logout');
+        } catch (gameError) {
+          console.warn('Error leaving game before logout:', gameError);
+          // Continue with logout even if leaving game fails
         }
-      } catch (gameError) {
-        console.warn('Error leaving game before logout:', gameError);
-        // Continue with logout even if leaving game fails
       }
       
       // Then proceed with normal logout
-      const response = await fetch('/api/auth/logout', { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include'
-      });
-      
-      if (!response.ok) {
-        throw new Error('Logout failed');
+      if (token) {
+        const response = await makeApiCall('/api/auth/logout', { 
+          method: 'POST'
+        }, token);
+        
+        const data = await parseApiResponse(response, 'logout');
       }
       
       // Clear the user from local storage and state

@@ -2,6 +2,7 @@ import { APIEvent } from '@solidjs/start/server';
 import { getDb } from '~/lib/server/db';
 import { withAuth } from '~/middleware/auth';
 import type { TokenPayload } from '~/lib/server/auth/jwt';
+import { createApiResponse, createErrorResponse } from '~/utils/api';
 
 export const GET = withAuth(async ({ user }: { user: TokenPayload }) => {
   try {
@@ -18,21 +19,12 @@ export const GET = withAuth(async ({ user }: { user: TokenPayload }) => {
     );
 
     if (!latestMove) {
-      return new Response(
-        JSON.stringify({ gameId: null }),
-        { headers: { 'Content-Type': 'application/json' } }
-      );
+      return createApiResponse({ gameId: null });
     }
 
-    return new Response(
-      JSON.stringify({ gameId: latestMove.game_id }),
-      { headers: { 'Content-Type': 'application/json' } }
-    );
+    return createApiResponse({ gameId: latestMove.game_id });
   } catch (error) {
     console.error('Error fetching latest game:', error);
-    return new Response(
-      JSON.stringify({ error: 'Failed to fetch latest game' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return createErrorResponse('Failed to fetch latest game', 500);
   }
 });

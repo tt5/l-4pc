@@ -5,6 +5,8 @@
  * including request ID generation and standardized error handling.
  */
 
+import { useAuth } from '../contexts/AuthContext';
+
 /**
  * Generates a unique request ID for client-side API calls
  * @returns {string} A unique request identifier
@@ -35,16 +37,16 @@ export interface ApiResponse<T = unknown> {
 }
 
 /**
- * Makes an authenticated API call with standard headers and request ID
+ * Makes an authenticated API call with JWT token and standard headers
  * @param {string} url - The API endpoint URL
  * @param {RequestInit} options - Fetch options (method, headers, body, etc.)
- * @param {boolean} includeCredentials - Whether to include credentials (default: true)
+ * @param {string} token - JWT token for authentication
  * @returns {Promise<Response>} The fetch response
  */
 export async function makeApiCall(
   url: string, 
   options: RequestInit = {}, 
-  includeCredentials: boolean = true
+  token?: string
 ): Promise<Response> {
   const requestId = generateRequestId();
   
@@ -54,14 +56,15 @@ export async function makeApiCall(
     ...((options.headers as Record<string, string>) || {})
   };
 
+  // Add JWT Authorization header if token is provided
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const fetchOptions: RequestInit = {
     ...options,
     headers
   };
-
-  if (includeCredentials) {
-    fetchOptions.credentials = 'include';
-  }
 
   console.log(`[${requestId}] Making ${options.method || 'GET'} request to ${url}`);
   
@@ -74,6 +77,27 @@ export async function makeApiCall(
   }
   
   return response;
+}
+
+/**
+ * Makes an authenticated API call with automatic JWT token retrieval
+ * @param {string} url - The API endpoint URL
+ * @param {RequestInit} options - Fetch options (method, headers, body, etc.)
+ * @returns {Promise<Response>} The fetch response
+ */
+export async function makeAuthenticatedApiCall(
+  url: string, 
+  options: RequestInit = {}
+): Promise<Response> {
+  // Get the auth token - this will work in client components
+  const auth = useAuth();
+  const token = auth.getToken();
+  
+  if (!token) {
+    throw new Error('No authentication token available');
+  }
+  
+  return makeApiCall(url, options, token);
 }
 
 /**

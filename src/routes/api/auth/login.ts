@@ -2,16 +2,7 @@ import type { APIEvent } from '@solidjs/start/server';
 import { getDb } from '~/lib/server/db';
 import { generateToken } from '~/lib/server/auth/jwt';
 import { randomBytes } from 'crypto';
-
-function json(data: any, { status = 200, headers = {} } = {}) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      ...headers,
-    },
-  });
-}
+import { createApiResponse, createErrorResponse } from '~/utils/api';
 
 type LoginRequest = {
   username: string;
@@ -25,9 +16,9 @@ export async function POST({ request }: APIEvent) {
     const { username, password } = requestData as LoginRequest;
     
     if (!username || !password) {
-      return json(
-        { error: 'Username and password are required' }, 
-        { status: 400 }
+      return createErrorResponse(
+        'Username and password are required', 
+        400
       );
     }
 
@@ -49,9 +40,9 @@ export async function POST({ request }: APIEvent) {
         );
         user = { id: userId, username };
       } else {
-        return json(
-          { error: 'Invalid credentials' },
-          { status: 401 }
+        return createErrorResponse(
+          'Invalid credentials',
+          401
         );
       }
     }
@@ -63,7 +54,7 @@ export async function POST({ request }: APIEvent) {
       username: user.username
     });
 
-    return json(
+    return createApiResponse(
       { 
         user: { 
           id: user.id, 
@@ -75,9 +66,9 @@ export async function POST({ request }: APIEvent) {
     );
   } catch (error) {
     console.error('Login error:', error);
-    return json(
-      { error: 'Failed to log in' },
-      { status: 500 }
+    return createErrorResponse(
+      'Failed to log in',
+      500
     );
   }
 }

@@ -2,6 +2,7 @@ import { APIEvent } from '@solidjs/start/server';
 import { getDb } from '~/lib/server/db';
 import { withAuth } from '~/middleware/auth';
 import type { TokenPayload } from '~/lib/server/auth/jwt';
+import { createApiResponse, createErrorResponse } from '~/utils/api';
 
 export const GET = withAuth(async ({ user }: { user: TokenPayload }) => {
   try {
@@ -18,15 +19,9 @@ export const GET = withAuth(async ({ user }: { user: TokenPayload }) => {
 
     const gameIds = games.map(g => g.game_id);
 
-    return new Response(
-      JSON.stringify({ gameIds }),
-      { headers: { 'Content-Type': 'application/json' } }
-    );
+    return createApiResponse({ gameIds });
   } catch (error) {
     console.error('Error fetching game IDs:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return createErrorResponse('Internal server error', 500);
   }
 });
