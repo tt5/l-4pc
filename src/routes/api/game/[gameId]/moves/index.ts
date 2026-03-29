@@ -1,16 +1,11 @@
 import { APIEvent } from '@solidjs/start/server';
 import { json } from '@solidjs/router';
 import { getMoveRepository } from '~/lib/server/db';
-import { getAuthUser } from '~/lib/server/auth/jwt';
+import { withAuth } from '~/middleware/auth';
+import type { TokenPayload } from '~/lib/server/auth/jwt';
 
-export const GET = async ({ params, request }: APIEvent) => {
+export const GET = withAuth(async ({ params, user }: { params: { gameId?: string }, user: TokenPayload }) => {
   try {
-    const user = await getAuthUser(request);
-    
-    if (!user) {
-      return json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const { gameId } = params;
     
     if (!gameId) {
@@ -28,4 +23,4 @@ export const GET = async ({ params, request }: APIEvent) => {
     console.error('Error fetching moves:', error);
     return json({ error: 'Failed to fetch moves' }, { status: 500 });
   }
-};
+});

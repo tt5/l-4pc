@@ -1,18 +1,10 @@
 import { APIEvent } from '@solidjs/start/server';
 import { getDb } from '~/lib/server/db';
-import { getAuthUser } from '~/lib/server/auth/jwt';
+import { withAuth } from '~/middleware/auth';
+import type { TokenPayload } from '~/lib/server/auth/jwt';
 
-export async function GET({ request }: APIEvent) {
+export const GET = withAuth(async ({ user }: { user: TokenPayload }) => {
   try {
-    const user = await getAuthUser(request);
-    
-    if (!user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
     const db = await getDb();
     
     // Get the latest game ID from the moves table
@@ -43,4 +35,4 @@ export async function GET({ request }: APIEvent) {
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
-}
+});
