@@ -1,8 +1,7 @@
 import { type Component, JSX } from 'solid-js';
-import styles from './Board.module.css';
+import styles from './GridCell.module.css';
 import { createPoint, type Point } from '../../types/board';
 import { King, Queen, Pawn, Bishop, Knight, Rook } from './ChessPieces';
-import { isInNonPlayableCorner } from '~/constants/game';
 
 interface CellState {
   isBasePoint: boolean;

@@ -28,26 +28,6 @@ export const COLOR_TO_HEX: Record<NamedColor, string> = {
 } as const;
 
 /**
- * Gets the team number (1 or 2) for a given color
- * @param color - The color to check (can be name or hex code)
- * @returns The team number (1 or 2)
- * @throws Will throw an error if the color is not a valid player color
- */
-export function getTeamByColor(color: string): 1 | 2 {
-  if (!color) {
-    throw new Error('Color cannot be empty');
-  }
-
-  const normalizedColor = normalizeColor(color);
-  
-  if (!normalizedColor) {
-    throw new Error(`Invalid color: ${color}`);
-  }
-
-  return TEAM_1_COLORS.includes(normalizedColor as any) ? 1 : 2;
-}
-
-/**
  * Normalizes color string to match one of the PLAYER_COLORS
  * @param color - The color to normalize (can be color name or hex code)
  * @returns A normalized PlayerColor or undefined if not a valid color

@@ -10,7 +10,7 @@ type BoardControlsProps = {
   onSaveGame?: () => Promise<void>;
   onLoadGame?: (gameId: string) => Promise<void>;
   onCellSizeChange?: (size: number) => void;
-  onStopAnalysis?: () => Promise<boolean>;
+  onToggleAnalysis?: () => Promise<boolean>;
   isAnalyzing?: boolean;
   cellSize?: number;
   gameId?: string;
@@ -161,17 +161,17 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
       <button 
         onClick={async (e) => {
           e.preventDefault();
-          if (isStopping() || !props.onStopAnalysis) return;
+          if (isStopping() || !props.onToggleAnalysis) return;
           setIsStopping(true);
           try {
-            await props.onStopAnalysis();
+            await props.onToggleAnalysis();
           } catch (error) {
             console.error('Error toggling analysis:', error);
           } finally {
             setIsStopping(false);
           }
         }}
-        disabled={isStopping() || !props.onStopAnalysis}
+        disabled={isStopping() || !props.onToggleAnalysis}
         class={`${styles.controlButton} ${props.isAnalyzing ? styles.stopButton : styles.startButton}`}
         title={props.isAnalyzing ? 'Stop engine analysis' : 'Start engine analysis'}
       >

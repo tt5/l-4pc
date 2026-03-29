@@ -26,7 +26,6 @@ import { generateBranchName, buildFullBranchName } from '~/utils/branchUtils';
 import { MOVE_PATTERNS } from '~/constants/movePatterns';
 import { 
   getLegalMoves,
-  isValidPieceType,
   isKingInCheck,
   moveToUCI
 } from '~/utils/gameUtils';
@@ -41,7 +40,6 @@ import {
   DEFAULT_GAME_ID, 
   INITIAL_RESTRICTED_SQUARES,
   INITIAL_RESTRICTED_SQUARES_INFO,
-  getTeamByColor,
   BOARD_CONFIG,
   isInNonPlayableCorner,
   NamedColor,
@@ -61,9 +59,7 @@ export function validateSquarePlacement(
 ): { isValid: boolean } {
     
   if (!getRestrictedSquares().includes(index)) {
-    return { 
-      isValid: false, 
-    };
+    return { isValid: false };
   }
   
   return { isValid: true };
@@ -73,18 +69,26 @@ const Board: Component<BoardProps> = (props) => {
 
   const auth = useAuth();
   const navigate = useNavigate();
-  const [gameId, setGameId] = createSignal<string>(props.gameId || DEFAULT_GAME_ID);
-  
   const engine = getEngineClient();
+
+  const [gameId, setGameId] = createSignal<string>(props.gameId || DEFAULT_GAME_ID);
   const [isEngineReady, setIsEngineReady] = createSignal(false);
-  const [isEngineThinking, setIsEngineThinking] = createSignal(false);
   const [isAnalyzing, setIsAnalyzing] = createSignal(false);
   const [isSaving, setIsSaving] = createSignal(false);
   const [isAnalysisStopped, setIsAnalysisStopped] = createSignal(false);
   const [threads, setThreads] = createSignal(1);
   const [isLoadingThreads, setIsLoadingThreads] = createSignal(false);
   const [analysis, setAnalysis] = createSignal<{score: string; depth: number; bestMove: string} | null>(null);
-  const [lastAnalyzedMoves, setLastAnalyzedMoves] = createSignal<string[]>([]);
+  const [cellSize, setCellSize] = createSignal(50); // Default cell size
+  const [enPassantTargets, setEnPassantTargets] = createSignal<Record<NamedColor, {x: number, y: number, color: NamedColor} | null>>({
+    'RED': null,
+    'YELLOW': null,
+    'BLUE': null,
+    'GREEN': null
+  });
+  const [fullMoveHistory, setFullMoveHistory] = createSignal<Move[]>([]);
+
+
   const analysisInProgress = { current: false };
 
   // Set up engine status listener
@@ -146,15 +150,6 @@ const Board: Component<BoardProps> = (props) => {
     };
   });
 
-  const [cellSize, setCellSize] = createSignal(50); // Default cell size
-
-  const [enPassantTargets, setEnPassantTargets] = createSignal<Record<NamedColor, {x: number, y: number, color: NamedColor} | null>>({
-    'RED': null,
-    'YELLOW': null,
-    'BLUE': null,
-    'GREEN': null
-  });
-  
   const startEngineAnalysis = async (moves: string[]): Promise<boolean> => {
     
     if (!isEngineReady()) {
@@ -163,31 +158,8 @@ const Board: Component<BoardProps> = (props) => {
     }
 
     if (!engine.isConnected()) {
-      console.log('[Engine] Not connected, attempting to connect...');
-      try {
-        // Connect and wait for connection
-        console.log('[Engine] Calling engine.connect()');
-        await engine.connect();
-        
-        // Wait for connection to establish with a timeout
-        const maxWaitTime = 2000; // 2 seconds max
-        const startTime = Date.now();
-        
-        while (!engine.isConnected() && (Date.now() - startTime) < maxWaitTime) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-          console.log('[Engine] Waiting for connection to establish...');
-        }
-        
-        if (!engine.isConnected()) {
-          console.error('[Engine] Failed to connect to engine - timeout waiting for connection');
-          return false;
-        }
-        
-        console.log('[Engine] Successfully connected to engine');
-      } catch (err) {
-        console.error('[Engine] Error connecting to engine:', err);
-        return false;
-      }
+      console.log('[Engine] Not connected');
+      return false;
     }
     
     if (analysisInProgress.current) {
@@ -203,7 +175,6 @@ const Board: Component<BoardProps> = (props) => {
     
     console.log(`[Engine] Starting analysis`);
     analysisInProgress.current = true;
-    setLastAnalyzedMoves(moves);
     setIsAnalyzing(true);
     
     try {
@@ -211,15 +182,13 @@ const Board: Component<BoardProps> = (props) => {
       return true;
     } catch (error) {
       console.error('[Engine] Error during analysis:', error);
-      // Reset last analyzed moves on error to ensure we can retry
-      setLastAnalyzedMoves([]);
       analysisInProgress.current = false;
       setIsAnalyzing(false);
       return false;
     }
   };
   
-  const stopAnalysis = async (): Promise<boolean> => {
+  const toggleAnalysis = async (): Promise<boolean> => {
     if (!isEngineReady()) {
       console.log('[Engine] Engine not ready');
       return false;
@@ -350,9 +319,6 @@ const Board: Component<BoardProps> = (props) => {
       console.error('Error loading game:', error);
     }
   };
-
-  // unordered moves
-  const [fullMoveHistory, setFullMoveHistory] = createSignal<Move[]>([]);
 
   const loadGame = async (gameIdToLoad: string) => {
     console.log(`[loadGame] Starting to load game with ID: ${gameIdToLoad}`);
@@ -1917,7 +1883,7 @@ const Board: Component<BoardProps> = (props) => {
           onLoadGame={handleLoadGame}
           cellSize={cellSize()}
           onCellSizeChange={setCellSize}
-          onStopAnalysis={stopAnalysis}
+          onToggleAnalysis={toggleAnalysis}
           isAnalyzing={isAnalyzing()}
         />
         <div class={styles.evaluation}>
