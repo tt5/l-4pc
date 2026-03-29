@@ -8,7 +8,7 @@ import { DEFAULT_GAME_ID } from '~/constants/game';
 import styles from './game.module.css';
 
 function GameContent() {
-  const { user, isInitialized, logout } = useAuth();
+  const { user, isInitialized, logout, getToken } = useAuth();
   const [searchParams] = useSearchParams();
   
   // Initialize gameId with priority: URL param > default
@@ -22,9 +22,17 @@ function GameContent() {
     async (userId) => {
       if (!userId) return [];
       try {
+        const userToken = getToken();
+        const headers: HeadersInit = { 'Content-Type': 'application/json' };
+        if (userToken) {
+          headers['Authorization'] = `Bearer ${userToken}`;
+        }
+
         const response = await fetch('/api/game/list', {
-          headers: { 'Authorization': `Bearer ${userId}` }
+          headers,
+          credentials: 'include'
         });
+
         if (response.ok) {
           const data = await response.json();
           return data.gameIds || [];
