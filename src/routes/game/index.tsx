@@ -29,8 +29,7 @@ function GameContent() {
         }
 
         const response = await fetch('/api/game/list', {
-          headers,
-          credentials: 'include'
+          headers
         });
 
         if (response.ok) {
@@ -65,8 +64,7 @@ function GameContent() {
       }
 
       const response = await fetch('/api/game/latest', {
-        headers,
-        credentials: 'include'
+        headers
       });
       
       if (response.ok) {

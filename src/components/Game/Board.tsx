@@ -348,8 +348,7 @@ const Board: Component<BoardProps> = (props) => {
       }
       
       const response = await fetch(url, { 
-        headers,
-        credentials: 'include' // Ensure cookies are sent with the request
+        headers
       });
       
       if (!response.ok) {

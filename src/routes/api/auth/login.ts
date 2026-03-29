@@ -1,7 +1,6 @@
 import type { APIEvent } from '@solidjs/start/server';
 import { getDb } from '~/lib/server/db';
 import { generateToken } from '~/lib/server/auth/jwt';
-import { serialize } from 'cookie';
 import { randomBytes } from 'crypto';
 
 function json(data: any, { status = 200, headers = {} } = {}) {
@@ -64,15 +63,6 @@ export async function POST({ request }: APIEvent) {
       username: user.username
     });
 
-    // Set HTTP-only cookie
-    const cookie = serialize('auth_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-      path: '/',
-    });
-
     return json(
       { 
         user: { 
@@ -81,12 +71,7 @@ export async function POST({ request }: APIEvent) {
           token: token
         } 
       },
-      { 
-        status: 200,
-        headers: {
-          'Set-Cookie': cookie
-        }
-      }
+      { status: 200 }
     );
   } catch (error) {
     console.error('Login error:', error);

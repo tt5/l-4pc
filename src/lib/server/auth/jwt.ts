@@ -34,22 +34,10 @@ export function verifyToken(token: string): TokenPayload | null {
 }
 
 export function getTokenFromRequest(request: Request): string | null {
-  // Try to get token from Authorization header
+  // Only accept Authorization header - JWT-only auth
   const authHeader = request.headers.get('authorization');
   if (authHeader && authHeader.startsWith('Bearer ')) {
     return authHeader.split(' ')[1];
-  }
-
-  // Try to get token from cookies
-  const cookieHeader = request.headers.get('cookie');
-  if (cookieHeader) {
-    const cookies = new Map(
-      cookieHeader.split('; ').map(c => {
-        const [key, ...values] = c.split('=');
-        return [key, values.join('=')];
-      })
-    );
-    return cookies.get('auth_token') || null;
   }
 
   return null;

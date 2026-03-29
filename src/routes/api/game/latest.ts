@@ -4,17 +4,9 @@ import { getAuthUser } from '~/lib/server/auth/jwt';
 
 export async function GET({ request }: APIEvent) {
   try {
-    console.log('=== Latest Game Debug ===');
-    const authHeader = request.headers.get('authorization');
-    const cookieHeader = request.headers.get('cookie');
-    console.log('Auth header:', authHeader);
-    console.log('Cookie header:', cookieHeader);
-    
     const user = await getAuthUser(request);
-    console.log('Authenticated user:', user);
     
     if (!user) {
-      console.log('Authentication failed');
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { 'Content-Type': 'application/json' } }
