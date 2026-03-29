@@ -1103,9 +1103,9 @@ const Board: Component<BoardProps> = (props) => {
       }
       setMoveHistory(rebuildMoveHistory(currentBranchName()))
     })
-    //handleGoBack()
+    handleGoBack()
     setCurrentBranchName(currentBranch)
-    //handleGoForward()
+    handleGoForward()
   };
 
   const handleGoForward = async () => {
