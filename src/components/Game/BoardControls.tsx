@@ -1,5 +1,6 @@
 import { Component, createSignal } from 'solid-js';
 import { useAuth } from '../../contexts/AuthContext';
+import { makeAuthenticatedApiCall } from '../../utils/clientApi';
 import styles from './BoardControls.module.css';
 
 type BoardControlsProps = {
@@ -37,11 +38,8 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
     
     setIsResetting(true);
     try {
-      const response = await fetch('/api/reset-board', {
+      const response = await makeAuthenticatedApiCall('/api/reset-board', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ 
           userId: currentUser.id,
           gameId: props.gameId
