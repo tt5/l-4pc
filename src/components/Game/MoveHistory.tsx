@@ -1,7 +1,7 @@
 import { For, Show, createEffect, createSignal, onCleanup } from 'solid-js';
 import styles from './MoveHistory.module.css';
 import { formatMove } from '../../utils/chessNotation';
-import type { BranchPoints, Move, SimpleMove } from '../../types/board';
+import type { BranchPoints, Move, NamedColor, SimpleMove } from '../../types/board';
 
 type HistoryMove = Partial<Move>
 
@@ -9,7 +9,7 @@ type MoveHistoryProps = {
   moves: Move[];
   mainLineMoves: Move[];
   currentMoveIndex: number;
-  currentPlayerColor: () => string;
+  currentPlayerColor: () => NamedColor;
   branchPoints?: BranchPoints;
 };
 
@@ -80,7 +80,7 @@ export const MoveHistory = (props: MoveHistoryProps) => {
 
   return (
     <div class={styles.moveHistoryContainer}>
-      <div class={`${styles.turnIndicator} ${styles[props.currentPlayerColor()]}`}>
+      <div class={`${styles.turnIndicator} ${styles[props.currentPlayerColor().toLowerCase()]}`}>
         {props.currentPlayerColor()}'s turn
       </div>
       <h3>Move History</h3>
@@ -96,16 +96,11 @@ export const MoveHistory = (props: MoveHistoryProps) => {
               const toX = move.toX;
               const toY = move.toY;
               
-              if (fromX === undefined || fromY === undefined || toX === undefined || toY === undefined) {
-                console.warn('Move data is missing required coordinates', move);
-              }
-              
               // Calculate move number display (1.1, 1.2, 1.3, 1.4, 2.1, etc.)
               const turnNumber = Math.floor(index() / 4) + 1;
               const playerMoveNumber = (index() % 4) + 1;
               const displayMoveNumber = `${turnNumber}.${playerMoveNumber}`;
               
-              // For backward compatibility
               const moveNumber = index() + 1;
               
               // Only highlight if this is the exact current move index
@@ -114,13 +109,15 @@ export const MoveHistory = (props: MoveHistoryProps) => {
               
               return (
                 <div 
-                  class={`${styles.moveItem} ${isCurrentMove ? styles.currentMove : ''}`}
+                  class={`
+                    ${styles.moveItem}
+                    ${isCurrentMove ? styles.currentMove : ''}
+                    ${props.moves[moveNumber-1].branchName === 'main' ? styles.mainLine : ''}
+                  `}
                   data-move-index={index()}
                   data-move-number={moveNumber}
                 >
-                  {props.moves[moveNumber-1].parentBranchName}
-                  {props.moves[moveNumber-1].branchName}
-                  <span class={styles.moveNumber}>{displayMoveNumber}.</span>
+                  <span class={styles.moveNumber}>{displayMoveNumber}</span>
                   <div class={styles.moveDetails}>
                     <div class={styles.moveCoords}>
                       {formatMoveDisplay({
@@ -138,11 +135,10 @@ export const MoveHistory = (props: MoveHistoryProps) => {
                       <div class={styles.branchInfo}>
                         <For each={getBranches(index())}>
                           {(branch) => {
-                            if (moveNumber > 2 && props.moves[moveNumber-2].branchName === 'main' &&
-                               branch.branchName === props.moves[moveNumber-1].branchName) {
+                            if (moveNumber > 1 && props.moves[moveNumber-2].branchName === 'main'
+                               &&  branch.branchName === props.moves[moveNumber-1].branchName) {
                               return (
-                                <div class={styles.branchContainer}>
-                                  {branch.branchName}
+                                <div class={`${styles.branchContainer}`}>
                                   <div class={styles.branchMoves}>
                                     <div class={styles.branchMoveItem}>
                                       <span class={styles.moveCoords}>
@@ -165,7 +161,6 @@ export const MoveHistory = (props: MoveHistoryProps) => {
                             }
                             return (
                               <div class={styles.branchContainer}>
-                                {branch.branchName}
                                 <div class={styles.branchMoves}>
                                   <div class={styles.branchMoveItem}>
                                     <span class={styles.moveCoords}>

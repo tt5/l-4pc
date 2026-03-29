@@ -2,6 +2,7 @@ import { type Component, JSX } from 'solid-js';
 import styles from './Board.module.css';
 import { createPoint, type Point } from '../../types/board';
 import { King, Queen, Pawn, Bishop, Knight, Rook } from './ChessPieces';
+import { isInNonPlayableCorner } from '~/constants/game';
 
 interface CellState {
   isBasePoint: boolean;
@@ -48,6 +49,7 @@ export const GridCell: Component<GridCellProps> = (props) => {
     const classes = [styles.square];
     if (isBasePoint) classes.push(styles.basePoint);
     if (isSelected) classes.push(styles.selected);
+    if (state.isNonPlayable) classes.push(styles.nonPlayable)
     if (isDraggingProp && pickedUpBasePoint && isBasePoint) {
       classes.push(styles.dragging);
     }

@@ -487,7 +487,10 @@ const Board: Component<BoardProps> = (props) => {
 
           setBranchPoints(reconstructedBranchPoints);
 
-          setMainLineMoves(moves.filter((move: Move) => !move.branchName || move.branchName === 'main'));
+          setMainLineMoves(moves
+            .filter((move: Move) => move.branchName === 'main')
+            .sort((a, b) => a.moveNumber - b.moveNumber)
+          );
           setCurrentBranchName('main');
           setMoveHistory(rebuildMoveHistory('main'));
           setCurrentMoveIndex(0);
@@ -509,14 +512,7 @@ const Board: Component<BoardProps> = (props) => {
       });
     } catch (error) {
       console.error('Error loading game:', error);
-      // Reset to a clean state on error
-      batch(() => {
-        setMoveHistory([]);
-        setFullMoveHistory([]);
-        setCurrentTurnIndex(0);
-        setCurrentMoveIndex(-1);
-        resetBoardToInitialState();
-      });
+      resetBoardToInitialState();
       throw error;
     }
   };
@@ -555,11 +551,8 @@ const Board: Component<BoardProps> = (props) => {
     setPickedUpBasePoint(null);
     setHoveredCell(null);
     setTargetPosition(null);
-    setDragStartPosition(null);
     setIsProcessingMove(false);
     setLastHoveredCell(null);
-    setDragStartPosition(null);
-    setTargetPosition(null);
     setError(null);
   };
 
@@ -582,24 +575,21 @@ const Board: Component<BoardProps> = (props) => {
   } = useRestrictedSquares();
   
   const [error, setError] = createSignal<string | null>(null);
-  const [dragStartPosition, setDragStartPosition] = createSignal<Point | null>(null);
   const [pickedUpBasePoint, setPickedUpBasePoint] = createSignal<BasePoint | null>(null);
   const [isDragging, setIsDragging] = createSignal(false);
   const [targetPosition, setTargetPosition] = createSignal<Point | null>(null);
   const [isProcessingMove, setIsProcessingMove] = createSignal(false);
   const [hoveredCell, setHoveredCell] = createSignal<Point | null>(null);
-  
   const [mainLineMoves, setMainLineMoves] = createSignal<Move[]>([]);
   // Current move history up to the end of branch
   const [moveHistory, setMoveHistory] = createSignal<Move[]>([]);
   // Current position in the move history (for going back/forward)
   const [currentMoveIndex, setCurrentMoveIndex] = createSignal(-1);
+  const [currentTurnIndex, setCurrentTurnIndex] = createSignal(0);
   // Branch name for the current move (if any)
   const [currentBranchName, setCurrentBranchName] = createSignal<string>('main');
-  
   // Track branch points and their associated branches
   const [branchPoints, setBranchPoints] = createSignal<BranchPoints>({});
-
   const [fen4, setFen4] = createSignal<string>('');
 
   // update FEN4 when position changes
@@ -616,7 +606,7 @@ const Board: Component<BoardProps> = (props) => {
   // Rebuild move history for a given target branch, handling nested branches
   const rebuildMoveHistory = (targetBranch: string): Move[] => {
 
-    const branchPath = buildFullBranchName(targetBranch, fullMoveHistory())?.split('/') || [];
+    const branchPath = buildFullBranchName(targetBranch, fullMoveHistory()).split('/');
 
     // Start with main line
     let currentHistory = fullMoveHistory().filter(m => !m.branchName || m.branchName === 'main');
@@ -635,7 +625,7 @@ const Board: Component<BoardProps> = (props) => {
       }
     }
     
-    return currentHistory;
+    return currentHistory.sort((a, b) => a.moveNumber - b.moveNumber);
   };
 
   onCleanup(() => {
@@ -654,7 +644,6 @@ const Board: Component<BoardProps> = (props) => {
     }
   });
   
-  const [currentTurnIndex, setCurrentTurnIndex] = createSignal(0);
   const currentPlayerColor = () => PLAYER_COLORS[currentTurnIndex() % PLAYER_COLORS.length];
 
   // Update king check status based on current board state
@@ -664,22 +653,14 @@ const Board: Component<BoardProps> = (props) => {
     let checkFound = false;
     
     for (const king of kings) {
-      const isInCheck = isKingInCheck(
-        king,
-        boardState,
-      );
+      const isInCheck = isKingInCheck(king, boardState);
       
       if (isInCheck) {
         checkFound = true;
-        console.log("[updateKingCheckStatus] check found")
-        // Continue checking other kings to ensure we don't miss any checks
       }
     }
     
-    // If no kings are in check, clear the check state
-    if (!checkFound) {
-      console.log("[updateKingCheckStatus] no check found")
-    }
+    console.log(`[updateKingCheckStatus] checkFound: ${checkFound}`)
   };
 
   // Reset the board to its initial state
@@ -705,8 +686,8 @@ const Board: Component<BoardProps> = (props) => {
     const positionMap = new Map<string, BasePoint>();
     
     // Initialize with a fresh copy of the initial board state
-    INITIAL_BASE_POINTS.forEach(point => {
-      positionMap.set(`${point.x},${point.y}`, { ...point });
+    INITIAL_BASE_POINTS.forEach(bp => {
+      positionMap.set(`${bp.x},${bp.y}`, { ...bp });
     });
 
     // Replay each move up to the target index
@@ -721,45 +702,24 @@ const Board: Component<BoardProps> = (props) => {
         fromY, 
         toX, 
         toY, 
-        pieceType, 
-        id: moveId, 
-        moveNumber, 
         isCastle = false,
-        castleType = '',
+        castleType = null,
         isEnPassant = false
       } = move;
-      const isCastleMove = isCastle ?? false;
-      const castleTypeValue = (castleType === 'KING_SIDE' || castleType === 'QUEEN_SIDE') ? castleType : null;
       
-      // Validate move coordinates
-      if ([fromX, fromY, toX, toY].some(coord => coord === undefined)) {
-        throw new Error(`[replayMoves] Invalid move coordinates: ${JSON.stringify({ move, index: i, moveNumber })}`);
-      }
-
       const fromKey = `${fromX},${fromY}`;
       const toKey = `${toX},${toY}`;
       const piece = positionMap.get(fromKey);
 
       if (!piece) {
-        throw new Error(`[replayMoves] No piece at source position (${fromX},${fromY}) in move: ${JSON.stringify({ move, index: i, moveNumber })}`);
+        throw new Error(`[replayMoves] No piece at source position (${fromX},${fromY})`);
       }
 
       // Handle castling moves
-      if (isCastleMove && castleTypeValue) {
-        console.log(`[replayMoves] Castling move: ${moveId}`);
-        // Get the color name from the piece's color
-        const getColorName = (color: string): string => {
-          const colorMap: Record<string, string> = {
-            '#F44336': 'RED',
-            '#FFEB3B': 'YELLOW',
-            '#2196F3': 'BLUE',
-            '#4CAF50': 'GREEN'
-          };
-          return colorMap[color] || '';
-        };
+      if (isCastle && castleType) {
+        console.log(`[replayMoves] Castling move`);
         
-        const colorName = getColorName(piece.color || '');
-        const fullCastleType = `${colorName}_${castleTypeValue}` as keyof typeof MOVE_PATTERNS.CASTLING;
+        const fullCastleType = `${piece.color}_${castleType}` as keyof typeof MOVE_PATTERNS.CASTLING;
         const castlingConfig = MOVE_PATTERNS.CASTLING[fullCastleType];
         if (!castlingConfig) {
           console.error(`[replayMoves] Invalid castling type: ${fullCastleType}`);
@@ -798,15 +758,16 @@ const Board: Component<BoardProps> = (props) => {
         positionMap.delete(capturedKey);
       }
 
-      // Move the piece
-      const movedPiece: BasePoint = {
+      // Update the piece
+      const movedPiece = {
         ...piece,
-        x: toX!,
-        y: toY!,
-        pieceType: (pieceType && isValidPieceType(pieceType)) ? pieceType : piece.pieceType,
+        x: toX,
+        y: toY,
+        // promotion (?)
+        //pieceType:
         hasMoved: true,
-        isCastle: isCastleMove,
-        castleType: castleTypeValue
+        isCastle: isCastle,
+        castleType: castleType
       };
 
       positionMap.delete(fromKey);
@@ -914,33 +875,27 @@ const Board: Component<BoardProps> = (props) => {
     
     const currentMove = history[currentIndex];
     
-    // First try to delete on the server if we have the required data
-    if (currentMove?.fromX !== undefined && currentMove?.fromY !== undefined && 
-        currentMove?.toX !== undefined && currentMove?.toY !== undefined && 
-        currentMove?.moveNumber !== undefined && props.gameId) {
+    const moveData = {
+      gameId: props.gameId,
+      fromX: currentMove.fromX,
+      fromY: currentMove.fromY,
+      toX: currentMove.toX,
+      toY: currentMove.toY,
+      moveNumber: currentMove.moveNumber
+    };
+    
+    try {
+      const response = await makeApiCall('/api/moves/[id]', {
+        method: 'DELETE',
+        body: JSON.stringify(moveData)
+      });
       
-      const moveData = {
-        gameId: props.gameId,
-        fromX: currentMove.fromX,
-        fromY: currentMove.fromY,
-        toX: currentMove.toX,
-        toY: currentMove.toY,
-        moveNumber: currentMove.moveNumber
-      };
-      
-      try {
-        const response = await makeApiCall('/api/moves/[id]', {
-          method: 'DELETE',
-          body: JSON.stringify(moveData)
-        });
-        
-        const result = await parseApiResponse(response, requestId);
-        console.log(`[${requestId}] [deleteLastMove] Successfully deleted ${result.data?.deletedCount || 0} moves`);
-      } catch (error) {
-        console.error(`[${requestId}] [deleteLastMove] Failed to delete move:`, error instanceof Error ? error.message : String(error));
-        // Don't update local state if server deletion fails
-        return;
-      }
+      const result = await parseApiResponse(response, requestId);
+      console.log(`[${requestId}] [deleteLastMove] Successfully deleted ${result.data?.deletedCount || 0} moves`);
+    } catch (error) {
+      console.error(`[${requestId}] [deleteLastMove] Failed to delete move:`, error instanceof Error ? error.message : String(error));
+      // Don't update local state if server deletion fails
+      return;
     }
 
     // If we get here, server deletion succeeded or wasn't needed
@@ -1030,34 +985,30 @@ const Board: Component<BoardProps> = (props) => {
     const currentMove = history[currentIndex];
     
     console.log(`[Delete] currentMove: ${JSON.stringify(currentMove)}`)
-    // First try to delete on the server if we have the required data
-    if (currentMove?.fromX !== undefined && currentMove?.fromY !== undefined && 
-        currentMove?.toX !== undefined && currentMove?.toY !== undefined && 
-        currentMove?.moveNumber !== undefined && props.gameId) {
       
-      const requestId = generateRequestId();
-      const moveData = {
-        gameId: props.gameId,
-        fromX: currentMove.fromX,
-        fromY: currentMove.fromY,
-        toX: currentMove.toX,
-        toY: currentMove.toY,
-        moveNumber: currentMove.moveNumber
-      };
+    // First try to delete on the server
+    const requestId = generateRequestId();
+    const moveData = {
+      gameId: props.gameId,
+      fromX: currentMove.fromX,
+      fromY: currentMove.fromY,
+      toX: currentMove.toX,
+      toY: currentMove.toY,
+      moveNumber: currentMove.moveNumber
+    };
+    
+    try {
+      const response = await makeApiCall('/api/moves/[id]', {
+        method: 'DELETE',
+        body: JSON.stringify(moveData)
+      });
       
-      try {
-        const response = await makeApiCall('/api/moves/[id]', {
-          method: 'DELETE',
-          body: JSON.stringify(moveData)
-        });
-        
-        const result = await parseApiResponse(response, requestId);
-        console.log(`[${requestId}] [Delete] Successfully deleted ${result.data?.deletedCount || 0} moves`);
-      } catch (error) {
-        console.error(`[${requestId}] [Delete] Failed to delete move:`, error instanceof Error ? error.message : String(error));
-        // Don't update local state if server deletion fails
-        return;
-      }
+      const result = await parseApiResponse(response, requestId);
+      console.log(`[${requestId}] [Delete] Successfully deleted ${result.data?.deletedCount || 0} moves`);
+    } catch (error) {
+      console.error(`[${requestId}] [Delete] Failed to delete move:`, error instanceof Error ? error.message : String(error));
+      // Don't update local state if server deletion fails
+      return;
     }
 
     // If we get here, server deletion succeeded or wasn't needed
@@ -1131,10 +1082,10 @@ const Board: Component<BoardProps> = (props) => {
 
     const movesToReplay = newMoveHistory.slice(0, currentIndex);
     
-    const replayedPieces = replayMoves(movesToReplay, movesToReplay.length - 1);
+    //const replayedPieces = replayMoves(movesToReplay, movesToReplay.length - 1);
+    const replayedPieces = replayMoves(newMoveHistory, newMoveHistory.length - 1);
     
     // Update local state
-    console.log(`[Delete] Updating state - New move index: ${Math.max(-1, currentIndex)}`);
     const currentBranch = currentBranchName();
     batch(()=> {
       setBasePoints(replayedPieces);
@@ -1152,20 +1103,16 @@ const Board: Component<BoardProps> = (props) => {
       }
       setMoveHistory(rebuildMoveHistory(currentBranchName()))
     })
-    handleGoBack()
+    //handleGoBack()
     setCurrentBranchName(currentBranch)
-    handleGoForward()
-    console.log(`[Delete] (2) currentBranch: ${currentBranchName()}`);
-    console.log(`[Delete] (2) branchPoints: ${JSON.stringify(branchPoints())}`)
-    console.log(`[Delete] currentMoveIndex: ${currentMoveIndex()}`)
-    console.log(`[Delete] restrictedSquares: ${getRestrictedSquares()}`)
+    //handleGoForward()
   };
 
   const handleGoForward = async () => {
     console.log(`[handleGoForward] ${currentMoveIndex()} -- currentBranchName: ${currentBranchName()}`)
 
     const currentIndex = currentMoveIndex();
-    const history = [...rebuildMoveHistory(currentBranchName() || 'main')]; // Create a copy of the move history array
+    const history = [...rebuildMoveHistory(currentBranchName())]; // Create a copy of the move history array
     setMoveHistory(history);
     
     // 1. Replay all moves up to the target index
@@ -1239,10 +1186,10 @@ const Board: Component<BoardProps> = (props) => {
     isHandlingGoBack.current = true;
 
     try {
-      const branch = currentBranchName() || 'main';
+      const branch = currentBranchName();
       const currentIndex = currentMoveIndex();
       
-      if (currentIndex === 0) {
+      if (currentIndex <= 0) {
         return; // Already at the start of the game
       }
 
@@ -1306,10 +1253,8 @@ const Board: Component<BoardProps> = (props) => {
 
   const [lastHoveredCell, setLastHoveredCell] = createSignal<Point | null>(null);
   
-  // Base points are managed by the client state
   const [basePoints, setBasePoints] = createSignal<BasePoint[]>([]);
   
-  // Initialize board on mount
   onMount(async () => {
     // Set up CSS variable for grid size
     document.documentElement.style.setProperty('--grid-size', BOARD_CONFIG.GRID_SIZE.toString());
@@ -1373,6 +1318,7 @@ const Board: Component<BoardProps> = (props) => {
       
     // Update the kings in check state
     setKingsInCheck(newKingsInCheck);
+    console.log(`[Effect] newKingsInCheck: ${JSON.stringify(newKingsInCheck)}, kingsInCheck: ${JSON.stringify(kingsInCheck())}`)
   });
 
   const handleBasePointPickup = (point: Point) => {
@@ -1389,7 +1335,6 @@ const Board: Component<BoardProps> = (props) => {
     }
     
     setPickedUpBasePoint(basePoint);
-    setDragStartPosition(point);
     setIsDragging(true);
   };
 
@@ -1400,7 +1345,6 @@ const Board: Component<BoardProps> = (props) => {
     if (!currentBasePoint) {
       return false
     }
-    const basePoint = createPoint(currentBasePoint.x, currentBasePoint.y);
 
     const [targetX, targetY] = target;
     const index: SquareIndex = (targetY * BOARD_CONFIG.GRID_SIZE + targetX) as SquareIndex;
@@ -1415,21 +1359,22 @@ const Board: Component<BoardProps> = (props) => {
     // Clear any previous errors if validation passed
     setError(null);
 
+    const dragPos = createPoint(currentBasePoint.x, currentBasePoint.y);
+    if (!dragPos) {
+      return false
+    }
     // Don't do anything if we're already at the target position
-    if (basePoint[0] === targetX && basePoint[1] === targetY) {
+    if (dragPos[0] === targetX && dragPos[1] === targetY) {
       return false;
     }
 
     // Find the base point being moved
-    const dragPos = dragStartPosition();
     const pointToMove = basePoints().find(bp => 
-      dragPos && bp.x === dragPos[0] && bp.y === dragPos[1]
-    ) || basePoints().find(bp => 
-      bp.x === basePoint[0] && bp.y === basePoint[1]
-    );
+      bp.x === dragPos[0] && bp.y === dragPos[1]
+    )
 
     if (!pointToMove) {
-      setError(`Base point not found at position (${basePoint[0]}, ${basePoint[1]})`);
+      setError(`Base point not found at position (${dragPos[0]}, ${dragPos[1]})`);
       return false;
     }
 
@@ -1447,9 +1392,6 @@ const Board: Component<BoardProps> = (props) => {
       return newBasePoints;
     });
 
-    // Update the drag start position to the new position
-    setDragStartPosition(target);
-    
     return true;
   };
 

@@ -20,7 +20,6 @@ export interface BasePoint {
   readonly id: number;
   x: number;
   y: number;
-  userId: string;
   color: NamedColor;
   pieceType: PieceType;
   team: 1 | 2; // 1 for team 1 (red/yellow), 2 for team 2 (blue/green)
