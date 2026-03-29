@@ -77,7 +77,8 @@ export async function POST({ request }: APIEvent) {
       { 
         user: { 
           id: user.id, 
-          username: user.username 
+          username: user.username,
+          token: token
         } 
       },
       { 
