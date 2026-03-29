@@ -2,7 +2,7 @@ import { BOARD_CONFIG } from '../constants/game';
 import { BasePoint, SquareIndex, RestrictedByInfo, RestrictedSquareInfo, Point, NamedColor, PieceType } from '../types/board';
 import type { ApiResponse } from './api';
 import { getLegalMoves } from './gameUtils';
-import { makeAuthenticatedApiCall, parseApiResponse, generateRequestId } from './clientApi';
+import { makeAuthenticatedApiCall, parseApiResponse, generateRequestId, makeApiCall } from './clientApi';
 import { useAuth } from '../contexts/AuthContext';
 
 export const generateNewGameId = (): string => {
