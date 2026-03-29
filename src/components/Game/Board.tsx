@@ -341,24 +341,12 @@ const Board: Component<BoardProps> = (props) => {
       const url = `/api/game/${gameIdToLoad}/moves`;
       console.log(`[loadGame] Fetching moves from: ${url}`);
       
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
       const userToken = auth.getToken();
-      if (userToken) {
-        headers['Authorization'] = `Bearer ${userToken}`;
-      }
+      const requestId = generateRequestId();
+      const response = await makeApiCall(url, {}, userToken || undefined);
+      const result = await parseApiResponse(response, requestId);
       
-      const response = await fetch(url, { 
-        headers
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[loadGame] Error response:', errorText);
-        throw new Error(`Failed to load game: ${response.status} ${response.statusText} - ${errorText}`);
-      }
-
-      const data = await response.json();
-      const rawMoves = Array.isArray(data?.moves) ? data.moves : [];
+      const rawMoves = Array.isArray(result?.data?.moves) ? result.data.moves : [];
       
       if (rawMoves.length === 0) {
         console.log('[loadGame] No moves found, initializing new game');
