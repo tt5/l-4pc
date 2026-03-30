@@ -142,7 +142,6 @@ export function EngineControl() {
 
   return (
     <div class={styles.container}>
-      <h3>Engine Control</h3>
       <div class={styles.buttons}>
         <button
           onClick={handleStart}

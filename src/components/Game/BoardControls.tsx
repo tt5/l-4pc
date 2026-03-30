@@ -171,32 +171,29 @@ const BoardControls: Component<BoardControlsProps> = (props) => {
         }}
         disabled={isStopping() || !props.onToggleAnalysis}
         class={`${styles.controlButton} ${props.isAnalyzing ? styles.stopButton : styles.startButton}`}
-        title={props.isAnalyzing ? 'Stop engine analysis' : 'Start engine analysis'}
       >
         {isStopping() 
           ? '...' 
           : props.isAnalyzing 
-            ? '❌ Stop Analysis' 
-            : '▶️ Start Analysis'}
+            ? 'Stop Analysis' 
+            : 'Start Analysis'}
       </button>
-      <div class={styles.navButtons}>
-        <button 
-          onClick={handleGoBack} 
-          disabled={!props.canGoBack || isGoingBack()}
-          class={`${styles.controlButton} ${styles.navButton} ${styles.backButton}`}
-          title="Go back one move"
-        >
-          {isGoingBack() ? '...' : '⏪ Back'}
-        </button>
-        <button 
-          onClick={handleGoForward} 
-          disabled={!props.canGoForward || isGoingForward()}
-          class={`${styles.controlButton} ${styles.navButton} ${styles.forwardButton}`}
-          title="Go forward one move"
-        >
-          {isGoingForward() ? '...' : 'Forward ⏩'}
-        </button>
-      </div>
+      <button 
+        onClick={handleGoBack} 
+        disabled={!props.canGoBack || isGoingBack()}
+        class={`${styles.controlButton} ${styles.navButton} ${styles.backButton}`}
+        title="Go back one move"
+      >
+        {isGoingBack() ? '...' : 'Back'}
+      </button>
+      <button 
+        onClick={handleGoForward} 
+        disabled={!props.canGoForward || isGoingForward()}
+        class={`${styles.controlButton} ${styles.navButton} ${styles.forwardButton}`}
+        title="Go forward one move"
+      >
+        {isGoingForward() ? '...' : 'Forward ⏩'}
+      </button>
       <button 
         onClick={handleResetBoard} 
         disabled={isResetting()}

@@ -87,9 +87,30 @@ const Board: Component<BoardProps> = (props) => {
     'GREEN': null
   });
   const [fullMoveHistory, setFullMoveHistory] = createSignal<Move[]>([]);
-
+  const [kingsInCheck, setKingsInCheck] = createSignal<{[key: string]: boolean}>({});
+  const [error, setError] = createSignal<string | null>(null);
+  const [pickedUpBasePoint, setPickedUpBasePoint] = createSignal<BasePoint | null>(null);
+  const [isDragging, setIsDragging] = createSignal(false);
+  const [targetPosition, setTargetPosition] = createSignal<Point | null>(null);
+  const [isProcessingMove, setIsProcessingMove] = createSignal(false);
+  const [hoveredCell, setHoveredCell] = createSignal<Point | null>(null);
+  const [mainLineMoves, setMainLineMoves] = createSignal<Move[]>([]);
+  // Current move history up to the end of branch
+  const [moveHistory, setMoveHistory] = createSignal<Move[]>([]);
+  // Current position in the move history (for going back/forward)
+  const [currentMoveIndex, setCurrentMoveIndex] = createSignal(-1);
+  const [currentTurnIndex, setCurrentTurnIndex] = createSignal(0);
+  // Branch name for the current move (if any)
+  const [currentBranchName, setCurrentBranchName] = createSignal<string>('main');
+  // Track branch points and their associated branches
+  const [branchPoints, setBranchPoints] = createSignal<BranchPoints>({});
+  const [fen4, setFen4] = createSignal<string>('');
+  const [restrictedSquaresInfo, setRestrictedSquaresInfo] = createSignal<RestrictedSquareInfo[]>([]);
+  const [lastHoveredCell, setLastHoveredCell] = createSignal<Point | null>(null);
+  const [basePoints, setBasePoints] = createSignal<BasePoint[]>([]);
 
   const analysisInProgress = { current: false };
+  const isHandlingGoBack = { current: false };
 
   // Set up engine status listener
   onMount(() => {
@@ -150,7 +171,7 @@ const Board: Component<BoardProps> = (props) => {
     };
   });
 
-  const startEngineAnalysis = async (moves: string[]): Promise<boolean> => {
+  const startEngineAnalysis = async (ucimoves: string[]): Promise<boolean> => {
     
     if (!isEngineReady()) {
       console.log('[Engine] Engine not ready, skipping analysis');
@@ -178,7 +199,7 @@ const Board: Component<BoardProps> = (props) => {
     setIsAnalyzing(true);
     
     try {
-      await engine.startAnalysis(moves);
+      await engine.startAnalysis(ucimoves);
       return true;
     } catch (error) {
       console.error('[Engine] Error during analysis:', error);
@@ -346,7 +367,7 @@ const Board: Component<BoardProps> = (props) => {
       const response = await makeApiCall(url, {}, userToken || undefined);
       const result = await parseApiResponse(response, requestId);
       
-      const rawMoves = Array.isArray(result?.data?.moves) ? result.data.moves : [];
+      const rawMoves = Array.isArray(result.data.moves) ? result.data.moves : [];
       
       if (rawMoves.length === 0) {
         console.log('[loadGame] No moves found, initializing new game');
@@ -356,10 +377,8 @@ const Board: Component<BoardProps> = (props) => {
           props.onGameUpdate();
         }
         return;
-      } else {
-        console.log(`[loadGame] ${rawMoves.length} moves found`);
-      }
-      
+      }      
+
       function convertApiMove(move: ApiMove): Move {
         return {
             fromX: move.fromX,
@@ -377,37 +396,37 @@ const Board: Component<BoardProps> = (props) => {
             castleType: null,
             isEnPassant: false,
             capturedPiece: undefined
-
         }
       }
+      // unsorted
       const moves: Move[] = rawMoves.map(convertApiMove);
 
       // Update state in a batch
       batch(() => {
         setGameId(gameIdToLoad);
+        // unordered
         setFullMoveHistory(moves);
-        console.log(`[loadGame] fullMoveHistory: ${JSON.stringify(fullMoveHistory())}`)
         
         if (moves.length > 0) {
 
           // Reconstruct branchPoints from fullMoveHistory
           const reconstructedBranchPoints: BranchPoints = {};
 
-          const branchMoves = moves.filter((move: Move) => move.branchName && move.branchName !== 'main');
+          const branchMoves = moves.filter((move) => move.branchName !== 'main');
           const processedBranches = new Set<string>();
           
-          branchMoves.forEach((move: Move) => {
+          branchMoves.forEach((move) => {
             // Skip if this branch has already been processed
-            if (processedBranches.has(move.branchName!)) {
+            if (processedBranches.has(move.branchName)) {
               return;
             }
             
             const branchPointMoveNumber = move.moveNumber - 1;
             
             // Find the parent branch (look for moves with same moveNumber but different/no branchName)
-            const parentMove = moves.find((m: Move) => 
+            const parentMove = moves.find((m) => 
               m.moveNumber === branchPointMoveNumber && 
-              (!m.branchName || m.branchName === 'main')
+              m.branchName === 'main'
             );
             
             if (parentMove) {
@@ -417,12 +436,11 @@ const Board: Component<BoardProps> = (props) => {
               
               // Check if this branch is already added
               const existingBranch = reconstructedBranchPoints[branchPointMoveNumber]
-                .find((bp: {branchName: string}) => bp.branchName === move.branchName);
+                .find((bp) => bp.branchName === move.branchName);
               
-              if (!existingBranch && move.branchName) {
+              if (!existingBranch) {
                 reconstructedBranchPoints[branchPointMoveNumber].push({
                   branchName: move.branchName,
-                  //TODO
                   parentBranch: 'main', // Default to main, could be enhanced for nested branches
                   firstMove: {
                     fromX: move.fromX,
@@ -441,7 +459,7 @@ const Board: Component<BoardProps> = (props) => {
           setBranchPoints(reconstructedBranchPoints);
 
           setMainLineMoves(moves
-            .filter((move: Move) => move.branchName === 'main')
+            .filter((m) => m.branchName === 'main')
             .sort((a, b) => a.moveNumber - b.moveNumber)
           );
           setCurrentBranchName('main');
@@ -452,7 +470,6 @@ const Board: Component<BoardProps> = (props) => {
           resetBoardToInitialState();
         }
         
-        // Update last loaded state
         setLastLoadedState({
           gameId: gameIdToLoad,
           userId: currentUser.id
@@ -509,8 +526,6 @@ const Board: Component<BoardProps> = (props) => {
     setError(null);
   };
 
-  const [kingsInCheck, setKingsInCheck] = createSignal<{[key: string]: boolean}>({});
-  
   const validateSquarePlacementLocal = (index: SquareIndex): {isValid: boolean} => {
     return validateSquarePlacement(
       index,
@@ -527,29 +542,10 @@ const Board: Component<BoardProps> = (props) => {
     setRestrictedSquares
   } = useRestrictedSquares();
   
-  const [error, setError] = createSignal<string | null>(null);
-  const [pickedUpBasePoint, setPickedUpBasePoint] = createSignal<BasePoint | null>(null);
-  const [isDragging, setIsDragging] = createSignal(false);
-  const [targetPosition, setTargetPosition] = createSignal<Point | null>(null);
-  const [isProcessingMove, setIsProcessingMove] = createSignal(false);
-  const [hoveredCell, setHoveredCell] = createSignal<Point | null>(null);
-  const [mainLineMoves, setMainLineMoves] = createSignal<Move[]>([]);
-  // Current move history up to the end of branch
-  const [moveHistory, setMoveHistory] = createSignal<Move[]>([]);
-  // Current position in the move history (for going back/forward)
-  const [currentMoveIndex, setCurrentMoveIndex] = createSignal(-1);
-  const [currentTurnIndex, setCurrentTurnIndex] = createSignal(0);
-  // Branch name for the current move (if any)
-  const [currentBranchName, setCurrentBranchName] = createSignal<string>('main');
-  // Track branch points and their associated branches
-  const [branchPoints, setBranchPoints] = createSignal<BranchPoints>({});
-  const [fen4, setFen4] = createSignal<string>('');
-
   // update FEN4 when position changes
   createEffect(() => {
     const points = basePoints();
     const turnIndex = currentTurnIndex();
-    
     const newFen4 = generateFen4(points, turnIndex);
     setFen4(newFen4);
   });
@@ -597,7 +593,12 @@ const Board: Component<BoardProps> = (props) => {
     }
   });
   
-  const currentPlayerColor = () => PLAYER_COLORS[currentTurnIndex() % PLAYER_COLORS.length];
+  const currentPlayerColor = () => PLAYER_COLORS[currentMoveIndex() % PLAYER_COLORS.length];
+
+  const getCurrentPlayerPieces = (basePoints: BasePoint[], turnIndex: number) => {
+    const playerColorName = currentPlayerColor();
+    return basePoints.filter(p => p.color === playerColorName);
+  };
 
   // Update king check status based on current board state
   const updateKingCheckStatus = (boardState: BasePoint[]) => {
@@ -823,10 +824,10 @@ const Board: Component<BoardProps> = (props) => {
   const deleteLastMove = async () => {
     const requestId = generateRequestId();
     console.log(`[${requestId}] [deleteLastMove]`);
-    const history = moveHistory();
+
+    const newMoveHistory = moveHistory();
     const currentIndex = Math.max(0, history.length - 1);
-    
-    const currentMove = history[currentIndex];
+    const currentMove = newMoveHistory[currentIndex];
     
     const moveData = {
       gameId: props.gameId,
@@ -851,27 +852,21 @@ const Board: Component<BoardProps> = (props) => {
       return;
     }
 
-    // If we get here, server deletion succeeded or wasn't needed
-    const newMoveHistory = [...history];
-    console.log(`[deleteLastMove] Before deletion - History length: ${newMoveHistory.length}`);
-    
     newMoveHistory.splice(currentIndex, 1);
-    console.log(`[deleteLastMove] After deletion - New history length: ${newMoveHistory.length}`);
 
     // Update fullMoveHistory to remove the deleted move and its descendants
     setFullMoveHistory(prevFullHistory => {
       // If the move has a branch name, we need to remove all moves in that branch
-      if (currentMove.branchName) {
+      if (currentMove.branchName !== 'main') {
         const currentBranchName = currentMove.branchName;
         return prevFullHistory.filter(move => {
-          return !move.branchName?.startsWith(currentBranchName + (currentBranchName.endsWith('/') ? '' : '/')) &&
+          return !move.branchName.startsWith(currentBranchName + (currentBranchName.endsWith('/') ? '' : '/')) &&
             !(move.branchName === currentBranchName && move.moveNumber >= currentMove.moveNumber);
         });
       } else {
         return prevFullHistory.filter(move => {
-          const isMainLineMove = move.branchName === undefined || move.branchName === null;
           const isTargetMove = move.moveNumber >= currentMove.moveNumber;
-          return !(isMainLineMove && isTargetMove);
+          return !(isTargetMove);
         });
       }
     });
@@ -883,12 +878,11 @@ const Board: Component<BoardProps> = (props) => {
       );
     }
 
-    console.log(`[deleteLastMove] (0) branchPoints: ${JSON.stringify(branchPoints())}`)
-
     // Clean up branchPoints when a move is deleted
     setBranchPoints(prevBranchPoints => {
       const newBranchPoints = { ...prevBranchPoints };
       
+      // keys are string type internally
       Object.keys(newBranchPoints).forEach(moveNumber => {
         const branchPoint = newBranchPoints[Number(moveNumber)];
         if (branchPoint) {
@@ -901,9 +895,8 @@ const Board: Component<BoardProps> = (props) => {
 
       return newBranchPoints;
     });
-    console.log(`[deleteLastMove] (2) branchPoints: ${JSON.stringify(branchPoints())}`)
+ 
     setMoveHistory(newMoveHistory)
-    console.log(`[deleteLastMove] moveHistory length: ${moveHistory().length}`)
   };
 
   const handleDeleteCurrentMove = async () => {
@@ -964,39 +957,32 @@ const Board: Component<BoardProps> = (props) => {
       return;
     }
 
-    // If we get here, server deletion succeeded or wasn't needed
     const newMoveHistory = [...history];
-    console.log(`[Delete] Before deletion - History length: ${newMoveHistory.length}`);
-    
     newMoveHistory.splice(currentIndex, 1);
-    console.log(`[Delete] After deletion - New history length: ${newMoveHistory.length}`);
 
     // Update fullMoveHistory to remove the deleted move and its descendants
     setFullMoveHistory(prevFullHistory => {
       // If the move has a branch name, we need to remove all moves in that branch
-      if (currentMove.branchName) {
+      if (currentMove.branchName !== 'main') {
         const currentBranchName = currentMove.branchName;
         return prevFullHistory.filter(move => {
-          return !move.branchName?.startsWith(currentBranchName + (currentBranchName.endsWith('/') ? '' : '/')) &&
-            !(move.branchName === currentBranchName && move.moveNumber >= currentMove.moveNumber);
+          return !move.branchName.startsWith(currentBranchName + (currentBranchName.endsWith('/') ? '' : '/')) &&
+            !(move.moveNumber >= currentMove.moveNumber);
         });
       } else {
         return prevFullHistory.filter(move => {
-          const isMainLineMove = move.branchName === undefined || move.branchName === null;
           const isTargetMove = move.moveNumber >= currentMove.moveNumber;
-          return !(isMainLineMove && isTargetMove);
+          return !(isTargetMove);
         });
       }
     });
 
     // Also update mainLineMoves if the deleted move was in the main line
-    if (!currentMove.branchName) {
+    if (currentMove.branchName === 'main') {
       setMainLineMoves(prevMainLine => 
         prevMainLine.filter(move => move.moveNumber <= currentMove.moveNumber)
       );
     }
-
-    console.log(`[Delete] (0) branchPoints: ${JSON.stringify(branchPoints())}`)
 
     // Clean up branchPoints when a move is deleted
     setBranchPoints(prevBranchPoints => {
@@ -1014,15 +1000,7 @@ const Board: Component<BoardProps> = (props) => {
 
       return newBranchPoints;
     });
-    console.log(`[Delete] (1) branchPoints: ${JSON.stringify(branchPoints())}`)
 
-    // Reset and replay moves
-    console.log(`[Delete] Resetting board and replaying ${currentIndex} moves`);
-    
-    // Notify parent component to refresh the game list
-    if (props.onGameUpdate) {
-      props.onGameUpdate();
-    }
     const saveFullMoveHistory = fullMoveHistory();
     const saveCurrentBranchName = currentBranchName();
     const saveMainLineMoves = mainLineMoves();
@@ -1033,9 +1011,6 @@ const Board: Component<BoardProps> = (props) => {
     setMainLineMoves(saveMainLineMoves);
     setBranchPoints(saveBranchPoints);
 
-    const movesToReplay = newMoveHistory.slice(0, currentIndex);
-    
-    //const replayedPieces = replayMoves(movesToReplay, movesToReplay.length - 1);
     const replayedPieces = replayMoves(newMoveHistory, newMoveHistory.length - 1);
     
     // Update local state
@@ -1048,8 +1023,7 @@ const Board: Component<BoardProps> = (props) => {
       setCurrentMoveIndex(newMoveIndex);
       setCurrentTurnIndex(newTurnIndex);
 
-      console.log(`[Delete] (1) currentBranch: ${currentBranchName()}`);
-      if (currentBranch && currentBranch !== 'main') {
+      if (currentBranch !== 'main') {
         setCurrentBranchName(currentBranch);
       } else {
         setCurrentBranchName('main');
@@ -1062,7 +1036,7 @@ const Board: Component<BoardProps> = (props) => {
   };
 
   const handleGoForward = async () => {
-    console.log(`[handleGoForward] ${currentMoveIndex()} -- currentBranchName: ${currentBranchName()}`)
+    console.log(`[handleGoForward] ${currentMoveIndex()}, currentBranchName: ${currentBranchName()}`)
 
     const currentIndex = currentMoveIndex();
     const history = [...rebuildMoveHistory(currentBranchName())]; // Create a copy of the move history array
@@ -1084,18 +1058,13 @@ const Board: Component<BoardProps> = (props) => {
     setCurrentTurnIndex(newTurnIndex);
     
     // 5. Get current player's pieces
-    const playerColorName = PLAYER_COLORS[newTurnIndex];
-    const currentPlayerPieces = updatedBasePoints.filter(p => 
-      p.color === playerColorName
-    );
+    const currentPlayerPieces = getCurrentPlayerPieces(basePoints(), currentMoveIndex());
 
     // 6. Calculate and update restricted squares
     const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(
       currentPlayerPieces,
       updatedBasePoints,
-      { 
-        enPassantTarget: enPassantTargets()
-      }
+      { enPassantTarget: enPassantTargets() }
     );
     
     setRestrictedSquares(restrictedSquares);
@@ -1107,18 +1076,15 @@ const Board: Component<BoardProps> = (props) => {
     analyzePosition(currentIndex);
   };
 
-  // Track if we're currently handling a go back operation
-  const isHandlingGoBack = { current: false };
-
   // Function to analyze position with proper guards
   const analyzePosition = (moveIndex: number) => {
     if (!isEngineReady() || isHandlingGoBack.current || !isAnalyzing()) return;
+    engine.stopAnalysis();
     
     const uciMoveHistory = moveHistory()
       .slice(0, moveIndex + 1)  // +1 because slice end is exclusive
       .map(moveToUCI);
     
-    engine.stopAnalysis();
     // Small delay to let the board state settle
     setTimeout(() => {
       try {
@@ -1174,17 +1140,12 @@ const Board: Component<BoardProps> = (props) => {
         
         updateKingCheckStatus(updatedBasePoints);
         
-        const playerColorName = PLAYER_COLORS[newTurnIndex];
-        const currentPlayerPieces = updatedBasePoints.filter(p => 
-          p.color === playerColorName
-        );
+        const currentPlayerPieces = getCurrentPlayerPieces(updatedBasePoints, newTurnIndex);
 
         const { restrictedSquares, restrictedSquaresInfo } = calculateRestrictedSquares(
           currentPlayerPieces,
           updatedBasePoints,
-          { 
-            enPassantTarget: enPassantTargets()
-          }
+          { enPassantTarget: enPassantTargets() }
         );
         
         setRestrictedSquares(restrictedSquares);
@@ -1193,7 +1154,6 @@ const Board: Component<BoardProps> = (props) => {
 
       await new Promise(resolve => setTimeout(resolve, 0));
 
-      
     } finally {
       isHandlingGoBack.current = false;
       analyzePosition(currentMoveIndex()-1);
@@ -1201,13 +1161,6 @@ const Board: Component<BoardProps> = (props) => {
     }
   };
 
-  // Track restricted squares with their origin information
-  const [restrictedSquaresInfo, setRestrictedSquaresInfo] = createSignal<RestrictedSquareInfo[]>([]);
-
-  const [lastHoveredCell, setLastHoveredCell] = createSignal<Point | null>(null);
-  
-  const [basePoints, setBasePoints] = createSignal<BasePoint[]>([]);
-  
   onMount(async () => {
     // Set up CSS variable for grid size
     document.documentElement.style.setProperty('--grid-size', BOARD_CONFIG.GRID_SIZE.toString());
@@ -1976,7 +1929,6 @@ const Board: Component<BoardProps> = (props) => {
         moves={moveHistory()}
         mainLineMoves={mainLineMoves()}
         currentMoveIndex={currentMoveIndex()}
-        currentPlayerColor={currentPlayerColor}
         branchPoints={branchPoints()}
       />
     </div>

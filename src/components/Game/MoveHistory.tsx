@@ -2,6 +2,7 @@ import { For, Show, createEffect, createSignal, onCleanup } from 'solid-js';
 import styles from './MoveHistory.module.css';
 import { formatMove } from '../../utils/chessNotation';
 import type { BranchPoints, Move, NamedColor, SimpleMove } from '../../types/board';
+import { PLAYER_COLORS } from '~/constants/game';
 
 type HistoryMove = Partial<Move>
 
@@ -9,7 +10,6 @@ type MoveHistoryProps = {
   moves: Move[];
   mainLineMoves: Move[];
   currentMoveIndex: number;
-  currentPlayerColor: () => NamedColor;
   branchPoints?: BranchPoints;
 };
 
@@ -78,10 +78,16 @@ export const MoveHistory = (props: MoveHistoryProps) => {
     }
   };
 
+  const getCurrentPlayerColor = () => {
+    const colorIndex = props.currentMoveIndex % PLAYER_COLORS.length;
+    return PLAYER_COLORS[colorIndex] || 'RED'; // fallback to RED if undefined
+  };
+
+        console.log(`MoveHistor turn: ${JSON.stringify(getCurrentPlayerColor())}`)
   return (
     <div class={styles.moveHistoryContainer}>
-      <div class={`${styles.turnIndicator} ${styles[props.currentPlayerColor().toLowerCase()]}`}>
-        {props.currentPlayerColor()}'s turn
+      <div class={`${styles.turnIndicator} ${styles[getCurrentPlayerColor().toLowerCase()] || 'red'}`}>
+        {getCurrentPlayerColor()}'s turn
       </div>
       <h3>Move History</h3>
       <div class={styles.moveHistory}>

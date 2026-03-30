@@ -2,7 +2,7 @@
 
 .gameContainer {
   display: grid;
-  grid-template-columns: 4rem 1fr;
+  grid-template-columns: 6rem 1fr;
   height: calc(100vh - 0px);
   overflow: hidden;
 }
@@ -27,6 +27,6 @@
 }
 
 .settingsContainer {
-  width: 3rem;
-  height: 1rem;
+  background-color: var(--color-bg);
+  border: black solid;
 }

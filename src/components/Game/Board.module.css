@@ -10,7 +10,7 @@
 
 .boardContent {
   display: flex;
-  gap: 20px;
+  gap: 1rem;
   align-items: flex-start;
   justify-content: center;
   width: 100%;
@@ -22,7 +22,7 @@
     position: static;
     width: 100%;
     max-height: 200px;
-    margin-top: 20px;
+    margin-top: 1rem;
   }
 }
 
