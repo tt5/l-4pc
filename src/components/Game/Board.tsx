@@ -554,14 +554,15 @@ const Board: Component<BoardProps> = (props) => {
   const rebuildMoveHistory = (targetBranch: string): Move[] => {
 
     const branchPath = buildFullBranchName(targetBranch, fullMoveHistory()).split('/');
+    console.log(`[rebuildMoveHistory] branchPath: ${branchPath}`)
 
     // Start with main line
-    let currentHistory = fullMoveHistory().filter(m => !m.branchName || m.branchName === 'main');
+    let currentHistory = fullMoveHistory().filter(m => m.branchName === 'main')
 
     for (const branch of branchPath) {
       const branchMoves = fullMoveHistory().filter(m => 
-        m.branchName && m.branchName.endsWith(branch)
-      );
+        m.branchName.endsWith(branch)
+      )
       
       if (branchMoves.length > 0) {
         const branchPoint = Math.min(...branchMoves.map(m => m.moveNumber));
@@ -572,7 +573,9 @@ const Board: Component<BoardProps> = (props) => {
       }
     }
     
-    return currentHistory.sort((a, b) => a.moveNumber - b.moveNumber);
+    const sortedHistory = currentHistory.sort((a, b) => a.moveNumber - b.moveNumber);
+    console.log(`[rebuildMoveHistory] sorted new history: ${JSON.stringify(sortedHistory.map(m => ({moveNumber: m.moveNumber, branchName: m.branchName})))}`)
+    return sortedHistory
   };
 
   onCleanup(() => {
@@ -820,23 +823,23 @@ const Board: Component<BoardProps> = (props) => {
   };
 
   const deleteLastMove = async () => {
-    const requestId = generateRequestId();
-    console.log(`[${requestId}] [deleteLastMove]`);
+    console.log(`[deleteLastMove]`);
 
     const newMoveHistory = moveHistory();
-    const currentIndex = Math.max(0, history.length - 1);
-    const currentMove = newMoveHistory[currentIndex];
+    const lastIndex = Math.max(0, history.length - 1);
+    const lastMove = newMoveHistory[lastIndex];
     
     const moveData = {
       gameId: props.gameId,
-      fromX: currentMove.fromX,
-      fromY: currentMove.fromY,
-      toX: currentMove.toX,
-      toY: currentMove.toY,
-      moveNumber: currentMove.moveNumber
+      fromX: lastMove.fromX,
+      fromY: lastMove.fromY,
+      toX: lastMove.toX,
+      toY: lastMove.toY,
+      moveNumber: lastMove.moveNumber
     };
     
     try {
+      const requestId = generateRequestId();
       const response = await makeApiCall('/api/moves/[id]', {
         method: 'DELETE',
         body: JSON.stringify(moveData)
@@ -845,34 +848,28 @@ const Board: Component<BoardProps> = (props) => {
       const result = await parseApiResponse(response, requestId);
       console.log(`[${requestId}] [deleteLastMove] Successfully deleted ${result.data?.deletedCount || 0} moves`);
     } catch (error) {
-      console.error(`[${requestId}] [deleteLastMove] Failed to delete move:`, error instanceof Error ? error.message : String(error));
+      console.error(`[deleteLastMove] Failed to delete move:`, error instanceof Error ? error.message : String(error));
       // Don't update local state if server deletion fails
       return;
     }
 
-    newMoveHistory.splice(currentIndex, 1);
+    newMoveHistory.splice(lastIndex, 1); // Removes 1 element at the lastIndex position from the array
+
+
 
     // Update fullMoveHistory to remove the deleted move and its descendants
     setFullMoveHistory(prevFullHistory => {
-      // If the move has a branch name, we need to remove all moves in that branch
-      if (currentMove.branchName !== 'main') {
-        const currentBranchName = currentMove.branchName;
-        return prevFullHistory.filter(move => {
-          return !move.branchName.startsWith(currentBranchName + (currentBranchName.endsWith('/') ? '' : '/')) &&
-            !(move.branchName === currentBranchName && move.moveNumber >= currentMove.moveNumber);
-        });
-      } else {
-        return prevFullHistory.filter(move => {
-          const isTargetMove = move.moveNumber >= currentMove.moveNumber;
-          return !(isTargetMove);
-        });
-      }
+      return prevFullHistory.filter(m => {
+        const isTargetMove = m.branchName === lastMove.branchName &&
+        m.moveNumber === lastMove.moveNumber;
+        return !isTargetMove;
+      });
     });
 
     // Also update mainLineMoves if the deleted move was in the main line
-    if (!currentMove.branchName) {
+    if (lastMove.branchName === 'main') {
       setMainLineMoves(prevMainLine => 
-        prevMainLine.filter(move => move.moveNumber <= currentMove.moveNumber)
+        prevMainLine.filter(m => m.moveNumber <= lastMove.moveNumber)
       );
     }
 
@@ -881,14 +878,11 @@ const Board: Component<BoardProps> = (props) => {
       const newBranchPoints = { ...prevBranchPoints };
       
       // keys are string type internally
-      Object.keys(newBranchPoints).forEach(moveNumber => {
-        const branchPoint = newBranchPoints[Number(moveNumber)];
-        if (branchPoint) {
-          newBranchPoints[Number(moveNumber)] = branchPoint.filter(bp => {
-              return !(((currentMove.moveNumber - 1) == Number(moveNumber)) && (currentMove.branchName == bp.branchName));
+      Object.keys(newBranchPoints).forEach(key => {
+          newBranchPoints[Number(key)] = prevBranchPoints[Number(key)].filter(bp => {
+              return !(((lastMove.moveNumber - 1) === Number(key)) && (lastMove.branchName == bp.branchName));
             }
           );
-        }
       });
 
       return newBranchPoints;
@@ -904,9 +898,9 @@ const Board: Component<BoardProps> = (props) => {
     console.log(`[Delete] currentIndex: ${currentIndex}, history.length: ${history.length}`)
 
     if (currentIndex < history.length) {
-      console.log("[Delete] historic position")
+      console.log("[Delete] historical position")
       const movesToDelete = moveHistory().slice(currentIndex,history.length)
-      console.log(`[Delete] moves to delete: ${JSON.stringify(movesToDelete)}`)
+      console.log(`[Delete] ${movesToDelete.length} moves to delete`)
       for (let i = 0; i < movesToDelete.length; i++) {
         await deleteLastMove()
       }
