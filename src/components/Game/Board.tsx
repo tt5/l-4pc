@@ -827,7 +827,7 @@ const Board: Component<BoardProps> = (props) => {
     console.log(`[deleteLastMove]`);
 
     const newMoveHistory = moveHistory();
-    const lastIndex = Math.max(0, history.length - 1);
+    const lastIndex = Math.max(0, newMoveHistory.length - 1);
     const lastMove = newMoveHistory[lastIndex];
     
     const moveData = {
@@ -848,7 +848,7 @@ const Board: Component<BoardProps> = (props) => {
       }, userToken || undefined);
       
       const result = await parseApiResponse(response, requestId);
-      console.log(`[${requestId}] [deleteLastMove] Successfully deleted ${result.data?.deletedCount || 0} moves`);
+      console.log(`[deleteLastMove] Successfully deleted ${JSON.stringify(result)}`);
     } catch (error) {
       console.error(`[deleteLastMove] Failed to delete move:`, error instanceof Error ? error.message : String(error));
       // Don't update local state if server deletion fails
@@ -856,8 +856,6 @@ const Board: Component<BoardProps> = (props) => {
     }
 
     newMoveHistory.splice(lastIndex, 1); // Removes 1 element at the lastIndex position from the array
-
-
 
     // Update fullMoveHistory to remove the deleted move and its descendants
     setFullMoveHistory(prevFullHistory => {
@@ -875,7 +873,7 @@ const Board: Component<BoardProps> = (props) => {
       );
     }
 
-    // Clean up branchPoints when a move is deleted
+    // Clean up branchPoints
     setBranchPoints(prevBranchPoints => {
       const newBranchPoints = { ...prevBranchPoints };
       
@@ -895,7 +893,7 @@ const Board: Component<BoardProps> = (props) => {
 
   const handleDeleteCurrentMove = async () => {
     console.log('[Delete]');
-    let history = moveHistory();
+    const history = moveHistory();
     let currentIndex = currentMoveIndex();
     console.log(`[Delete] currentIndex: ${currentIndex}, history.length: ${history.length}`)
 
@@ -909,23 +907,14 @@ const Board: Component<BoardProps> = (props) => {
       currentIndex -= 1;
     }
     
-    // If currentIndex is out of bounds, adjust it to point to the last move
     if (currentIndex >= history.length) {
       currentIndex = Math.max(0, history.length - 1);
-      console.log(`[Delete] Adjusted currentIndex from ${currentMoveIndex()} to ${currentIndex}`);
     }
-    history = moveHistory();
+    const newMoveHistory = moveHistory();
     console.log(`[Delete] updated moveHistory length: ${history.length}`)
     
-    if (currentIndex < 0 || currentIndex >= history.length || history.length === 0) {
-      console.log(`[Delete] No move to delete - Index ${currentIndex} is out of bounds for history length ${history.length}`);
-      return;
-    }
-
     const currentMove = history[currentIndex];
     
-    console.log(`[Delete] currentMove: ${JSON.stringify(currentMove)}`)
-      
     // First try to delete on the server
     const requestId = generateRequestId();
     const moveData = {
@@ -952,7 +941,6 @@ const Board: Component<BoardProps> = (props) => {
       return;
     }
 
-    const newMoveHistory = [...history];
     newMoveHistory.splice(currentIndex, 1);
 
     // Update fullMoveHistory to remove the deleted move and its descendants
@@ -979,50 +967,32 @@ const Board: Component<BoardProps> = (props) => {
       );
     }
 
-    // Clean up branchPoints when a move is deleted
+    // Clean up branchPoints
     setBranchPoints(prevBranchPoints => {
       const newBranchPoints = { ...prevBranchPoints };
       
-      Object.keys(newBranchPoints).forEach(moveNumber => {
-        const branchPoint = newBranchPoints[Number(moveNumber)];
-        if (branchPoint) {
-          newBranchPoints[Number(moveNumber)] = branchPoint.filter(bp => {
-              return !(((currentMove.moveNumber - 1) == Number(moveNumber)) && (currentMove.branchName == bp.branchName));
+      // keys are string type internally
+      Object.keys(newBranchPoints).forEach(key => {
+          newBranchPoints[Number(key)] = prevBranchPoints[Number(key)].filter(bp => {
+              return !(((currentMove.moveNumber - 1) === Number(key)) && (currentMove.branchName == bp.branchName));
             }
           );
-        }
       });
 
       return newBranchPoints;
     });
 
-    const saveFullMoveHistory = fullMoveHistory();
-    const saveCurrentBranchName = currentBranchName();
-    const saveMainLineMoves = mainLineMoves();
-    const saveBranchPoints = branchPoints();
-    resetBoardToInitialState();
-    setFullMoveHistory(saveFullMoveHistory);
-    setCurrentBranchName(saveCurrentBranchName);
-    setMainLineMoves(saveMainLineMoves);
-    setBranchPoints(saveBranchPoints);
-
-    const replayedPieces = replayMoves(newMoveHistory, newMoveHistory.length - 1);
-    
     // Update local state
+    const replayedPieces = replayMoves(newMoveHistory, newMoveHistory.length - 1);
     const currentBranch = currentBranchName();
+    const newMoveIndex = Math.max(-1, currentIndex);
+    const newTurnIndex = (newMoveIndex) % PLAYER_COLORS.length;
     batch(()=> {
       setBasePoints(replayedPieces);
       setMoveHistory(newMoveHistory);
-      const newMoveIndex = Math.max(-1, currentIndex);
-      const newTurnIndex = (newMoveIndex) % PLAYER_COLORS.length;
       setCurrentMoveIndex(newMoveIndex);
       setCurrentTurnIndex(newTurnIndex);
-
-      if (currentBranch !== 'main') {
-        setCurrentBranchName(currentBranch);
-      } else {
-        setCurrentBranchName('main');
-      }
+      setCurrentBranchName(currentBranch);
       setMoveHistory(rebuildMoveHistory(currentBranchName()))
     })
     handleGoBack()
