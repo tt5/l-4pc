@@ -1,4 +1,4 @@
-import { getAuthUser } from '~/lib/server/auth/jwt';
+import { getAuthUser, getTokenFromRequest } from '~/lib/server/auth/jwt';
 import { jsonResponse } from '~/lib/server/utils';
 
 export const GET = async ({ request }: { request: Request }) => {
@@ -17,7 +17,8 @@ export const GET = async ({ request }: { request: Request }) => {
       user: {
         id: user.userId,
         username: user.username,
-        role: user.role || 'user'
+        role: user.role || 'user',
+        token: getTokenFromRequest(request)
       }
     });
   } catch (error) {

@@ -20,7 +20,7 @@ import { useAuth } from '~/contexts/AuthContext';
 import { useRestrictedSquares } from '../../contexts/RestrictedSquaresContext';
 
 import { generateFen4, parseFen4 } from '~/utils/fen4Utils';
-import { makeApiCall, parseApiResponse, generateRequestId } from '~/utils/clientApi';
+import { makeApiCall, parseApiResponse, generateRequestId, makeAuthenticatedApiCall } from '~/utils/clientApi';
 import { generateBranchName, buildFullBranchName } from '~/utils/branchUtils';
 import { MOVE_PATTERNS } from '~/constants/movePatterns';
 import { 
@@ -790,13 +790,14 @@ const Board: Component<BoardProps> = (props) => {
       console.log(`[${requestId}] [Save] Saving game with ID: ${newGameId}`);
       
       try {
+        const userToken = auth.getToken();
         const response = await makeApiCall('/api/game/update-id', {
           method: 'POST',
           body: JSON.stringify({
             currentGameId,
             newGameId
           })
-        });
+        }, userToken || undefined);
         await parseApiResponse(response, requestId);
         console.log(`[${requestId}] [Save] Successfully saved game as ${newGameId}`);
       } catch (error) {
@@ -840,10 +841,11 @@ const Board: Component<BoardProps> = (props) => {
     
     try {
       const requestId = generateRequestId();
+      const userToken = auth.getToken();
       const response = await makeApiCall('/api/moves/[id]', {
         method: 'DELETE',
         body: JSON.stringify(moveData)
-      });
+      }, userToken || undefined);
       
       const result = await parseApiResponse(response, requestId);
       console.log(`[${requestId}] [deleteLastMove] Successfully deleted ${result.data?.deletedCount || 0} moves`);
@@ -936,10 +938,11 @@ const Board: Component<BoardProps> = (props) => {
     };
     
     try {
+      const userToken = auth.getToken();
       const response = await makeApiCall('/api/moves/[id]', {
         method: 'DELETE',
         body: JSON.stringify(moveData)
-      });
+      }, userToken || undefined);
       
       const result = await parseApiResponse(response, requestId);
       console.log(`[${requestId}] [Delete] Successfully deleted ${result.data?.deletedCount || 0} moves`);
