@@ -138,10 +138,14 @@ export interface LegalMove {
   capturedPiece?: CapturedPiece;
 }
 
-export type BranchPoints = Record<number, Array<{
+export type BranchListItem = {
   branchName: string;
   parentBranch: string;
   firstMove: SimpleMove;
-}>>;
+}
+
+export type BranchList = Array<BranchListItem>;
+
+export type BranchPoints = Record<number, BranchList>;
 
 
