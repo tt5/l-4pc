@@ -881,8 +881,8 @@ const Board: Component<BoardProps> = (props) => {
     setMoveHistory(newMoveHistory)
   };
 
-  const deleteLast2Move = async (moves: Move[]) => {
-    console.log(`[deleteLast2Move]`);
+  const deleteLastMoves = async (moves: Move[]) => {
+    console.log(`[deleteLastMoves]`);
 
     const newMoveHistory = moveHistory();
     
@@ -894,9 +894,9 @@ const Board: Component<BoardProps> = (props) => {
       }, userToken || undefined);
       
       const result = await parseApiResponse(response, requestId);
-      console.log(`[deleteLast2Move] Successfully deleted ${JSON.stringify(result)}`);
+      console.log(`[deleteLastMoves] Successfully deleted ${JSON.stringify(result)}`);
     } catch (error) {
-      console.error(`[deleteLast2Move] Failed to delete move:`, error instanceof Error ? error.message : String(error));
+      console.error(`[deleteLastMoves] Failed to delete move:`, error instanceof Error ? error.message : String(error));
       // Don't update local state if server deletion fails
       return;
     }
@@ -947,14 +947,7 @@ const Board: Component<BoardProps> = (props) => {
       const movesToDelete = moveHistory()
         .slice(currentIndex,history.length)
       console.log(`[Delete] ${movesToDelete.length} moves to delete`)
-      if (movesToDelete.length === 2) {
-        await deleteLast2Move(movesToDelete)
-
-      } else {
-        for (let i = 0; i < movesToDelete.length; i++) {
-          await deleteLastMove()
-        }
-      }
+      await deleteLastMoves(movesToDelete)
 
       currentIndex -= 1;
     }
