@@ -3,15 +3,6 @@ import { withAuth } from '~/middleware/auth';
 import { getMoveRepository } from '~/lib/server/db';
 import { json } from '@solidjs/router';
 
-type MoveCoordinates = {
-  gameId: string;
-  fromX: number;
-  fromY: number;
-  toX: number;
-  toY: number;
-  moveNumber: number;
-};
-
 export const DELETE = withAuth(async (event: APIEvent) => {
   const requestId = event.request.headers.get('x-request-id') || 'unknown';
   const moveId = parseInt(event.params.id);
