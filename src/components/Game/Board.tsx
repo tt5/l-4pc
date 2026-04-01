@@ -116,6 +116,15 @@ const Board: Component<BoardProps> = (props) => {
   const analysisInProgress = { current: false };
   const isHandlingGoBack = { current: false };
 
+  let boardRef: HTMLDivElement | undefined;
+  
+  const { user } = useAuth();
+  
+  const {
+    restrictedSquares: getRestrictedSquares,
+    setRestrictedSquares
+  } = useRestrictedSquares();
+
   // Set up engine status listener
   onMount(() => {
     let isMounted = true;
@@ -530,15 +539,6 @@ const Board: Component<BoardProps> = (props) => {
       () => getRestrictedSquares() as RestrictedSquares,
     );
   };
-
-  let boardRef: HTMLDivElement | undefined;
-  
-  const { user } = useAuth();
-  
-  const {
-    restrictedSquares: getRestrictedSquares,
-    setRestrictedSquares
-  } = useRestrictedSquares();
   
   // update FEN4 when position changes
   createEffect(() => {
@@ -821,64 +821,6 @@ const Board: Component<BoardProps> = (props) => {
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const deleteLastMove = async () => {
-    console.log(`[deleteLastMove]`);
-
-    const newMoveHistory = moveHistory();
-    const lastIndex = Math.max(0, newMoveHistory.length - 1);
-    const lastMove = newMoveHistory[lastIndex];
-    
-    try {
-      const requestId = generateRequestId();
-      const userToken = auth.getToken();
-      const response = await makeApiCall(`/api/moves/${lastMove.id}`, {
-        method: 'DELETE',
-      }, userToken || undefined);
-      
-      const result = await parseApiResponse(response, requestId);
-      console.log(`[deleteLastMove] Successfully deleted ${JSON.stringify(result)}`);
-    } catch (error) {
-      console.error(`[deleteLastMove] Failed to delete move:`, error instanceof Error ? error.message : String(error));
-      // Don't update local state if server deletion fails
-      return;
-    }
-
-    newMoveHistory.splice(lastIndex, 1); // Removes 1 element at the lastIndex position from the array
-
-    // Update fullMoveHistory to remove the deleted move and its descendants
-    setFullMoveHistory(prevFullHistory => {
-      return prevFullHistory.filter(m => {
-        const isTargetMove = m.branchName === lastMove.branchName &&
-        m.moveNumber === lastMove.moveNumber;
-        return !isTargetMove;
-      });
-    });
-
-    // Also update mainLineMoves if the deleted move was in the main line
-    if (lastMove.branchName === 'main') {
-      setMainLineMoves(prevMainLine => 
-        prevMainLine.filter(m => m.moveNumber <= lastMove.moveNumber)
-      );
-    }
-
-    // Clean up branchPoints
-    setBranchPoints(prevBranchPoints => {
-      const newBranchPoints = { ...prevBranchPoints };
-      
-      // keys are string type internally
-      Object.keys(newBranchPoints).forEach(key => {
-          newBranchPoints[Number(key)] = prevBranchPoints[Number(key)].filter(bp => {
-              return !(((lastMove.moveNumber - 1) === Number(key)) && (lastMove.branchName == bp.branchName));
-            }
-          );
-      });
-
-      return newBranchPoints;
-    });
- 
-    setMoveHistory(newMoveHistory)
   };
 
   const deleteLastMoves = async (moves: Move[]) => {
