@@ -9,23 +9,24 @@
  * Standard API response format
  * @template T - Type of the data payload
  */
-export interface ApiResponse<T = unknown> {
-  /** Whether the request was successful */
+export interface BaseApiResponse<T = unknown> {
   success: boolean;
-  
-  /** Response data (present when success is true) */
-  data?: T;
-  
-  /** Error message (present when success is false) */
-  error?: string;
-  
-  /** Timestamp of when the response was generated */
   timestamp: number;
-  
-  /** Optional request ID for tracing */
   requestId?: string;
 }
 
+export interface SuccessResponse<T> extends BaseApiResponse<T> {
+  success: true;
+  data: T; // Required when success is true
+}
+
+export interface ErrorResponse<T = unknown> extends BaseApiResponse<T> {
+  success: false;
+  error: string;
+  data?: T;
+} 
+ 
+export type ApiResponse<T = unknown> = SuccessResponse<T> | ErrorResponse;
 /**
  * Options for creating an API response
  * @interface ApiResponseOptions
@@ -41,22 +42,24 @@ type ApiResponseOptions = {
   duration?: number;
 };
 
-/**
- * Creates a standardized API response
- * @template T - The type of the data being returned
- * @param {T} data - The response data
- * @param {ApiResponseOptions} [options] - Response configuration options
- * @returns {Response} A Response object with the formatted API response
- */
 export function createApiResponse<T = any>(
   data: T,
   { status = 200, headers = {}, requestId, duration }: ApiResponseOptions = {}
 ) {
-  const response: ApiResponse<T> = {
-    success: status >= 200 && status < 300,
-    data,
-    timestamp: Date.now(),
-  };
+  const isSuccess = status >= 200 && status < 300;
+
+  const response: ApiResponse<T> = isSuccess
+  ? {
+      success: true,
+      data,
+      timestamp: Date.now(),
+    }
+  : {
+      success: false,
+      error: typeof data === 'string' ? data : 'Request failed',
+      timestamp: Date.now(),
+      ...(typeof data !== 'string' && { data }),
+  }
 
   if (requestId) {
     response.requestId = requestId;

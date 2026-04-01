@@ -14,92 +14,14 @@ type MoveCoordinates = {
 
 export const DELETE = withAuth(async (event: APIEvent) => {
   const requestId = event.request.headers.get('x-request-id') || 'unknown';
-  
-  try {
-    const coordinates: MoveCoordinates = await event.request.json();
-    
-    // Validate required fields
-    const requiredFields = ['gameId', 'fromX', 'fromY', 'toX', 'toY', 'moveNumber'];
-    const missingFields = requiredFields.filter(field => coordinates[field as keyof MoveCoordinates] === undefined);
-    
-    if (missingFields.length > 0) {
-      return json(
-        { 
-          success: false, 
-          error: 'Missing required fields',
-          missingFields,
-          requestId
-        },
-        { status: 400 }
-      );
-    }
+  const moveId = parseInt(event.params.id);
 
-    const moveRepo = await getMoveRepository();
-    
-    // First find the move by coordinates and move number
-    const move = await moveRepo.findExistingMove({
-      gameId: coordinates.gameId,
-      fromX: coordinates.fromX,
-      fromY: coordinates.fromY,
-      toX: coordinates.toX,
-      toY: coordinates.toY,
-      moveNumber: coordinates.moveNumber
-    });
-    
-    if (!move) {
-      return json(
-        { 
-          success: false, 
-          error: 'No matching move found with the given coordinates and move number',
-          requestId
-        },
-        { status: 404 }
-      );
-    }
-    
-    // Ensure we have a valid move ID
-    if (typeof move.id === 'undefined') {
-      return json(
-        { 
-          success: false, 
-          error: 'Invalid move ID',
-          requestId
-        },
-        { status: 400 }
-      );
-    }
-    
-    // Delete the move and its descendants
-    const { deletedCount, gameId } = await moveRepo.deleteMoveAndDescendants(move.id);
-
-    if (deletedCount === 0) {
-      return json(
-        { 
-          success: false, 
-          error: 'Move not found or no moves were deleted',
-          requestId
-        },
-        { status: 404 }
-      );
-    }
-
-    return json({ 
-      success: true,
-      deletedCount,
-      gameId,
-      requestId
-    });
-
-  } catch (error) {
-    console.error(`[${requestId}] Error deleting move:`, error);
-    return json(
-      { 
-        success: false, 
-        error: 'Failed to delete move',
-        message: error instanceof Error ? error.message : 'Unknown error',
-        requestId
-      },
-      { status: 500 }
-    );
+  if (isNaN(moveId)) {
+    return json({ success: false, error: 'Invalid move ID' }, { status: 400 });
   }
+
+  const moveRepo = await getMoveRepository();
+  const { deletedCount, gameId } = await moveRepo.deleteMoveAndDescendants(moveId);
+  
+  return json({ success: true, deletedCount, gameId, requestId });
 });

@@ -88,33 +88,31 @@ export const updateMove = async (
       throw new Error('Invalid coordinates provided');
     }
 
-    // First create the move if we have a game context
-    if (gameId && fromX !== undefined && fromY !== undefined) {
-      const requestId = generateRequestId();
-      const moveResponse = await makeApiCall('/api/moves', {
-        method: 'POST',
-        body: JSON.stringify({
-          gameId,
-          pieceType: pieceType,
-          fromX,
-          fromY,
-          toX: x,
-          toY: y,
-          moveNumber,
-          isBranch: isNewBranch,
-          branchName: branchName ?? 'main'
-        })
-      }, token);
+    const requestId = generateRequestId();
+    const moveResponse = await makeApiCall('/api/moves', {
+      method: 'POST',
+      body: JSON.stringify({
+        gameId,
+        pieceType: pieceType,
+        fromX,
+        fromY,
+        toX: x,
+        toY: y,
+        moveNumber,
+        isBranch: isNewBranch,
+        branchName: branchName ?? 'main'
+      })
+    }, token);
 
-      if (!moveResponse.ok) {
-        const result = await parseApiResponse(moveResponse, requestId);
-        throw new Error(result.error || 'Failed to record move');
-      }
+    if (!moveResponse.ok) {
+      const result = await parseApiResponse(moveResponse, requestId);
+      throw new Error(result.error || 'Failed to record move');
     }
 
+    const result = await parseApiResponse(moveResponse, requestId);
     return {
       success: true,
-      //data: basePoint,
+      data: result.data,
       timestamp: Date.now()
     };
   } catch (error) {
