@@ -885,14 +885,11 @@ const Board: Component<BoardProps> = (props) => {
     console.log(`[deleteLast2Move]`);
 
     const newMoveHistory = moveHistory();
-    const lastIndex = moves[1].moveNumber
-    const lastMove = moves[1]
-    const last2Move = moves[0]
     
     try {
       const requestId = generateRequestId();
       const userToken = auth.getToken();
-      const response = await makeApiCall(`/api/moves/${last2Move.id}`, {
+      const response = await makeApiCall(`/api/moves/${moves[0].id}`, {
         method: 'DELETE',
       }, userToken || undefined);
       
@@ -904,7 +901,7 @@ const Board: Component<BoardProps> = (props) => {
       return;
     }
 
-    newMoveHistory.splice(lastIndex, 2);
+    newMoveHistory.splice(moves[0].moveNumber, moves.length);
 
     setFullMoveHistory(prevFullHistory => {
       return prevFullHistory.filter(m1 =>
@@ -915,9 +912,9 @@ const Board: Component<BoardProps> = (props) => {
       );
     });
 
-    if (last2Move.branchName === 'main') {
+    if (moves[0].branchName === 'main') {
       setMainLineMoves(prevMainLine => 
-        prevMainLine.filter(m => m.moveNumber <= last2Move.moveNumber)
+        prevMainLine.filter(m => m.moveNumber <= moves[0].moveNumber)
       );
     }
 
