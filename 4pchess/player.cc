@@ -368,9 +368,9 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   if (call_countA % 100000 == 0) {
     auto avg_ns = total_timeA.count() / call_countA;
 
-    std::cout << "[Search - before move]"
-              << "Average: " << avg_ns << " ns, "
-              << "Call count: " << call_countA << std::endl;
+    //std::cout << "[Search - before move]"
+    //          << "Average: " << avg_ns << " ns, "
+    //          << "Call count: " << call_countA << std::endl;
   }
   while (true) {
     const Move* move_ptr = GetNextMove2(&picker);
