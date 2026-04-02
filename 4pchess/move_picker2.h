@@ -30,7 +30,6 @@ struct MovePicker2 {
     size_t current;        // Current move index
     const Move* pv_move;   // PV move to prioritize
     int phase;             // Current phase (0=PV, 1=Remaining)
-    const PieceToHistory* const* cont_hist; // Array of pointers to continuation history
     int (*history_heuristic)[14][14][14][14]; // Pointer to current ply's history heuristic
     std::vector<size_t> move_indices;   // To store sorted indices of remaining moves
     bool remaining_sorted; // Whether remaining moves are already sorted
@@ -44,7 +43,6 @@ inline void InitMovePicker2(
     const Move* moves, 
     size_t count,
     const Move* pv_move,
-    const PieceToHistory* const* cont_hist = nullptr,
     int (*history_heuristic)[14][14][14][14] = nullptr,
     float history_weight = 0.5f) 
 {
@@ -53,7 +51,6 @@ inline void InitMovePicker2(
     picker->count = count;
     picker->current = 0;
     picker->pv_move = pv_move;
-    picker->cont_hist = cont_hist;
     picker->phase = 0;
     picker->remaining_sorted = false;
     picker->history_weight = std::clamp(history_weight, 0.0f, 1.0f);
@@ -100,7 +97,7 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                 const size_t remaining_moves = picker->count - picker->current;
 
                 // Use remaining_moves in the conditions and calculations
-                if (!picker->remaining_sorted && picker->cont_hist && 
+                if (!picker->remaining_sorted && 
                     remaining_moves > 1) {  // Changed condition to use remaining_moves
                     
                     static std::chrono::nanoseconds total_ordering_time{0};

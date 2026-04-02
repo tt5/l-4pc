@@ -60,10 +60,6 @@ AlphaBetaPlayer::AlphaBetaPlayer(std::optional<PlayerOptions> options) {
   }
 
   heuristic_mutexes_ = std::make_unique<std::mutex[]>(kHeuristicMutexes);
-  continuation_history = new ContinuationHistory*[2];
-  for (int i = 0; i < 2; i++) {
-    continuation_history[i] = new ContinuationHistory[2];
-  }
   ResetHistoryHeuristics();
 
   for (int row = 0; row < 14; row++) {
@@ -170,10 +166,6 @@ AlphaBetaPlayer::AlphaBetaPlayer(std::optional<PlayerOptions> options) {
 }
 
 AlphaBetaPlayer::~AlphaBetaPlayer() {
-    for (int i = 0; i < 2; i++) {
-        delete[] continuation_history[i];
-    }
-    delete[] continuation_history;
 }
 
 ThreadState::ThreadState(
@@ -236,23 +228,19 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     bool maximizing_player,
     PVInfo& pvinfo,
     bool is_cut_node) {
-  auto startA = std::chrono::high_resolution_clock::now();
 
+  auto startA = std::chrono::high_resolution_clock::now();
   if (canceled_) {
     return std::nullopt;
   }
   num_nodes_++;
-  if (
-    depth <= 0
-    && ply > 1
-  ) {
-    int eval = Evaluate(thread_state, board, maximizing_player, alpha, beta);
+  if (depth <= 0) {
+    int eval = EvaluateNoCm(thread_state, board, maximizing_player, alpha, beta);
     return std::make_tuple(eval, std::nullopt);
   }
 
   bool is_root_node = ply == 1;
   bool is_pv_node = node_type != NonPV;
-  bool is_tt_pv = false;
 
   std::optional<Move> tt_move;
   const HashTableEntry* tte = nullptr;
@@ -293,7 +281,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   Team other_team = OtherTeam(player.GetTeam());
 
   ss->move_count = 0;
-  if (ply == 1) {
+  if (is_root_node) {
     ss->root_depth = depth;
   }
   bool in_check = board.IsAttackedByTeam(other_team, board.GetKingLocation(player_color));
@@ -327,31 +315,14 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   
   // Initialize move picker parameters
   size_t move_count2 = result.count;
-  /*
-  const PieceToHistory* cont_hist[] = {
-    (ss - 1)->continuation_history,
-    (ss - 2)->continuation_history,
-    (ss - 3)->continuation_history,
-    (ss - 4)->continuation_history,
-    (ss - 5)->continuation_history,
-  };
-  */
-  static PieceToHistory dummy_history = {};  // Zero-initialized dummy history
-  const PieceToHistory* cont_hist[] = {
-      &dummy_history,  // (ss-1)
-      &dummy_history,  // (ss-2)
-      &dummy_history,  // (ss-3)
-      &dummy_history,  // (ss-4)
-      &dummy_history   // (ss-5)
-  };
   
-  InitMovePicker2(&picker, 
-               &board,
-               moves, 
-               move_count2,
-               pv_ptr,
-               cont_hist,
-               history_heuristic);
+  InitMovePicker2(
+    &picker, 
+    &board,
+    moves, 
+    move_count2,
+    pv_ptr,
+    history_heuristic);
   
 
   bool has_legal_moves = false;
@@ -359,7 +330,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   int invalid_moves = 0;
   bool fail_low = true;
   bool fail_high = false;
-  //std::vector<Move> searched_moves;
 
   auto endA = std::chrono::high_resolution_clock::now();
   auto durationA = std::chrono::duration_cast<std::chrono::nanoseconds>(endA - startA);
@@ -425,8 +395,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     has_legal_moves = true;
 
     ss->current_move = move;
-    //ss->continuation_history = &continuation_history[in_check][is_capture][piece_type][to.GetRow()][to.GetCol()];
-    ss->continuation_history = &dummy_history;
     ss->move_count = move_count++;
 
     bool is_pv_move = pv_move.has_value() && *pv_move == move;
@@ -604,10 +572,9 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
     if (!value_and_move_or.has_value()) {
       thread_state.ReleaseMoveBufferPartition();
-      return std::nullopt; // timeout
+      return std::nullopt; // stop canceled search
     }
     int score = -std::get<0>(*value_and_move_or);
-    //searched_moves.push_back(move);
 
     if (score >= beta) {
       alpha = beta;
@@ -668,18 +635,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     size_t lock_key = (from.GetRow() * 14 + from.GetCol()) * 196 + (to.GetRow() * 14 + to.GetCol());
     std::lock_guard<std::mutex> lock(heuristic_mutexes_[lock_key % kHeuristicMutexes]);
     history_heuristic[piece.GetPieceType()][from.GetRow()][from.GetCol()][to.GetRow()][to.GetCol()] += bonus;
-    /*
-    for (int i : {1, 2, 3, 4, 5, 6}) {
-      // Only update the first 2 continuation histories if we are in check
-      if (ss->in_check && i > 2) {
-        break;
-      }
-      if ((ss-i)->current_move.Present()) {
-        auto& entry = (*(ss-i)->continuation_history)[best_move->IsCapture()][piece.GetPieceType()];
-        entry[to.GetRow() * 14 + to.GetCol()] << bonus;
-      }
-    }
-    */
   }
 
   int score = alpha;
@@ -731,8 +686,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     ss->tt_pv = ss->tt_pv || ((ss-1)->tt_pv && depth > 3);
   }
 
-  ss->static_eval = score;
-
   thread_state.ReleaseMoveBufferPartition();
   auto endC = std::chrono::high_resolution_clock::now();
   auto durationC = std::chrono::duration_cast<std::chrono::nanoseconds>(endC - startC);
@@ -766,21 +719,6 @@ void AlphaBetaPlayer::UpdateStats(
   std::lock_guard<std::mutex> lock(heuristic_mutexes_[lock_key % kHeuristicMutexes]);
   history_heuristic[piece.GetPieceType()][from.GetRow()][from.GetCol()]
     [to.GetRow()][to.GetCol()] += bonus;
-  UpdateContinuationHistories(ss, move, piece.GetPieceType(), bonus);
-}
-
-void AlphaBetaPlayer::UpdateContinuationHistories(Stack* ss, const Move& move, PieceType piece_type, int bonus) {
-  const auto to = move.To();
-  for (int i : {1, 2, 3, 4, 5, 6}) {
-    // Only update the first 2 continuation histories if we are in check
-    if (ss->in_check && i > 2) {
-      break;
-    }
-    if ((ss-i)->current_move.Present()) {
-      auto& entry = (*(ss-i)->continuation_history)[move.IsCapture()][piece_type];
-      entry[to.GetRow() * 14 + to.GetCol()] << bonus;
-    }
-  }
 }
 
 namespace {
@@ -977,20 +915,164 @@ int AlphaBetaPlayer::Evaluate(
   return maximizing_player ? eval : -eval;
 }
 
-  void AlphaBetaPlayer::ResetHistoryHeuristics() {
-  std::memset(history_heuristic, 0, sizeof(history_heuristic));
+int AlphaBetaPlayer::EvaluateNoCm(
+    ThreadState& thread_state, Board& board, bool maximizing_player, int alpha, int beta) {
 
-  for (bool in_check : {false, true}) {
-    for (StatsType c : {NoCaptures, Captures}) {
-      for (auto& to_row : continuation_history[in_check][c]) {
-        for (auto& to_col : to_row) {
-          for (auto& h : to_col) {
-            h->fill(0);
-          }
-        }
-      }
-    }
+  int eval; // w.r.t. RY team
+  auto start = std::chrono::high_resolution_clock::now();
+  int pbase=0;
+  int pevalM=0;
+  int pevalT=0;
+  int peval3=0;
+
+  // Piece evaluation
+  eval = board.PieceEvaluation();
+  auto lazy_skip = [&](int margin) {
+    int re = maximizing_player ? eval : -eval; // returned eval
+    return re + margin <= alpha || re >= beta + margin;
+  };
+  constexpr int kMargin = 600;
+  if (lazy_skip(kMargin)) {
+    return maximizing_player ? eval : -eval;
   }
+  const PlayerColor current_color = board.GetTurn().GetColor();
+
+  pbase = eval;
+
+  int total_threats[4];
+  int total_moves[4];
+  std::memcpy(total_threats, thread_state.n_threats, sizeof(total_threats));
+  std::memcpy(total_moves, thread_state.TotalMoves(), sizeof(total_moves));
+
+  if (board.NumMoves() == 0) {
+    std::memset(total_threats, 0, sizeof(total_threats));
+    std::memset(total_moves, 0, sizeof(total_moves));
+    return eval = 0;
+  }
+
+  if (current_color == 0 || current_color == 2) {
+    int64_t num = 
+      (static_cast<int64_t>(total_moves[RED]-1) * (total_moves[RED]-1) * (total_moves[RED]-1) * (total_moves[RED]-1) *
+      static_cast<int64_t>(total_moves[YELLOW]-1) * (total_moves[YELLOW]-1) * (total_moves[YELLOW]-1) * (total_moves[YELLOW]-1))
+      - (static_cast<int64_t>(total_moves[BLUE]-1) * (total_moves[BLUE]-1) * (total_moves[BLUE]-1) * (total_moves[BLUE]-1) *
+      static_cast<int64_t>(total_moves[GREEN]-1) * (total_moves[GREEN]-1) * (total_moves[GREEN]-1) * (total_moves[GREEN]-1)); 
+    int sign = (num >= 0) ? 1 : -1;
+    num = num < 0 ? -num : num;  // handle negative numbers
+    int length = 0;
+    // Handle 32-bit chunks first
+    if (num > 0xFFFFFFFF) {
+        length = 32;
+        num >>= 32;
+    }
+    // Then handle remaining bits
+    int shift = (num > 0xFFFF) << 4; num >>= shift; length |= shift;
+    shift = (num > 0xFF) << 3; num >>= shift; length |= shift;
+    shift = (num > 0xF) << 2; num >>= shift; length |= shift;
+    shift = (num > 0x3) << 1; num >>= shift; length |= shift;
+    length |= (num >> 1);
+    const int moves_eval = sign * std::clamp(5*(length-25), 10, 1000);
+
+    num = (static_cast<int64_t>(total_threats[RED]+1) * (total_threats[YELLOW]+1) * (total_threats[RED]+1) * (total_threats[YELLOW]+1))
+      - (static_cast<int64_t>(total_threats[BLUE]+1) * (total_threats[GREEN]+1) * (total_threats[BLUE]+1) * (total_threats[GREEN]+1));
+    sign = (num >= 0) ? 1 : -1;
+    num = num < 0 ? -num : num;  // handle negative numbers
+    length = 0;
+    // Handle 32-bit chunks first
+    if (num > 0xFFFFFFFF) {
+        length = 32;
+        num >>= 32;
+    }
+    // Then handle remaining bits
+    shift = (num > 0xFFFF) << 4; num >>= shift; length |= shift;
+    shift = (num > 0xFF) << 3; num >>= shift; length |= shift;
+    shift = (num > 0xF) << 2; num >>= shift; length |= shift;
+    shift = (num > 0x3) << 1; num >>= shift; length |= shift;
+    length |= (num >> 1);
+    const int threat_eval = 8 * sign * std::clamp((length-17), 1, 1000);
+
+    pevalM=moves_eval;
+    pevalT=std::clamp(threat_eval, -50, 500);
+    
+    eval += (moves_eval + std::clamp(threat_eval, -50, 500));
+
+  } else {
+    int64_t num = 
+      (static_cast<int64_t>(total_moves[BLUE]-1) * (total_moves[BLUE]-1) * (total_moves[BLUE]-1) * (total_moves[BLUE]-1) *
+      static_cast<int64_t>(total_moves[GREEN]-1) * (total_moves[GREEN]-1) * (total_moves[GREEN]-1) * (total_moves[GREEN]-1))
+      - (static_cast<int64_t>(total_moves[RED]-1) * (total_moves[RED]-1) * (total_moves[RED]-1) * (total_moves[RED]-1) *
+      static_cast<int64_t>(total_moves[YELLOW]-1) * (total_moves[YELLOW]-1) * (total_moves[YELLOW]-1) * (total_moves[YELLOW]-1));
+    int sign = (num >= 0) ? 1 : -1;
+    num = num < 0 ? -num : num;  // handle negative numbers
+    int length = 0;
+    // Handle 32-bit chunks first
+    if (num > 0xFFFFFFFF) {
+        length = 32;
+        num >>= 32;
+    }
+    // Then handle remaining bits
+    int shift = (num > 0xFFFF) << 4; num >>= shift; length |= shift;
+    shift = (num > 0xFF) << 3; num >>= shift; length |= shift;
+    shift = (num > 0xF) << 2; num >>= shift; length |= shift;
+    shift = (num > 0x3) << 1; num >>= shift; length |= shift;
+    length |= (num >> 1);
+    const int moves_eval = sign * std::clamp((5*(length-25)), 10, 1000);
+
+    num = (static_cast<int64_t>(total_threats[BLUE]+1) * (total_threats[GREEN]+1) * (total_threats[BLUE]+1) * (total_threats[GREEN]+1))
+      - (static_cast<int64_t>(total_threats[RED]+1) * (total_threats[YELLOW]+1) * (total_threats[RED]+1) * (total_threats[YELLOW]+1));
+    sign = (num >= 0) ? 1 : -1;
+    num = num < 0 ? -num : num;  // handle negative numbers
+    length = 0;
+    // Handle 32-bit chunks first
+    if (num > 0xFFFFFFFF) {
+        length = 32;
+        num >>= 32;
+    }
+    // Then handle remaining bits
+    shift = (num > 0xFFFF) << 4; num >>= shift; length |= shift;
+    shift = (num > 0xFF) << 3; num >>= shift; length |= shift;
+    shift = (num > 0xF) << 2; num >>= shift; length |= shift;
+    shift = (num > 0x3) << 1; num >>= shift; length |= shift;
+    length |= (num >> 1);
+    const int threat_eval = 8 * sign * std::clamp((length-17), 1, 1000);
+    
+    pevalM=moves_eval;
+    pevalT=std::clamp(threat_eval, -50, 500);
+
+    eval += (moves_eval + std::clamp(threat_eval, -50, 500));
+
+  }
+
+  auto end = std::chrono::high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+  total_time += duration;
+  call_count++;
+  if (call_count % 800000 == 0) {
+    auto avg_ns = total_time.count() / call_count;
+    auto current_avg = duration.count() / 1;  // Current call's time in ns
+
+    //std::cout << "[Evaluation]" << " color: " << current_color << std::endl
+    //<< "M: " << total_moves[RED] << " "
+    //<< total_moves[BLUE] << " " 
+    //<< total_moves[YELLOW] << " " 
+    //<< total_moves[GREEN] << std::endl
+    //<< pevalM << std::endl
+    //<< "T: "
+    //<< total_threats[RED] << " "
+    //<< total_threats[BLUE] << " "
+    //<< total_threats[YELLOW] << " "
+    //<< total_threats[GREEN] << std::endl
+    //<< pevalT << std::endl
+    //<< "material: " << pbase << std::endl
+    //<< "final: " << eval << std::endl
+    //<< "Average: " << avg_ns << " ns, " << "Call count: " << call_count << std::endl;
+  }
+
+  // w.r.t. maximizing team
+  return maximizing_player ? eval : -eval;
+}
+
+void AlphaBetaPlayer::ResetHistoryHeuristics() {
+  std::memset(history_heuristic, 0, sizeof(history_heuristic));
 }
 
 void AlphaBetaPlayer::AgeHistoryHeuristics() {
@@ -1001,33 +1083,6 @@ void AlphaBetaPlayer::AgeHistoryHeuristics() {
         for (int r2 = 0; r2 < 14; ++r2) {
           for (int c2 = 0; c2 < 14; ++c2) {
             history_heuristic[pt][r1][c1][r2][c2] >>= 1;
-          }
-        }
-      }
-    }
-  }
-
-  // Age continuation histories by iterating down to the final integer tables.
-  for (int in_check = 0; in_check < 2; ++in_check) {
-    for (int is_capture = 0; is_capture < 2; ++is_capture) {
-      auto& cont_hist_table = continuation_history[in_check][is_capture];
-
-      for (auto& piece_hist : cont_hist_table) { // Iterates over piece_type (7 elements)
-        for (auto& to_row_hist : piece_hist) { // Iterates over to_row (14 elements)
-          for (auto& to_col_hist : to_row_hist) { // Iterates over to_col (14 elements)
-            // The to_col_hist here is a StatsEntry<PieceToHistory, NOT_USED>
-            PieceToHistory* h = &to_col_hist; // Get the pointer to the underlying PieceToHistory object
-
-            // Age the PieceToHistory table this pointer points to.
-            if (h != nullptr) {
-                using entry_t = StatsEntry<int32_t, 2147483647>;
-                entry_t* p_start = reinterpret_cast<entry_t*>(h); // Reinterpret as a flat array of StatsEntry<int32_t, ...>
-                constexpr size_t num_entries = sizeof(PieceToHistory) / sizeof(entry_t); // Calculate how many int32_t values are in PieceToHistory
-
-                for (size_t i = 0; i < num_entries; ++i) {
-                    p_start[i] = static_cast<int32_t>(p_start[i]) >> 1; // Divide by 2
-                }
-            }
           }
         }
       }
@@ -1131,9 +1186,6 @@ AlphaBetaPlayer::MakeMoveSingleThread(
   int searched_depth = 0;
   Stack stack[kMaxPly + 10];
   Stack* ss = stack + 7;
-  for (int i = 7; i > 0; i--) {
-    (ss-i)->continuation_history = &continuation_history[0][0][NO_PIECE][0][0];
-  }
 
   if (options_.enable_aspiration_window) {
 

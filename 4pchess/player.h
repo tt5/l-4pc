@@ -90,8 +90,6 @@ struct Stack {
   Move excludedMove;
   bool tt_pv = false;
   int move_count = 0;
-  // indexed by (piece_type, row, col)
-  PieceToHistory* continuation_history = nullptr;
   bool in_check = false;
   Move current_move;
   int root_depth = 0;
@@ -153,6 +151,8 @@ class AlphaBetaPlayer {
   int StaticEvaluation(Board& board);
   // Eval with respect to the maximizing player
   int Evaluate(ThreadState& thread_state, Board& board, bool maximizing_player,
+      int alpha = -kMateValue, int beta = kMateValue);
+  int EvaluateNoCm(ThreadState& thread_state, Board& board, bool maximizing_player,
       int alpha = -kMateValue, int beta = kMateValue);
   void CancelEvaluation() { canceled_ = true; }
   // NOTE: Should wait until evaluation is done before resetting this to true.
@@ -250,7 +250,6 @@ class AlphaBetaPlayer {
                    const std::vector<Move>& searched_moves);
   void UpdateQuietStats(Stack* ss, const Move& move);
   void UpdateMobilityEvaluation(ThreadState& thread_state, Board& board, Player turn);
-  void UpdateContinuationHistories(Stack* ss, const Move& move, PieceType piece_type, int bonus);
   bool HasShield(Board& board, PlayerColor color, const BoardLocation& king_loc);
   bool OnBackRank(const BoardLocation& king_loc);
 
@@ -308,8 +307,6 @@ class AlphaBetaPlayer {
   // https://www.chessprogramming.org/Countermove_Heuristic
   // (from_row, from_col, to_row, to_col)
   Move* counter_moves = nullptr;
-  // indexed by (in_check, is_capture)
-  ContinuationHistory** continuation_history = nullptr;
 
   static constexpr size_t kHeuristicMutexes = 256;
   std::unique_ptr<std::mutex[]> heuristic_mutexes_;
