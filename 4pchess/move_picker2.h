@@ -43,7 +43,7 @@ inline void InitMovePicker2(
     const Board* board,
     const Move* moves, 
     size_t count,
-    const Move* pv_move = nullptr,
+    const Move* pv_move,
     const PieceToHistory* const* cont_hist = nullptr,
     int (*history_heuristic)[14][14][14][14] = nullptr,
     float history_weight = 0.5f) 
@@ -109,7 +109,7 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                     
                     struct ScoredMove {
                         size_t idx;
-                        float score;
+                        int32_t score;
                         bool operator<(const ScoredMove& other) const {
                             return score > other.score; // Sort descending
                         }
@@ -117,14 +117,14 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                     
                     std::vector<ScoredMove> scored_moves;
                     scored_moves.reserve(remaining_moves);  // Use remaining_moves here
-                    
-                    // Precompute 1.0f / remaining_moves to avoid division in the loop
-                    const float inv_remaining_moves = 1.0f / remaining_moves;
+
+                    const int32_t order_scale = 1024; 
                     
                     // Calculate scores for remaining moves
                     for (size_t i = 0; i < remaining_moves; i++) {
                         const Move& move = picker->moves[picker->current + i];
-                        const float order_score = 1.0f - i * inv_remaining_moves;
+                        const int32_t order_score = ((remaining_moves - i) * order_scale) / remaining_moves;
+
                         
                         // Get move information
                         const auto from = move.From();
@@ -140,12 +140,19 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                         // Fast path for captures - give them a significant bonus
                         if (is_capture) {
                             // High base score for captures
-                            float score = 1000.0f + order_score * 10.0f;
+                            int32_t score = 1024000 + order_score * 10;  // 1000.0f * 1024 + ...
+
                             
                             // Add history heuristic if available
                             if (picker->history_heuristic) {
                                 int32_t hist_value = picker->history_heuristic[from_row][from_col][to_row][to_col][pt];
-                                score += fast_tanh(hist_value * 0.001f) * 100.0f;
+                                int32_t x = hist_value;  // hist_value is already ~milli-tanh units
+                                if (x > 3000) x = 3000;
+                                if (x < -3000) x = -3000;
+                                int32_t x2 = (x * x) >> 10;
+                                int32_t num = 27 + x2;
+                                int32_t den = 27 + ((9 * x2) >> 10);
+                                score += (x * num * 25) / (den * 256);  // adds ~0-255 centi-tanh
                             }
                             
                             /*
@@ -161,13 +168,17 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                         } 
                         // Slower path for non-captures
                         else {
-                            float score = order_score;
+                            int32_t score = order_score;  // 0 to 1024
                             
                             // Only use history heuristic if it's significant
                             if (picker->history_heuristic) {
                                 int32_t hist_value = picker->history_heuristic[from_row][from_col][to_row][to_col][pt];
                                 if (hist_value > 100) {  // Only consider significant history
-                                    score += fast_tanh(hist_value * 0.001f);
+                                    // Fixed-point with 1024 scaling:
+                                    int32_t x = hist_value;  // implicit *1.024, close enough to *1024/1000
+                                    int32_t abs_x = x >= 0 ? x : -x;
+                                    int32_t den = 1024 + abs_x;  // 1.0 + |x| in fixed-point
+                                    score += (x * 1024) / den;   // result is ~(-768 to 768), matches original range
                                 }
                             }
 
@@ -195,8 +206,10 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                             scored_moves[j + 1] = key;
                         }
                     } else {
-                        std::sort(scored_moves.begin(), scored_moves.end(),
-                            [](const auto& a, const auto& b) { return a.score > b.score; });
+                        static constexpr auto move_comparator = [](const auto& a, const auto& b) {
+                            return a.score > b.score;
+                        };
+                        std::sort(scored_moves.begin(), scored_moves.end(), move_comparator);
                     }
                     
                     // Update move_indices with new order
@@ -217,11 +230,11 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                         max_moves_ordered = moves_this_time;
                     }
                     
-                    if (orderings_count % 800000 == 0) {
-                        //std::cout << "Move ordering stats - "
-                        //          << "Count: " << orderings_count << " "
-                        //          << "Avg: " << total_ordering_time.count() / orderings_count << "ns "
-                        //          << "Cur/Max moves: " << moves_this_time << "/" << max_moves_ordered << "\n";
+                    if (orderings_count % 100000 == 0) {
+                        std::cout << "Move ordering stats - "
+                                  << "Count: " << orderings_count << " "
+                                  << "Avg: " << total_ordering_time.count() / orderings_count << "ns "
+                                  << "Cur/Max moves: " << moves_this_time << "/" << max_moves_ordered << "\n";
                     }
                 }
                 

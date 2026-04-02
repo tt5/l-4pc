@@ -156,23 +156,12 @@ void CommandLine::StartEvaluation() {
     int num_eval_start = player->GetNumEvaluations();
     std::optional<Move> best_move;
 
-    std::optional<time_point<system_clock>> deadline;
-    if (options.movetime.has_value()) {
-      deadline = start + milliseconds(*options.movetime);
-    }
     std::optional<milliseconds> time_limit;
 
     while (!player->IsCanceled()
            && (!options.depth.has_value() || depth <= *options.depth)
-           && (!deadline.has_value()
-               || system_clock::now() < *deadline)
-           // sanity check: past depth 100 won't help
            && depth < 100) {
-      if (deadline.has_value()) {
-        time_limit = duration_cast<milliseconds>(
-            *deadline - system_clock::now());
-      }
-      auto res = player->MakeMove(*board, time_limit, depth);
+      auto res = player->MakeMove(*board, depth);
 
       if (res.has_value()) {
         auto duration_ms = duration_cast<milliseconds>(

@@ -234,17 +234,11 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     int alpha,
     int beta,
     bool maximizing_player,
-    int expanded,
-    const std::optional<
-        std::chrono::time_point<std::chrono::system_clock>>& deadline,
     PVInfo& pvinfo,
-    int null_moves,
     bool is_cut_node) {
   auto startA = std::chrono::high_resolution_clock::now();
 
-  if (canceled_
-      || (deadline.has_value()
-        && std::chrono::system_clock::now() >= *deadline)) {
+  if (canceled_) {
     return std::nullopt;
   }
   num_nodes_++;
@@ -285,13 +279,12 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
                   std::min(beta, std::max(alpha, tte->score)), tte->move);
           }
           return std::make_tuple(
-              std::min(beta, std::max(alpha, tte->score)), std::nullopt);
+            std::min(beta, std::max(alpha, tte->score)), std::nullopt);
         }
       }
       if (tte->move.Present()) {
         tt_move = tte->move;
       }
-      is_tt_pv = tte->is_pv;
     }
   }
 
@@ -372,12 +365,12 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   auto durationA = std::chrono::duration_cast<std::chrono::nanoseconds>(endA - startA);
   total_timeA += durationA;
   call_countA++;
-  if (call_countA % 400000 == 0) {
+  if (call_countA % 100000 == 0) {
     auto avg_ns = total_timeA.count() / call_countA;
 
-    //std::cout << "[Search - before move]"
-    //          << "Average: " << avg_ns << " ns, "
-    //          << "Call count: " << call_countA << std::endl;
+    std::cout << "[Search - before move]"
+              << "Average: " << avg_ns << " ns, "
+              << "Call count: " << call_countA << std::endl;
   }
   while (true) {
     const Move* move_ptr = GetNextMove2(&picker);
@@ -489,7 +482,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       PVInfo singular_pvinfo;
       auto singular_res = Search(ss, NonPV, thread_state, board, ply, singular_depth,
                                  singular_beta - 1, singular_beta,
-                                 maximizing_player, expanded, deadline, singular_pvinfo, null_moves, !is_cut_node);
+                                 maximizing_player, singular_pvinfo, !is_cut_node);
       
       ss->excludedMove = Move(); // Reset for the main search
 
@@ -533,8 +526,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
           - (depth/4)*(r > 0)*(depth>7)
           - (depth/8)*(r > 1)*(depth>8)
           + (r < 0),
-          -alpha-1, -alpha, !maximizing_player, expanded,
-          deadline, *child_pvinfo, 0, !is_cut_node);
+          -alpha-1, -alpha, !maximizing_player,
+          *child_pvinfo, !is_cut_node);
           
       if (value_and_move_or.has_value()) {
         int score = -std::get<0>(*value_and_move_or);
@@ -549,8 +542,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
                 - (depth/2)*(r > 0)
                 - (depth/4)*(r > 1)
                 + (r < 0) ,
-                -alpha-50, -alpha, !maximizing_player, expanded,
-                deadline, *child_pvinfo, 0, true);
+                -alpha-50, -alpha, !maximizing_player,
+                *child_pvinfo, true);
                 
             if (value_and_move_or && -std::get<0>(*value_and_move_or) > alpha) {
               // If the reduced window search still fails high, do a full search
@@ -559,8 +552,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
                 - (depth/2)*(r > 0)
                 - (depth/4)*(r > 1)
                 + (r < 0),
-                -beta, -alpha, !maximizing_player, expanded,
-                deadline, *child_pvinfo, 0, !is_cut_node);
+                -beta, -alpha, !maximizing_player,
+                *child_pvinfo, !is_cut_node);
             }
           } else {
             // Failing high by a lot, do a full search immediately
@@ -569,8 +562,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
               - (depth/2)*(r > 0)
               - (depth/4)*(r > 1)
               + (r < 0),
-              -beta, -alpha, !maximizing_player, expanded,
-              deadline, *child_pvinfo, 0, !is_cut_node);
+              -beta, -alpha, !maximizing_player,
+              *child_pvinfo, !is_cut_node);
           }
         }
       }
@@ -582,8 +575,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
           - (depth/2)*(r > 0)*(depth>2)
           - (depth/4)*(r > 1)*(depth>3)
           + (r < 0),
-          -alpha-1, -alpha, !maximizing_player, expanded,
-          deadline, *child_pvinfo, 0, !is_cut_node);
+          -alpha-1, -alpha, !maximizing_player,
+          *child_pvinfo, !is_cut_node);
     }
 
     // For PV nodes only, do a full PV search on the first move or after a fail
@@ -602,8 +595,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       value_and_move_or = Search(
           ss+1, PV, thread_state, board, ply + 1, depth - 1
           + (r < 0),
-          -beta, -alpha, !maximizing_player, expanded,
-          deadline, *child_pvinfo, 0, !is_cut_node);
+          -beta, -alpha, !maximizing_player,
+          *child_pvinfo, !is_cut_node);
     }
     auto startB = std::chrono::high_resolution_clock::now();
 
@@ -1060,7 +1053,6 @@ int AlphaBetaPlayer::StaticEvaluation(Board& board) {
 std::optional<std::tuple<int, std::optional<Move>, int>>
 AlphaBetaPlayer::MakeMove(
     Board& board,
-    std::optional<std::chrono::milliseconds> time_limit,
     int max_depth) {
   root_team_ = board.GetTurn().GetTeam();
   int64_t hash_key = board.HashKey();
@@ -1076,9 +1068,6 @@ AlphaBetaPlayer::MakeMove(
   // Use Alpha-Beta search with iterative deepening
   std::optional<std::chrono::time_point<std::chrono::system_clock>> deadline;
   auto start = std::chrono::system_clock::now();
-  if (time_limit.has_value()) {
-    deadline = start + *time_limit;
-  }
 
   if (options_.max_search_depth.has_value()) {
     max_depth = std::min(max_depth, *options_.max_search_depth);
@@ -1165,7 +1154,7 @@ AlphaBetaPlayer::MakeMoveSingleThread(
           while (true) {
             move_and_value = Search(
                 ss, Root, thread_state, board, 1, next_depth, alpha, beta, maximizing_player,
-                0, deadline, pv_info);
+                pv_info);
             if (!move_and_value.has_value()) { // Hit deadline
               break;
             }
@@ -1191,7 +1180,7 @@ AlphaBetaPlayer::MakeMoveSingleThread(
               beta = std::min(evaluation + delta, kMateValue);
               ++fail_cnt;
             } else {
-              break;
+              break; // alpha < evaluation < beta
             }
 
             if (fail_cnt >= 5) {
@@ -1205,7 +1194,7 @@ AlphaBetaPlayer::MakeMoveSingleThread(
           // Helper threads use a full window
           move_and_value = Search(
             ss, Root, thread_state, board, 1, next_depth, -kMateValue, kMateValue, maximizing_player,
-            0, deadline, pv_info);
+            pv_info);
       }
 
       if (!move_and_value.has_value()) { // Hit deadline
@@ -1227,7 +1216,7 @@ AlphaBetaPlayer::MakeMoveSingleThread(
 
       move_and_value = Search(
           ss, Root, thread_state, board, 1, next_depth, alpha, beta, maximizing_player,
-          0, deadline, pv_info);
+          pv_info);
 
       if (!move_and_value.has_value()) { // Hit deadline
         break;

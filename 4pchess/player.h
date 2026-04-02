@@ -48,7 +48,6 @@ struct PlayerOptions {
   bool enable_transposition_table = true;
   bool enable_check_extensions = true;
   bool enable_singular_extensions = false;
-  bool enable_qsearch = true;
   bool enable_aspiration_window = true;
   bool enable_probcut = true;
 
@@ -150,7 +149,6 @@ class AlphaBetaPlayer {
 
   std::optional<std::tuple<int, std::optional<Move>, int>> MakeMove(
       Board& board,
-      std::optional<std::chrono::milliseconds> time_limit = std::nullopt,
       int max_depth = 20);
   int StaticEvaluation(Board& board);
   // Eval with respect to the maximizing player
@@ -172,30 +170,13 @@ class AlphaBetaPlayer {
       int alpha,
       int beta,
       bool maximizing_player,
-      int expanded,
-      const std::optional<std::chrono::time_point<std::chrono::system_clock>>& deadline,
       PVInfo& pv_info,
-      int null_moves = 0,
       bool is_cut_node = false);
-
-  std::optional<std::tuple<int, std::optional<Move>>> QSearch(
-      Stack* ss,
-      NodeType node_type,
-      ThreadState& thread_state,
-      Board& board,
-      int depth, // called initially with depth = 0, further decreases
-      int alpha,
-      int beta,
-      bool maximizing_player,
-      const std::optional<std::chrono::time_point<std::chrono::system_clock>>& deadline,
-      PVInfo& pv_info);
 
   int GetNumLegalMoves(Board& board);
 
   int64_t GetNumEvaluations() { return num_nodes_; }
   int64_t GetNumCacheHits() { return num_cache_hits_; }
-  int64_t GetNumNullMovesTried() { return num_null_moves_tried_; }
-  int64_t GetNumNullMovesPruned() { return num_null_moves_pruned_; }
   int64_t GetNumFutilityMovesPruned() { return num_futility_moves_pruned_; }
   int64_t GetNumLmrSearches() { return num_lmr_searches_; }
   int64_t GetNumLmrResearches() { return num_lmr_researches_; }
@@ -221,8 +202,6 @@ class AlphaBetaPlayer {
   int64_t GetNumFailHighReductions() { return num_fail_high_reductions_; }
   int64_t GetNumCheckExtensions() { return num_check_extensions_; }
   int64_t GetNumLazyEval() { return num_lazy_eval_; }
-  int64_t GetNumRazor() { return num_razor_; }
-  int64_t GetNumRazorTested() { return num_razor_tested_; }
   int64_t GetLmrReductionsMade() { return lmr_reductions_made_; }
   int64_t GetLmrReductionsEffective() { return lmr_reductions_effective_; }
 
@@ -277,8 +256,6 @@ class AlphaBetaPlayer {
 
   std::atomic<int64_t> num_nodes_ = 0; // debugging
   std::atomic<int64_t> num_cache_hits_ = 0;
-  std::atomic<int64_t> num_null_moves_tried_ = 0;
-  std::atomic<int64_t> num_null_moves_pruned_ = 0;
   std::atomic<int64_t> num_futility_moves_pruned_ = 0;
   std::atomic<int64_t> num_lmr_searches_ = 0;
   std::atomic<int64_t> num_lmr_researches_ = 0;
@@ -288,8 +265,6 @@ class AlphaBetaPlayer {
   std::atomic<int64_t> num_fail_high_reductions_ = 0;
   std::atomic<int64_t> num_check_extensions_ = 0;
   std::atomic<int64_t> num_lazy_eval_ = 0;
-  std::atomic<int64_t> num_razor_ = 0;
-  std::atomic<int64_t> num_razor_tested_ = 0;
   std::atomic<int64_t> lmr_reductions_made_ = 0;
   std::atomic<int64_t> lmr_reductions_effective_ = 0;
 
