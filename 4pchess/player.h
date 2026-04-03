@@ -239,7 +239,6 @@ class AlphaBetaPlayer {
     MakeMoveSingleThread(
       size_t thread_id,
       ThreadState& state,
-      std::optional<std::chrono::time_point<std::chrono::system_clock>> deadline,
       int max_depth = 20);
 
   void ResetMobilityScores(ThreadState& thread_state, Board& board);
