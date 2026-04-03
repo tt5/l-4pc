@@ -148,12 +148,6 @@ class AlphaBetaPlayer {
   std::optional<std::tuple<int, std::optional<Move>, int>> MakeMove(
       Board& board,
       int max_depth = 20);
-  int StaticEvaluation(Board& board);
-  // Eval with respect to the maximizing player
-  int Evaluate(ThreadState& thread_state, Board& board, bool maximizing_player,
-      int alpha = -kMateValue, int beta = kMateValue);
-  int EvaluateNoCm(ThreadState& thread_state, Board& board, bool maximizing_player,
-      int alpha = -kMateValue, int beta = kMateValue);
   void CancelEvaluation() { canceled_ = true; }
   // NOTE: Should wait until evaluation is done before resetting this to true.
   void SetCanceled(bool canceled) { canceled_ = canceled; }

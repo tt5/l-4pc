@@ -236,6 +236,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   num_nodes_++;
   Player player = board.GetTurn();
   PlayerColor player_color = player.GetColor();
+  Team other_team = OtherTeam(player.GetTeam());
+
   int length;
   if (depth <= 0) {
     int eval = board.PieceEvaluation();
@@ -243,37 +245,23 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
     int re = maximizing_player ? eval : -eval; // returned eval
     if (re + margin <= alpha || re >= beta + margin) {
-      eval = maximizing_player ? eval : -eval;
+      return std::make_tuple(re, std::nullopt);
     } else {
 
-      int total_threats[4];
-      int total_moves[4];
-      std::memcpy(total_threats, thread_state.n_threats, sizeof(total_threats));
-      std::memcpy(total_moves, thread_state.TotalMoves(), sizeof(total_moves));
-
-      int64_t tmR = static_cast<int64_t>(total_moves[RED]-1);
-      int64_t tmY = static_cast<int64_t>(total_moves[YELLOW]-1);
-      int64_t tmB = static_cast<int64_t>(total_moves[BLUE]-1);
-      int64_t tmG = static_cast<int64_t>(total_moves[GREEN]-1);
-      tmR *= tmR;
-      tmY *= tmY;
-      tmB *= tmB;
-      tmG *= tmG;
-      tmR *= tmR;
-      tmY *= tmY;
-      tmB *= tmB;
-      tmG *= tmG;
+      int64_t tmR = static_cast<int64_t>(thread_state.TotalMoves()[RED] - 1);
+      int64_t tmY = static_cast<int64_t>(thread_state.TotalMoves()[YELLOW] - 1);
+      int64_t tmB = static_cast<int64_t>(thread_state.TotalMoves()[BLUE] - 1);
+      int64_t tmG = static_cast<int64_t>(thread_state.TotalMoves()[GREEN] - 1);
+      tmR *= tmR; tmY *= tmY; tmB *= tmB; tmG *= tmG;
+      tmR *= tmR; tmY *= tmY; tmB *= tmB; tmG *= tmG;
       
-      int64_t ttR = static_cast<int64_t>(total_threats[RED]+1);
-      int64_t ttY = static_cast<int64_t>(total_threats[YELLOW]+1);
-      int64_t ttB = static_cast<int64_t>(total_threats[BLUE]+1);
-      int64_t ttG = static_cast<int64_t>(total_threats[GREEN]+1);
-      ttR *= ttR;
-      ttY *= ttY;
-      ttB *= ttB;
-      ttG *= ttG;
+      int64_t ttR = static_cast<int64_t>(thread_state.n_threats[RED] + 1);
+      int64_t ttY = static_cast<int64_t>(thread_state.n_threats[YELLOW] + 1);
+      int64_t ttB = static_cast<int64_t>(thread_state.n_threats[BLUE] + 1);
+      int64_t ttG = static_cast<int64_t>(thread_state.n_threats[GREEN] + 1);
+      ttR *= ttR; ttY *= ttY; ttB *= ttB; ttG *= ttG;
 
-      if (player_color == RED || player_color == YELLOW) {
+      if (other_team != RED_YELLOW) {
         int64_t num = (tmR * tmY) - (tmB * tmG); 
         //int sign = (num >= 0) ? 1 : -1;
         int sign = (num >> 63) | 1;
@@ -307,8 +295,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
       // w.r.t. maximizing team
       eval = maximizing_player ? eval : -eval;
+      return std::make_tuple(eval, std::nullopt);
     }
-    return std::make_tuple(eval, std::nullopt);
   }
 
   bool is_root_node = ply == 1;
@@ -347,8 +335,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       }
     }
   }
-
-  Team other_team = OtherTeam(player.GetTeam());
 
   ss->move_count = 0;
   if (is_root_node) {
@@ -390,38 +376,21 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         eval = maximizing_player ? kMateValue : -kMateValue;
       } else {
 
-
-
-      int total_threats[4];
-      int total_moves[4];
-      std::memcpy(total_threats, thread_state.n_threats, sizeof(total_threats));
-      std::memcpy(total_moves, thread_state.TotalMoves(), sizeof(total_moves));
-
-      int64_t tmR = static_cast<int64_t>(total_moves[RED]-1);
-      int64_t tmY = static_cast<int64_t>(total_moves[YELLOW]-1);
-      int64_t tmB = static_cast<int64_t>(total_moves[BLUE]-1);
-      int64_t tmG = static_cast<int64_t>(total_moves[GREEN]-1);
-      tmR *= tmR;
-      tmY *= tmY;
-      tmB *= tmB;
-      tmG *= tmG;
-      tmR *= tmR;
-      tmY *= tmY;
-      tmB *= tmB;
-      tmG *= tmG;
+      int64_t tmR = static_cast<int64_t>(thread_state.TotalMoves()[RED] - 1);
+      int64_t tmY = static_cast<int64_t>(thread_state.TotalMoves()[YELLOW] - 1);
+      int64_t tmB = static_cast<int64_t>(thread_state.TotalMoves()[BLUE] - 1);
+      int64_t tmG = static_cast<int64_t>(thread_state.TotalMoves()[GREEN] - 1);
+      tmR *= tmR; tmY *= tmY; tmB *= tmB; tmG *= tmG;
+      tmR *= tmR; tmY *= tmY; tmB *= tmB; tmG *= tmG;
       
-      int64_t ttR = static_cast<int64_t>(total_threats[RED]+1);
-      int64_t ttY = static_cast<int64_t>(total_threats[YELLOW]+1);
-      int64_t ttB = static_cast<int64_t>(total_threats[BLUE]+1);
-      int64_t ttG = static_cast<int64_t>(total_threats[GREEN]+1);
-      ttR *= ttR;
-      ttY *= ttY;
-      ttB *= ttB;
-      ttG *= ttG;
+      int64_t ttR = static_cast<int64_t>(thread_state.n_threats[RED] + 1);
+      int64_t ttY = static_cast<int64_t>(thread_state.n_threats[YELLOW] + 1);
+      int64_t ttB = static_cast<int64_t>(thread_state.n_threats[BLUE] + 1);
+      int64_t ttG = static_cast<int64_t>(thread_state.n_threats[GREEN] + 1);
+      ttR *= ttR; ttY *= ttY; ttB *= ttB; ttG *= ttG;
 
-      if (player_color == RED || player_color == YELLOW) {
+      if (other_team != RED_YELLOW) {
         int64_t num = (tmR * tmY) - (tmB * tmG); 
-        //int sign = (num >= 0) ? 1 : -1;
         int sign = (num >> 63) | 1;
         num = (num ^ (num >> 63)) - (num >> 63); // need positive number
         length = 63 - __builtin_clzll(num | 1);
@@ -453,9 +422,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
       // w.r.t. maximizing team
       eval = maximizing_player ? eval : -eval;
-
-
-
       }
     }
   } 
@@ -477,7 +443,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     pv_ptr,
     history_heuristic);
   
-
   bool has_legal_moves = false;
   int move_count = 0;
   int invalid_moves = 0;
@@ -536,7 +501,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
     static std::atomic<int64_t> cm_skip_count{0};
     int64_t current_hash = board.HashKey();
-    bool checkmate = depth >= 4 && IsKnownCheckmate(current_hash);
+    bool checkmate = IsKnownCheckmate(current_hash);
     if (checkmate) {
       board.UndoMove();
       thread_state.n_threats[player_color] = std::max(thread_state.n_threats[player_color] - 10, 0);
@@ -894,303 +859,6 @@ int GetNumMajorPieces(const std::vector<PlacedPiece>& pieces) {
 
 }  // namespace
 
-
-int AlphaBetaPlayer::Evaluate(
-    ThreadState& thread_state, Board& board, bool maximizing_player, int alpha, int beta) {
-
-  int eval; // w.r.t. RY team
-  GameResult game_result = board.CheckWasLastMoveKingCapture();
-  if (game_result != IN_PROGRESS) { // game is over
-    if (game_result == WIN_RY) {
-      eval = kMateValue;
-    } else if (game_result == WIN_BG) {
-      eval = -kMateValue;
-    } else {
-      eval = 0; // stalemate
-    }
-  } else {
-  auto start = std::chrono::high_resolution_clock::now();
-    int64_t current_hash = board.HashKey();
-    bool checkmate = IsKnownCheckmate(current_hash);
-    if (checkmate) {
-      eval = kMateValue;
-      return maximizing_player ? eval : -eval;
-    }
-    int pbase=0;
-    int pevalM=0;
-    int pevalT=0;
-    int peval3=0;
-
-    // Piece evaluation
-    eval = board.PieceEvaluation();
-    auto lazy_skip = [&](int margin) {
-      int re = maximizing_player ? eval : -eval; // returned eval
-      return re + margin <= alpha || re >= beta + margin;
-    };
-    constexpr int kMargin = 600;
-    if (lazy_skip(kMargin)) {
-      return maximizing_player ? eval : -eval;
-    }
-    const PlayerColor current_color = board.GetTurn().GetColor();
-
-    pbase = eval;
-
-    int total_threats[4];
-    int total_moves[4];
-    std::memcpy(total_threats, thread_state.n_threats, sizeof(total_threats));
-    std::memcpy(total_moves, thread_state.TotalMoves(), sizeof(total_moves));
-
-    if (board.NumMoves() == 0) {
-      std::memset(total_threats, 0, sizeof(total_threats));
-      std::memset(total_moves, 0, sizeof(total_moves));
-      return eval = 0;
-    }
-
-    if (current_color == 0 || current_color == 2) {
-      int64_t num = 
-        (static_cast<int64_t>(total_moves[RED]-1) * (total_moves[RED]-1) * (total_moves[RED]-1) * (total_moves[RED]-1) *
-        static_cast<int64_t>(total_moves[YELLOW]-1) * (total_moves[YELLOW]-1) * (total_moves[YELLOW]-1) * (total_moves[YELLOW]-1))
-        - (static_cast<int64_t>(total_moves[BLUE]-1) * (total_moves[BLUE]-1) * (total_moves[BLUE]-1) * (total_moves[BLUE]-1) *
-        static_cast<int64_t>(total_moves[GREEN]-1) * (total_moves[GREEN]-1) * (total_moves[GREEN]-1) * (total_moves[GREEN]-1)); 
-      int sign = (num >= 0) ? 1 : -1;
-      num = num < 0 ? -num : num;  // handle negative numbers
-      int length = 0;
-      // Handle 32-bit chunks first
-      if (num > 0xFFFFFFFF) {
-          length = 32;
-          num >>= 32;
-      }
-      // Then handle remaining bits
-      int shift = (num > 0xFFFF) << 4; num >>= shift; length |= shift;
-      shift = (num > 0xFF) << 3; num >>= shift; length |= shift;
-      shift = (num > 0xF) << 2; num >>= shift; length |= shift;
-      shift = (num > 0x3) << 1; num >>= shift; length |= shift;
-      length |= (num >> 1);
-      const int moves_eval = sign * std::clamp(5*(length-25), 10, 1000);
-
-      num = (static_cast<int64_t>(total_threats[RED]+1) * (total_threats[YELLOW]+1) * (total_threats[RED]+1) * (total_threats[YELLOW]+1))
-        - (static_cast<int64_t>(total_threats[BLUE]+1) * (total_threats[GREEN]+1) * (total_threats[BLUE]+1) * (total_threats[GREEN]+1));
-      sign = (num >= 0) ? 1 : -1;
-      num = num < 0 ? -num : num;  // handle negative numbers
-      length = 0;
-      // Handle 32-bit chunks first
-      if (num > 0xFFFFFFFF) {
-          length = 32;
-          num >>= 32;
-      }
-      // Then handle remaining bits
-      shift = (num > 0xFFFF) << 4; num >>= shift; length |= shift;
-      shift = (num > 0xFF) << 3; num >>= shift; length |= shift;
-      shift = (num > 0xF) << 2; num >>= shift; length |= shift;
-      shift = (num > 0x3) << 1; num >>= shift; length |= shift;
-      length |= (num >> 1);
-      const int threat_eval = 8 * sign * std::clamp((length-17), 1, 1000);
-
-      pevalM=moves_eval;
-      pevalT=std::clamp(threat_eval, -50, 500);
-      
-      eval += (moves_eval + std::clamp(threat_eval, -50, 500));
-
-    } else {
-      int64_t num = 
-        (static_cast<int64_t>(total_moves[BLUE]-1) * (total_moves[BLUE]-1) * (total_moves[BLUE]-1) * (total_moves[BLUE]-1) *
-        static_cast<int64_t>(total_moves[GREEN]-1) * (total_moves[GREEN]-1) * (total_moves[GREEN]-1) * (total_moves[GREEN]-1))
-        - (static_cast<int64_t>(total_moves[RED]-1) * (total_moves[RED]-1) * (total_moves[RED]-1) * (total_moves[RED]-1) *
-        static_cast<int64_t>(total_moves[YELLOW]-1) * (total_moves[YELLOW]-1) * (total_moves[YELLOW]-1) * (total_moves[YELLOW]-1));
-      int sign = (num >= 0) ? 1 : -1;
-      num = num < 0 ? -num : num;  // handle negative numbers
-      int length = 0;
-      // Handle 32-bit chunks first
-      if (num > 0xFFFFFFFF) {
-          length = 32;
-          num >>= 32;
-      }
-      // Then handle remaining bits
-      int shift = (num > 0xFFFF) << 4; num >>= shift; length |= shift;
-      shift = (num > 0xFF) << 3; num >>= shift; length |= shift;
-      shift = (num > 0xF) << 2; num >>= shift; length |= shift;
-      shift = (num > 0x3) << 1; num >>= shift; length |= shift;
-      length |= (num >> 1);
-      const int moves_eval = sign * std::clamp((5*(length-25)), 10, 1000);
-
-      num = (static_cast<int64_t>(total_threats[BLUE]+1) * (total_threats[GREEN]+1) * (total_threats[BLUE]+1) * (total_threats[GREEN]+1))
-        - (static_cast<int64_t>(total_threats[RED]+1) * (total_threats[YELLOW]+1) * (total_threats[RED]+1) * (total_threats[YELLOW]+1));
-      sign = (num >= 0) ? 1 : -1;
-      num = num < 0 ? -num : num;  // handle negative numbers
-      length = 0;
-      // Handle 32-bit chunks first
-      if (num > 0xFFFFFFFF) {
-          length = 32;
-          num >>= 32;
-      }
-      // Then handle remaining bits
-      shift = (num > 0xFFFF) << 4; num >>= shift; length |= shift;
-      shift = (num > 0xFF) << 3; num >>= shift; length |= shift;
-      shift = (num > 0xF) << 2; num >>= shift; length |= shift;
-      shift = (num > 0x3) << 1; num >>= shift; length |= shift;
-      length |= (num >> 1);
-      const int threat_eval = 8 * sign * std::clamp((length-17), 1, 1000);
-      
-      pevalM=moves_eval;
-      pevalT=std::clamp(threat_eval, -50, 500);
-
-      eval += (moves_eval + std::clamp(threat_eval, -50, 500));
-
-    }
-
-    auto end = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
-    total_time += duration;
-    call_count++;
-    if (call_count % 800000 == 0) {
-      auto avg_ns = total_time.count() / call_count;
-      auto current_avg = duration.count() / 1;  // Current call's time in ns
-
-      //std::cout << "[Evaluation]" << " color: " << current_color << std::endl
-      //<< "M: " << total_moves[RED] << " "
-      //<< total_moves[BLUE] << " " 
-      //<< total_moves[YELLOW] << " " 
-      //<< total_moves[GREEN] << std::endl
-      //<< pevalM << std::endl
-      //<< "T: "
-      //<< total_threats[RED] << " "
-      //<< total_threats[BLUE] << " "
-      //<< total_threats[YELLOW] << " "
-      //<< total_threats[GREEN] << std::endl
-      //<< pevalT << std::endl
-      //<< "material: " << pbase << std::endl
-      //<< "final: " << eval << std::endl
-      //<< "Average: " << avg_ns << " ns, " << "Call count: " << call_count << std::endl;
-    }
-
-  }
-  // w.r.t. maximizing team
-  return maximizing_player ? eval : -eval;
-}
-
-int AlphaBetaPlayer::EvaluateNoCm(
-    ThreadState& thread_state, Board& board, bool maximizing_player, int alpha, int beta) {
-
-  int eval; // w.r.t. RY team
-
-  // Piece evaluation
-  eval = board.PieceEvaluation();
-  auto lazy_skip = [&](int margin) {
-    int re = maximizing_player ? eval : -eval; // returned eval
-    return re + margin <= alpha || re >= beta + margin;
-  };
-  constexpr int kMargin = 600;
-  if (lazy_skip(kMargin)) {
-    return maximizing_player ? eval : -eval;
-  }
-  const PlayerColor current_color = board.GetTurn().GetColor();
-
-  int total_threats[4];
-  int total_moves[4];
-  std::memcpy(total_threats, thread_state.n_threats, sizeof(total_threats));
-  std::memcpy(total_moves, thread_state.TotalMoves(), sizeof(total_moves));
-
-  int64_t tmR = static_cast<int64_t>(total_moves[RED]-1);
-  int64_t tmY = static_cast<int64_t>(total_moves[YELLOW]-1);
-  int64_t tmB = static_cast<int64_t>(total_moves[BLUE]-1);
-  int64_t tmG = static_cast<int64_t>(total_moves[GREEN]-1);
-  tmR *= tmR;
-  tmY *= tmY;
-  tmB *= tmB;
-  tmG *= tmG;
-  tmR *= tmR;
-  tmY *= tmY;
-  tmB *= tmB;
-  tmG *= tmG;
-  
-  int64_t ttR = static_cast<int64_t>(total_threats[RED]+1);
-  int64_t ttY = static_cast<int64_t>(total_threats[YELLOW]+1);
-  int64_t ttB = static_cast<int64_t>(total_threats[BLUE]+1);
-  int64_t ttG = static_cast<int64_t>(total_threats[GREEN]+1);
-  ttR *= ttR;
-  ttY *= ttY;
-  ttB *= ttB;
-  ttG *= ttG;
-
-  if (current_color == 0 || current_color == 2) {
-    int64_t num = (tmR * tmY) - (tmB * tmG); 
-    int sign = (num >= 0) ? 1 : -1;
-    num = num < 0 ? -num : num;  // handle negative numbers
-    int length = 0;
-    // Handle 32-bit chunks first
-    if (num > 0xFFFFFFFF) {
-        length = 32;
-        num >>= 32;
-    }
-    // Then handle remaining bits
-    int shift = (num > 0xFFFF) << 4; num >>= shift; length |= shift;
-    shift = (num > 0xFF) << 3; num >>= shift; length |= shift;
-    shift = (num > 0xF) << 2; num >>= shift; length |= shift;
-    shift = (num > 0x3) << 1; num >>= shift; length |= shift;
-    length |= (num >> 1);
-    const int moves_eval = sign * std::clamp(5*(length-25), 10, 1000);
-
-    num = (ttR * ttY) - (ttB * ttG);
-    sign = (num >= 0) ? 1 : -1;
-    num = num < 0 ? -num : num;  // handle negative numbers
-    length = 0;
-    // Handle 32-bit chunks first
-    if (num > 0xFFFFFFFF) {
-        length = 32;
-        num >>= 32;
-    }
-    // Then handle remaining bits
-    shift = (num > 0xFFFF) << 4; num >>= shift; length |= shift;
-    shift = (num > 0xFF) << 3; num >>= shift; length |= shift;
-    shift = (num > 0xF) << 2; num >>= shift; length |= shift;
-    shift = (num > 0x3) << 1; num >>= shift; length |= shift;
-    length |= (num >> 1);
-    const int threat_eval = 8 * sign * std::clamp((length-17), 1, 1000);
-
-    eval += (moves_eval + std::clamp(threat_eval, -50, 500));
-
-  } else {
-    int64_t num = (tmB * tmG) - (tmR * tmY);
-    int sign = (num >= 0) ? 1 : -1;
-    num = num < 0 ? -num : num;  // handle negative numbers
-    int length = 0;
-    // Handle 32-bit chunks first
-    if (num > 0xFFFFFFFF) {
-        length = 32;
-        num >>= 32;
-    }
-    // Then handle remaining bits
-    int shift = (num > 0xFFFF) << 4; num >>= shift; length |= shift;
-    shift = (num > 0xFF) << 3; num >>= shift; length |= shift;
-    shift = (num > 0xF) << 2; num >>= shift; length |= shift;
-    shift = (num > 0x3) << 1; num >>= shift; length |= shift;
-    length |= (num >> 1);
-    const int moves_eval = sign * std::clamp((5*(length-25)), 10, 1000);
-
-    num = (ttB * ttG) - (ttR * ttY);
-    sign = (num >= 0) ? 1 : -1;
-    num = num < 0 ? -num : num;  // handle negative numbers
-    length = 0;
-    // Handle 32-bit chunks first
-    if (num > 0xFFFFFFFF) {
-        length = 32;
-        num >>= 32;
-    }
-    // Then handle remaining bits
-    shift = (num > 0xFFFF) << 4; num >>= shift; length |= shift;
-    shift = (num > 0xFF) << 3; num >>= shift; length |= shift;
-    shift = (num > 0xF) << 2; num >>= shift; length |= shift;
-    shift = (num > 0x3) << 1; num >>= shift; length |= shift;
-    length |= (num >> 1);
-    const int threat_eval = 8 * sign * std::clamp((length-17), 1, 1000);
-    
-    eval += (moves_eval + std::clamp(threat_eval, -50, 500));
-  }
-
-  // w.r.t. maximizing team
-  return maximizing_player ? eval : -eval;
-}
-
 void AlphaBetaPlayer::ResetHistoryHeuristics() {
   std::memset(history_heuristic, 0, sizeof(history_heuristic));
 }
@@ -1216,13 +884,6 @@ void AlphaBetaPlayer::ResetMobilityScores(ThreadState& thread_state, Board& boar
     Player player(static_cast<PlayerColor>(i));
     UpdateMobilityEvaluation(thread_state, board, player);
   }
-}
-
-int AlphaBetaPlayer::StaticEvaluation(Board& board) {
-  auto pv_copy = pv_info_.Copy();
-  ThreadState thread_state(options_, board, *pv_copy);
-  ResetMobilityScores(thread_state, board);
-  return Evaluate(thread_state, board, true, -kMateValue, kMateValue);
 }
 
 std::optional<std::tuple<int, std::optional<Move>, int>>
