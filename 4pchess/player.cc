@@ -304,7 +304,25 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   if (tt_hit && tte->eval != value_none_tt) {
     eval = tte->eval;
   } else {
-    eval = Evaluate(thread_state, board, maximizing_player, alpha, beta);
+    GameResult game_result = board.CheckWasLastMoveKingCapture();
+    if (game_result != IN_PROGRESS) { // game is over
+      if (game_result == WIN_RY) {
+        eval = kMateValue;
+      } else if (game_result == WIN_BG) {
+        eval = -kMateValue;
+      } else {
+        eval = 0; // stalemate
+      }
+    } else {
+      int64_t current_hash = board.HashKey();
+      bool checkmate = IsKnownCheckmate(current_hash);
+      if (checkmate) {
+        eval = kMateValue;
+        eval = maximizing_player ? eval : -eval;
+      } else {
+        eval = EvaluateNoCm(thread_state, board, maximizing_player, alpha, beta);
+      }
+    }
   } 
   (ss+1)->root_depth = ss->root_depth;
   ss->static_eval = eval;
@@ -919,11 +937,6 @@ int AlphaBetaPlayer::EvaluateNoCm(
     ThreadState& thread_state, Board& board, bool maximizing_player, int alpha, int beta) {
 
   int eval; // w.r.t. RY team
-  auto start = std::chrono::high_resolution_clock::now();
-  int pbase=0;
-  int pevalM=0;
-  int pevalT=0;
-  int peval3=0;
 
   // Piece evaluation
   eval = board.PieceEvaluation();
@@ -937,25 +950,26 @@ int AlphaBetaPlayer::EvaluateNoCm(
   }
   const PlayerColor current_color = board.GetTurn().GetColor();
 
-  pbase = eval;
-
   int total_threats[4];
   int total_moves[4];
   std::memcpy(total_threats, thread_state.n_threats, sizeof(total_threats));
   std::memcpy(total_moves, thread_state.TotalMoves(), sizeof(total_moves));
 
-  if (board.NumMoves() == 0) {
-    std::memset(total_threats, 0, sizeof(total_threats));
-    std::memset(total_moves, 0, sizeof(total_moves));
-    return eval = 0;
-  }
+  const int64_t tmR = static_cast<int64_t>(total_moves[RED]-1);
+  const int64_t tmY = static_cast<int64_t>(total_moves[YELLOW]-1);
+  const int64_t tmB = static_cast<int64_t>(total_moves[BLUE]-1);
+  const int64_t tmG = static_cast<int64_t>(total_moves[GREEN]-1);
+  const int64_t tmR2 = tmR * tmR;
+  const int64_t tmY2 = tmY * tmY;
+  const int64_t tmB2 = tmB * tmB;
+  const int64_t tmG2 = tmG * tmG;
+  const int64_t tmR4 = tmR2 * tmR2;
+  const int64_t tmY4 = tmY2 * tmY2;
+  const int64_t tmB4 = tmB2 * tmB2;
+  const int64_t tmG4 = tmG2 * tmG2;
 
   if (current_color == 0 || current_color == 2) {
-    int64_t num = 
-      (static_cast<int64_t>(total_moves[RED]-1) * (total_moves[RED]-1) * (total_moves[RED]-1) * (total_moves[RED]-1) *
-      static_cast<int64_t>(total_moves[YELLOW]-1) * (total_moves[YELLOW]-1) * (total_moves[YELLOW]-1) * (total_moves[YELLOW]-1))
-      - (static_cast<int64_t>(total_moves[BLUE]-1) * (total_moves[BLUE]-1) * (total_moves[BLUE]-1) * (total_moves[BLUE]-1) *
-      static_cast<int64_t>(total_moves[GREEN]-1) * (total_moves[GREEN]-1) * (total_moves[GREEN]-1) * (total_moves[GREEN]-1)); 
+    int64_t num = (tmR4 * tmY4) - (tmB4 * tmG4); 
     int sign = (num >= 0) ? 1 : -1;
     num = num < 0 ? -num : num;  // handle negative numbers
     int length = 0;
@@ -990,17 +1004,10 @@ int AlphaBetaPlayer::EvaluateNoCm(
     length |= (num >> 1);
     const int threat_eval = 8 * sign * std::clamp((length-17), 1, 1000);
 
-    pevalM=moves_eval;
-    pevalT=std::clamp(threat_eval, -50, 500);
-    
     eval += (moves_eval + std::clamp(threat_eval, -50, 500));
 
   } else {
-    int64_t num = 
-      (static_cast<int64_t>(total_moves[BLUE]-1) * (total_moves[BLUE]-1) * (total_moves[BLUE]-1) * (total_moves[BLUE]-1) *
-      static_cast<int64_t>(total_moves[GREEN]-1) * (total_moves[GREEN]-1) * (total_moves[GREEN]-1) * (total_moves[GREEN]-1))
-      - (static_cast<int64_t>(total_moves[RED]-1) * (total_moves[RED]-1) * (total_moves[RED]-1) * (total_moves[RED]-1) *
-      static_cast<int64_t>(total_moves[YELLOW]-1) * (total_moves[YELLOW]-1) * (total_moves[YELLOW]-1) * (total_moves[YELLOW]-1));
+    int64_t num = (tmB4 * tmG4) - (tmR4 * tmY4);
     int sign = (num >= 0) ? 1 : -1;
     num = num < 0 ? -num : num;  // handle negative numbers
     int length = 0;
@@ -1035,36 +1042,7 @@ int AlphaBetaPlayer::EvaluateNoCm(
     length |= (num >> 1);
     const int threat_eval = 8 * sign * std::clamp((length-17), 1, 1000);
     
-    pevalM=moves_eval;
-    pevalT=std::clamp(threat_eval, -50, 500);
-
     eval += (moves_eval + std::clamp(threat_eval, -50, 500));
-
-  }
-
-  auto end = std::chrono::high_resolution_clock::now();
-  auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
-  total_time += duration;
-  call_count++;
-  if (call_count % 800000 == 0) {
-    auto avg_ns = total_time.count() / call_count;
-    auto current_avg = duration.count() / 1;  // Current call's time in ns
-
-    //std::cout << "[Evaluation]" << " color: " << current_color << std::endl
-    //<< "M: " << total_moves[RED] << " "
-    //<< total_moves[BLUE] << " " 
-    //<< total_moves[YELLOW] << " " 
-    //<< total_moves[GREEN] << std::endl
-    //<< pevalM << std::endl
-    //<< "T: "
-    //<< total_threats[RED] << " "
-    //<< total_threats[BLUE] << " "
-    //<< total_threats[YELLOW] << " "
-    //<< total_threats[GREEN] << std::endl
-    //<< pevalT << std::endl
-    //<< "material: " << pbase << std::endl
-    //<< "final: " << eval << std::endl
-    //<< "Average: " << avg_ns << " ns, " << "Call count: " << call_count << std::endl;
   }
 
   // w.r.t. maximizing team

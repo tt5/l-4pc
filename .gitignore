@@ -56,3 +56,4 @@ lightpanda
 .env
 
 #cli
+.engine.pid
