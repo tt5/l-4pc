@@ -10,7 +10,6 @@ cp cli ..
 
 # TODO
 
-- [x] engine castling
 - [ ] engine promotion
 - [ ] client promotion
 - [ ] rotate board
