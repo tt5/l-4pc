@@ -501,7 +501,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
     static std::atomic<int64_t> cm_skip_count{0};
     int64_t current_hash = board.HashKey();
-    bool checkmate = IsKnownCheckmate(current_hash);
+    bool checkmate = depth >= 2 && IsKnownCheckmate(current_hash);
     if (checkmate) {
       board.UndoMove();
       thread_state.n_threats[player_color] = std::max(thread_state.n_threats[player_color] - 10, 0);
