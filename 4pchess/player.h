@@ -113,13 +113,13 @@ class ThreadState {
   ~ThreadState();
   Move* GetNextMoveBufferPartition();
   void ReleaseMoveBufferPartition();
-    int64_t* NActivated() { return n_activated_; }
-    int64_t* NThreats() { return n_threats; }
-  int64_t* TotalMoves() { return total_moves_; }
+    int* NActivated() { return n_activated_; }
+    int* NThreats() { return n_threats; }
+  int* TotalMoves() { return total_moves_; }
   PVInfo& GetPVInfo() { return pv_info_; }
   const Board& GetRootBoard() { return root_board_; }
 
-  int64_t n_threats[4] = {0, 0, 0, 0};
+  int n_threats[4] = {0, 0, 0, 0};
   Move* GetMoveGenBuffer() { return move_gen_buffer_; }
   static constexpr int kMaxMoves = 256;
 
@@ -135,8 +135,8 @@ class ThreadState {
   // Id within move_buffer_
   size_t buffer_id_ = 0;
 
-  int64_t n_activated_[4] = {0, 0, 0, 0};
-  int64_t total_moves_[4] = {0, 0, 0, 0};
+  int n_activated_[4] = {0, 0, 0, 0};
+  int total_moves_[4] = {0, 0, 0, 0};
 
 };
 
