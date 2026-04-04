@@ -239,9 +239,16 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   int eval = board.PieceEvaluation();
 
   if (depth <= 0) {
+      int64_t current_hash = board.HashKey();
+      bool checkmate = IsKnownCheckmate(current_hash);
+      if (checkmate) {
+        eval = maximizing_player ? kMateValue : -kMateValue;
+      } else {
+        eval = -((ss-1)->static_eval - eval) + (eval << 1) + 10;
+      }
+    eval = maximizing_player ? eval : -eval;
+    return std::make_tuple(eval, std::nullopt);
 
-    // LOG2_MOVES[n] = floor(log2(max(0, n-1))), pre-clamped at 15 (4*15=60 < 63)
-    // Index 0 unused, 1->0, 2->0, 3->1, 4->2, etc. Max value 15
     static const uint8_t LOG2_MOVES[256] = {
         0, 0, 0, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
         4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
@@ -413,85 +420,106 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         eval = 0; // stalemate
       }
     } else {
-      int64_t current_hash = board.HashKey();
-      bool checkmate = IsKnownCheckmate(current_hash);
-      if (checkmate) {
-        eval = maximizing_player ? kMateValue : -kMateValue;
-      } else {
-
-        // floor(log2(n)) for n 0..150, 0 maps to 0
-        static const uint8_t LOG2[160] = {
-            0, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
+      //int64_t current_hash = board.HashKey();
+      ////bool checkmate = IsKnownCheckmate(current_hash);
+      //if (checkmate) {
+      //  eval = maximizing_player ? kMateValue : -kMateValue;
+      //} else {
+        
+        static const uint8_t LOG2_MOVES[256] = {
+            0, 0, 0, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
             4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
             5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
             5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
             6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
             6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
             6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+            6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+            7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+            7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+            7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+            7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+            7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
             7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
             7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
             7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
         };
 
+        // LOG2_THREATS[n] = floor(log2(n+1)), values 0-7 map to 0-7
+        static const uint8_t LOG2_THREATS[64] = {
+            0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4,
+            4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+            5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+            5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5
+        };
+
+        static const int8_t THREAT_SCORE[64] = {
+            -8, -8, -8, -8, -8, -8, -8, -8,  // len -17 to -10 -> -8
+            -8, -8, -8, -8, -8, -8, -8, -8,  // len -9 to -2 -> -8
+            -8, -8,                          // len -1, 0 -> -8
+            8, 16, 24, 32, 40, 48, 56,       // len 1-7 positive: 8*len
+            -56, -48, -40, -32, -24, -16,    // len 1-6 negative: -8*len
+            -50, -50, -50, -50, -50, -50, -50, -50,  // len 7+: -50
+            -50, -50, -50, -50, -50, -50, -50, -50,
+            -50, -50, -50, -50, -50, -50, -50, -50,
+            -50, -50, -50, -50, -50, -50, -50, -50
+        };
+
         int moves_eval;
         int threat_eval;
 
-        // Precompute log2 values for exponential approximation
-        // log2(tmRY) ≈ 4*(log2(tmR) + log2(tmY)), similarly for tmBG
-        int logR = LOG2[thread_state.TotalMoves()[RED] - 1];
-        int logY = LOG2[thread_state.TotalMoves()[YELLOW] - 1];
-        int logB = LOG2[thread_state.TotalMoves()[BLUE] - 1];
-        int logG = LOG2[thread_state.TotalMoves()[GREEN] - 1];
-        
-        int logRY = 4 * (logR + logY);  // ≈ log2(tmRY)
-        int logBG = 4 * (logB + logG);  // ≈ log2(tmBG)
-        
-        // Approximate bit-length of difference without 64-bit multiply
-        // When values differ significantly, clz(|a-b|) ≈ max(clz(a), clz(b))
+        // Direct table lookup, no +/-1 arithmetic needed
+        int logR = LOG2_MOVES[thread_state.TotalMoves()[RED]];
+        int logY = LOG2_MOVES[thread_state.TotalMoves()[YELLOW]];
+        int logB = LOG2_MOVES[thread_state.TotalMoves()[BLUE]];
+        int logG = LOG2_MOVES[thread_state.TotalMoves()[GREEN]];
+
+        int logRY = (logR + logY) << 2;  // 4 * sum
+        int logBG = (logB + logG) << 2;
+
         int lb, sign;
         if (logRY > logBG) {
-          lb = std::min(63, logRY + 1);  // +1 for rounding, cap at 63
+          lb = logRY + 1;  // No std::min needed, pre-clamped
           sign = (other_team != RED_YELLOW) ? 1 : -1;
         } else if (logBG > logRY) {
-          lb = std::min(63, logBG + 1);
+          lb = logBG + 1;
           sign = (other_team != RED_YELLOW) ? -1 : 1;
         } else {
-          // Equal logs - need actual calculation or approximate as equal
-          lb = std::min(63, logRY + 1);
-          sign = 0;  // Will result in 0 moves_eval
+          lb = logRY + 1;
+          sign = 0;
         }
         moves_eval = sign * (lb < 27 ? 10 : 5 * (lb - 25));
-        
-        // Same logarithmic approach for threats
-        int logtR = LOG2[thread_state.NThreats()[RED] + 1];
-        int logtY = LOG2[thread_state.NThreats()[YELLOW] + 1];
-        int logtB = LOG2[thread_state.NThreats()[BLUE] + 1];
-        int logtG = LOG2[thread_state.NThreats()[GREEN] + 1];
-        
-        int logtRY = 4 * (logtR + logtY);  // ≈ log2(ttRY)
-        int logtBG = 4 * (logtB + logtG);  // ≈ log2(ttBG)
-        
-        int len, threat_sign;
+
+        // Threats: direct lookup with pre-clamped tables
+        int logtR = LOG2_THREATS[thread_state.NThreats()[RED] & 63];
+        int logtY = LOG2_THREATS[thread_state.NThreats()[YELLOW] & 63];
+        int logtB = LOG2_THREATS[thread_state.NThreats()[BLUE] & 63];
+        int logtG = LOG2_THREATS[thread_state.NThreats()[GREEN] & 63];
+
+        int logtRY = (logtR + logtY) << 2;
+        int logtBG = (logtB + logtG) << 2;
+
+        int len_idx;
+        int threat_sign;
         if (logtRY > logtBG) {
-          len = std::min(46, logtRY - 17);  // -17 offset as in original, cap at 46
+          len_idx = logtRY;  // +17 offset, threat_sign determines final sign
           threat_sign = (other_team != RED_YELLOW) ? 1 : -1;
         } else if (logtBG > logtRY) {
-          len = std::min(46, logtBG - 17);
+          len_idx = logtBG;
           threat_sign = (other_team != RED_YELLOW) ? -1 : 1;
         } else {
-          len = 0;
+          len_idx = 0;
           threat_sign = 0;
         }
-        threat_eval = threat_sign > 0 
-            ? (len < 1 ? 8 : 8 * len)
-            : (len < 1 ? -8 : (len < 7 ? -8 * len : -50));
+        // Clamp and adjust for table indexing
+        len_idx = len_idx - 17 + 17;  // len - 17, then +17 for index
+        len_idx = (len_idx < 0) ? 0 : (len_idx > 63 ? 63 : len_idx);
+        threat_eval = threat_sign * THREAT_SCORE[len_idx];
 
-        eval += moves_eval + threat_eval; // -240 to 558
+        eval += moves_eval + threat_eval;
 
-        // w.r.t. maximizing team
         eval = maximizing_player ? eval : -eval;
-
-      }
+      //}
     }
   } 
   (ss+1)->root_depth = ss->root_depth;
@@ -568,17 +596,17 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       continue;
     }
 
-    static std::atomic<int64_t> cm_skip_count{0};
-    int64_t current_hash = board.HashKey();
-    bool checkmate = depth >= 2 && IsKnownCheckmate(current_hash);
-    if (checkmate) {
-      board.UndoMove();
-      thread_state.NThreats()[player_color] = -10; // (?)
+    //static std::atomic<int64_t> cm_skip_count{0};
+    //int64_t current_hash = board.HashKey();
+    //bool checkmate = depth >= 2 && IsKnownCheckmate(current_hash);
+    //if (checkmate) {
+    //  board.UndoMove();
+    //  thread_state.NThreats()[player_color] = -10; // (?)
 
-      cm_skip_count++;
+    //  cm_skip_count++;
 
-      continue;
-    }
+    //  continue;
+    //}
     has_legal_moves = true;
 
     ss->current_move = move;
