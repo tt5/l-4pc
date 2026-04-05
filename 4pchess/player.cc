@@ -453,12 +453,10 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   }
   while (true) {
     const Move* move_ptr = GetNextMove2(&picker);
-    auto startA2 = std::chrono::high_resolution_clock::now();
-
     if (move_ptr == nullptr) break;
-
     const Move& move = *move_ptr;
 
+    auto startA2 = std::chrono::high_resolution_clock::now();
     if (UNLIKELY(ss->excludedMove.Present() && move == ss->excludedMove)) {
       continue;
     }
@@ -467,6 +465,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     
     std::optional<std::tuple<int, std::optional<Move>>> value_and_move_or;
 
+    //~20ns
     board.MakeMove(move);
 
     if (UNLIKELY(board.CheckWasLastMoveKingCapture() != IN_PROGRESS)) {
@@ -480,7 +479,12 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     }
 
     // not same king position if the king moved
-    if (board.IsAttackedByTeam(other_team, board.GetKingLocation(player_color))) { // invalid move
+    const auto kinglocation = board.GetKingLocation(player_color);
+
+    //~50ns (quite optimized)
+    bool is_king_in_check = board.IsAttackedByTeam(other_team, kinglocation);
+
+    if (is_king_in_check) { // invalid move
       board.UndoMove();
 
       continue;
@@ -488,7 +492,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
     static std::atomic<int64_t> cm_skip_count{0};
     int64_t current_hash = board.HashKey();
-    bool checkmate = depth >= 2 && IsKnownCheckmate(current_hash);
+    bool checkmate = IsKnownCheckmate(current_hash);
     if (checkmate) {
       board.UndoMove();
 
@@ -502,7 +506,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     ss->move_count = move_count++;
 
     bool is_pv_move = pv_move.has_value() && *pv_move == move;
-
     std::shared_ptr<PVInfo> child_pvinfo;
     if (is_pv_move && pvinfo.GetChild() != nullptr) {
       child_pvinfo = pvinfo.GetChild();
@@ -511,7 +514,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     }
 
     int r = 1;
-    
     r += is_cut_node;
 
     auto endA2 = std::chrono::high_resolution_clock::now();
@@ -530,12 +532,11 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     }
 
     // Singular extension search
-    if (//!is_root_node
-        !is_cut_node
+    if (!is_cut_node
         && !ss->excludedMove.Present()
         && depth >= 7 // Only for reasonably deep searches
-        && tte != nullptr && tte->score != value_none_tt && std::abs(tte->score) < kMateValue
-        //&& tt_hit
+        //&& tte != nullptr && tte->score != value_none_tt && std::abs(tte->score) < kMateValue
+        && tt_hit
         && tte->bound == LOWER_BOUND // The TT move was a fail-high
         //&& tte->depth >= depth - 3
         )

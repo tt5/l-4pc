@@ -152,15 +152,6 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                                 score += (x * num * 25) / (den * 256);  // adds ~0-255 centi-tanh
                             }
                             
-                            /*
-                            // Only check first continuation history
-                            if (picker->cont_hist[0] != nullptr) {
-                                const auto& entry = (*picker->cont_hist[0])[true][pt];
-                                int32_t cont_value = entry[to_row * 14 + to_col];
-                                score += std::tanh(cont_value / 1000.0f) * 50.0f;
-                            }
-                            */
-                            
                             scored_moves.push_back({i, score});
                         } 
                         // Slower path for non-captures
@@ -179,14 +170,6 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                                 }
                             }
 
-                            /*
-                            if (picker->cont_hist[0] != nullptr) {
-                                const auto& entry = (*picker->cont_hist[0])[false][pt];  // false for non-captures
-                                int32_t cont_value = entry[to_row * 14 + to_col];
-                                score += std::tanh(cont_value / 1000.0f) * 20.0f;
-                            }                           
-                            */
-                            
                             scored_moves.push_back({i, score});
                         }
                     }

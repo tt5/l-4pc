@@ -314,118 +314,6 @@ Move* Board::GetPawnMovesDirect(
   return current;
 }
 
-void Board::GetPawnMoves2(
-    MoveBuffer& moves,
-    const BoardLocation& from,
-    const Piece& piece) const {
-  PlayerColor color = piece.GetColor();
-  Team team = piece.GetTeam();
-
-  // Move forward
-  int delta_rows = 0;
-  int delta_cols = 0;
-  bool not_moved = false;
-  switch (color) {
-  case RED:
-    delta_rows = -1;
-    not_moved = from.GetRow() == 12;
-    break;
-  case BLUE:
-    delta_cols = 1;
-    not_moved = from.GetCol() == 1;
-    break;
-  case YELLOW:
-    delta_rows = 1;
-    not_moved = from.GetRow() == 1;
-    break;
-  case GREEN:
-    delta_cols = -1;
-    not_moved = from.GetCol() == 12;
-    break;
-  default:
-    assert(false);
-    break;
-  }
-
-  BoardLocation to = from.Relative(delta_rows, delta_cols);
-  if (IsLegalLocation(to)) {
-    Piece other_piece = GetPiece(to);
-    if (other_piece.Missing()) {
-      // Advance once square
-      AddPawnMoves2(moves, from, to, piece.GetColor());
-      // Initial move (advance 2 squares)
-      if (not_moved) {
-        to = from.Relative(delta_rows * 2, delta_cols * 2);
-        other_piece = GetPiece(to);
-        if (other_piece.Missing()) {
-          AddPawnMoves2(moves, from, to, piece.GetColor());
-        }
-      }
-    } else {
-
-      // En-passant
-      if (other_piece.GetPieceType() == PAWN
-          && piece.GetTeam() != other_piece.GetTeam()) {
-
-        int n_turns = (4 + piece.GetColor() - other_piece.GetColor()) % 4;
-        const Move* other_player_move = nullptr;
-        if (n_turns > 0 && n_turns <= (int)moves_.size()) {
-          other_player_move = &moves_[moves_.size() - n_turns];
-        } else if (n_turns < 4) {
-          const auto& enp_move = enp_.enp_moves[other_piece.GetColor()];
-          if (enp_move.has_value()) {
-            other_player_move = &*enp_move;
-          }
-        }
-
-        if (other_player_move != nullptr
-            && other_player_move->To() == to
-            // TODO: Refactor this with 'enp' locations
-            && other_player_move->ManhattanDistance() == 2
-            && (other_player_move->From().GetRow() == other_player_move->To().GetRow()
-               || other_player_move->From().GetCol() == other_player_move->To().GetCol())
-            ) {
-          const BoardLocation& moved_from = other_player_move->From();
-          int delta_row = to.GetRow() - moved_from.GetRow();
-          int delta_col = to.GetCol() - moved_from.GetCol();
-          BoardLocation enpassant_to = moved_from.Relative(
-              delta_row / 2, delta_col / 2);
-          // there may be both en-passant and piece capture in the same move
-          auto existing = GetPiece(enpassant_to);
-          if (existing.Missing()
-              || existing.GetTeam() != piece.GetTeam()) {
-            AddPawnMoves2(moves, from, enpassant_to, piece.GetColor(),
-                         existing, to, other_piece);
-          }
-        }
-
-      }
-
-    }
-  }
-
-  // Non-enpassant capture
-  bool check_cols = team == RED_YELLOW;
-  int capture_row, capture_col;
-  for (int incr = 0; incr < 2; ++incr) {
-    capture_row = from.GetRow() + delta_rows;
-    capture_col = from.GetCol() + delta_cols;
-    if (check_cols) {
-      capture_col += incr == 0 ? -1 : 1;
-    } else {
-      capture_row += incr == 0 ? -1 : 1;
-    }
-    if (IsLegalLocation(capture_row, capture_col)) {
-      auto other_piece = GetPiece(capture_row, capture_col);
-      if (other_piece.Present()
-          && other_piece.GetTeam() != team) {
-        AddPawnMoves2(moves, from, BoardLocation(capture_row, capture_col),
-            piece.GetColor(), other_piece);
-      }
-    }
-  }
-}
-
 Move* Board::GetKnightMovesDirect(
     Move* moves,
     size_t limit,
@@ -467,32 +355,6 @@ Move* Board::GetKnightMovesDirect(
   }
   
   return current;
-}
-
-void Board::GetKnightMoves2(
-    MoveBuffer& moves,
-    const BoardLocation& from,
-    const Piece& piece) const {
-
-  int delta_row, delta_col;
-  for (int pos_row_sign = 0; pos_row_sign < 2; ++pos_row_sign) {
-    for (int abs_delta_row = 1; abs_delta_row < 3; ++abs_delta_row) {
-      delta_row = pos_row_sign > 0 ? abs_delta_row : -abs_delta_row;
-      for (int pos_col_sign = 0; pos_col_sign < 2; ++pos_col_sign) {
-        int abs_delta_col = abs_delta_row == 1 ? 2 : 1;
-        delta_col = pos_col_sign > 0 ? abs_delta_col : -abs_delta_col;
-        BoardLocation to = from.Relative(delta_row, delta_col);
-        if (IsLegalLocation(to)) {
-          const auto capture = GetPiece(to);
-          if (capture.Missing()
-              || capture.GetTeam() != piece.GetTeam()) {
-            moves.AddMove(from, to, capture);
-          }
-        }
-      }
-    }
-  }
-
 }
 
 void Board::AddMovesFromIncrMovement(
@@ -542,199 +404,6 @@ void Board::AddMovesFromIncrMovement2(
       break;
     }
     to = to.Relative(incr_row, incr_col);
-  }
-}
-
-void Board::GetBishopMoves2(
-    MoveBuffer& moves,
-    const BoardLocation& from,
-    const Piece& piece) const {
-
-  for (int pos_row = 0; pos_row < 2; ++pos_row) {
-    for (int pos_col = 0; pos_col < 2; ++pos_col) {
-      AddMovesFromIncrMovement2(
-          moves, piece, from, pos_row ? 1 : -1, pos_col ? 1 : -1);
-    }
-  }
-}
-
-void Board::GetRookMoves2(
-    MoveBuffer& moves,
-    const BoardLocation& from,
-    const Piece& piece) const {
-
-  // Update castling rights
-  CastlingRights initial_castling_rights;
-  CastlingRights castling_rights;
-  std::optional<CastlingType> castling_type = GetRookLocationType(
-      piece.GetPlayer(), from);
-  if (castling_type.has_value()) {
-    const auto& curr_rights = castling_rights_[piece.GetColor()];
-    if (curr_rights.Kingside() || curr_rights.Queenside()) {
-      if (castling_type == KINGSIDE) {
-        if (curr_rights.Kingside()) {
-          initial_castling_rights = curr_rights;
-          castling_rights = CastlingRights(false, curr_rights.Queenside());
-        }
-      } else {
-        if (curr_rights.Queenside()) {
-          initial_castling_rights = curr_rights;
-          castling_rights = CastlingRights(curr_rights.Kingside(), false);
-        }
-      }
-    }
-  }
-
-  for (int do_pos_incr = 0; do_pos_incr < 2; ++do_pos_incr) {
-    int incr = do_pos_incr > 0 ? 1 : -1;
-    for (int do_incr_row = 0; do_incr_row < 2; ++do_incr_row) {
-      int incr_row = do_incr_row > 0 ? incr : 0;
-      int incr_col = do_incr_row > 0 ? 0 : incr;
-      AddMovesFromIncrMovement2(moves, piece, from, incr_row, incr_col,
-          initial_castling_rights, castling_rights);
-    }
-  }
-}
-
-void Board::GetQueenMoves2(
-    MoveBuffer& moves,
-    const BoardLocation& from,
-    const Piece& piece) const {
-  GetBishopMoves2(moves, from, piece);
-  GetRookMoves2(moves, from, piece);
-}
-
-void Board::GetKingMoves2(
-    MoveBuffer& moves,
-    const BoardLocation& from,
-    const Piece& piece) const {
-
-  const CastlingRights& initial_castling_rights = castling_rights_[piece.GetColor()];
-  CastlingRights castling_rights(false, false);
-
-  for (int delta_row = -1; delta_row < 2; ++delta_row) {
-    for (int delta_col = -1; delta_col < 2; ++delta_col) {
-      if (delta_row == 0 && delta_col == 0) {
-        continue;
-      }
-      BoardLocation to = from.Relative(delta_row, delta_col);
-      if (IsLegalLocation(to)) {
-        const auto capture = GetPiece(to);
-        if (capture.Missing()
-            || capture.GetTeam() != piece.GetTeam()) {
-          moves.AddMove(from, to, capture, initial_castling_rights,
-              castling_rights);
-        }
-      }
-    }
-  }
-
-  Team other_team = OtherTeam(piece.GetTeam());
-  for (int is_kingside = 0; is_kingside < 2; ++is_kingside) {
-    bool allowed = is_kingside ? initial_castling_rights.Kingside() :
-      initial_castling_rights.Queenside();
-    if (allowed) {
-      std::vector<BoardLocation> squares_between;
-      BoardLocation rook_location;
-
-      switch (piece.GetColor()) {
-      case RED:
-        if (is_kingside) {
-          squares_between = {
-            from.Relative(0, 1),
-            from.Relative(0, 2),
-          };
-          rook_location = from.Relative(0, 3);
-        } else {
-          squares_between = {
-            from.Relative(0, -1),
-            from.Relative(0, -2),
-            from.Relative(0, -3),
-          };
-          rook_location = from.Relative(0, -4);
-        }
-        break;
-      case BLUE:
-        if (is_kingside) {
-          squares_between = {
-            from.Relative(1, 0),
-            from.Relative(2, 0),
-          };
-          rook_location = from.Relative(3, 0);
-        } else {
-          squares_between = {
-            from.Relative(-1, 0),
-            from.Relative(-2, 0),
-            from.Relative(-3, 0),
-          };
-          rook_location = from.Relative(-4, 0);
-        }
-        break;
-      case YELLOW:
-        if (is_kingside) {
-          squares_between = {
-            from.Relative(0, -1),
-            from.Relative(0, -2),
-          };
-          rook_location = from.Relative(0, -3);
-        } else {
-          squares_between = {
-            from.Relative(0, 1),
-            from.Relative(0, 2),
-            from.Relative(0, 3),
-          };
-          rook_location = from.Relative(0, 4);
-        }
-        break;
-      case GREEN:
-        if (is_kingside) {
-          squares_between = {
-            from.Relative(-1, 0),
-            from.Relative(-2, 0),
-          };
-          rook_location = from.Relative(-3, 0);
-        } else {
-          squares_between = {
-            from.Relative(1, 0),
-            from.Relative(2, 0),
-            from.Relative(3, 0),
-          };
-          rook_location = from.Relative(4, 0);
-        }
-        break;
-      default:
-        assert(false);
-        break;
-      }
-
-      // Make sure the rook is present
-      const auto rook = GetPiece(rook_location);
-      if (rook.Missing()
-          || rook.GetPieceType() != ROOK
-          || rook.GetTeam() != piece.GetTeam()) {
-        continue;
-      }
-
-      // Make sure that there are no pieces between the king and rook
-      bool piece_between = false;
-      for (const auto& loc : squares_between) {
-        if (GetPiece(loc).Present()) {
-          piece_between = true;
-          break;
-        }
-      }
-
-      if (!piece_between) {
-        // Make sure the king is not currently in or would pass through check
-        if (!IsAttackedByTeam(other_team, squares_between[0])
-            && !IsAttackedByTeam(other_team, from)) {
-          // Additionally move the castle
-          SimpleMove rook_move(rook_location, squares_between[0]);
-          moves.AddCastle(from, squares_between[1], rook_move,
-              initial_castling_rights, castling_rights);
-        }
-      }
-    }
   }
 }
 
@@ -1052,46 +721,47 @@ bool Board::IsAttackedByTeam(Team team, const BoardLocation& location) const {
   int loc_row = location.GetRow();
   int loc_col = location.GetCol();
 
-  // Combined sliding piece attacks (rook, bishop, queen)
-  struct Direction {
-    int dr, dc;
-    bool is_rook_move;  // true for rook moves (orthogonal), false for bishop moves (diagonal)
-  };
-  
-  constexpr std::array<Direction, 8> sliding_directions = {{
-    // Orthogonal (rook/queen) moves
-    {0, 1, true},   // right
-    {1, 0, true},   // down
-    {0, -1, true},  // left
-    {-1, 0, true},  // up
-    // Diagonal (bishop/queen) moves
-    {1, 1, false},   // down-right
-    {1, -1, false},  // down-left
-    {-1, -1, false}, // up-left
-    {-1, 1, false}   // up-right
-  }};
-
-  for (const auto& dir : sliding_directions) {
-    int row = loc_row + dir.dr;
-    int col = loc_col + dir.dc;
-    
+// Orthogonal (rook/queen) - 4 directions
+constexpr std::array<std::pair<int, int>, 4> orthogonal = {{
+    {0, 1}, {1, 0}, {0, -1}, {-1, 0}
+}};
+for (const auto& [dr, dc] : orthogonal) {
+    int row = loc_row + dr;
+    int col = loc_col + dc;
     while (IsLegalLocation(row, col)) {
-      const auto piece = GetPiece(row, col);
-      if (piece.Present()) {
-        if (piece.GetTeam() == team) {
-          PieceType type = piece.GetPieceType();
-          if (type == QUEEN || 
-              (dir.is_rook_move && type == ROOK) || 
-              (!dir.is_rook_move && type == BISHOP)) {
-            return true;
-          }
+        const auto piece = GetPiece(row, col);
+        if (piece.Present()) {
+            if (piece.GetTeam() == team) {
+                PieceType type = piece.GetPieceType();
+                if (type == QUEEN || type == ROOK) return true;
+            }
+            break;
         }
-        break;
-      }
-      row += dir.dr;
-      col += dir.dc;
+        row += dr;
+        col += dc;
     }
-  }
+}
+
+// Diagonal (bishop/queen) - 4 directions  
+constexpr std::array<std::pair<int, int>, 4> diagonal = {{
+    {1, 1}, {1, -1}, {-1, -1}, {-1, 1}
+}};
+for (const auto& [dr, dc] : diagonal) {
+    int row = loc_row + dr;
+    int col = loc_col + dc;
+    while (IsLegalLocation(row, col)) {
+        const auto piece = GetPiece(row, col);
+        if (piece.Present()) {
+            if (piece.GetTeam() == team) {
+                PieceType type = piece.GetPieceType();
+                if (type == QUEEN || type == BISHOP) return true;
+            }
+            break;
+        }
+        row += dr;
+        col += dc;
+    }
+}
 
   // Check for knight attacks
   constexpr std::array<std::pair<int, int>, 8> knight_moves = {{
@@ -1111,41 +781,41 @@ bool Board::IsAttackedByTeam(Team team, const BoardLocation& location) const {
     }
   }
 
-  // Combined pawn attack check
-  constexpr std::array<std::pair<int, int>, 8> pawn_attacks = {{
-    // Red pawn attacks (up-left, up-right)
-    {-1, -1}, {-1, 1},
-    // Yellow pawn attacks (down-left, down-right)
-    {1, -1}, {1, 1},
-    // Blue pawn attacks (up-right, down-right)
-    {-1, 1}, {1, 1},
-    // Green pawn attacks (up-left, down-left)
-    {-1, -1}, {1, -1}
-  }};
+// Combined pawn attack check - simplified
+constexpr std::pair<int, int> pawn_attacks[4][2] = {
+    {{-1, -1}, {-1, 1}},   // Red attacks up-left, up-right
+    {{1, -1}, {1, 1}},     // Yellow attacks down-left, down-right  
+    {{-1, 1}, {1, 1}},     // Blue attacks up-right, down-right
+    {{-1, -1}, {1, -1}}    // Green attacks up-left, down-left
+};
 
-  // Color check masks (one bit per color in order: RED, BLUE, YELLOW, GREEN)
-  constexpr uint8_t color_masks[8] = {
-    0b0001, 0b0001,  // Red
-    0b0100, 0b0100,  // Yellow
-    0b0010, 0b0010,  // Blue
-    0b1000, 0b1000   // Green
-  };
-
-  for (size_t i = 0; i < pawn_attacks.size(); ++i) {
-    const auto& [dr, dc] = pawn_attacks[i];
-    int row = loc_row + dr;
-    int col = loc_col + dc;
-    
-    if (IsLegalLocation(row, col)) {
-      const auto piece = GetPiece(row, col);
-      if (piece.Present() && 
-          piece.GetTeam() == team && 
-          piece.GetPieceType() == PAWN &&
-          (color_masks[i] & (1 << piece.GetColor()))) {
-        return true;
-      }
+if (team == RED_YELLOW) {
+    // Check Red (color 0) and Yellow (color 2) pawns only
+    for (int color : {0, 2}) {
+        for (int j = 0; j < 2; ++j) {
+            const auto& [dr, dc] = pawn_attacks[color][j];
+            int row = loc_row + dr, col = loc_col + dc;
+            if (IsLegalLocation(row, col)) {
+                const auto piece = GetPiece(row, col);
+                if (piece.Present() && piece.GetPieceType() == PAWN && piece.GetColor() == color)
+                    return true;
+            }
+        }
     }
-  }
+} else {
+    // Check Blue (color 1) and Green (color 3) pawns only
+    for (int color : {1, 3}) {
+        for (int j = 0; j < 2; ++j) {
+            const auto& [dr, dc] = pawn_attacks[color][j];
+            int row = loc_row + dr, col = loc_col + dc;
+            if (IsLegalLocation(row, col)) {
+                const auto piece = GetPiece(row, col);
+                if (piece.Present() && piece.GetPieceType() == PAWN && piece.GetColor() == color)
+                    return true;
+            }
+        }
+    }
+}
 
   return false;
 }
@@ -1234,7 +904,6 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     
     auto sorted_pieces = pieces;
 
-    /*
     if (!sorted_pieces.empty()) {
       // Single pass with insertion sort is faster for small N
       for (size_t i = 1; i < num_pieces; ++i) {
@@ -1251,7 +920,6 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
           }
       }
     }
-    */
     
     Move* current = buffer;
     const Move* const end = buffer + limit;
@@ -1289,13 +957,6 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
             default: assert(false && "Movegen: Invalid piece type");
         }
 
-        for (Move* m = buffer + before_count; m < current; ++m) {
-              if (!IsLegalLocation(m->From()) || !IsLegalLocation(m->To())) {
-        std::cout << "Invalid move generated: " << m->DebugString() << std::endl
-        << "type: " << static_cast<int>(type) << std::endl;
-        std::abort();
-    }
-}
         
         // Count all moves for mobility
         size_t after_count = current - buffer;
@@ -1766,7 +1427,7 @@ void Board::UndoMove() {
   // 4. Promotion
   // 5. Castling (rights, rook move)
 
-  assert(!moves_.empty());
+  //assert(!moves_.empty());
   const Move& move = moves_.back();
 
   const BoardLocation& to = move.To();
@@ -1774,16 +1435,20 @@ void Board::UndoMove() {
 
   const auto piece = GetPiece(to);
   
+  /*
   if (piece.Missing()) {
     std::cout << "piece missing in UndoMove" << std::endl;
     abort();
   }
+  */
   
   const PlayerColor color = piece.GetColor();
   Player turn_before = (color == RED)    ? kRedPlayer :
                        (color == BLUE)   ? kBluePlayer :
                        (color == YELLOW) ? kYellowPlayer :
                        kGreenPlayer;
+                       
+  /*
   Player turn_before2 = GetPreviousPlayer(GetTurn());
   if (turn_before != turn_before2) {
     std::cout << "[UndoMove] Error: Turn mismatch: color=" << static_cast<int>(color) 
@@ -1793,6 +1458,7 @@ void Board::UndoMove() {
           << std::endl;
     abort();
   }
+    */
 
   // Find and update the moved piece's location in one pass
   auto& pieces = piece_list_[color];

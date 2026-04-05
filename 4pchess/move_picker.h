@@ -80,10 +80,6 @@ enum StatsType {
 // Addressed by [piece][to]
 using PieceToHistory = Stats<int32_t, 2147483647, 7, 14, 14>;
 
-// Addressed by [piece_1][to_1][piece_2][to_2]
-using ContinuationHistory = Stats<PieceToHistory, NOT_USED, 7, 14, 14>;
-
-
 }  // namespace chess
 
 #endif  // _MOVE_PICKER_H_
