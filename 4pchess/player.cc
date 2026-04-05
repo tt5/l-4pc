@@ -607,7 +607,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         if (score > alpha) {
           
           // If the score is not failing high by much, try a reduced-window search first
-          if (score < alpha + 100) {
+          if (score < alpha + 60) {
             value_and_move_or = Search(
                 ss+1, NonPV, thread_state, board, ply + 1, depth - 1
                 - (depth/2)*(r > 0)*(depth>3)
@@ -615,7 +615,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
                 - (depth/8)*(r > 0)*(depth>8)
                 - (depth/16)*(r > 0)*(depth>31)
                 + (r < 0) ,
-                -alpha-50, -alpha, !maximizing_player,
+                -alpha-45, -alpha, !maximizing_player,
                 *child_pvinfo, true);
                 
             if (value_and_move_or && -std::get<0>(*value_and_move_or) > alpha) {

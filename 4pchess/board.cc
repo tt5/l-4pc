@@ -904,6 +904,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     
     auto sorted_pieces = pieces;
 
+    /*
     if (!sorted_pieces.empty()) {
       // Single pass with insertion sort is faster for small N
       for (size_t i = 1; i < num_pieces; ++i) {
@@ -920,6 +921,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
           }
       }
     }
+    */
     
     Move* current = buffer;
     const Move* const end = buffer + limit;
