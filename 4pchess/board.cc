@@ -904,11 +904,10 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     
     auto sorted_pieces = pieces;
 
-    /*
     if (!sorted_pieces.empty()) {
       // Single pass with insertion sort is faster for small N
       for (size_t i = 1; i < num_pieces; ++i) {
-          const PlacedPiece& key = sorted_pieces[i];
+          const PlacedPiece key = sorted_pieces[i];
           int key_val = kPieceValues[key.GetPiece().GetPieceType()];
           size_t j = i;
           
@@ -921,7 +920,6 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
           }
       }
     }
-    */
     
     Move* current = buffer;
     const Move* const end = buffer + limit;
