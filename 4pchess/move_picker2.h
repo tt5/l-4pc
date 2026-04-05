@@ -142,7 +142,7 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                             
                             // Add history heuristic if available
                             if (picker->history_heuristic) {
-                                int32_t hist_value = picker->history_heuristic[from_row][from_col][to_row][to_col][pt];
+                                int32_t hist_value = picker->history_heuristic[pt][from_row][from_col][to_row][to_col];
                                 int32_t x = hist_value;  // hist_value is already ~milli-tanh units
                                 if (x > 3000) x = 3000;
                                 if (x < -3000) x = -3000;
@@ -160,7 +160,7 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                             
                             // Only use history heuristic if it's significant
                             if (picker->history_heuristic) {
-                                int32_t hist_value = picker->history_heuristic[from_row][from_col][to_row][to_col][pt];
+                                int32_t hist_value = picker->history_heuristic[pt][from_row][from_col][to_row][to_col];
                                 if (hist_value > 100) {  // Only consider significant history
                                     // Fixed-point with 1024 scaling:
                                     int32_t x = hist_value;  // implicit *1.024, close enough to *1024/1000
