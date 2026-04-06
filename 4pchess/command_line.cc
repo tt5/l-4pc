@@ -353,10 +353,6 @@ void CommandLine::HandleCommand(
     }
     StopEvaluation();
 
-  } else if (command == "get_num_legal_moves") {
-    int n_legal = player_->GetNumLegalMoves(*board_);
-    SendInfoMessage("n_legal " + std::to_string(n_legal));
-
   } else if (command == "register") {
     // ignore
   } else if (command == "ucinewgame") {

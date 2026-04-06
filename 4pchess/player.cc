@@ -40,20 +40,6 @@ AlphaBetaPlayer::AlphaBetaPlayer(std::optional<PlayerOptions> options) {
     options_ = *options;
   }
 
-  piece_move_order_scores_[PAWN] = 1;
-  piece_move_order_scores_[KNIGHT] = 2;
-  piece_move_order_scores_[BISHOP] = 3;
-  piece_move_order_scores_[ROOK] = 4;
-  piece_move_order_scores_[QUEEN] = 5;
-  piece_move_order_scores_[KING] = 0;
-
-  king_attacker_values_[PAWN] = 20;
-  king_attacker_values_[KNIGHT] = 30;
-  king_attacker_values_[BISHOP] = 30;
-  king_attacker_values_[ROOK] = 50;
-  king_attacker_values_[QUEEN] = 200;
-  king_attacker_values_[KING] = 0;
-
   if (options_.enable_transposition_table) {
     transposition_table_ = std::make_unique<TranspositionTable>(
         options_.transposition_table_size);
@@ -61,108 +47,6 @@ AlphaBetaPlayer::AlphaBetaPlayer(std::optional<PlayerOptions> options) {
 
   heuristic_mutexes_ = std::make_unique<std::mutex[]>(kHeuristicMutexes);
   ResetHistoryHeuristics();
-
-  for (int row = 0; row < 14; row++) {
-    for (int col = 0; col < 14; col++) {
-      if (row <= 2 || row >= 11 || col <= 2 || col >= 11) {
-        location_evaluations_[row][col] = 5;
-      } else if (row <= 4 || row >= 9 || col <= 4 || col >= 9) {
-        location_evaluations_[row][col] = 10;
-      } else {
-        location_evaluations_[row][col] = 15;
-      }
-    }
-  }
-
-  king_attack_weight_[0] = 0;
-  king_attack_weight_[1] = 50;
-  king_attack_weight_[2] = 100;
-  king_attack_weight_[3] = 120;
-
-  if (options_.enable_piece_square_table) {
-    for (int cl = 0; cl < 4; cl++) {
-      PlayerColor color = static_cast<PlayerColor>(cl);
-      for (int pt = 0; pt < 6; pt++) {
-        PieceType piece_type = static_cast<PieceType>(pt);
-        bool is_piece = (piece_type == QUEEN || piece_type == ROOK
-                         || piece_type == BISHOP || piece_type == KNIGHT);
-
-        for (int row = 0; row < 14; row++) {
-          for (int col = 0; col < 14; col++) {
-            int table_value = 0;
-
-            if (is_piece) {
-              // preference for centrality
-              float center_dist = std::sqrt((row - 6.5) * (row - 6.5)
-                                          + (col - 6.5) * (col - 6.5));
-              table_value -= (int)(10 * center_dist);
-
-              // preference for pieces on opponent team's back-3 rank
-              if (color == RED || color == YELLOW) {
-                if (col < 3 || col >= 11) {
-                  table_value += 10;
-                }
-              } else {
-                if (row < 3 || row >= 11) {
-                  table_value += 10;
-                }
-              }
-            }
-
-            piece_square_table_[color][piece_type][row][col] = table_value;
-          }
-        }
-      }
-    }
-  }
-
-  if (options_.enable_piece_activation) {
-    piece_activation_threshold_[KING] = 999;
-    piece_activation_threshold_[PAWN] = 999;
-    piece_activation_threshold_[NO_PIECE] = 999;
-    piece_activation_threshold_[QUEEN] = 5;
-    piece_activation_threshold_[BISHOP] = 5;
-    piece_activation_threshold_[KNIGHT] = 3;
-    piece_activation_threshold_[ROOK] = 5;
-  }
-
-  if (options_.enable_knight_bonus) {
-    std::memset(knight_to_king_, 0, 14*14*14*14 * sizeof(bool) / sizeof(char));
-    for (int row = 0; row < 14; ++row) {
-      for (int col = 0; col < 14; ++col) {
-        // first move
-        for (int dr : {-2, -1, 1, 2}) {
-          int r1 = row + dr;
-          if (r1 < 0 || r1 > 13) {
-            continue;
-          }
-          int abs_dc = std::abs(dr) == 1 ? 2 : 1;
-          for (int dc : {-abs_dc, abs_dc}) {
-            int c1 = col + dc;
-            if (c1 < 0 || c1 > 13) {
-              continue;
-            }
-
-            // second move
-            for (int dr2 : {-2, -1, 1, 2}) {
-              int r2 = r1 + dr2;
-              if (r2 < 0 || r2 > 13) {
-                continue;
-              }
-              int abs_dc2 = std::abs(dr2) == 1 ? 2 : 1;
-              for (int dc2 : {-abs_dc2, abs_dc2}) {
-                int c2 = c1 + dc2;
-                if (c2 < 0 || c2 > 13) {
-                  continue;
-                }
-                knight_to_king_[row][col][r2][c2] = true;
-              }
-            }
-          }
-        }
-      }
-    }
-  }
 }
 
 AlphaBetaPlayer::~AlphaBetaPlayer() {
@@ -191,25 +75,6 @@ void ThreadState::ReleaseMoveBufferPartition() {
   buffer_id_--;
 }
 
-int AlphaBetaPlayer::GetNumLegalMoves(Board& board) {
-  constexpr int kLimit = 300;
-  Move moves[kLimit];
-  Player player = board.GetTurn();
-  auto result = board.GetPseudoLegalMoves2(moves, kLimit);
-  size_t num_moves = result.count;
-  int n_legal = 0;
-  for (size_t i = 0; i < num_moves; i++) {
-    const auto& move = moves[i];
-    board.MakeMove(move);
-    if (!board.IsKingInCheck(player)) { // invalid move
-      n_legal++;
-    }
-    board.UndoMove();
-  }
-
-  return n_legal;
-}
-
 // Alpha-beta search with nega-max framework.
 // https://www.chessprogramming.org/Alpha-Beta
 // Returns (nega-max value, best move) pair.
@@ -236,9 +101,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   int eval = board.PieceEvaluation();
 
   if (depth <= 0) {
-    //bool in_check = board.IsAttackedByTeam(other_team, board.GetKingLocation(player_color));
-    //if (!in_check) {
-    eval = (ss-1)->static_eval - (eval * 2) - 10;
+    eval = (ss-1)->static_eval - (eval * 2);
     eval = maximizing_player ? -eval : eval;
     return std::make_tuple(eval, std::nullopt);
    // }
@@ -247,10 +110,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   PlayerColor player_color = player.GetColor();
   Team other_team = OtherTeam(player.GetTeam());
 
-
   bool is_root_node = ply == 1;
   bool is_pv_node = node_type != NonPV;
-
 
   //~60ns
   std::optional<Move> tt_move;
@@ -412,7 +273,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
           threat_sign = 0;
         }
         // Clamp and adjust for table indexing
-        len_idx = len_idx - 17 + 17;  // len - 17, then +17 for index
         len_idx = (len_idx < 0) ? 0 : (len_idx > 63 ? 63 : len_idx);
         threat_eval = threat_sign * THREAT_SCORE[len_idx];
 
@@ -466,9 +326,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     const Move& move = *move_ptr;
 
     auto startA2 = std::chrono::high_resolution_clock::now();
-    //if (UNLIKELY(ss->excludedMove.Present() && move == ss->excludedMove)) {
-    //  continue;
-    //}
 
     const auto& to = move.To();
     
@@ -535,73 +392,26 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
                 << "CM skips: " << cm_skip_count << std::endl;
     }
 
-    /*
-    // Singular extension search
-    if (!is_cut_node
-        && !ss->excludedMove.Present()
-        //&& depth >= 6 // Only for reasonably deep searches
-        && depth >= 7 // Only for reasonably deep searches
-        //&& tte != nullptr && tte->score != value_none_tt && std::abs(tte->score) < kMateValue
-        && tt_hit
-        && tte->bound == LOWER_BOUND // The TT move was a fail-high
-        //&& tte->depth >= depth - 3
-        )
-    {
-      num_singular_extension_searches_.fetch_add(1, std::memory_order_relaxed);
-      
-      // Search again, but excluding the strong TT move.
-      // The beta for this search is based on the TT score, with a margin.
-      int singular_beta = tte->score - 0;
-      int singular_depth = depth - 1;//- (depth/2);// - (depth/4);
-
-      ss->excludedMove = move; // Exclude the current move for the sub-search
-
-      PVInfo singular_pvinfo;
-      //auto singular_res = Search(ss, NonPV, thread_state, board, ply, singular_depth,
-      //                           singular_beta - 1, singular_beta,
-      //                           maximizing_player, singular_pvinfo, false);
-      auto singular_res = Search(ss, NonPV, thread_state, board, ply, singular_depth,
-                                 singular_beta - 1, singular_beta,
-                                 maximizing_player, singular_pvinfo, false);
-      
-      ss->excludedMove = Move(); // Reset for the main search
-
-      if (singular_res.has_value()) {
-        int singular_score = std::get<0>(*singular_res);
-        // If the search without the TT move fails low, the move is singular.
-        // we didn't find a better move
-        if (singular_score < singular_beta) {
-          num_singular_extensions_.fetch_add(1, std::memory_order_relaxed);
-          //r = 0; // no reduction
-          r = -1;
-        }
-      }
-    }
-    */
-    if (depth >= 6 // Only for reasonably deep searches
+    if (depth >= 4
         && tt_hit
         && tte->bound == LOWER_BOUND // The TT move was a fail-high
         && tte->depth >= depth >> 1
         ) {
       num_singular_extension_searches_.fetch_add(1, std::memory_order_relaxed);
       
-      // Search again, but excluding the strong TT move.
-      // The beta for this search is based on the TT score, with a margin.
-      int singular_beta = tte->score - 0;
-      int singular_depth = depth - 1;// - (depth/2);// - (depth/4);
+      int beta = tte->score;
 
-      PVInfo singular_pvinfo;
-      auto singular_res = Search(ss, NonPV, thread_state, board, ply+1, singular_depth,
-                                 singular_beta - 50, singular_beta,
-                                 maximizing_player, singular_pvinfo, false);
+      PVInfo pvinfo;
+      auto res = Search(ss, NonPV, thread_state, board, ply+1,
+        depth - 1 - (depth/2),
+                                 beta - 50, beta,
+                                 maximizing_player, pvinfo, false);
       
-      if (singular_res.has_value()) {
-        int singular_score = std::get<0>(*singular_res);
-        // If the search without the TT move fails low, the move is singular.
-        // we didn't find a better move
-        if (singular_score < singular_beta) {
+      if (res.has_value()) {
+        int score = std::get<0>(*res);
+        // If the search fails low, we didn't find a better move
+        if (score < beta) {
           num_singular_extensions_.fetch_add(1, std::memory_order_relaxed);
-          //r = 0; // no reduction
           r = -1;
         }
       }
@@ -611,33 +421,30 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     static std::atomic<int64_t> capture_extension_count{0};
     static std::atomic<int64_t> check_extension_count{0};
 
+    /*
     if (depth < 2
         && ((ss-1)->current_move.To() == to
             || (ss-3)->current_move.To() == to)) {
         capture_extension_count++;
         r = -1;
     }
-
-    /*
-    if (depth < 3
-      && in_check
-      && (ss-4)->in_check
-    ) {
-      check_extension_count++;
-      r = -1;
-    }
     */
 
+    if (depth < 2 && move.IsCapture()) {
+        capture_extension_count++;
+        r = -1;
+    }
+
     // lmr
-    if (!is_root_node && (move_count >= 1)) {
+    if (move_count >= 1) {
       // First search with reduced depth and null window
       value_and_move_or = Search(
           ss+1, NonPV, thread_state, board, ply + 1, depth - 1
           - (depth/2)*(r > 0)*(depth>3)
           - (depth/4)*(r > 0)*(depth>7)
-          - (depth/8)*(r > 0)*(depth>8)
-          - (depth/16)*(r > 0)*(depth>31)
-          + (r < 0),
+          - (depth/8)*(r > 0)*(depth>15)
+          - (depth/16)*(r > 0)*(depth>31),
+          //+ (r < 0),
           -alpha-1, -alpha, !maximizing_player,
           *child_pvinfo, false);
           
@@ -648,15 +455,15 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         if (score > alpha) {
           
           // If the score is not failing high by much, try a reduced-window search first
-          if (score < alpha + 60) {
+          if (score < alpha + 500) {
             value_and_move_or = Search(
                 ss+1, NonPV, thread_state, board, ply + 1, depth - 1
                 - (depth/2)*(r > 0)*(depth>3)
                 - (depth/4)*(r > 0)*(depth>7)
-                - (depth/8)*(r > 0)*(depth>8)
+                - (depth/8)*(r > 0)*(depth>15)
                 - (depth/16)*(r > 0)*(depth>31)
                 + (r < 0) ,
-                -alpha-45, -alpha, !maximizing_player,
+                -alpha-20, -alpha, !maximizing_player,
                 *child_pvinfo, false);
                 
             if (value_and_move_or && -std::get<0>(*value_and_move_or) > alpha) {
@@ -681,16 +488,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
           }
         }
       }
-
-    } else if (move_count > 0) { // root node lmr
-
-      value_and_move_or = Search(
-          ss+1, NonPV, thread_state, board, ply + 1, depth - 1
-          - (depth/3)*(r > 0)*(depth>2)
-          - (depth/6)*(r > 0)*(depth>6)
-          + (r < 0),
-          -alpha-1, -alpha, !maximizing_player,
-          *child_pvinfo, false);
     }
 
     // For PV nodes only, do a full PV search on the first move or after a fail
@@ -834,11 +631,11 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     auto avg_ns = total_timeB.count() / call_countC;
     auto current_avg = durationC.count() / 1;  // Current call's time in ns
 
-    //std::cout << "[Search - after move]"
-    //          << " Average: " << avg_ns << " ns,"
-    //          << " Call count: " << call_countC
-    //          << ", Checkmates (this search/total): " 
-    //          << checkmates_in_this_search << "/" << total_checkmates_found << std::endl;
+    std::cout << "[Search - after move]"
+              << " Average: " << avg_ns << " ns,"
+              << " Call count: " << call_countC
+              << ", Checkmates (this search/total): " 
+              << checkmates_in_this_search << "/" << total_checkmates_found << std::endl;
   }
   return std::make_tuple(score, best_move);
 }
