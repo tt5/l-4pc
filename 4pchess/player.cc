@@ -236,14 +236,17 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   int eval = board.PieceEvaluation();
 
   if (depth <= 0) {
-    eval = (ss-1)->static_eval - (eval * 3) - 10;
+    //bool in_check = board.IsAttackedByTeam(other_team, board.GetKingLocation(player_color));
+    //if (!in_check) {
+    eval = (ss-1)->static_eval - (eval * 2) - 10;
     eval = maximizing_player ? -eval : eval;
     return std::make_tuple(eval, std::nullopt);
+   // }
   }
-
   Player player = board.GetTurn();
   PlayerColor player_color = player.GetColor();
   Team other_team = OtherTeam(player.GetTeam());
+
 
   bool is_root_node = ply == 1;
   bool is_pv_node = node_type != NonPV;
@@ -285,8 +288,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   ss->move_count = 0;
 
   //~50ns
-  bool in_check = board.IsAttackedByTeam(other_team, board.GetKingLocation(player_color));
-  ss->in_check = in_check;
+  //bool in_check = board.IsAttackedByTeam(other_team, board.GetKingLocation(player_color));
+  //ss->in_check = in_check;
 
   std::optional<Move> best_move;
 
@@ -463,9 +466,9 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     const Move& move = *move_ptr;
 
     auto startA2 = std::chrono::high_resolution_clock::now();
-    if (UNLIKELY(ss->excludedMove.Present() && move == ss->excludedMove)) {
-      continue;
-    }
+    //if (UNLIKELY(ss->excludedMove.Present() && move == ss->excludedMove)) {
+    //  continue;
+    //}
 
     const auto& to = move.To();
     
@@ -486,13 +489,10 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
     // not same king position if the king moved
     const auto kinglocation = board.GetKingLocation(player_color);
-
     //~50ns (quite optimized)
     bool is_king_in_check = board.IsAttackedByTeam(other_team, kinglocation);
-
     if (is_king_in_check) { // invalid move
       board.UndoMove();
-
       continue;
     }
 
@@ -501,11 +501,10 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     bool checkmate = IsKnownCheckmate(current_hash);
     if (checkmate) {
       board.UndoMove();
-
       cm_skip_count++;
-
       continue;
     }
+
     has_legal_moves = true;
 
     ss->current_move = move;
@@ -536,9 +535,11 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
                 << "CM skips: " << cm_skip_count << std::endl;
     }
 
+    /*
     // Singular extension search
     if (!is_cut_node
         && !ss->excludedMove.Present()
+        //&& depth >= 6 // Only for reasonably deep searches
         && depth >= 7 // Only for reasonably deep searches
         //&& tte != nullptr && tte->score != value_none_tt && std::abs(tte->score) < kMateValue
         && tt_hit
@@ -550,12 +551,15 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       
       // Search again, but excluding the strong TT move.
       // The beta for this search is based on the TT score, with a margin.
-      int singular_beta = tte->score + 10;
-      int singular_depth = depth - 1 - (depth/3);// - (depth/4);
+      int singular_beta = tte->score - 0;
+      int singular_depth = depth - 1;//- (depth/2);// - (depth/4);
 
       ss->excludedMove = move; // Exclude the current move for the sub-search
 
       PVInfo singular_pvinfo;
+      //auto singular_res = Search(ss, NonPV, thread_state, board, ply, singular_depth,
+      //                           singular_beta - 1, singular_beta,
+      //                           maximizing_player, singular_pvinfo, false);
       auto singular_res = Search(ss, NonPV, thread_state, board, ply, singular_depth,
                                  singular_beta - 1, singular_beta,
                                  maximizing_player, singular_pvinfo, false);
@@ -573,24 +577,56 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         }
       }
     }
+    */
+    if (depth >= 6 // Only for reasonably deep searches
+        && tt_hit
+        && tte->bound == LOWER_BOUND // The TT move was a fail-high
+        && tte->depth >= depth >> 1
+        ) {
+      num_singular_extension_searches_.fetch_add(1, std::memory_order_relaxed);
+      
+      // Search again, but excluding the strong TT move.
+      // The beta for this search is based on the TT score, with a margin.
+      int singular_beta = tte->score - 0;
+      int singular_depth = depth - 1;// - (depth/2);// - (depth/4);
+
+      PVInfo singular_pvinfo;
+      auto singular_res = Search(ss, NonPV, thread_state, board, ply+1, singular_depth,
+                                 singular_beta - 50, singular_beta,
+                                 maximizing_player, singular_pvinfo, false);
+      
+      if (singular_res.has_value()) {
+        int singular_score = std::get<0>(*singular_res);
+        // If the search without the TT move fails low, the move is singular.
+        // we didn't find a better move
+        if (singular_score < singular_beta) {
+          num_singular_extensions_.fetch_add(1, std::memory_order_relaxed);
+          //r = 0; // no reduction
+          r = -1;
+        }
+      }
+    }
+
 
     static std::atomic<int64_t> capture_extension_count{0};
     static std::atomic<int64_t> check_extension_count{0};
 
-    if (depth == 1
+    if (depth < 2
         && ((ss-1)->current_move.To() == to
             || (ss-3)->current_move.To() == to)) {
         capture_extension_count++;
         r = -1;
     }
 
-    if (depth == 1
+    /*
+    if (depth < 3
       && in_check
       && (ss-4)->in_check
     ) {
       check_extension_count++;
       r = -1;
     }
+    */
 
     // lmr
     if (!is_root_node && (move_count >= 1)) {
@@ -723,12 +759,12 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       auto avg_ns = total_timeB.count() / call_countB;
       auto current_avg = durationB.count() / 1;  // Current call's time in ns
 
-      //std::cout << "[Move - after recursion]"
-      //          << " Average: " << avg_ns << " ns,"
-      //          << " Calls: " << call_countB << std::endl
-      //          << "Full searches: " << total_full_searches
-      //          << " capture extension: " << capture_extension_count
-      //          << " check extension: " << check_extension_count << std::endl;
+      std::cout << "[Move - after recursion]"
+                << " Average: " << avg_ns << " ns,"
+                << " Calls: " << call_countB << std::endl
+                << "Full searches: " << total_full_searches
+                << " capture extension: " << capture_extension_count
+                << " check extension: " << check_extension_count << std::endl;
     }
   }
   static std::atomic<int64_t> total_checkmates_found = 0;
