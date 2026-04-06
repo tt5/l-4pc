@@ -882,7 +882,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     Move* buffer, 
     size_t limit, 
     const std::optional<Move>& pv_move) {
-    auto pstart = std::chrono::high_resolution_clock::now();
+    //auto pstart = std::chrono::high_resolution_clock::now();
     
     MoveGenResult result{0, -1};
     const PlayerColor current_color = GetTurn().GetColor();
@@ -904,6 +904,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     
     auto sorted_pieces = pieces;
 
+    /*
     if (!sorted_pieces.empty()) {
       // Single pass with insertion sort is faster for small N
       for (size_t i = 1; i < num_pieces; ++i) {
@@ -920,6 +921,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
           }
       }
     }
+    */
     
     Move* current = buffer;
     const Move* const end = buffer + limit;
@@ -982,6 +984,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     // Final updates to the result
     result.pv_index = pv_index;
 
+    /*
     auto pgen_end = std::chrono::high_resolution_clock::now();
     auto pgen_duration = std::chrono::duration_cast<std::chrono::nanoseconds>(pgen_end - pstart);
     total_time += pgen_duration;
@@ -990,10 +993,11 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
       auto avg_ns = total_time.count() / call_count;
       auto current_avg = pgen_duration.count() / 1;  // Current call's time in ns
 
-      //std::cout << "[MoveGen]"
-      //<< "Average: " << avg_ns << " ns, "
-      //<< "Call count: " << call_count << std::endl;
+      std::cout << "---[MoveGen]"
+      << "Average: " << avg_ns << " ns, "
+      << "Call count: " << call_count << std::endl;
     }
+    */
     return result;
 }
 

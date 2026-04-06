@@ -160,21 +160,10 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                         const int from_col = from.GetCol();
                         const int to_row = to.GetRow();
                         const int to_col = to.GetCol();
-                        int32_t score = (remaining_moves - i) << 5;  // approx 0-1024 range
                             
-                            // Only use history heuristic if it's significant
-                            if (picker->history_heuristic) {
                                 int32_t hist_value = picker->history_heuristic[pt][from_row][from_col][to_row][to_col];
-                                if (hist_value >= 100) {  // Only consider significant history
-                                    // Fixed-point with 1024 scaling:
-                                    int32_t x = hist_value;  // implicit *1.024, close enough to *1024/1000
-                                    int32_t abs_x = x >= 0 ? x : -x;
-                                    int32_t den = 1024 + abs_x;  // 1.0 + |x| in fixed-point
-                                    score += (x * 1024) / den;   // result is ~(-768 to 768), matches original range
-                                }
-                            }
 
-                            scored_moves.push_back({i, score});
+                            scored_moves.push_back({i, hist_value});
                         }
                     }
                     
