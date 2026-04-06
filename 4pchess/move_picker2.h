@@ -115,53 +115,57 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                     std::vector<ScoredMove> scored_moves;
                     scored_moves.reserve(remaining_moves);  // Use remaining_moves here
 
-                    const int32_t order_scale = 1024; 
+
                     
                     // Calculate scores for remaining moves
                     for (size_t i = 0; i < remaining_moves; i++) {
                         const Move& move = picker->moves[picker->current + i];
-                        const int32_t order_score = ((remaining_moves - i) * order_scale) / remaining_moves;
 
-                        
-                        // Get move information
+                        const bool is_capture = move.IsCapture();
+
                         const auto from = move.From();
-                        const auto to = move.To();
                         const Piece piece = picker->board->GetPiece(from);
                         const PieceType pt = piece.GetPieceType();
-                        const int from_row = from.GetRow();
-                        const int from_col = from.GetCol();
-                        const int to_row = to.GetRow();
-                        const int to_col = to.GetCol();
-                        const bool is_capture = move.IsCapture();
                         
                         // Fast path for captures - give them a significant bonus
                         if (is_capture) {
-                            // High base score for captures
-                            int32_t score = 1024000 + order_score * 10;  // 1000.0f * 1024 + ...
+                            //int32_t score = (remaining_moves - i) << 5;  // approx 0-1024 range
 
+                            // MVV-LVA: Most Valuable Victim - Least Valuable Aggressor
+                            // Get captured piece type
+                            const Piece captured_piece = move.GetCapturePiece();
+                            const PieceType victim_pt = captured_piece.GetPieceType();
                             
-                            // Add history heuristic if available
-                            if (picker->history_heuristic) {
-                                int32_t hist_value = picker->history_heuristic[pt][from_row][from_col][to_row][to_col];
-                                int32_t x = hist_value;  // hist_value is already ~milli-tanh units
-                                if (x > 3000) x = 3000;
-                                if (x < -3000) x = -3000;
-                                int32_t x2 = (x * x) >> 10;
-                                int32_t num = 27 + x2;
-                                int32_t den = 27 + ((9 * x2) >> 10);
-                                score += (x * num * 25) / (den * 256);  // adds ~0-255 centi-tanh
-                            }
+                            // Piece values: PAWN=50, KNIGHT=300, BISHOP=400, ROOK=500, QUEEN=1000, KING=10000
+                            static constexpr int32_t piece_values[6] = {50, 300, 400, 500, 1000, 10000};
+                            
+                            const int32_t victim_value = piece_values[victim_pt];
+                            const int32_t aggressor_value = piece_values[pt];
+                            
+                            // MVV-LVA formula: 10 * victim - aggressor
+                            // This ensures queen captures come before rook captures,
+                            // and pawn captures queen before knight captures queen
+                            const int32_t mvv_lva = (victim_value * 10) - aggressor_value;
+                            
+                            // Base capture score + MVV-LVA (range: ~500 to ~100,000)
+                            int32_t score = 1024000 + mvv_lva;
                             
                             scored_moves.push_back({i, score});
                         } 
                         // Slower path for non-captures
                         else {
-                            int32_t score = order_score;  // 0 to 1024
+                        // Get move information
+                        const auto to = move.To();
+                        const int from_row = from.GetRow();
+                        const int from_col = from.GetCol();
+                        const int to_row = to.GetRow();
+                        const int to_col = to.GetCol();
+                        int32_t score = (remaining_moves - i) << 5;  // approx 0-1024 range
                             
                             // Only use history heuristic if it's significant
                             if (picker->history_heuristic) {
                                 int32_t hist_value = picker->history_heuristic[pt][from_row][from_col][to_row][to_col];
-                                if (hist_value > 100) {  // Only consider significant history
+                                if (hist_value >= 100) {  // Only consider significant history
                                     // Fixed-point with 1024 scaling:
                                     int32_t x = hist_value;  // implicit *1.024, close enough to *1024/1000
                                     int32_t abs_x = x >= 0 ? x : -x;
