@@ -662,12 +662,12 @@ class Board {
     const std::optional<Move>& pv_move = std::nullopt);
   
   // Direct buffer access move generation functions
-  Move* GetPawnMovesDirect(Move* moves, const BoardLocation& from, PlayerColor color) const;
-  Move* GetKnightMovesDirect(Move* moves, size_t limit, const BoardLocation& from, PlayerColor color, int& threats) const;
-  Move* GetBishopMovesDirect(Move* moves, size_t limit, const BoardLocation& from, PlayerColor color, int& threats) const;
-  Move* GetRookMovesDirect(Move* moves, size_t limit, const BoardLocation& from, PlayerColor color, int& threats) const;
-  Move* GetQueenMovesDirect(Move* moves, size_t limit, const BoardLocation& from, PlayerColor color, int& threats) const;
-  Move* GetKingMovesDirect(Move* moves, size_t limit, const BoardLocation& from, PlayerColor color) const;
+  Move* GetPawnMovesDirect(Move* moves, const BoardLocation& from, PlayerColor color, Team my_team) const;
+  Move* GetKnightMovesDirect(Move* moves, size_t limit, const BoardLocation& from, PlayerColor color, int& threats, Team my_team) const;
+  Move* GetBishopMovesDirect(Move* moves, size_t limit, const BoardLocation& from, PlayerColor color, int& threats, Team my_team) const;
+  Move* GetRookMovesDirect(Move* moves, size_t limit, const BoardLocation& from, PlayerColor color, int& threats, Team my_team) const;
+  Move* GetQueenMovesDirect(Move* moves, size_t limit, const BoardLocation& from, PlayerColor color, int& threats, Team my_team) const;
+  Move* GetKingMovesDirect(Move* moves, size_t limit, const BoardLocation& from, PlayerColor color, Team my_team) const;
 
   bool IsKingInCheck(const Player& player) const;
   bool IsKingInCheck(Team team) const;

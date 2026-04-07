@@ -295,7 +295,7 @@ class AlphaBetaPlayer {
 
   // Heuristics (shared across threads)
   // (piece_type, from_row, from_col, to_row, to_col)
-  int history_heuristic[6][14][14][14][14];
+  int16_t history_heuristic[6][14][14][14][14];
   // (piece_type, piece_color, capture_piece_type, capture_piece_color, to_row, to_col)
 
   static constexpr size_t kHeuristicMutexes = 256;

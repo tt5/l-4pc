@@ -86,61 +86,16 @@ int64_t rand64() {
   return (((int64_t)t0) << 32) + (int64_t)t1;
 }
 
-
-void AddPawnMoves2(
-    MoveBuffer& moves,
-    const BoardLocation& from,
-    const BoardLocation& to,
-    const PlayerColor color,
-    const Piece capture = Piece::kNoPiece,
-    const BoardLocation en_passant_location = BoardLocation::kNoLocation,
-    const Piece en_passant_capture = Piece::kNoPiece) {
-  bool is_promotion = false;
-
-  constexpr int kRedPromotionRow = 3;
-  constexpr int kYellowPromotionRow = 10;
-  constexpr int kBluePromotionCol = 10;
-  constexpr int kGreenPromotionCol = 3;
-
-  switch (color) {
-  case RED:
-    is_promotion = to.GetRow() == kRedPromotionRow;
-    break;
-  case BLUE:
-    is_promotion = to.GetCol() == kBluePromotionCol;
-    break;
-  case YELLOW:
-    is_promotion = to.GetRow() == kYellowPromotionRow;
-    break;
-  case GREEN:
-    is_promotion = to.GetCol() == kGreenPromotionCol;
-    break;
-  default:
-    assert(false);
-    break;
-  }
-
-  if (is_promotion) {
-    moves.AddPawnMove(from, to, capture, en_passant_location, en_passant_capture, KNIGHT);
-    moves.AddPawnMove(from, to, capture, en_passant_location, en_passant_capture, BISHOP);
-    moves.AddPawnMove(from, to, capture, en_passant_location, en_passant_capture, ROOK);
-    moves.AddPawnMove(from, to, capture, en_passant_location, en_passant_capture, QUEEN);
-  } else {
-    moves.AddPawnMove(from, to, capture, en_passant_location, en_passant_capture);
-  }
-}
-
 }  // namespace
 
 Move* Board::GetPawnMovesDirect(
     Move* current,
     const BoardLocation& from,
-    PlayerColor color
+    PlayerColor color,
+    Team my_team
   ) const {
   int row = from.GetRow();
   int col = from.GetCol();
-
-  const PlayerColor teammate_color = static_cast<PlayerColor>((static_cast<int>(color) + 2) & 0x3);
 
   /*
   // Lookup table for promotion conditions: [color] -> {target_row, target_col, row_check, col_check}
@@ -272,8 +227,7 @@ Move* Board::GetPawnMovesDirect(
     } else {
       // Regular capture - use cached piece
       const Piece& captured1 = capture1_piece;
-      const PlayerColor captured1_color = captured1.GetColor();
-      if (captured1.Present() && captured1_color != color && captured1_color != teammate_color) {
+      if (captured1.Present() && captured1.GetTeam() != my_team) {
         // Handle promotion on capture or regular capture
         //if (is_promotion) [[unlikely]] {
           //current = AddPromotionMoves(to1, captured1);
@@ -299,8 +253,7 @@ Move* Board::GetPawnMovesDirect(
     } else {
       // Regular capture - use cached piece
       const Piece& captured2 = capture2_piece;
-      const PlayerColor captured2_color = captured2.GetColor();
-      if (captured2.Present() && captured2_color != color && captured2_color != teammate_color) {
+      if (captured2.Present() && captured2.GetTeam() != my_team) {
         // Handle promotion on capture or regular capture
         //if (is_promotion) [[unlikely]] {
           //current = AddPromotionMoves(to2, captured2);
@@ -319,12 +272,12 @@ Move* Board::GetKnightMovesDirect(
     size_t limit,
     const BoardLocation& from,
     PlayerColor color,
-    int& threats) const {
+    int& threats,
+    Team my_team) const {
   //if (limit == 0) return moves;
   
   Move* current = moves;
   //const Move* const end = moves + limit;
-  const PlayerColor teammate_color = static_cast<PlayerColor>((static_cast<int>(color) + 2) & 0x3);
 
   const int from_row = from.GetRow();
   const int from_col = from.GetCol();
@@ -344,7 +297,7 @@ Move* Board::GetKnightMovesDirect(
     
     const Piece captured = GetPiece(to_row, to_col);
     if (captured.Present()) {
-      if (captured.GetColor() != color && captured.GetColor() != teammate_color) {
+      if (captured.GetTeam() != my_team) {
         *current++ = Move(from, {to_row, to_col}, captured);
         threats += 16; // Attacking opponent's piece
       }
@@ -355,365 +308,6 @@ Move* Board::GetKnightMovesDirect(
   }
   
   return current;
-}
-
-void Board::AddMovesFromIncrMovement(
-    std::vector<Move>& moves,
-    const Piece& piece,
-    const BoardLocation& from,
-    int incr_row,
-    int incr_col,
-    CastlingRights initial_castling_rights,
-    CastlingRights castling_rights) const {
-  BoardLocation to = from.Relative(incr_row, incr_col);
-  while (IsLegalLocation(to)) {
-    const auto capture = GetPiece(to);
-    if (capture.Missing()) {
-      moves.emplace_back(from, to, Piece::kNoPiece, initial_castling_rights,
-          castling_rights);
-    } else {
-      if (capture.GetTeam() != piece.GetTeam()) {
-        moves.emplace_back(from, to, capture, initial_castling_rights,
-            castling_rights);
-      }
-      break;
-    }
-    to = to.Relative(incr_row, incr_col);
-  }
-}
-
-void Board::AddMovesFromIncrMovement2(
-    MoveBuffer& moves,
-    const Piece& piece,
-    const BoardLocation& from,
-    int incr_row,
-    int incr_col,
-    CastlingRights initial_castling_rights,
-    CastlingRights castling_rights) const {
-  BoardLocation to = from.Relative(incr_row, incr_col);
-  while (IsLegalLocation(to)) {
-    const auto capture = GetPiece(to);
-    if (capture.Missing()) {
-      moves.AddMove(from, to, Piece::kNoPiece, initial_castling_rights,
-          castling_rights);
-    } else {
-      if (capture.GetTeam() != piece.GetTeam()) {
-        moves.AddMove(from, to, capture, initial_castling_rights,
-            castling_rights);
-      }
-      break;
-    }
-    to = to.Relative(incr_row, incr_col);
-  }
-}
-
-bool Board::RookAttacks(
-    const BoardLocation& rook_loc,
-    const BoardLocation& other_loc) const {
-  if (rook_loc.GetRow() == other_loc.GetRow()) {
-    bool piece_between = false;
-    for (int col = std::min(rook_loc.GetCol(), other_loc.GetCol()) + 1;
-         col < std::max(rook_loc.GetCol(), other_loc.GetCol());
-         ++col) {
-      if (GetPiece(rook_loc.GetRow(), col).Present()) {
-        piece_between = true;
-        break;
-      }
-    }
-    if (!piece_between) {
-      return true;
-    }
-  }
-  if (rook_loc.GetCol() == other_loc.GetCol()) {
-    bool piece_between = false;
-    for (int row = std::min(rook_loc.GetRow(), other_loc.GetRow()) + 1;
-         row < std::max(rook_loc.GetRow(), other_loc.GetRow());
-         ++row) {
-      if (GetPiece(row, rook_loc.GetCol()).Present()) {
-        piece_between = true;
-        break;
-      }
-    }
-    if (!piece_between) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool Board::BishopAttacks(
-    const BoardLocation& bishop_loc,
-    const BoardLocation& other_loc) const {
-  int delta_row = bishop_loc.GetRow() - other_loc.GetRow();
-  int delta_col = bishop_loc.GetCol() - other_loc.GetCol();
-  if (std::abs(delta_row) == std::abs(delta_col)) {
-    int row;
-    int col;
-    int col_incr;
-    int row_max;
-    if (bishop_loc.GetRow() < other_loc.GetRow()) {
-      row = bishop_loc.GetRow();
-      col = bishop_loc.GetCol();
-      row_max = other_loc.GetRow();
-      col_incr = bishop_loc.GetCol() < other_loc.GetCol() ? 1 : -1;
-    } else {
-      row = other_loc.GetRow();
-      col = other_loc.GetCol();
-      row_max = bishop_loc.GetRow();
-      col_incr = other_loc.GetCol() < bishop_loc.GetCol() ? 1 : -1;
-    }
-    row++;
-    col += col_incr;
-    bool piece_between = false;
-    while (row < row_max) {
-      if (GetPiece(row, col).Present()) {
-        piece_between = true;
-        break;
-      }
-
-      ++row;
-      col += col_incr;
-    }
-    return !piece_between;
-  }
-  return false;
-}
-
-bool Board::QueenAttacks(
-    const BoardLocation& queen_loc,
-    const BoardLocation& other_loc) const {
-  return RookAttacks(queen_loc, other_loc)
-         || BishopAttacks(queen_loc, other_loc);
-}
-
-bool Board::KingAttacks(
-    const BoardLocation& king_loc,
-    const BoardLocation& other_loc) const {
-  if ((std::abs(king_loc.GetRow() - other_loc.GetRow())
-        + std::abs(king_loc.GetCol() - other_loc.GetCol())) < 2) {
-    return true;
-  }
-  return false;
-}
-
-bool Board::KnightAttacks(
-    const BoardLocation& knight_loc,
-    const BoardLocation& other_loc) const {
-  int abs_row_diff = std::abs(knight_loc.GetRow() - other_loc.GetRow());
-  int abs_col_diff = std::abs(knight_loc.GetCol() - other_loc.GetCol());
-  return (abs_row_diff == 1 && abs_col_diff == 2)
-    || (abs_row_diff == 2 && abs_col_diff == 1);
-}
-
-bool Board::PawnAttacks(
-    const BoardLocation& pawn_loc,
-    PlayerColor pawn_color,
-    const BoardLocation& other_loc) const {
-  int row_diff = other_loc.GetRow() - pawn_loc.GetRow();
-  int col_diff = other_loc.GetCol() - pawn_loc.GetCol();
-  switch (pawn_color) {
-  case RED:
-    return row_diff == -1 && (std::abs(col_diff) == 1);
-  case BLUE:
-    return col_diff == 1 && (std::abs(row_diff) == 1);
-  case YELLOW:
-    return row_diff == 1 && (std::abs(col_diff) == 1);
-  case GREEN:
-    return col_diff == -1 && (std::abs(row_diff) == 1);
-  default:
-    assert(false);
-    return false;
-  }
-}
-
-size_t Board::GetAttackers2(
-    PlacedPiece* buffer, size_t limit,
-    Team team, const BoardLocation& location) const {
-  assert(limit > 0);
-  size_t pos = 0;
-
-#define ADD_ATTACKER(row, col, piece) \
-  if (pos < limit) { \
-    buffer[pos++] = PlacedPiece(BoardLocation(row, col), piece); \
-  } else { \
-    return pos; \
-  }
-
-  int loc_row = location.GetRow();
-  int loc_col = location.GetCol();
-  bool no_team = team == NO_TEAM;
-
-  // Rooks & queens
-  constexpr std::array<std::pair<int, int>, 4> rook_directions = {{
-    {0, 1},   // Right
-    {1, 0},   // Down
-    {0, -1},  // Left
-    {-1, 0}   // Up
-  }};
-
-  for (const auto& [dr, dc] : rook_directions) {
-    int row = loc_row + dr;
-    int col = loc_col + dc;
-    while (IsLegalLocation(row, col)) {
-      const auto piece = GetPiece(row, col);
-      if (piece.Present()) {
-        if ((piece.GetTeam() == team || no_team) && 
-            (piece.GetPieceType() == ROOK || piece.GetPieceType() == QUEEN)) {
-          ADD_ATTACKER(row, col, piece);
-        }
-        break;
-      }
-      row += dr;
-      col += dc;
-    }
-  }
-
-  // Bishops & queens
-  constexpr std::array<std::pair<int, int>, 4> bishop_directions = {{
-    {1, 1},    // Down-Right
-    {1, -1},   // Down-Left
-    {-1, -1},  // Up-Left
-    {-1, 1}    // Up-Right
-  }};
-
-  for (const auto& [dr, dc] : bishop_directions) {
-    int row = loc_row + dr;
-    int col = loc_col + dc;
-    while (IsLegalLocation(row, col)) {
-      const auto piece = GetPiece(row, col);
-      if (piece.Present()) {
-        if ((piece.GetTeam() == team || no_team) && 
-            (piece.GetPieceType() == BISHOP || piece.GetPieceType() == QUEEN)) {
-          ADD_ATTACKER(row, col, piece);
-        }
-        break;
-      }
-      row += dr;
-      col += dc;
-    }
-  }
-
-  // Knights - optimized attack detection
-  // Knight moves in all 8 possible L-shapes
-  constexpr std::array<std::pair<int, int>, 8> knight_offsets = {{
-    {1, 2}, {1, -2}, {-1, 2}, {-1, -2},  // Vertical L-shapes
-    {2, 1}, {2, -1}, {-2, 1}, {-2, -1}    // Horizontal L-shapes
-  }};
-
-  for (const auto& [dr, dc] : knight_offsets) {
-    int row = loc_row + dr;
-    int col = loc_col + dc;
-    
-    // Check if the target square is on the board
-    if (row >= 0 && row < 14 && col >= 0 && col < 14) {
-      const auto piece = GetPiece(row, col);
-      if (piece.Present() && 
-          piece.GetTeam() == team && 
-          piece.GetPieceType() == KNIGHT) {
-        ADD_ATTACKER(row, col, piece);
-      }
-    }
-  }
-
-  // Pawns - optimized attack detection
-  // Check for red pawns (attack down)
-  if (loc_row < 13) {
-    // Check bottom-left diagonal
-    if (loc_col > 0) {
-      const auto piece = GetPiece(loc_row + 1, loc_col - 1);
-      if (piece.Present() && piece.GetTeam() == team && 
-          piece.GetPieceType() == PAWN && piece.GetColor() == RED) {
-        ADD_ATTACKER(loc_row + 1, loc_col - 1, piece);
-      }
-    }
-    // Check bottom-right diagonal
-    if (loc_col < 13) {
-      const auto piece = GetPiece(loc_row + 1, loc_col + 1);
-      if (piece.Present() && piece.GetTeam() == team && 
-          piece.GetPieceType() == PAWN && piece.GetColor() == RED) {
-        ADD_ATTACKER(loc_row + 1, loc_col + 1, piece);
-      }
-    }
-  }
-  
-  // Check for yellow pawns (attack up)
-  if (loc_row > 0) {
-    // Check top-left diagonal
-    if (loc_col > 0) {
-      const auto piece = GetPiece(loc_row - 1, loc_col - 1);
-      if (piece.Present() && piece.GetTeam() == team && 
-          piece.GetPieceType() == PAWN && piece.GetColor() == YELLOW) {
-        ADD_ATTACKER(loc_row - 1, loc_col - 1, piece);
-      }
-    }
-    // Check top-right diagonal
-    if (loc_col < 13) {
-      const auto piece = GetPiece(loc_row - 1, loc_col + 1);
-      if (piece.Present() && piece.GetTeam() == team && 
-          piece.GetPieceType() == PAWN && piece.GetColor() == YELLOW) {
-        ADD_ATTACKER(loc_row - 1, loc_col + 1, piece);
-      }
-    }
-  }
-  
-  // Check for blue pawns (attack left/right)
-  if (loc_col > 0) {
-    // Check left side
-    if (loc_row > 0) {
-      const auto piece = GetPiece(loc_row - 1, loc_col - 1);
-      if (piece.Present() && piece.GetTeam() == team && 
-          piece.GetPieceType() == PAWN && piece.GetColor() == BLUE) {
-        ADD_ATTACKER(loc_row - 1, loc_col - 1, piece);
-      }
-    }
-    if (loc_row < 13) {
-      const auto piece = GetPiece(loc_row + 1, loc_col - 1);
-      if (piece.Present() && piece.GetTeam() == team && 
-          piece.GetPieceType() == PAWN && piece.GetColor() == BLUE) {
-        ADD_ATTACKER(loc_row + 1, loc_col - 1, piece);
-      }
-    }
-  }
-  
-  // Check for green pawns (attack left/right)
-  if (loc_col < 13) {
-    // Check right side
-    if (loc_row > 0) {
-      const auto piece = GetPiece(loc_row - 1, loc_col + 1);
-      if (piece.Present() && piece.GetTeam() == team && 
-          piece.GetPieceType() == PAWN && piece.GetColor() == GREEN) {
-        ADD_ATTACKER(loc_row - 1, loc_col + 1, piece);
-      }
-    }
-    if (loc_row < 13) {
-      const auto piece = GetPiece(loc_row + 1, loc_col + 1);
-      if (piece.Present() && piece.GetTeam() == team && 
-          piece.GetPieceType() == PAWN && piece.GetColor() == GREEN) {
-        ADD_ATTACKER(loc_row + 1, loc_col + 1, piece);
-      }
-    }
-  }
-
-  // Kings
-  for (int delta_row = -1; delta_row < 2; ++delta_row) {
-    int row = loc_row + delta_row;
-    for (int delta_col = -1; delta_col < 2; ++delta_col) {
-      if (delta_row == 0 && delta_col == 0) {
-        continue;
-      }
-      int col = loc_col + delta_col;
-      if (IsLegalLocation(row, col)) {
-        const auto piece = GetPiece(row, col);
-        if (piece.Present()
-            && (piece.GetTeam() == team || no_team)
-            && piece.GetPieceType() == KING) {
-          ADD_ATTACKER(row, col, piece);
-        }
-      }
-    }
-  }
-
-  return pos;
 }
 
 // Optimized version of GetAttackers2 for limit=1 that returns as soon as it finds an attacker
@@ -781,41 +375,41 @@ for (const auto& [dr, dc] : diagonal) {
     }
   }
 
-// Combined pawn attack check - simplified
-constexpr std::pair<int, int> pawn_attacks[4][2] = {
-    {{-1, -1}, {-1, 1}},   // Red attacks up-left, up-right
-    {{1, -1}, {1, 1}},     // Yellow attacks down-left, down-right  
-    {{-1, 1}, {1, 1}},     // Blue attacks up-right, down-right
-    {{-1, -1}, {1, -1}}    // Green attacks up-left, down-left
-};
+  // Combined pawn attack check - simplified
+  constexpr std::pair<int, int> pawn_attacks[4][2] = {
+      {{-1, -1}, {-1, 1}},   // Red attacks up-left, up-right
+      {{1, -1}, {1, 1}},     // Yellow attacks down-left, down-right  
+      {{-1, 1}, {1, 1}},     // Blue attacks up-right, down-right
+      {{-1, -1}, {1, -1}}    // Green attacks up-left, down-left
+  };
 
-if (team == RED_YELLOW) {
-    // Check Red (color 0) and Yellow (color 2) pawns only
-    for (int color : {0, 2}) {
-        for (int j = 0; j < 2; ++j) {
-            const auto& [dr, dc] = pawn_attacks[color][j];
-            int row = loc_row + dr, col = loc_col + dc;
-            if (IsLegalLocation(row, col)) {
-                const auto piece = GetPiece(row, col);
-                if (piece.Present() && piece.GetPieceType() == PAWN && piece.GetColor() == color)
-                    return true;
-            }
-        }
-    }
-} else {
-    // Check Blue (color 1) and Green (color 3) pawns only
-    for (int color : {1, 3}) {
-        for (int j = 0; j < 2; ++j) {
-            const auto& [dr, dc] = pawn_attacks[color][j];
-            int row = loc_row + dr, col = loc_col + dc;
-            if (IsLegalLocation(row, col)) {
-                const auto piece = GetPiece(row, col);
-                if (piece.Present() && piece.GetPieceType() == PAWN && piece.GetColor() == color)
-                    return true;
-            }
-        }
-    }
-}
+  if (team == RED_YELLOW) {
+      // Check Red (color 0) and Yellow (color 2) pawns only
+      for (int color : {0, 2}) {
+          for (int j = 0; j < 2; ++j) {
+              const auto& [dr, dc] = pawn_attacks[color][j];
+              int row = loc_row + dr, col = loc_col + dc;
+              if (IsLegalLocation(row, col)) {
+                  const auto piece = GetPiece(row, col);
+                  if (piece.Present() && piece.GetPieceType() == PAWN && piece.GetColor() == color)
+                      return true;
+              }
+          }
+      }
+  } else {
+      // Check Blue (color 1) and Green (color 3) pawns only
+      for (int color : {1, 3}) {
+          for (int j = 0; j < 2; ++j) {
+              const auto& [dr, dc] = pawn_attacks[color][j];
+              int row = loc_row + dr, col = loc_col + dc;
+              if (IsLegalLocation(row, col)) {
+                  const auto piece = GetPiece(row, col);
+                  if (piece.Present() && piece.GetPieceType() == PAWN && piece.GetColor() == color)
+                      return true;
+              }
+          }
+      }
+  }
 
   return false;
 }
@@ -882,10 +476,9 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     Move* buffer, 
     size_t limit, 
     const std::optional<Move>& pv_move) {
-    //auto pstart = std::chrono::high_resolution_clock::now();
+    auto pstart = std::chrono::high_resolution_clock::now();
     
     MoveGenResult result{0, -1};
-    const PlayerColor current_color = GetTurn().GetColor();
 
     if (buffer == nullptr && limit == 0) {
       for (int i = 0; i < 4; ++i) {
@@ -897,64 +490,42 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
 
     if (buffer == nullptr || limit == 0) return result;
     
+    const PlayerColor current_color = GetTurn().GetColor();
+    const Team my_team = GetTeam(current_color);
+    bool has_pv_move = pv_move.has_value();
     int pv_index = -1;  // -1 means PV move not found
+
     const auto& pieces = piece_list_[current_color];
     const size_t num_pieces = pieces.size();
 
-    
-    auto sorted_pieces = pieces;
-
-    /*
-    if (!sorted_pieces.empty()) {
-      // Single pass with insertion sort is faster for small N
-      for (size_t i = 1; i < num_pieces; ++i) {
-          const PlacedPiece key = sorted_pieces[i];
-          int key_val = kPieceValues[key.GetPiece().GetPieceType()];
-          size_t j = i;
-          
-          while (j > 0 && kPieceValues[sorted_pieces[j-1].GetPiece().GetPieceType()] < key_val) {
-              sorted_pieces[j] = sorted_pieces[j-1];
-              --j;
-          }
-          if (j != i) {  // Only assign if we actually moved elements
-              sorted_pieces[j] = key;
-          }
-      }
-    }
-    */
-    
     Move* current = buffer;
     const Move* const end = buffer + limit;
 
     int threats = 0;
     
     for (size_t i = 0; i < num_pieces && current < end; ++i) {
-        const auto& placed_piece = sorted_pieces[i];
+        const auto& placed_piece = pieces[i];
+
         const auto& location = placed_piece.GetLocation();
         const auto& piece = placed_piece.GetPiece();
-
         const PieceType type = piece.GetPieceType();
-        
-        // Remember the current position in the buffer before generating moves for this piece
-        Move* before = current;
         
         size_t before_count = current - buffer;
 
         // Generate moves for this piece
-        Move* before_moves = current;
         switch (type) {
             case QUEEN:   {
-                current = GetBishopMovesDirect(current, end - current, location, current_color, threats);
-                current = GetRookMovesDirect(current, end - current, location, current_color, threats);
+                current = GetBishopMovesDirect(current, end - current, location, current_color, threats, my_team);
+                current = GetRookMovesDirect(current, end - current, location, current_color, threats, my_team);
               } break;
-            case ROOK:    current = GetRookMovesDirect(current, end - current, location, current_color, threats);
+            case ROOK:    current = GetRookMovesDirect(current, end - current, location, current_color, threats, my_team);
               break;
-            case BISHOP:  current = GetBishopMovesDirect(current, end - current, location, current_color, threats);
+            case BISHOP:  current = GetBishopMovesDirect(current, end - current, location, current_color, threats, my_team);
               break;
-            case PAWN:    current = GetPawnMovesDirect(current, location, current_color); break;
-            case KNIGHT:  current = GetKnightMovesDirect(current, end - current, location, current_color, threats);
+            case PAWN:    current = GetPawnMovesDirect(current, location, current_color, my_team); break;
+            case KNIGHT:  current = GetKnightMovesDirect(current, end - current, location, current_color, threats, my_team);
               break;
-            case KING:    current = GetKingMovesDirect(current, end - current, location, current_color);
+            case KING:    current = GetKingMovesDirect(current, end - current, location, current_color, my_team);
               break;
             default: assert(false && "Movegen: Invalid piece type");
         }
@@ -966,13 +537,12 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
         result.mobility_counts[current_color] += moves_added;
     }
 
-
     result.threat_counts[current_color] = threats;
         
     result.count = current - buffer;
 
     // Check if the PV move was generated
-    if (pv_move.has_value() && pv_index == -1) {
+    if (has_pv_move && pv_index == -1) {
         for (Move* m = buffer; m < current; ++m) {
             if (*m == *pv_move) {
                 pv_index = m - buffer;
@@ -984,7 +554,6 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     // Final updates to the result
     result.pv_index = pv_index;
 
-    /*
     auto pgen_end = std::chrono::high_resolution_clock::now();
     auto pgen_duration = std::chrono::duration_cast<std::chrono::nanoseconds>(pgen_end - pstart);
     total_time += pgen_duration;
@@ -993,11 +562,10 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
       auto avg_ns = total_time.count() / call_count;
       auto current_avg = pgen_duration.count() / 1;  // Current call's time in ns
 
-      std::cout << "---[MoveGen]"
+      std::cout << "--- -- [MoveGen]"
       << "Average: " << avg_ns << " ns, "
       << "Call count: " << call_count << std::endl;
     }
-    */
     return result;
 }
 
@@ -1062,109 +630,6 @@ GameResult Board::CheckWasLastMoveKingCapture() const {
     }
   }
   return IN_PROGRESS;
-}
-
-void Board::SetPiece(
-    const BoardLocation& location,
-    const Piece& piece) {
-    
-  // Update the board
-  location_to_piece_[location.GetRow()][location.GetCol()] = piece;
-  // Check if this piece is already in the piece list
-  auto& pieces = piece_list_[piece.GetColor()];
-  bool found = false;
-  
-  for (auto& p : pieces) {
-    if (p.GetLocation() == location) {  // Compare pieces, not positions
-      //p.GetLocation() = location;  // Update position
-      found = true;
-      if (found) {
-        std::cerr << "SetPiece FATAL: Attempt to set existing piece" 
-                  << std::endl; 
-        std::abort();
-      }
-
-      break;
-    }
-  }
-  if (!found) {
-    // Add new entry if piece wasn't found
-    pieces.emplace_back(location, piece);
-  }
-  // or: 
-  //piece_list_[piece.GetColor()].emplace_back(location, piece);
-
-  UpdatePieceHash(piece, location);
-  // Update king location
-  if (piece.GetPieceType() == KING) {
-    king_locations_[piece.GetColor()] = location;
-  }
-  // Update piece eval
-  int piece_eval = kPieceEvaluations[piece.GetPieceType()];
-  if (piece.GetTeam() == RED_YELLOW) {
-    piece_evaluation_ += piece_eval;
-  } else {
-    piece_evaluation_ -= piece_eval;
-  }
-  player_piece_evaluations_[piece.GetColor()] += piece_eval;
-}
-
-void Board::RemovePiece(const BoardLocation& location) {
-  const auto piece = GetPiece(location);
-  if (!piece.Present()) {
-    std::cerr << "Remove FATAL: Attempted to remove non-present piece at " 
-              << location.PrettyStr() 
-              << "\n  Current turn: " << GetTurn()
-              << "\n  Board state at " << location.PrettyStr() << ": "
-              << (GetPiece(location).Present() ? "Present" : "Missing")
-              << "\n  Piece type at location: " << static_cast<int>(GetPiece(location).GetPieceType())
-              << "\n  Piece color at location: " << static_cast<int>(GetPiece(location).GetColor())
-              << std::endl;
-    std::abort();
-  }
-  
-  auto& placed_pieces = piece_list_[piece.GetColor()];
-  bool found = false;
-  for (auto it = placed_pieces.begin(); it != placed_pieces.end();) {
-      const auto& placed_piece = *it;
-      if (placed_piece.GetLocation() == location) {
-          if (!placed_piece.GetPiece().Present()) {
-              std::cerr << "RemovePiece WARNING: Found non-present piece in piece_list_ at " 
-                      << location.PrettyStr() 
-                      << " with piece: " << placed_piece.GetPiece().DebugString()
-                      << std::endl;
-          }
-          it = placed_pieces.erase(it);
-          found = true;
-          break;  // We can break after erasing since locations should be unique
-      } else {
-          ++it;
-      }
-  }
-
-  if (!found) {
-      // This is bad - we tried to remove a piece that wasn't in the list
-      std::cerr << "RemovePiece FATAL: Tried to remove piece at " << location.PrettyStr()
-              << " but it wasn't found in piece_list_ for color " 
-              << static_cast<int>(piece.GetColor()) << "\n";
-      std::abort();
-  }
-  UpdatePieceHash(piece, location);
-  location_to_piece_[location.GetRow()][location.GetCol()] = Piece();
-
-  // Update king location
-  if (piece.GetPieceType() == KING) {
-    castling_rights_[GetTurn().GetColor()] = CastlingRights(false, false);
-    king_locations_[piece.GetColor()] = BoardLocation::kNoLocation;
-  }
-  // Update piece eval
-  int piece_eval = kPieceEvaluations[piece.GetPieceType()];
-  if (piece.GetTeam() == RED_YELLOW) {
-    piece_evaluation_ -= piece_eval;
-  } else {
-    piece_evaluation_ += piece_eval;
-  }
-  player_piece_evaluations_[piece.GetColor()] -= piece_eval;
 }
 
 void Board::InitializeHash() {
@@ -1329,21 +794,21 @@ void Board::MakeMove(const Move& move) {
   // Find the piece in the piece list
   auto& pieces = piece_list_[color];
   auto it = std::find_if(pieces.begin(), pieces.end(),
-      [&from](const auto& placed_piece) {
-          return placed_piece.GetLocation() == from;
-      });
+    [&from](const auto& placed_piece) {
+        return placed_piece.GetLocation() == from;
+  });
   if (it != pieces.end()) {
-      // Update the piece's location by creating a new PlacedPiece with the same piece but new location
-      *it = PlacedPiece(to, it->GetPiece());
+    // Update the piece's location by creating a new PlacedPiece with the same piece but new location
+    *it = PlacedPiece(to, it->GetPiece());
   } else {
-      std::cout << "MakeMove Failed to find moving piece in piece_list_: "
-      << move << std::endl;
-      for (const auto& placed_piece : piece_list_[BLUE]) {
-        const auto& loc = placed_piece.GetLocation();
-        const auto& piece = placed_piece.GetPiece();
-        std::cout << "  - " << piece << " at " << loc << std::endl;
-      }
-      abort();
+    std::cout << "MakeMove Failed to find moving piece in piece_list_: "
+    << move << std::endl;
+    for (const auto& placed_piece : piece_list_[BLUE]) {
+      const auto& loc = placed_piece.GetLocation();
+      const auto& piece = placed_piece.GetPiece();
+      std::cout << "  - " << piece << " at " << loc << std::endl;
+    }
+    abort();
   }
   /*
   auto& placed_pieces = piece_list_[color];
@@ -1590,11 +1055,13 @@ Team Board::TeamToPlay() const {
 }
 
 int Board::PieceEvaluation() const {
+  /*
   assert(player_piece_evaluations_[RED]
        + player_piece_evaluations_[YELLOW]
        - player_piece_evaluations_[BLUE]
        - player_piece_evaluations_[GREEN]
        == piece_evaluation_);
+  */
   return piece_evaluation_;
 }
 
@@ -1965,190 +1432,99 @@ std::string Move::PrettyStr() const {
   return s;
 }
 
-bool Board::DeliversCheck(const Move& move) {
-  int color = GetTurn().GetColor();
-  Piece piece = GetPiece(move.From());
-
-  bool checks = false;
-
-  for (int add = 1; add < 4; add += 2) {
-    int other = (color + add) % 4;
-    auto king_loc = GetKingLocation(static_cast<PlayerColor>(other));
-    if (king_loc.Present()) {
-      if (king_loc == move.To()) {
-        checks = true;
-        break;
-      }
-      switch (piece.GetPieceType()) {
-      case PAWN:
-        checks = PawnAttacks(move.To(), piece.GetColor(), king_loc);
-        break;
-      case KNIGHT:
-        checks = KnightAttacks(move.To(), king_loc);
-        break;
-      case BISHOP:
-        checks = BishopAttacks(move.To(), king_loc);
-        break;
-      case ROOK:
-        checks = RookAttacks(move.To(), king_loc);
-        break;
-      case QUEEN:
-        checks = QueenAttacks(move.To(), king_loc);
-        break;
-      default:
-        break;
-      }
-      if (checks) {
-        break;
-      }
-    }
-  }
-
-  return checks;
-}
-
-bool Move::DeliversCheck(Board& board) const {
-  if (delivers_check_ < 0) {
-    delivers_check_ = board.DeliversCheck(*this);
-  }
-  return delivers_check_;
-}
-
-int Move::ApproxSEE(Board& board, const int* piece_evaluations) const {
-  const auto capture = GetCapturePiece();
-  const auto piece = board.GetPiece(From());
-  int captured_val = piece_evaluations[capture.GetPieceType()];
-  int attacker_val = piece_evaluations[piece.GetPieceType()];
-  return captured_val - attacker_val;
-}
-
-namespace {
-
-int StaticExchangeEvaluationFromLists(
-    int square_piece_eval,
-    const std::vector<int>& sorted_piece_values,
-    size_t index,
-    const std::vector<int>& other_team_sorted_piece_values,
-    size_t other_index) {
-  if (index >= sorted_piece_values.size()) {
-    return 0;
-  }
-  int value_capture = square_piece_eval - StaticExchangeEvaluationFromLists(
-      sorted_piece_values[index],
-      other_team_sorted_piece_values,
-      other_index,
-      sorted_piece_values,
-      index + 1);
-  return std::max(0, value_capture);
-}
-
-int StaticExchangeEvaluationFromLocation(
-    const int piece_evaluations[6],
-    const Board& board, const BoardLocation& loc) {
-  constexpr size_t kLimit = 5;
-  PlacedPiece attackers_this_side[kLimit];
-  PlacedPiece attackers_that_side[kLimit];
-
-  size_t num_attackers_this_side = board.GetAttackers2(
-      attackers_this_side, kLimit, board.GetTurn().GetTeam(), loc);
-  size_t num_attackers_that_side = board.GetAttackers2(
-      attackers_that_side, kLimit, OtherTeam(board.GetTurn().GetTeam()), loc);
-
-  std::vector<int> piece_values_this_side;
-  piece_values_this_side.reserve(num_attackers_this_side);
-  std::vector<int> piece_values_that_side;
-  piece_values_that_side.reserve(num_attackers_that_side);
-
-  for (size_t i = 0; i < num_attackers_this_side; ++i) {
-    const auto& placed_piece = attackers_this_side[i];
-    int piece_eval = piece_evaluations[placed_piece.GetPiece().GetPieceType()];
-    piece_values_this_side.push_back(piece_eval);
-  }
-
-  for (size_t i = 0; i < num_attackers_that_side; ++i) {
-    const auto& placed_piece = attackers_that_side[i];
-    int piece_eval = piece_evaluations[placed_piece.GetPiece().GetPieceType()];
-    piece_values_that_side.push_back(piece_eval);
-  }
-
-  std::sort(piece_values_this_side.begin(), piece_values_this_side.end());
-  std::sort(piece_values_that_side.begin(), piece_values_that_side.end());
-
-  const auto attacking = board.GetPiece(loc);
-  assert(attacking.Present());
-  int attacked_piece_eval = piece_evaluations[attacking.GetPieceType()];
-
-  return StaticExchangeEvaluationFromLists(
-      attacked_piece_eval,
-      piece_values_this_side,
-      0,
-      piece_values_that_side,
-      0);
-}
-
-} // namespace
-
-Move* Board::GetQueenMovesDirect(
-    Move* moves,
-    size_t limit,
-    const BoardLocation& from,
-    PlayerColor color,
-    int& threats) const
-     {
-  if (limit == 0) return moves;
-  
-  // Queen moves are a combination of rook and bishop moves
-  Move* current = moves;
-  const Move* const end = moves + limit;
-  
-  current = GetBishopMovesDirect(current, end - current, from, color, threats);
-  return GetRookMovesDirect(current, end - current, from, color, threats);
-}
-
-// Pre-computed direction deltas for rook moves (row, col)
-static constexpr std::array<std::pair<int, int>, 4> kRookDirections = {{
-    {0, 1},   // Right
-    {0, -1},  // Left
-    {1, 0},   // Down
-    {-1, 0}   // Up
-}};
-
 Move* Board::GetRookMovesDirect(
     Move* moves,
     size_t limit,
     const BoardLocation& from,
     PlayerColor color,
-    int& threats
+    int& threats,
+    Team my_team
   ) const {
-    
     Move* current = moves;
     const int from_row = from.GetRow();
     const int from_col = from.GetCol();
-    const PlayerColor teammate_color = static_cast<PlayerColor>((static_cast<int>(color) + 2) & 0x3);
     
-    for (const auto& [dr, dc] : kRookDirections) {
-        
-        int r = from_row + dr;
-        int c = from_col + dc;
-        
+    // Direction 1: Right (0, 1)
+    {
+        int8_t r = from_row;
+        int8_t c = from_col + 1;
         while (true) {
-            BoardLocation to(r, c);
             if (!IsLegalLocation(r, c)) break;
-            
-            const Piece captured = GetPiece(to);
+            const Piece captured = GetPiece(r, c);
             if (captured.Present()) {
-                if (captured.GetColor() != color && captured.GetColor() != teammate_color) {
-                    *current++ = Move(from, to, captured);
-                    threats += 16; // attacking
+                if (captured.GetTeam() != my_team) {
+                    *current++ = Move(from, {r, c}, captured);
+                    threats += 16;
                 }
-                threats += 4; // defending
+                threats += 4;
                 break;
             }
-            *current++ = Move(from, to);
-            threats++; // mobility
-            
-            r += dr;
-            c += dc;
+            *current++ = Move(from, {r, c});
+            threats++;
+            c++;
+        }
+    }
+    
+    // Direction 2: Left (0, -1)
+    {
+        int8_t r = from_row;
+        int8_t c = from_col - 1;
+        while (true) {
+            if (!IsLegalLocation(r, c)) break;
+            const Piece captured = GetPiece(r, c);
+            if (captured.Present()) {
+                if (captured.GetTeam() != my_team) {
+                    *current++ = Move(from, {r, c}, captured);
+                    threats += 16;
+                }
+                threats += 4;
+                break;
+            }
+            *current++ = Move(from, {r, c});
+            threats++;
+            c--;
+        }
+    }
+    
+    // Direction 3: Down (1, 0)
+    {
+        int8_t r = from_row + 1;
+        int8_t c = from_col;
+        while (true) {
+            if (!IsLegalLocation(r, c)) break;
+            const Piece captured = GetPiece(r, c);
+            if (captured.Present()) {
+                if (captured.GetTeam() != my_team) {
+                    *current++ = Move(from, {r, c}, captured);
+                    threats += 16;
+                }
+                threats += 4;
+                break;
+            }
+            *current++ = Move(from, {r, c});
+            threats++;
+            r++;
+        }
+    }
+    
+    // Direction 4: Up (-1, 0)
+    {
+        int8_t r = from_row - 1;
+        int8_t c = from_col;
+        while (true) {
+            if (!IsLegalLocation(r, c)) break;
+            const Piece captured = GetPiece(r, c);
+            if (captured.Present()) {
+                if (captured.GetTeam() != my_team) {
+                    *current++ = Move(from, {r, c}, captured);
+                    threats += 16;
+                }
+                threats += 4;
+                break;
+            }
+            *current++ = Move(from, {r, c});
+            threats++;
+            r--;
         }
     }
     
@@ -2160,30 +1536,98 @@ Move* Board::GetBishopMovesDirect(
     size_t limit,
     const BoardLocation& from,
     PlayerColor color,
-    int& threats) const {
-  
+    int& threats,
+    Team my_team
+) const {
   Move* current = moves;
-  const PlayerColor teammate_color = static_cast<PlayerColor>((static_cast<int>(color) + 2) & 0x3);
   const int8_t row = from.GetRow();
   const int8_t col = from.GetCol();
   
-  // Bishop moves in diagonal lines (4 directions)
-  for (const auto& [dr, dc] : {std::make_pair(1, 1), {1, -1}, {-1, 1}, {-1, -1}}) {
-    for (int8_t r = row + dr, c = col + dc; ; r += dr, c += dc) {
-      const BoardLocation to(r, c);
-      if (!IsLegalLocation(to)) break;
-      
-      const Piece captured = GetPiece(to);
+  // Direction 1: Down-Right (1, 1)
+  {
+    int8_t r = row + 1;
+    int8_t c = col + 1;
+    while (true) {
+      if (!IsLegalLocation(r, c)) break;
+      const Piece captured = GetPiece(r, c);
       if (captured.Present()) {
-        if (captured.GetColor() != color && captured.GetColor() != teammate_color) {
-          *current++ = Move(from, to, captured);
-          threats += 16; // attacking
+        if (captured.GetTeam() != my_team) {
+          *current++ = Move(from, {r, c}, captured);
+          threats += 16;
         }
-        threats += 4; // defending
+        threats += 4;
         break;
       }
-      *current++ = Move(from, to);
-      threats++; // mobility
+      *current++ = Move(from, {r, c});
+      threats++;
+      r++;
+      c++;
+    }
+  }
+  
+  // Direction 2: Down-Left (1, -1)
+  {
+    int8_t r = row + 1;
+    int8_t c = col - 1;
+    while (true) {
+      if (!IsLegalLocation(r, c)) break;
+      const Piece captured = GetPiece(r, c);
+      if (captured.Present()) {
+        if (captured.GetTeam() != my_team) {
+          *current++ = Move(from, {r, c}, captured);
+          threats += 16;
+        }
+        threats += 4;
+        break;
+      }
+      *current++ = Move(from, {r, c});
+      threats++;
+      r++;
+      c--;
+    }
+  }
+  
+  // Direction 3: Up-Right (-1, 1)
+  {
+    int8_t r = row - 1;
+    int8_t c = col + 1;
+    while (true) {
+      if (!IsLegalLocation(r, c)) break;
+      const Piece captured = GetPiece(r, c);
+      if (captured.Present()) {
+        if (captured.GetTeam() != my_team) {
+          *current++ = Move(from, {r, c}, captured);
+          threats += 16;
+        }
+        threats += 4;
+        break;
+      }
+      *current++ = Move(from, {r, c});
+      threats++;
+      r--;
+      c++;
+    }
+  }
+  
+  // Direction 4: Up-Left (-1, -1)
+  {
+    int8_t r = row - 1;
+    int8_t c = col - 1;
+    while (true) {
+      if (!IsLegalLocation(r, c)) break;
+      const Piece captured = GetPiece(r, c);
+      if (captured.Present()) {
+        if (captured.GetTeam() != my_team) {
+          *current++ = Move(from, {r, c}, captured);
+          threats += 16;
+        }
+        threats += 4;
+        break;
+      }
+      *current++ = Move(from, {r, c});
+      threats++;
+      r--;
+      c--;
     }
   }
   
@@ -2194,14 +1638,14 @@ Move* Board::GetKingMovesDirect(
     Move* moves,
     size_t limit,
     const BoardLocation& from,
-    PlayerColor color) const {
+    PlayerColor color,
+    Team my_team) const {
   //if (limit == 0) return moves;
   
   Move* current = moves;
   const Move* const end = moves + limit;
   
-  const PlayerColor teammate_color = static_cast<PlayerColor>((static_cast<int>(color) + 2) & 0x3);
-  const Team enemy_team = GetTeam(static_cast<PlayerColor>((static_cast<int>(color) + 1) & 0x3));
+  const Team enemy_team = OtherTeam(my_team);
   // (row, col)
   // First parameter = row (y-coordinate)
   // Second parameter = column (x-coordinate)
@@ -2212,18 +1656,18 @@ Move* Board::GetKingMovesDirect(
 
     // up-left
     if (IsLegalLocation(row - 1, col - 1)) {
+      //if (!IsAttackedByTeam(enemy_team, {row - 1, col - 1})) {
         const Piece captured = GetPiece(row - 1, col - 1);
-        if (captured.Missing() || 
-            (captured.GetColor() != color && captured.GetColor() != teammate_color)) {
+        if (captured.Missing() || captured.GetTeam() != my_team) {
             *current++ = Move(from, {row - 1, col - 1}, captured, castling_rights, CastlingRights(false, false));
         }
+      //}
     }
 
     // up-right
     if (IsLegalLocation(row - 1, col + 1)) {
         const Piece captured = GetPiece(row - 1, col + 1);
-        if (captured.Missing() || 
-            (captured.GetColor() != color && captured.GetColor() != teammate_color)) {
+        if (captured.Missing() || captured.GetTeam() != my_team) {
             *current++ = Move(from, {row - 1, col + 1}, captured, castling_rights, CastlingRights(false, false));
         }
     }
@@ -2231,8 +1675,7 @@ Move* Board::GetKingMovesDirect(
     // down-left
     if (IsLegalLocation(row + 1, col - 1)) {
         const Piece captured = GetPiece(row + 1, col - 1);
-        if (captured.Missing() || 
-            (captured.GetColor() != color && captured.GetColor() != teammate_color)) {
+        if (captured.Missing() || captured.GetTeam() != my_team) {
             *current++ = Move(from, {row + 1, col - 1}, captured, castling_rights, CastlingRights(false, false));
         }
     }
@@ -2240,8 +1683,7 @@ Move* Board::GetKingMovesDirect(
     // down-right
     if (IsLegalLocation(row + 1, col + 1)) {
         const Piece captured = GetPiece(row + 1, col + 1);
-        if (captured.Missing() || 
-            (captured.GetColor() != color && captured.GetColor() != teammate_color)) {
+        if (captured.Missing() || captured.GetTeam() != my_team) {
             *current++ = Move(from, {row + 1, col + 1}, captured, castling_rights, CastlingRights(false, false));
         }
     }
@@ -2290,7 +1732,7 @@ Move* Board::GetKingMovesDirect(
                 CastlingRights(false, false)
             );
         }
-      } else if (captured.GetColor() != color && captured.GetColor() != teammate_color) {
+      } else if (captured.GetTeam() != my_team) {
         *current++ = Move(from, {row - 1, col}, captured, castling_rights, CastlingRights(false, false));
       }
     }
@@ -2339,7 +1781,7 @@ Move* Board::GetKingMovesDirect(
                 CastlingRights(false, false)
             );
         }   
-      } else if (captured.GetColor() != color && captured.GetColor() != teammate_color) {
+      } else if (captured.GetTeam() != my_team) {
         *current++ = Move(from, {row, col - 1}, captured, castling_rights, CastlingRights(false, false));
       }
     }
@@ -2387,7 +1829,7 @@ Move* Board::GetKingMovesDirect(
                 CastlingRights(false, false)
             );
         }
-      } else if (captured.GetColor() != color && captured.GetColor() != teammate_color) {
+      } else if (captured.GetTeam() != my_team) {
         *current++ = Move(from, {row, col + 1}, captured, castling_rights, CastlingRights(false, false));
       }
     }
@@ -2423,8 +1865,8 @@ Move* Board::GetKingMovesDirect(
           !GetPiece({9, 13}).Present() && // knight
           (GetPiece({10, 13}) == Piece(GREEN, ROOK)) &&
           !IsAttackedByTeam(enemy_team, {6, 13}) &&  // king
-          !IsAttackedByTeam(RED_YELLOW, {7, 13}) &&  // queen
-          !IsAttackedByTeam(RED_YELLOW, {8, 13})) // bishop
+          !IsAttackedByTeam(enemy_team, {7, 13}) &&  // queen
+          !IsAttackedByTeam(enemy_team, {8, 13})) // bishop
           {  // King's path
     
           *current++ = Move(
@@ -2435,7 +1877,7 @@ Move* Board::GetKingMovesDirect(
               CastlingRights(false, false)
           );
         }
-      } else if (captured.GetColor() != color && captured.GetColor() != teammate_color) {
+      } else if (captured.GetTeam() != my_team) {
         *current++ = Move(from, {row + 1, col}, captured, castling_rights, CastlingRights(false, false));
       }
     }

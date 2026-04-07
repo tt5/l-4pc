@@ -30,12 +30,10 @@ struct MovePicker2 {
     size_t current;        // Current move index
     const Move* pv_move;   // PV move to prioritize
     int phase;             // Current phase (0=PV, 1=Remaining)
-    int (*history_heuristic)[14][14][14][14]; // Pointer to current ply's history heuristic
+    int16_t (*history_heuristic)[14][14][14][14]; // Pointer to current ply's history heuristic [piece_type][from_row][from_col][to_row][to_col]
     std::vector<size_t> move_indices;   // To store sorted indices of remaining moves
     bool remaining_sorted; // Whether remaining moves are already sorted
-    float history_weight;  // Weight for history score (0.0 to 1.0)
 };
-
 // Initialize with board, moves, and optional PV move
 inline void InitMovePicker2(
     MovePicker2* picker,
@@ -43,8 +41,7 @@ inline void InitMovePicker2(
     const Move* moves, 
     size_t count,
     const Move* pv_move,
-    int (*history_heuristic)[14][14][14][14] = nullptr,
-    float history_weight = 0.5f) 
+    int16_t (*history_heuristic)[14][14][14][14] = nullptr)
 {
     picker->board = board;
     picker->moves = moves;
@@ -53,7 +50,6 @@ inline void InitMovePicker2(
     picker->pv_move = pv_move;
     picker->phase = 0;
     picker->remaining_sorted = false;
-    picker->history_weight = std::clamp(history_weight, 0.0f, 1.0f);
     picker->history_heuristic = history_heuristic;
     
     // Initialize move indices
@@ -106,7 +102,7 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                     
                     struct ScoredMove {
                         size_t idx;
-                        int32_t score;
+                        int16_t score;
                         bool operator<(const ScoredMove& other) const {
                             return score > other.score; // Sort descending
                         }
@@ -115,8 +111,6 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                     std::vector<ScoredMove> scored_moves;
                     scored_moves.reserve(remaining_moves);  // Use remaining_moves here
 
-
-                    
                     // Calculate scores for remaining moves
                     for (size_t i = 0; i < remaining_moves; i++) {
                         const Move& move = picker->moves[picker->current + i];
@@ -136,33 +130,29 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                             const Piece captured_piece = move.GetCapturePiece();
                             const PieceType victim_pt = captured_piece.GetPieceType();
                             
-                            // Piece values: PAWN=50, KNIGHT=300, BISHOP=400, ROOK=500, QUEEN=1000, KING=10000
-                            static constexpr int32_t piece_values[6] = {50, 300, 400, 500, 1000, 10000};
+                            // Piece values scaled down: PAWN=1, KNIGHT=6, BISHOP=8, ROOK=10, QUEEN=20, KING=200
+                            static constexpr int piece_values[6] = {1, 6, 8, 10, 20, 200};
                             
-                            const int32_t victim_value = piece_values[victim_pt];
-                            const int32_t aggressor_value = piece_values[pt];
+                            const int victim_value = piece_values[victim_pt];
+                            const int aggressor_value = piece_values[pt];
                             
-                            // MVV-LVA formula: 10 * victim - aggressor
-                            // This ensures queen captures come before rook captures,
-                            // and pawn captures queen before knight captures queen
-                            const int32_t mvv_lva = (victim_value * 10) - aggressor_value;
+                            // Scaled MVV-LVA: victim * 10 - aggressor (range: ~4 to ~1994)
+                            const int mvv_lva = (victim_value * 10) - aggressor_value;
                             
-                            // Base capture score + MVV-LVA (range: ~500 to ~100,000)
-                            int32_t score = 1024000 + mvv_lva;
+                            // Base capture score scaled to fit int16_t (max ~30,000)
+                            int16_t score = 30000 + static_cast<int16_t>(mvv_lva);
                             
                             scored_moves.push_back({i, score});
                         } 
                         // Slower path for non-captures
                         else {
-                        // Get move information
-                        const auto to = move.To();
-                        const int from_row = from.GetRow();
-                        const int from_col = from.GetCol();
-                        const int to_row = to.GetRow();
-                        const int to_col = to.GetCol();
-                            
-                                int32_t hist_value = picker->history_heuristic[pt][from_row][from_col][to_row][to_col];
-
+                            // Get move information
+                            const auto to = move.To();
+                            const int from_row = from.GetRow();
+                            const int from_col = from.GetCol();
+                            const int to_row = to.GetRow();
+                            const int to_col = to.GetCol();
+                            int16_t hist_value = picker->history_heuristic[pt][from_row][from_col][to_row][to_col];
                             scored_moves.push_back({i, hist_value});
                         }
                     }
@@ -204,10 +194,10 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                     }
                     
                     if (orderings_count % 100000 == 0) {
-                        //std::cout << "Move ordering stats - "
-                        //          << "Count: " << orderings_count << " "
-                        //          << "Avg: " << total_ordering_time.count() / orderings_count << "ns "
-                        //          << "Cur/Max moves: " << moves_this_time << "/" << max_moves_ordered << "\n";
+                        std::cout << "--- -- [Move ordering] "
+                                  << "Count: " << orderings_count << " "
+                                  << "Avg: " << total_ordering_time.count() / orderings_count << "ns "
+                                  << "Cur/Max moves: " << moves_this_time << "/" << max_moves_ordered << "\n";
                     }
                 }
                 
