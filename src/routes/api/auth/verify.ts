@@ -1,18 +1,18 @@
 import { getAuthUser, getTokenFromRequest } from '~/lib/server/auth/jwt';
-import { jsonResponse } from '~/lib/server/utils';
+import { createApiResponse } from '~/utils/api';  // Add this import
 
 export const GET = async ({ request }: { request: Request }) => {
   try {
     const user = await getAuthUser(request);
     
     if (!user) {
-      return jsonResponse({ 
-        valid: false,
-        message: 'No valid session found' 
-      }, 200);
+      return createApiResponse(
+        { valid: false, message: 'No valid session found' },
+        { status: 200 }
+      );
     }
 
-    return jsonResponse({
+    return createApiResponse({
       valid: true,
       user: {
         id: user.userId,
@@ -22,10 +22,9 @@ export const GET = async ({ request }: { request: Request }) => {
       }
     });
   } catch (error) {
-    return jsonResponse({ 
-      valid: false, 
-      message: 'Error verifying session',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }, 500);
+    return createApiResponse(
+      { valid: false, message: 'Error verifying session' },
+      { status: 500 }
+    );
   }
 };

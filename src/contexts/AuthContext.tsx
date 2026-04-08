@@ -1,4 +1,4 @@
-import { createContext, createEffect, createSignal, useContext, type ParentComponent } from 'solid-js';
+import { createContext, createEffect, createSignal, onMount, useContext, type ParentComponent } from 'solid-js';
 import { getEnvVar } from '../lib/utils/env';
 import type { User, NullableUser } from '../types/user';
 import { makeApiCall, parseApiResponse } from '../utils/clientApi';
@@ -46,59 +46,6 @@ const createAuthStore = (): AuthStore => {
     }
   };
 
-  // Initialize auth state
-  createEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    // Set DISABLE_DEV_USER in localStorage if it's in the environment
-    const disableDevUser = import.meta.env.VITE_DISABLE_DEV_USER === 'true' || 
-                         process.env.DISABLE_DEV_USER === 'true';
-    
-    if (disableDevUser) {
-      localStorage.setItem('DISABLE_DEV_USER', 'true');
-    }
-    
-    const isDev = typeof import.meta.env.DEV !== 'undefined' ? import.meta.env.DEV : process.env.NODE_ENV !== 'production';
-    
-    // Check for saved user first
-    const savedUser = typeof window !== 'undefined' ? sessionStorage.getItem('user') : null;
-    
-    if (savedUser) {
-      try {
-        const parsed = JSON.parse(savedUser);
-        
-        // Handle both formats: { user: { id, username } } and { id, username }
-        const userData = parsed.user || parsed;
-        
-        if (userData && typeof userData === 'object' && userData.id) {
-          updateUser(userData);
-          
-          // Verify the session is still valid
-          verifySession(userData);
-        } else {
-          // Clear invalid user data
-          if (typeof window !== 'undefined') {
-            sessionStorage.removeItem('user');
-          }
-        }
-      } catch (error) {
-        updateUser(null);
-        // Clear corrupted user data
-        if (typeof window !== 'undefined') {
-          sessionStorage.removeItem('user');
-        }
-      }
-    } else {
-    }
-    
-    // If we get here, either there's no saved user or there was an error
-    setIsInitialized(true);
-    
-  });
-  
-
 // Function to verify the current session
   const verifySession = async (savedUser: NullableUser) => {
     try {
@@ -123,7 +70,10 @@ const createAuthStore = (): AuthStore => {
       
       if (data.data?.valid && data.data.user) {
         console.log('Session verified:', data.data.user);
-        updateUser(data.data.user);
+        updateUser({
+          ...data.data.user,
+          token: data.data.user.token || savedUser?.token
+        });
       } else {
         console.log('No valid session found');
         updateUser(null);
@@ -142,6 +92,47 @@ const createAuthStore = (): AuthStore => {
       setIsInitialized(true);
     }
   };
+
+  // Initialize auth state once on mount
+onMount(() => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  // Check for saved user first
+  const savedUser = typeof window !== 'undefined' ? sessionStorage.getItem('user') : null;
+  
+  if (savedUser) {
+    try {
+      const parsed = JSON.parse(savedUser);
+      
+      // Handle both formats: { user: { id, username } } and { id, username }
+      const userData = parsed.user || parsed;
+      
+      if (userData && typeof userData === 'object' && userData.id) {
+        updateUser(userData);
+        
+        // Verify the session is still valid
+        verifySession(userData);
+      } else {
+        // Clear invalid user data
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('user');
+        }
+      }
+    } catch (error) {
+      updateUser(null);
+      // Clear corrupted user data
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('user');
+      }
+    }
+  }
+  
+  // Mark as initialized
+  setIsInitialized(true);
+});
+
       
   const login = async (username: string, password: string) => {
     try {
