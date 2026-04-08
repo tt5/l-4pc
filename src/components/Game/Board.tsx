@@ -26,7 +26,8 @@ import { MOVE_PATTERNS } from '~/constants/movePatterns';
 import { 
   getLegalMoves,
   isKingInCheck,
-  moveToUCI
+  moveToUCI,
+  trackPieceMovement
 } from '~/utils/gameUtils';
 import { calculateRestrictedSquares, updateMove, generateNewGameId } from '~/utils/boardUtils';
 import { getColorHex } from '~/utils/colorUtils';
@@ -690,6 +691,7 @@ const Board: Component<BoardProps> = (props) => {
         }
         // Move the rook
         positionMap.delete(rookFromKey);
+        trackPieceMovement(rook);
         positionMap.set(rookToKey, {
           ...rook,
           x: rookX + rookDx,
@@ -726,6 +728,7 @@ const Board: Component<BoardProps> = (props) => {
       };
 
       positionMap.delete(fromKey);
+      trackPieceMovement(movedPiece);
       positionMap.set(toKey, movedPiece);
       
       console.log(`[replayMoves] Applied move ${i+1}/${endIndex+1}: [${fromX},${fromY}]→[${toX},${toY}]`);

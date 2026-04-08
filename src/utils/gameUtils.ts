@@ -728,12 +728,6 @@ export function getLegalMoves(
         
         if (targetPiece) {
           const targetTeam = targetPiece.team;
-          const checkInfo = {
-            targetTeam,
-            currentTeam: team,
-            isOpponent: targetTeam !== team,
-            targetPiece: {x: targetPiece.x, y: targetPiece.y, type: targetPiece.pieceType, color: targetPiece.color}
-          };
           
           if (targetTeam !== team) {
             captureMoves.push({
@@ -879,11 +873,16 @@ export function getLegalMoves(
 }
 
 // Track moved pieces for castling
-const movedPieces = new Set<string>();
+export const movedPieces = new Set<number>();
 
 // Helper to get piece key for tracking
-const getPieceKey = (piece: BasePoint): string => {
-  return `${piece.id}-${piece.pieceType}-${piece.team}`;
+export const getPieceKey = (piece: BasePoint): number => {
+  return piece.id;
+};
+
+export const trackPieceMovement = (piece: BasePoint): void => {
+  const pieceKey = getPieceKey(piece);
+  movedPieces.add(pieceKey);
 };
 
 export const canCastle = (
