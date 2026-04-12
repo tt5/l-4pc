@@ -562,9 +562,9 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
       auto avg_ns = total_time.count() / call_count;
       auto current_avg = pgen_duration.count() / 1;  // Current call's time in ns
 
-      std::cout << "--- -- [MoveGen]"
-      << "Average: " << avg_ns << " ns, "
-      << "Call count: " << call_count << std::endl;
+      //std::cout << "--- -- [MoveGen]"
+      //<< "Average: " << avg_ns << " ns, "
+      //<< "Call count: " << call_count << std::endl;
     }
     return result;
 }
