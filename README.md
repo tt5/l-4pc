@@ -9,7 +9,7 @@ cp cli ..
 ```
 # Bug
 
-- [ ] chech found bug
+- [ ] check found bug
 
 # TODO
 
