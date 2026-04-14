@@ -7,6 +7,9 @@ cd 4pchess
 make -B cli
 cp cli ..
 ```
+# Bug
+
+- [ ] chech found bug
 
 # TODO
 
