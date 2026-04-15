@@ -616,7 +616,7 @@ const Board: Component<BoardProps> = (props) => {
       }
     }
     
-    console.log(`[updateKingCheckStatus] checkFound: ${checkFound}`)
+    //console.log(`[updateKingCheckStatus] checkFound: ${checkFound}, currentMoveIndex: ${currentMoveIndex()}`)
   };
 
   // Reset the board to its initial state
@@ -990,6 +990,7 @@ const Board: Component<BoardProps> = (props) => {
     // 1. Replay all moves up to the target index
     const updatedBasePoints = replayMoves(history, currentIndex);
     
+    batch(() => {
     // 2. Update board state and move index
     setBasePoints(updatedBasePoints);
     const newIndex = currentIndex + 1;
@@ -1001,6 +1002,7 @@ const Board: Component<BoardProps> = (props) => {
     // 4. Update turn index (next player's turn)
     const newTurnIndex = (newIndex) % PLAYER_COLORS.length;
     setCurrentTurnIndex(newTurnIndex);
+    })
     
     // 5. Get current player's pieces
     const currentPlayerPieces = getCurrentPlayerPieces(basePoints());
@@ -1238,7 +1240,7 @@ const Board: Component<BoardProps> = (props) => {
       );
       
       // Update king check status after the move
-      updateKingCheckStatus(newBasePoints);
+      //updateKingCheckStatus(newBasePoints);
       
       return newBasePoints;
     });
@@ -1791,7 +1793,7 @@ const Board: Component<BoardProps> = (props) => {
             );
           
           // Check if this cell has a king in check
-          const isKingInCheck = basePoint?.pieceType === 'king' && kingsInCheck()[`${x},${y}`];
+          const isKingInCheckCell = basePoint?.pieceType === 'king' && kingsInCheck()[`${x},${y}`];
           
           // Get the current best move from analysis
           const bestMove = analysis()?.bestMove;
@@ -1813,7 +1815,7 @@ const Board: Component<BoardProps> = (props) => {
             isBasePoint: isBP,
             isSelected,
             isHovered: !!((hoveredCell() && hoveredCell()![0] === x && hoveredCell()![1] === y)),
-            isInCheck: isKingInCheck,
+            isInCheck: isKingInCheckCell,
             isNonPlayable,
             isBestMoveFrom,
             isBestMoveTo,

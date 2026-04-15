@@ -103,13 +103,14 @@ export function isPathClear(
   -1 if the number is negative (moving left/up)
   0 if the number is zero (no movement in that direction)
   */
-  const dx = Math.sign(a[1] - a[0]);
-  const dy = Math.sign(b[1] - b[0]);
+  const dx = Math.sign(b[0] - a[0]);
+  const dy = Math.sign(b[1] - a[1]);
   let x = a[0] + dx;
-  let y = b[0] + dy;
+  let y = a[1] + dy;
 
   // Only check up to, but not including, the end position
-  while (!(x === a[1] && y === b[1])) {
+  while (!(x === b[0] && y === b[1])) {
+    //console.log(`[isPathClear] from: ${a[0]}/${a[1]} to: ${b[0]}/${b[1]}, x: ${x}, y: ${y}, dx: ${dx}, dy: ${dy}`)
     if (allBasePoints.some(p => p.x === x && p.y === y)) {
       return false;
     }
@@ -130,16 +131,20 @@ export function canPieceAttack(
   
   const pieceTeam = piece.team;
   
+  /*
   // King movement (1 square in any direction)
   if (piece.pieceType === 'king') {
     return dx <= 1 && dy <= 1;
   }
+  */
   
   // Queen movement (any number of squares in any direction)
   if (piece.pieceType === 'queen') {
     // Check if moving in a straight line or diagonal
     if (piece.x === target[0] || piece.y === target[1] || Math.abs(dx) === Math.abs(dy)) {
-      return isPathClear(createPoint(piece.x, piece.y), target, allBasePoints);
+      const isClear = isPathClear(createPoint(piece.x, piece.y), target, allBasePoints);
+      //console.log(`[canPieceAttack] from: ${piece.x}/${piece.y}, ${isClear}`)
+      return isClear
     }
     return false;
   }
@@ -388,18 +393,17 @@ export function isKingInCheck(
   for (const piece of allBasePoints) {
     const pieceTeam = piece.team;
     
-    // Skip pieces that aren't opponents
-    if (pieceTeam !== opponentTeam) {
-      continue;
-    }
+    if (pieceTeam === opponentTeam) {
     
-    const canAttack = canPieceAttack(piece, createPoint(king.x, king.y), allBasePoints);
-    
-    if (canAttack) {
-      isInCheck = true;
-      break;
+      const canAttack = canPieceAttack(piece, createPoint(king.x, king.y), allBasePoints);
+      
+      if (canAttack) {
+        isInCheck = true;
+        break;
+      }
     }
   }
+  //console.log(`[isKingInCheck] isInCheck: ${isInCheck}, x: ${king.x}, y: ${king.y}`)
   
   return isInCheck;
 }
