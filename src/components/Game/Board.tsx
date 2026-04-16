@@ -58,11 +58,11 @@ export function validateSquarePlacement(
   getRestrictedSquares: () => RestrictedSquares,
 ): { isValid: boolean } {
     
-  if (!getRestrictedSquares().includes(index)) {
-    return { isValid: false };
+  if (getRestrictedSquares().includes(index)) {
+    return { isValid: true };
   }
   
-  return { isValid: true };
+  return { isValid: false };
 }
 
 const Board: Component<BoardProps> = (props) => {
@@ -1026,7 +1026,11 @@ const Board: Component<BoardProps> = (props) => {
   // Function to analyze position with proper guards
   const analyzePosition = (moveIndex: number) => {
     if (!isEngineReady() || isHandlingGoBack.current || !isAnalyzing()) return;
-    engine.stopAnalysis();
+    try {
+      engine.stopAnalysis();
+    } catch (error) {
+      console.error('Engine stop analysis error:', error);
+    }
     
     const uciMoveHistory = moveHistory()
       .slice(0, moveIndex + 1)  // +1 because slice end is exclusive
@@ -1039,7 +1043,7 @@ const Board: Component<BoardProps> = (props) => {
           engine.startAnalysis(uciMoveHistory);
         }
       } catch (error) {
-        console.error('Engine analysis error:', error);
+        console.error('Engine start analysis error:', error);
       }
     }, 50);
   };

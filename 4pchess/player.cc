@@ -353,6 +353,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       //  //std::cout << "win bg" << std::endl;
       //}
       eval = maximizing_player ? eval : -eval;
+      thread_state.ReleaseMoveBufferPartition();
       return std::make_tuple(eval, std::nullopt);
     }
 
