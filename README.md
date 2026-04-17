@@ -10,6 +10,7 @@ cp cli ..
 
 # TODO
 
+- [ ] fix en passant
 - [ ] engine promotion
 - [ ] client promotion
 - [ ] rotate board

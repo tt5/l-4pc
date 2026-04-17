@@ -654,6 +654,7 @@ class Board {
     int pv_index;  // -1 if PV move not found
     int mobility_counts[4] = {0};  // One for each player color
     int threat_counts[4] = {0};    // One for each player color
+    bool in_check = false;
   };
   
   MoveGenResult GetPseudoLegalMoves2(
@@ -669,6 +670,10 @@ class Board {
   Move* GetQueenMovesDirect(Move* moves, size_t limit, const BoardLocation& from, PlayerColor color, int& threats, Team my_team) const;
   Move* GetKingMovesDirect(Move* moves, size_t limit, const BoardLocation& from, PlayerColor color, Team my_team) const;
 
+  Move* GetRookMovesCheck(Move* moves, size_t limit, const BoardLocation& from, PlayerColor color, int& threats, Team my_team, const BoardLocation& attacker, const BoardLocation& king) const;
+  Move* GetKingMovesCheck(Move* moves, size_t limit, const BoardLocation& from, PlayerColor color, Team my_team) const;
+  Move* GetKingMovesNoCheck(Move* moves, size_t limit, const BoardLocation& from, PlayerColor color, Team my_team) const;
+
   bool IsKingInCheck(const Player& player) const;
   bool IsKingInCheck(Team team) const;
 
@@ -682,6 +687,14 @@ class Board {
   int MobilityEvaluation(const Player& player);
   const Player& GetTurn() const { return turn_; }
   bool IsAttackedByTeam(
+      Team team,
+      const BoardLocation& location) const;
+
+  BoardLocation GetAttacker(
+      Team team,
+      const BoardLocation& location) const;
+
+  BoardLocation GetRevAttacker(
       Team team,
       const BoardLocation& location) const;
 

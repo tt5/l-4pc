@@ -165,6 +165,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     pv_move.has_value() ? pv_move : tt_move);
   thread_state.TotalMoves()[player_color] = result.mobility_counts[player_color];
   thread_state.NThreats()[player_color] = result.threat_counts[player_color];
+  bool in_check = result.in_check;
 
   //~20ns
   //if (tt_hit && tte->eval != value_none_tt) {
@@ -315,7 +316,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
     auto startA2 = std::chrono::high_resolution_clock::now();
 
-    const auto& to = move.To();
+    //const auto& to = move.To();
     
     std::optional<std::tuple<int, std::optional<Move>>> value_and_move_or;
 
@@ -360,13 +361,32 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     //~20ns
     board.MakeMove(move);
 
-    // not same king position if the king moved
     const auto kinglocation = board.GetKingLocation(player_color);
-    //~50ns (quite optimized)
-    bool is_king_in_check = board.IsAttackedByTeam(other_team, kinglocation);
-    if (is_king_in_check) { // invalid move
-      board.UndoMove();
-      continue;
+    if (in_check) {
+      bool is_king_in_check = board.IsAttackedByTeam(other_team, kinglocation);
+      if (is_king_in_check) { // invalid move
+        board.UndoMove();
+        continue;
+      }
+    } else {
+
+      const int8_t king_row = kinglocation.GetRow();
+      const int8_t king_col = kinglocation.GetCol();
+      const auto& from = move.From();
+      const int8_t from_row = from.GetRow();
+      const int8_t from_col = from.GetCol();
+      const bool aligned_with_king = 
+        king_row == from_row ||                     // same row
+        king_col == from_col ||                     // same column
+        std::abs(king_row - from_row) == std::abs(king_col - from_col);  // diagonal
+
+      if (aligned_with_king) { // possible pinned or king move
+        bool is_king_in_check = board.IsAttackedByTeam(other_team, kinglocation);
+        if (is_king_in_check) { // invalid move
+          board.UndoMove();
+          continue;
+        }
+      }
     }
 
     static std::atomic<int64_t> cm_skip_count{0};
