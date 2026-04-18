@@ -23,11 +23,12 @@ import { generateFen4, parseFen4 } from '~/utils/fen4Utils';
 import { makeApiCall, parseApiResponse, generateRequestId, makeAuthenticatedApiCall } from '~/utils/clientApi';
 import { generateBranchName, buildFullBranchName } from '~/utils/branchUtils';
 import { MOVE_PATTERNS } from '~/constants/movePatterns';
-import { 
+import {
   getLegalMoves,
   isKingInCheck,
   moveToUCI,
-  trackPieceMovement
+  trackPieceMovement,
+  resetMovedPieces
 } from '~/utils/gameUtils';
 import { calculateRestrictedSquares, updateMove, generateNewGameId } from '~/utils/boardUtils';
 import { getColorHex } from '~/utils/colorUtils';
@@ -629,6 +630,7 @@ const Board: Component<BoardProps> = (props) => {
     setBranchPoints({});
     setMainLineMoves([]);
     setGameId(DEFAULT_GAME_ID);
+    resetMovedPieces();
     const initialBasePoints = JSON.parse(JSON.stringify(INITIAL_BASE_POINTS));
     setBasePoints(initialBasePoints);
     setRestrictedSquares(INITIAL_RESTRICTED_SQUARES);
@@ -640,7 +642,10 @@ const Board: Component<BoardProps> = (props) => {
    */
   const replayMoves = (moves: Move[], endIndex: number): BasePoint[] => {
     const positionMap = new Map<string, BasePoint>();
-    
+
+    // Reset moved pieces tracking for fresh replay
+    resetMovedPieces();
+
     // Initialize with a fresh copy of the initial board state
     INITIAL_BASE_POINTS.forEach(bp => {
       positionMap.set(`${bp.x},${bp.y}`, { ...bp });

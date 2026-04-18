@@ -889,6 +889,10 @@ export const trackPieceMovement = (piece: BasePoint): void => {
   movedPieces.add(pieceKey);
 };
 
+export const resetMovedPieces = (): void => {
+  movedPieces.clear();
+};
+
 export const canCastle = (
   king: BasePoint,
   allBasePoints: BasePoint[],
@@ -898,6 +902,11 @@ export const canCastle = (
     // Check if king has moved - we'll rely on the movedPieces set
   const kingKey = getPieceKey(king);
   if (movedPieces.has(kingKey)) {
+    return false;
+  }
+
+  const opponentTeam = king.team === 1 ? 2 : 1;
+  if (isSquareUnderAttack(createPoint(king.x, king.y), opponentTeam, allBasePoints)) {
     return false;
   }
 
