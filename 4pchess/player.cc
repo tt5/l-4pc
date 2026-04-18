@@ -17,7 +17,6 @@
 
 #include "board.h"
 #include "player.h"
-#include "move_picker.h"
 #include "transposition_table.h"
 #include "move_picker2.h"
 
@@ -310,10 +309,10 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   bool fail_high = false;
 
   while (true) {
-    auto startA2 = std::chrono::high_resolution_clock::now();
     const Move* move_ptr = GetNextMove2(&picker);
     if (move_ptr == nullptr) break;
     const Move& move = *move_ptr;
+    auto startA2 = std::chrono::high_resolution_clock::now();
 
 
     //const auto& to = move.To();
@@ -375,10 +374,12 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       const auto& from = move.From();
       const int8_t from_row = from.GetRow();
       const int8_t from_col = from.GetCol();
+      const int8_t row_diff = king_row - from_row;
+      const int8_t col_diff = king_col - from_col;
       const bool aligned_with_king = 
-        king_row == from_row ||                     // same row
-        king_col == from_col ||                     // same column
-        std::abs(king_row - from_row) == std::abs(king_col - from_col);  // diagonal
+        row_diff == 0 ||                     // same row
+        col_diff == 0 ||                     // same column
+        row_diff * row_diff == col_diff * col_diff;  // diagonal
 
       if (aligned_with_king) { // possible pinned or king move
         bool is_king_in_check = board.IsAttackedByTeam(other_team, kinglocation);
@@ -417,7 +418,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     auto durationA2 = std::chrono::duration_cast<std::chrono::nanoseconds>(endA2 - startA2);
     total_timeA2 += durationA2;
     call_countA2++;
-    if (call_countA2 % 200000 == 0) {
+    if (call_countA2 % 800000 == 0) {
       auto avg_ns = total_timeA2.count() / call_countA2;
 
       std::cout << "---[Move - before recursion]"
@@ -612,9 +613,11 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     int bonus = 1 + (fail_high ? (depth << 1) : depth);
     //if (bonus > 32767) bonus = 32767;  // Cap for int16_t
 
-    size_t lock_key = (from.GetRow() * 14 + from.GetCol()) * 196 + (to.GetRow() * 14 + to.GetCol());
+    int from_sq = from.GetSquare();
+    int to_sq = to.GetSquare();
+    size_t lock_key = (from_sq * 196) + to_sq;
     std::lock_guard<std::mutex> lock(heuristic_mutexes_[lock_key % kHeuristicMutexes]);
-    history_heuristic[piece.GetPieceType()][from.GetRow()][from.GetCol()][to.GetRow()][to.GetCol()] += bonus;
+    history_heuristic[piece.GetPieceType()][from_sq][to_sq] += bonus;
   }
 
   int score = alpha;
@@ -677,26 +680,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   return std::make_tuple(score, best_move);
 }
 
-namespace {
-
-constexpr int kPieceImbalanceTable[16] = {
-  0, -25, -50, -150, -300, -350, -400, -400,
-  -400, -400, -400, -400, -400, -400, -400, -400,
-};
-
-int GetNumMajorPieces(const std::vector<PlacedPiece>& pieces) {
-  int num_major = 0;
-  for (const auto& placed_piece : pieces) {
-    PieceType pt = placed_piece.GetPiece().GetPieceType();
-    if (pt != PAWN && pt != KING) {
-      num_major++;
-    }
-  }
-  return num_major;
-}
-
-}  // namespace
-
 void AlphaBetaPlayer::ResetHistoryHeuristics() {
   std::memset(history_heuristic, 0, sizeof(history_heuristic));
 }
@@ -704,14 +687,8 @@ void AlphaBetaPlayer::ResetHistoryHeuristics() {
 void AlphaBetaPlayer::AgeHistoryHeuristics() {
   // Age quiet move history heuristic by dividing all scores by 2
   for (int pt = 0; pt < 6; ++pt) {
-    for (int r1 = 0; r1 < 14; ++r1) {
-      for (int c1 = 0; c1 < 14; ++c1) {
-        for (int r2 = 0; r2 < 14; ++r2) {
-          for (int c2 = 0; c2 < 14; ++c2) {
-            history_heuristic[pt][r1][c1][r2][c2] >>= 1;
-          }
-        }
-      }
+    for (int sq = 0; sq < 196 * 196; ++sq) {
+      history_heuristic[pt][0][sq] >>= 1;
     }
   }
 }
@@ -803,7 +780,6 @@ AlphaBetaPlayer::MakeMoveSingleThread(
   Stack stack[kMaxPly + 10];
   Stack* ss = stack + 7;
 
-  if (options_.enable_aspiration_window) {
 
     while (next_depth <= max_depth) {
       std::optional<std::tuple<int, std::optional<Move>>> move_and_value;
@@ -877,28 +853,6 @@ AlphaBetaPlayer::MakeMoveSingleThread(
       }
     }
 
-  } else {
-
-    while (next_depth <= max_depth) {
-      std::optional<std::tuple<int, std::optional<Move>>> move_and_value;
-
-      move_and_value = Search(
-          ss, Root, thread_state, board, 1, next_depth, alpha, beta, maximizing_player,
-          pv_info, false);
-
-      if (!move_and_value.has_value()) { // Hit deadline
-        break;
-      }
-      res = move_and_value;
-      searched_depth = next_depth;
-      next_depth++;
-      int evaluation = std::get<0>(*move_and_value);
-      if (std::abs(evaluation) == kMateValue) {
-        break;  // Proven win/loss
-      }
-    }
-
-  }
 
   if (res.has_value()) {
     int eval = std::get<0>(*res);

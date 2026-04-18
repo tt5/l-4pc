@@ -290,6 +290,7 @@ class BoardLocation {
   bool Missing() const { return !Present(); }
   int8_t GetRow() const { return loc_ / 14; }
   int8_t GetCol() const { return loc_ % 14; }
+  int8_t GetSquare() const { return loc_; }
 
   BoardLocation Relative(int8_t delta_row, int8_t delta_col) const {
     return BoardLocation(GetRow() + delta_row, GetCol() + delta_col);
@@ -650,15 +651,14 @@ class Board {
   
   // Direct buffer access move generation functions
   Move* GetPawnMovesDirect(Move* moves, const BoardLocation& from, PlayerColor color, Team my_team) const;
-  Move* GetKnightMovesDirect(Move* moves, size_t limit, const BoardLocation& from, PlayerColor color, int& threats, Team my_team) const;
-  Move* GetBishopMovesDirect(Move* moves, size_t limit, const BoardLocation& from, PlayerColor color, int& threats, Team my_team) const;
-  Move* GetRookMovesDirect(Move* moves, size_t limit, const BoardLocation& from, PlayerColor color, int& threats, Team my_team) const;
-  Move* GetQueenMovesDirect(Move* moves, size_t limit, const BoardLocation& from, PlayerColor color, int& threats, Team my_team) const;
-  Move* GetKingMovesDirect(Move* moves, size_t limit, const BoardLocation& from, PlayerColor color, Team my_team) const;
+  Move* GetKnightMovesDirect(Move* moves, const BoardLocation& from, PlayerColor color, int& threats, Team my_team) const;
+  Move* GetBishopMovesDirect(Move* moves, const BoardLocation& from, PlayerColor color, int& threats, Team my_team) const;
+  Move* GetRookMovesDirect(Move* moves, const BoardLocation& from, PlayerColor color, int& threats, Team my_team) const;
+  Move* GetQueenMovesDirect(Move* moves, const BoardLocation& from, PlayerColor color, int& threats, Team my_team) const;
+  Move* GetKingMovesDirect(Move* moves, const BoardLocation& from, PlayerColor color, Team my_team) const;
 
-  Move* GetRookMovesCheck(Move* moves, size_t limit, const BoardLocation& from, PlayerColor color, int& threats, Team my_team, const BoardLocation& attacker, const BoardLocation& king) const;
-  Move* GetKingMovesCheck(Move* moves, size_t limit, const BoardLocation& from, PlayerColor color, Team my_team) const;
-  Move* GetKingMovesNoCheck(Move* moves, size_t limit, const BoardLocation& from, PlayerColor color, Team my_team) const;
+  Move* GetKingMovesCheck(Move* moves, const BoardLocation& from, PlayerColor color, Team my_team) const;
+  Move* GetKingMovesNoCheck(Move* moves, const BoardLocation& from, PlayerColor color, Team my_team) const;
 
   bool IsKingInCheck(const Player& player) const;
   bool IsKingInCheck(Team team) const;
@@ -696,11 +696,7 @@ class Board {
   bool DeliversCheck(const Move& move);
 
   const Piece& GetPiece(int row, int col) const {
-    const Piece& piece = location_to_piece_[row][col];
-    if (piece.Present()) {
-      piece.Validate();
-    }
-    return piece;
+    return location_to_piece_[row][col];
   }
   const Piece& GetPiece(
       const BoardLocation& location) const {

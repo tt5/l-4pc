@@ -271,15 +271,12 @@ Move* Board::GetPawnMovesDirect(
 
 Move* Board::GetKnightMovesDirect(
     Move* moves,
-    size_t limit,
     const BoardLocation& from,
     PlayerColor color,
     int& threats,
     Team my_team) const {
-  //if (limit == 0) return moves;
   
   Move* current = moves;
-  //const Move* const end = moves + limit;
 
   const int from_row = from.GetRow();
   const int from_col = from.GetCol();
@@ -621,69 +618,10 @@ for (const auto& [dr, dc] : diagonal) {
   return false;
 }
 
-bool Board::IsOnPathBetween(
-    const BoardLocation& from,
-    const BoardLocation& to,
-    const BoardLocation& between) const {
-  int delta_row = from.GetRow() - to.GetRow();
-  int delta_col = from.GetCol() - to.GetCol();
-  int delta_row_between = from.GetRow() - between.GetRow();
-  int delta_col_between = from.GetCol() - between.GetCol();
-  return delta_row * delta_col_between == delta_col * delta_row_between;
-}
-
-bool Board::DiscoversCheck(
-    const BoardLocation& king_location,
-    const BoardLocation& move_from,
-    const BoardLocation& move_to,
-    Team attacking_team) const {
-  int delta_row = move_from.GetRow() - king_location.GetRow();
-  int delta_col = move_from.GetCol() - king_location.GetCol();
-  if (std::abs(delta_row) != std::abs(delta_col)
-      && delta_row != 0
-      && delta_col != 0) {
-    return false;
-  }
-
-  int incr_col = delta_col == 0 ? 0 : delta_col > 0 ? 1 : -1;
-  int incr_row = delta_row == 0 ? 0 : delta_row > 0 ? 1 : -1;
-  int row = king_location.GetRow() + incr_row;
-  int col = king_location.GetCol() + incr_col;
-  while (IsLegalLocation(row, col)) {
-    if (row != move_from.GetRow() || col != move_from.GetCol()) {
-      if (row == move_to.GetRow() && col == move_to.GetCol()) {
-        return false;
-      }
-      const auto piece = GetPiece(row, col);
-      if (piece.Present()) {
-        if (piece.GetTeam() == attacking_team) {
-          if (delta_row == 0 || delta_col == 0) {
-            if (piece.GetPieceType() == QUEEN
-                || piece.GetPieceType() == ROOK) {
-              return true;
-            }
-          } else {
-            if (piece.GetPieceType() == QUEEN
-                || piece.GetPieceType() == BISHOP) {
-              return true;
-            }
-          }
-        }
-        break;
-      }
-    }
-
-    row += incr_row;
-    col += incr_col;
-  }
-  return false;
-}
-
 Board::MoveGenResult Board::GetPseudoLegalMoves2(
     Move* buffer, 
     size_t limit, 
     const std::optional<Move>& pv_move) {
-    auto pstart = std::chrono::high_resolution_clock::now();
     
     MoveGenResult result{0, -1};
 
@@ -718,39 +656,39 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     const size_t num_pieces = pieces.size();
 
     Move* current = buffer;
-    const Move* const end = buffer + limit;
 
     int threats = 0;
 
-    for (size_t i = 0; i < num_pieces && current < end; ++i) {
+    auto pstart = std::chrono::high_resolution_clock::now();
+    for (size_t i = 0; i < num_pieces; ++i) {
         const auto& placed_piece = pieces[i];
         const auto& location = placed_piece.GetLocation();
         const auto& piece = placed_piece.GetPiece();
         const PieceType type = piece.GetPieceType();
 
-        if (double_check && type != KING) continue;
+        if (double_check && type != KING) [[unlikely]] continue;
         
         size_t before_count = current - buffer;
 
-        if (!in_check) {
+        if (!in_check) [[likely]] {
         // Generate moves for this piece
         switch (type) {
             case QUEEN:   {
-                current = GetBishopMovesDirect(current, end - current, location, current_color, threats, my_team);
-                current = GetRookMovesDirect(current, end - current, location, current_color, threats, my_team);
+                current = GetBishopMovesDirect(current, location, current_color, threats, my_team);
+                current = GetRookMovesDirect(current, location, current_color, threats, my_team);
               } break;
-            case ROOK:    current = GetRookMovesDirect(current, end - current, location, current_color, threats, my_team);
+            case ROOK:    current = GetRookMovesDirect(current, location, current_color, threats, my_team);
               break;
-            case BISHOP:  current = GetBishopMovesDirect(current, end - current, location, current_color, threats, my_team);
+            case BISHOP:  current = GetBishopMovesDirect(current, location, current_color, threats, my_team);
               break;
             case PAWN:    current = GetPawnMovesDirect(current, location, current_color, my_team); break;
-            case KNIGHT:  current = GetKnightMovesDirect(current, end - current, location, current_color, threats, my_team);
+            case KNIGHT:  current = GetKnightMovesDirect(current, location, current_color, threats, my_team);
               break;
-            case KING:    current = GetKingMovesNoCheck(current, end - current, location, current_color, my_team);
+            case KING:    current = GetKingMovesNoCheck(current, location, current_color, my_team);
               break;
             default: assert(false && "Movegen: Invalid piece type");
         }
-      } else if ( // in check
+      } else if ( // in_check [[unlikely]]
           attacking_piece.GetPieceType() == QUEEN ||
           attacking_piece.GetPieceType() == ROOK ||
           attacking_piece.GetPieceType() == BISHOP
@@ -1127,7 +1065,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
             } break;
             case KING: {
               // just move/capture in all 8 directions
-                current = GetKingMovesCheck(current, end - current, location, current_color, my_team);
+                current = GetKingMovesCheck(current, location, current_color, my_team);
             } break;
             default: assert(false && "Movegen: Invalid piece type");
         }
@@ -1255,7 +1193,6 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                         threats += 16;
                       }
                   }
-              //current = GetBishopMovesDirect(current, end - current, location, current_color, threats, my_team);
               } break;
             case PAWN:    {
               // DOES NOT HANDLE EN PASSANT!
@@ -1311,7 +1248,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
             } break;
             case KING:    {
               // just move/capture in all 8 directions
-              current = GetKingMovesCheck(current, end - current, location, current_color, my_team);
+              current = GetKingMovesCheck(current, location, current_color, my_team);
              }
             break;
             default: assert(false && "Movegen: Invalid piece type");
@@ -1343,19 +1280,15 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     result.pv_index = pv_index;
     result.in_check = in_check;
 
+    // Minimal timing for performance monitoring
+    static std::chrono::nanoseconds total_time{0};
+    static size_t call_count = 0;
     auto pgen_end = std::chrono::high_resolution_clock::now();
-    auto pgen_duration = std::chrono::duration_cast<std::chrono::nanoseconds>(pgen_end - pstart);
-    total_time += pgen_duration;
-    call_count++;
-    if (call_count % 100000 == 0) {
-      auto avg_ns = total_time.count() / call_count;
-      auto current_avg = pgen_duration.count() / 1;  // Current call's time in ns
-
-      std::cout << "--- -- [MoveGen]"
-      << "Average: " << avg_ns << " ns, "
-      << "Call count: " << call_count << std::endl;
-
+    total_time += std::chrono::duration_cast<std::chrono::nanoseconds>(pgen_end - pstart);
+    if (++call_count % 100000 == 0) {
+        std::cout << "---[MoveGen] Avg: " << (total_time.count() / call_count) << " ns, Calls: " << call_count << std::endl;
     }
+
     return result;
 }
 
@@ -2222,124 +2155,8 @@ std::string Move::PrettyStr() const {
   return s;
 }
 
-Move* Board::GetRookMovesCheck(
-    Move* moves,
-    size_t limit,
-    const BoardLocation& from,
-    PlayerColor color,
-    int& threats,
-    Team my_team,
-    const BoardLocation& attacker,
-    const BoardLocation& king
-  ) const {
-    Move* current = moves;
-    const int8_t from_row = from.GetRow();
-    const int8_t from_col = from.GetCol();
-    const int8_t att_row = attacker.GetRow();
-    const int8_t att_col = attacker.GetCol();
-    const int8_t king_row = king.GetRow();
-    const int8_t king_col = king.GetCol();
-
-    // Direction from king to attacker
-    int8_t drow = (att_row > king_row) ? 1 : (att_row < king_row) ? -1 : 0;
-    int8_t dcol = (att_col > king_col) ? 1 : (att_col < king_col) ? -1 : 0;
-    if (drow == 0 && dcol == 0) return current;
-
-    int8_t row_diff = att_row - king_row;
-    int8_t col_diff = att_col - king_col;
-    /*
-    if (drow != 0 && dcol != 0) {
-        // Diagonal attack: need equal steps in both directions
-        if (abs(row_diff) != abs(col_diff)) {
-
-          std::cout << "diagonal" << std::endl;
-          abort();
-        };  // Not on diagonal
-    } else if (drow == 0) {
-        // Horizontal attack: need same row
-        if (row_diff != 0) {
-
-          std::cout << "horizontal" << std::endl;
-          abort();
-        };
-    } else {
-        // Vertical attack: need same column  
-        if (col_diff != 0) {
-
-          std::cout << "vertical" << std::endl;
-          abort();
-        };
-    }
-    */
-
-    // All squares strictly between king and attacker
-    for (int8_t r = king_row + drow, c = king_col + dcol; 
-        r != att_row || c != att_col; 
-        r += drow, c += dcol) {
-
-        /*
-        if (r > 100 || c > 100 || r < -100 || c < -100) {
-
-          std::cout << "inf loop" << std::endl;
-          abort();
-        }
-        */
-
-        if (from_row == r) {
-            // Same row - horizontal move
-            int8_t step = (c > from_col) ? 1 : -1;
-            for (int8_t tc = from_col + step; tc != c; tc += step)
-                if (GetPiece(r, tc).Present()) goto next_block;
-            *current++ = Move(from, BoardLocation(r, c));
-            threats += 4;
-            goto next_block;
-        }
-        if (from_col == c) {
-            // Same column - vertical move
-            int8_t step = (r > from_row) ? 1 : -1;
-            for (int8_t tr = from_row + step; tr != r; tr += step)
-                if (GetPiece(tr, c).Present()) goto next_block;
-            *current++ = Move(from, BoardLocation(r, c));
-            threats += 4;
-            goto next_block;
-        }
-        next_block:;
-    }
-
-    bool occupied = false;
-    // try to capture the attacker
-    if (from_row == att_row) {
-        int8_t step = (att_col > from_col) ? 1 : -1;
-        for (int8_t tc = from_col + step; tc != att_col; tc += step) {
-            if (GetPiece(from_row, tc).Present()) {
-              occupied = true;
-              break;
-            }
-        }
-        if (occupied == true) {
-          *current++ = Move(from, attacker, GetPiece(att_row, att_col));
-          threats += 16;
-        }
-    } else if (from_col == att_col) {
-        int8_t step = (att_row > from_row) ? 1 : -1;
-        for (int8_t tr = from_row + step; tr != att_row; tr += step) {
-            if (GetPiece(tr, from_col).Present()) {
-              occupied = true;
-              break;
-            }
-        }
-        if (occupied == true) {
-          *current++ = Move(from, attacker, GetPiece(att_row, att_col));
-          threats += 16;
-        }
-    }
-
-    return current;
-}
-
 Move* Board::GetRookMovesDirect(
     Move* moves,
-    size_t limit,
     const BoardLocation& from,
     PlayerColor color,
     int& threats,
@@ -2438,7 +2255,6 @@ Move* Board::GetRookMovesDirect(
 
 Move* Board::GetBishopMovesDirect(
     Move* moves,
-    size_t limit,
     const BoardLocation& from,
     PlayerColor color,
     int& threats,
@@ -2541,14 +2357,11 @@ Move* Board::GetBishopMovesDirect(
 
 Move* Board::GetKingMovesNoCheck(
     Move* moves,
-    size_t limit,
     const BoardLocation& from,
     PlayerColor color,
     Team my_team) const {
-  //if (limit == 0) return moves;
   
   Move* current = moves;
-  const Move* const end = moves + limit;
   
   const Team enemy_team = OtherTeam(my_team);
   // (row, col)
@@ -2776,14 +2589,11 @@ Move* Board::GetKingMovesNoCheck(
 
 Move* Board::GetKingMovesCheck(
     Move* moves,
-    size_t limit,
     const BoardLocation& from,
     PlayerColor color,
     Team my_team) const {
-  //if (limit == 0) return moves;
   
   Move* current = moves;
-  const Move* const end = moves + limit;
   
   const Team enemy_team = OtherTeam(my_team);
   // (row, col)
@@ -2873,14 +2683,11 @@ Move* Board::GetKingMovesCheck(
 
 Move* Board::GetKingMovesDirect(
     Move* moves,
-    size_t limit,
     const BoardLocation& from,
     PlayerColor color,
     Team my_team) const {
-  //if (limit == 0) return moves;
   
   Move* current = moves;
-  const Move* const end = moves + limit;
   
   const Team enemy_team = OtherTeam(my_team);
   // (row, col)

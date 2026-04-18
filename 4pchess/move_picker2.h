@@ -2,17 +2,7 @@
 #ifndef MOVE_PICKER2_H
 #define MOVE_PICKER2_H
 
-// Fast tanh approximation (about 5x faster than std::tanh)
-// Accurate to within ~0.2% in the range [-3, 3]
-constexpr float fast_tanh(float x) {
-    // Clamp x to prevent overflow in x^3
-    x = x > 3.0f ? 3.0f : (x < -3.0f ? -3.0f : x);
-    const float x2 = x * x;
-    return x * (27.0f + x2) / (27.0f + 9.0f * x2);
-}
-
 #include "board.h"
-#include "player.h"  // For PieceToHistory and ContinuationHistory types
 #include <vector>
 #include <algorithm>
 #include <cmath>
@@ -30,7 +20,7 @@ struct MovePicker2 {
     size_t current;        // Current move index
     const Move* pv_move;   // PV move to prioritize
     int phase;             // Current phase (0=PV, 1=Remaining)
-    int16_t (*history_heuristic)[14][14][14][14]; // Pointer to current ply's history heuristic [piece_type][from_row][from_col][to_row][to_col]
+    int16_t (*history_heuristic)[196][196]; // Pointer to current ply's history heuristic [piece_type][from_sq][to_sq] where sq = row*14+col
     std::vector<size_t> move_indices;   // To store sorted indices of remaining moves
     bool remaining_sorted; // Whether remaining moves are already sorted
     size_t sorted_current; // Current position in sorted order
@@ -39,10 +29,10 @@ struct MovePicker2 {
 inline void InitMovePicker2(
     MovePicker2* picker,
     const Board* board,
-    const Move* moves, 
+    const Move* moves,
     size_t count,
     const Move* pv_move,
-    int16_t (*history_heuristic)[14][14][14][14] = nullptr)
+    int16_t (*history_heuristic)[196][196] = nullptr)
 {
     picker->board = board;
     picker->moves = moves;
@@ -119,9 +109,7 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                         const Piece piece = picker->board->GetPiece(from);
                         const PieceType pt = piece.GetPieceType();
 
-                        // Fast path for captures - give them a significant bonus
                         if (is_capture) {
-                            //int32_t score = (remaining_moves - i) << 5;  // approx 0-1024 range
 
                             // MVV-LVA: Most Valuable Victim - Least Valuable Aggressor
                             // Get captured piece type
@@ -129,28 +117,24 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                             const PieceType victim_pt = captured_piece.GetPieceType();
 
                             // Piece values scaled down: PAWN=1, KNIGHT=6, BISHOP=8, ROOK=10, QUEEN=20, KING=200
-                            static constexpr int piece_values[6] = {1, 6, 8, 10, 20, 200};
+                            static constexpr int16_t piece_values[6] = {1, 6, 8, 10, 20, 200};
 
-                            const int victim_value = piece_values[victim_pt];
-                            const int aggressor_value = piece_values[pt];
+                            const int16_t victim_value = piece_values[victim_pt];
+                            const int16_t aggressor_value = piece_values[pt];
 
-                            // Scaled MVV-LVA: victim * 10 - aggressor (range: ~4 to ~1994)
-                            const int mvv_lva = (victim_value * 10) - aggressor_value;
+                            const int16_t mvv_lva = (victim_value << 3) - aggressor_value;
 
                             // Base capture score scaled to fit int16_t (max ~30,000)
-                            int16_t score = 30000 + static_cast<int16_t>(mvv_lva);
+                            int16_t score = 30000 + mvv_lva;
 
                             scored_moves.push_back({move_idx, score});
                         }
-                        // Slower path for non-captures
-                        else {
+                        else { // non-catpures
                             // Get move information
                             const auto to = move.To();
-                            const int from_row = from.GetRow();
-                            const int from_col = from.GetCol();
-                            const int to_row = to.GetRow();
-                            const int to_col = to.GetCol();
-                            int16_t hist_value = picker->history_heuristic[pt][from_row][from_col][to_row][to_col];
+                            const int from_sq = from.GetSquare();
+                            const int to_sq = to.GetSquare();
+                            int16_t hist_value = picker->history_heuristic[pt][from_sq][to_sq];
                             scored_moves.push_back({move_idx, hist_value});
                         }
                     }
@@ -202,10 +186,12 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                 // Return next move in the sorted order
                 if (picker->sorted_current < picker->count) {
                     size_t idx = picker->move_indices[picker->sorted_current++];
+                    /*
                     if (idx >= picker->count) {
                         std::cout << "Corrupted move index: " << idx << " >= " << picker->count << std::endl;
                         abort();
                     }
+                    */
                     // Skip PV move if it appears in the move list
                     if (picker->pv_move && picker->moves[idx] == *picker->pv_move) {
                         continue; // Skip to next move

@@ -74,14 +74,6 @@ void CommandLine::Run() {
   }
 }
 
-void CommandLine::EnableDebug(bool enable) {
-  std::lock_guard lock(mutex_);
-  debug_ = enable;
-  if (player_ != nullptr) {
-    player_->EnableDebug(enable);
-  }
-}
-
 void CommandLine::SetBoard(std::shared_ptr<Board> board) {
   std::lock_guard lock(mutex_);
   board_ = board;
@@ -133,6 +125,7 @@ void CommandLine::StartEvaluation() {
       options = options_;
     }
 
+    /*
     // if the game is over, print a string showing that
     auto game_result = board->GetGameResult();
     if (game_result != IN_PROGRESS) {
@@ -151,9 +144,10 @@ void CommandLine::StartEvaluation() {
       }
       return;
     }
+    */
 
     auto start = system_clock::now();
-    int num_eval_start = player->GetNumEvaluations();
+    //int num_eval_start = player->GetNumEvaluations();
     std::optional<Move> best_move;
 
     std::optional<milliseconds> time_limit;
@@ -164,13 +158,13 @@ void CommandLine::StartEvaluation() {
       auto res = player->MakeMove(*board, depth);
 
       if (res.has_value()) {
-        auto duration_ms = duration_cast<milliseconds>(
-            system_clock::now() - start);
-        int num_evals = player->GetNumEvaluations() - num_eval_start;
-        std::optional<int> nps;
-        if (duration_ms.count() > 0) {
-          nps = (int) (((float)num_evals) / (duration_ms.count() / 1000.0));
-        }
+        //auto duration_ms = duration_cast<milliseconds>(
+        //    system_clock::now() - start);
+        //int num_evals = player->GetNumEvaluations() - num_eval_start;
+        //std::optional<int> nps;
+        //if (duration_ms.count() > 0) {
+        //  nps = (int) (((float)num_evals) / (duration_ms.count() / 1000.0));
+        //}
         int score_centipawn = std::get<0>(*res);
         if (board->GetTurn().GetTeam() == BLUE_GREEN) {
           score_centipawn = -score_centipawn;
@@ -206,13 +200,13 @@ void CommandLine::StartEvaluation() {
         std::cout
           << "info"
           << " depth " << depth
-          << " time " << duration_ms.count()
-          << " nodes " << num_evals
+          //<< " time " << duration_ms.count()
+          //<< " nodes " << num_evals
           << " pv " << pv
           << " score " << score_centipawn;
-        if (nps.has_value()) {
-          std::cout << " nps " << *nps;
-        }
+        //if (nps.has_value()) {
+        //  std::cout << " nps " << *nps;
+        //}
         std::cout << std::endl;
 
         best_move = std::get<1>(*res);
@@ -262,19 +256,6 @@ void CommandLine::HandleCommand(
       << std::endl;
 
     std::cout << "uciok" << std::endl;
-  } else if (command == "debug") {
-    if (parts.size() != 2) {
-      SendInvalidCommandMessage(line);
-      return;
-    }
-    if (parts[1] == "on") {
-      EnableDebug(true);
-    } else if (parts[1] == "off") {
-      EnableDebug(false);
-    } else {
-      SendInvalidCommandMessage(line);
-      return;
-    }
   } else if (command == "isready") {
     std::cout << "readyok" << std::endl;
   } else if (command == "setoption") {
@@ -329,32 +310,12 @@ void CommandLine::HandleCommand(
         player_options_.enable_multithreading = n_threads > 1;
         player_ = std::make_shared<AlphaBetaPlayer>(player_options_);
       }
-    } else if (option_name == "engine_team") {
-      if (option_value == "red_yellow") {
-        player_options_.engine_team = RED_YELLOW;
-        player_ = std::make_shared<AlphaBetaPlayer>(player_options_);
-      } else if (option_value == "blue_green") {
-        player_options_.engine_team = BLUE_GREEN;
-        player_ = std::make_shared<AlphaBetaPlayer>(player_options_);
-      } else if (option_value == "no_team") {
-        player_options_.engine_team = NO_TEAM;
-        player_ = std::make_shared<AlphaBetaPlayer>(player_options_);
-      } else if (option_value == "current_team") {
-        player_options_.engine_team = CURRENT_TEAM;
-        player_ = std::make_shared<AlphaBetaPlayer>(player_options_);
-      } else {
-        SendInvalidCommandMessage(
-            "Invalid team: " + option_value + ". Must be red_yellow, or blue_green.");
-        return;
-      }
     } else {
       SendInvalidCommandMessage("Unrecognized option: " + option_name);
       return;
     }
     StopEvaluation();
 
-  } else if (command == "register") {
-    // ignore
   } else if (command == "ucinewgame") {
     // stop evaluation, if any, and create a new player / board
     StopEvaluation();
@@ -483,11 +444,6 @@ void CommandLine::HandleCommand(
   } else if (command == "stop") {
     // cancel current search, if any
     StopEvaluation();
-  } else if (command == "ponderhit") {
-    // switch from pondering to normal move
-    StopEvaluation();
-    MakePonderMove();
-    StartEvaluation();
   } else if (command == "quit") {
     // exit the program
     StopEvaluation();

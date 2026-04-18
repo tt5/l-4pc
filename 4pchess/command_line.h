@@ -43,7 +43,6 @@ class CommandLine {
   void Run();
 
  private:
-  void EnableDebug(bool enable);
   void StopEvaluation();
   void ResetBoard();
   void SetEvaluationOptions(const EvaluationOptions& options);

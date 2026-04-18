@@ -1,20 +1,25 @@
 #ifndef _PLAYER_H_
 #define _PLAYER_H_
 
+#include <array>
 #include <atomic>
+#include <cassert>
 #include <chrono>
+#include <cstdint>
+#include <cstdlib>
+#include <limits>
 #include <memory>
+#include <mutex>
 #include <optional>
+#include <shared_mutex>
 #include <tuple>
+#include <type_traits>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
-#include <mutex>
-#include <shared_mutex>
-#include <unordered_set>
 
 #include "board.h"
-#include "move_picker.h"
 #include "transposition_table.h"
 
 namespace chess {
@@ -294,8 +299,8 @@ class AlphaBetaPlayer {
   Team root_team_ = NO_TEAM;
 
   // Heuristics (shared across threads)
-  // (piece_type, from_row, from_col, to_row, to_col)
-  int16_t history_heuristic[6][14][14][14][14];
+  // (piece_type, from_square, to_square) where square = row * 14 + col
+  int16_t history_heuristic[6][196][196];
   // (piece_type, piece_color, capture_piece_type, capture_piece_color, to_row, to_col)
 
   static constexpr size_t kHeuristicMutexes = 256;
