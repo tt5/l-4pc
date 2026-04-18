@@ -519,11 +519,6 @@ class Move {
   friend std::ostream& operator<<(
       std::ostream& os, const Move& move);
   std::string PrettyStr() const;
-  // NOTE: This does not find discovered checks.
-  bool DeliversCheck(Board& board) const;
-  int SEE(Board& board, const int* piece_evaluations) const;
-  int ApproxSEE(Board& board, const int* piece_evaluations) const;
-
  private:
   BoardLocation from_;  // 1
   BoardLocation to_;  // 1
@@ -546,15 +541,6 @@ class Move {
 
   // Castling rights after the move
   CastlingRights castling_rights_; // 1
-
-  // Cached check (mutable to allow modification in const methods)
-  // -1 means missing, 0/1 store check values
-  mutable int8_t delivers_check_ = -1; // 1
-
-  static constexpr int kSeeNotSet = -9999999;
-
-  // Static exchange value of the move (mutable to allow modification in const methods)
-  mutable int see_ = kSeeNotSet;
 };
 
 enum GameResult {

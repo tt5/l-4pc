@@ -215,18 +215,19 @@ Move* Board::GetPawnMovesDirect(
   // First capture direction
   if (is_capture1_legal) {
     const BoardLocation& to1 = capture1_loc;
+    const Piece& captured1 = capture1_piece;
     
-    if (color == RED && col == 3 && en_passant_targets_[BLUE].GetRow() == to1.GetRow()) {
-      //*current++ = Move(from, to1, Piece::kNoPiece, forward1, forward_piece);
-    } else if (color == BLUE && row == 3 && en_passant_targets_[YELLOW].GetCol() == to1.GetCol()) {
-      //*current++ = Move(from, to1, Piece::kNoPiece, forward1, forward_piece);
-    } else if (color == YELLOW && col == 10 && en_passant_targets_[GREEN].GetRow() == to1.GetRow()) {
-      //*current++ = Move(from, to1, Piece::kNoPiece, forward1, forward_piece);
-    } else if (color == GREEN && row == 10 && en_passant_targets_[RED].GetCol() == to1.GetCol()) {
-      //*current++ = Move(from, to1, Piece::kNoPiece, forward1, forward_piece);
+    // en passant double capture not implemented!
+    if (color == RED && col == 3 && en_passant_targets_[BLUE].GetRow() == to1.GetRow() && !captured1.Present()) {
+      *current++ = Move(from, to1, Piece::kNoPiece, forward1, forward_piece);
+    } else if (color == BLUE && row == 3 && en_passant_targets_[YELLOW].GetCol() == to1.GetCol() && !captured1.Present()) {
+      *current++ = Move(from, to1, Piece::kNoPiece, forward1, forward_piece);
+    } else if (color == YELLOW && col == 10 && en_passant_targets_[GREEN].GetRow() == to1.GetRow() && !captured1.Present()) {
+      *current++ = Move(from, to1, Piece::kNoPiece, forward1, forward_piece);
+    } else if (color == GREEN && row == 10 && en_passant_targets_[RED].GetCol() == to1.GetCol() && !captured1.Present()) {
+      *current++ = Move(from, to1, Piece::kNoPiece, forward1, forward_piece);
     } else {
       // Regular capture - use cached piece
-      const Piece& captured1 = capture1_piece;
       if (captured1.Present() && captured1.GetTeam() != my_team) {
         // Handle promotion on capture or regular capture
         //if (is_promotion) [[unlikely]] {
@@ -241,18 +242,19 @@ Move* Board::GetPawnMovesDirect(
   // Second capture direction
   if (is_capture2_legal) {
     const BoardLocation& to2 = capture2_loc;
+    const Piece& captured2 = capture2_piece;
     
-    if (color == RED && col == 10 && en_passant_targets_[GREEN].GetRow() == to2.GetRow()) {
-      //*current++ = Move(from, to2, Piece::kNoPiece, forward1, forward_piece);
-    } else if (color == BLUE && row == 10 && en_passant_targets_[RED].GetCol() == to2.GetCol()) {
-      //*current++ = Move(from, to2, Piece::kNoPiece, forward1, forward_piece);
-    } else if (color == YELLOW && col == 3 && en_passant_targets_[BLUE].GetRow() == to2.GetRow()) {
-      //*current++ = Move(from, to2, Piece::kNoPiece, forward1, forward_piece);
-    } else if (color == GREEN && row == 3 && en_passant_targets_[YELLOW].GetCol() == to2.GetCol()) {
-      //*current++ = Move(from, to2, Piece::kNoPiece, forward1, forward_piece);
+    // en passant double capture not implemented!
+    if (color == RED && col == 10 && en_passant_targets_[GREEN].GetRow() == to2.GetRow() && !captured2.Present()) {
+      *current++ = Move(from, to2, Piece::kNoPiece, forward1, forward_piece);
+    } else if (color == BLUE && row == 10 && en_passant_targets_[RED].GetCol() == to2.GetCol() && !captured2.Present()) {
+      *current++ = Move(from, to2, Piece::kNoPiece, forward1, forward_piece);
+    } else if (color == YELLOW && col == 3 && en_passant_targets_[BLUE].GetRow() == to2.GetRow() && !captured2.Present()) {
+      *current++ = Move(from, to2, Piece::kNoPiece, forward1, forward_piece);
+    } else if (color == GREEN && row == 3 && en_passant_targets_[YELLOW].GetCol() == to2.GetCol() && !captured2.Present()) {
+      *current++ = Move(from, to2, Piece::kNoPiece, forward1, forward_piece);
     } else {
       // Regular capture - use cached piece
-      const Piece& captured2 = capture2_piece;
       if (captured2.Present() && captured2.GetTeam() != my_team) {
         // Handle promotion on capture or regular capture
         //if (is_promotion) [[unlikely]] {
@@ -774,6 +776,60 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
               abort();
             }
             switch (type) {
+              case QUEEN: {
+                // Check if rook can move to blocking square (r, c)
+                int8_t row_diff = r - from_row;
+                int8_t col_diff = c - from_col;
+                
+                // Must be on same row or column
+                if ((row_diff == 0 || col_diff == 0) && (row_diff != 0 || col_diff != 0)) {
+                    int8_t row_step = (row_diff > 0) ? 1 : (row_diff < 0) ? -1 : 0;
+                    int8_t col_step = (col_diff > 0) ? 1 : (col_diff < 0) ? -1 : 0;
+                    
+                    // Check if path is clear
+                    bool blocked = false;
+                    int8_t tr = from_row + row_step;
+                    int8_t tc = from_col + col_step;
+                    while (tr != r || tc != c) {
+                        if (!IsLegalLocation(tr, tc) || GetPiece(tr, tc).Present()) {
+                            blocked = true;
+                            break;
+                        }
+                        tr += row_step;
+                      tc += col_step;
+                  }
+                  
+                  if (!blocked) {
+                      *current++ = Move(location, {r, c});
+                      threats += 16;
+                  }
+              }
+                // Check if bishop can move to blocking square (r, c)
+                
+                // Must be on same diagonal (equal absolute differences)
+                if (std::abs(row_diff) == std::abs(col_diff) && row_diff != 0) {
+                    int8_t row_step = (row_diff > 0) ? 1 : -1;
+                    int8_t col_step = (col_diff > 0) ? 1 : -1;
+                    
+                    // Check if path is clear
+                    bool blocked = false;
+                    int8_t tr = from_row + row_step;
+                    int8_t tc = from_col + col_step;
+                    while (tr != r || tc != c) {
+                        if (!IsLegalLocation(r,c) || GetPiece(tr, tc).Present()) {
+                            blocked = true;
+                            break;
+                        }
+                        tr += row_step;
+                        tc += col_step;
+                    }
+                    
+                    if (!blocked) {
+                        *current++ = Move(location, {r, c});
+                        threats += 16;
+                    }
+                }
+              } break;
               case BISHOP: {
                 // Check if bishop can move to blocking square (r, c)
                 int8_t row_diff = r - from_row;
@@ -795,17 +851,112 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                         }
                         tr += row_step;
                         tc += col_step;
-                    }
+                      }
+                      
+                      if (!blocked) {
+                          *current++ = Move(location, {r, c});
+                          threats += 16;
+                      }
+                  }
+                } break;
+                case ROOK: {
+                // Check if rook can move to blocking square (r, c)
+                int8_t row_diff = r - from_row;
+                int8_t col_diff = c - from_col;
+                
+                // Must be on same row or column
+                if ((row_diff == 0 || col_diff == 0) && (row_diff != 0 || col_diff != 0)) {
+                    int8_t row_step = (row_diff > 0) ? 1 : (row_diff < 0) ? -1 : 0;
+                    int8_t col_step = (col_diff > 0) ? 1 : (col_diff < 0) ? -1 : 0;
                     
-                    if (!blocked) {
-                        //*current++ = Move(location, {r, c});
-                        threats += 16;
-                    }
-                }
-              } break;
-
-              //default: assert(false && "Movegen: Invalid piece type");
-              default: ;
+                    // Check if path is clear
+                    bool blocked = false;
+                    int8_t tr = from_row + row_step;
+                    int8_t tc = from_col + col_step;
+                    while (tr != r || tc != c) {
+                        if (!IsLegalLocation(tr, tc) || GetPiece(tr, tc).Present()) {
+                            blocked = true;
+                            break;
+                        }
+                        tr += row_step;
+                      tc += col_step;
+                  }
+                  
+                  if (!blocked) {
+                      *current++ = Move(location, {r, c});
+                      threats += 16;
+                  }
+              }
+            } break;
+            case KNIGHT: {
+              // Check if knight can move to blocking square (r, c)
+              int8_t row_diff = std::abs(r - from_row);
+              int8_t col_diff = std::abs(c - from_col);
+              
+              // Knight moves in L-shape: 2+1 or 1+2
+              if ((row_diff == 2 && col_diff == 1) || (row_diff == 1 && col_diff == 2)) {
+                  *current++ = Move(location, {r, c});
+                  threats += 16;
+              }
+            } break;
+            case PAWN: {
+              // Check if pawn can move forward to blocking square (r, c)
+              int8_t row_diff = r - from_row;
+              int8_t col_diff = c - from_col;
+              
+              switch (current_color) {
+                case RED:
+                  // RED moves up (-1, 0), starts at row 12
+                  if (row_diff == -1 && col_diff == 0) {
+                      *current++ = Move(location, {r, c});
+                      threats += 16;
+                  } else if (row_diff == -2 && col_diff == 0 && from_row == 12) {
+                      if (GetPiece(from_row - 1, c).Missing()) {
+                          *current++ = Move(location, {r, c});
+                          threats += 16;
+                      }
+                  }
+                  break;
+                case BLUE:
+                  // BLUE moves right (0, +1), starts at col 1
+                  if (row_diff == 0 && col_diff == 1) {
+                      *current++ = Move(location, {r, c});
+                      threats += 16;
+                  } else if (row_diff == 0 && col_diff == 2 && from_col == 1) {
+                      if (GetPiece(r, from_col + 1).Missing()) {
+                          *current++ = Move(location, {r, c});
+                          threats += 16;
+                      }
+                  }
+                  break;
+                case YELLOW:
+                  // YELLOW moves down (+1, 0), starts at row 1
+                  if (row_diff == 1 && col_diff == 0) {
+                      *current++ = Move(location, {r, c});
+                      threats += 16;
+                  } else if (row_diff == 2 && col_diff == 0 && from_row == 1) {
+                      if (GetPiece(from_row + 1, c).Missing()) {
+                          *current++ = Move(location, {r, c});
+                          threats += 16;
+                      }
+                  }
+                  break;
+                case GREEN:
+                  // GREEN moves left (0, -1), starts at col 12
+                  if (row_diff == 0 && col_diff == -1) {
+                      *current++ = Move(location, {r, c});
+                      threats += 16;
+                  } else if (row_diff == 0 && col_diff == -2 && from_col == 12) {
+                      if (GetPiece(r, from_col - 1).Missing()) {
+                          *current++ = Move(location, {r, c});
+                          threats += 16;
+                      }
+                  }
+                  break;
+                default: break;
+              }
+            } break;
+            default: ;
             }
             // TODO: Check if current piece can move to block_sq
             r += drow;
@@ -813,33 +964,175 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
         }
 
 
-        // Generate moves for this piecee
+        // capture attacker
         switch (type) {
 
             case QUEEN:   {
-                current = GetBishopMovesDirect(current, end - current, location, current_color, threats, my_team);
-                //current = GetRookMovesDirect(current, end - current, location, current_color, threats, my_team);
-                current = GetRookMovesCheck(current, end - current, location, current_color, threats, my_team, attacker, kinglocation);
+                  bool occupied = false;
+                  // try to capture the attacker - bishops move diagonally
+                  int8_t row_diff = att_row - from_row;
+                  int8_t col_diff = att_col - from_col;
+                  // Check if attacker is on same diagonal (equal absolute differences)
+                  if (std::abs(row_diff) == std::abs(col_diff) && row_diff != 0) {
+                      int8_t row_step = (row_diff > 0) ? 1 : -1;
+                      int8_t col_step = (col_diff > 0) ? 1 : -1;
+                      int8_t tr = from_row + row_step;
+                      int8_t tc = from_col + col_step;
+                      while (tr != att_row && tc != att_col) {
+                          if (GetPiece(tr, tc).Present()) {
+                            occupied = true;
+                            break;
+                          }
+                          tr += row_step;
+                          tc += col_step;
+                      }
+                      if (!occupied) {
+                        *current++ = Move(location, attacker, GetPiece(att_row, att_col));
+                        threats += 16;
+                      }
+                  }
+
+                  occupied = false;
+                  // try to capture the attacker
+                  if (from_row == att_row) {
+                      int8_t step = (att_col > from_col) ? 1 : -1;
+                      for (int8_t tc = from_col + step; tc != att_col; tc += step) {
+                          if (GetPiece(from_row, tc).Present()) {
+                            occupied = true;
+                            break;
+                          }
+                      }
+                      if (occupied == true) {
+                        *current++ = Move(location, attacker, GetPiece(att_row, att_col));
+                        threats += 16;
+                      }
+                  } else if (from_col == att_col) {
+                      int8_t step = (att_row > from_row) ? 1 : -1;
+                      for (int8_t tr = from_row + step; tr != att_row; tr += step) {
+                          if (GetPiece(tr, from_col).Present()) {
+                            occupied = true;
+                            break;
+                          }
+                      }
+                      if (occupied == true) {
+                        *current++ = Move(location, attacker, GetPiece(att_row, att_col));
+                        threats += 16;
+                      }
+                  }
               } break;
             case ROOK: {
-              current = GetRookMovesCheck(current, end - current, location, current_color, threats, my_team, attacker, kinglocation);
-              //current = GetRookMovesDirect(current, end - current, location, current_color, threats, my_team);
+                  bool occupied = false;
+                  // try to capture the attacker
+                  if (from_row == att_row) {
+                      int8_t step = (att_col > from_col) ? 1 : -1;
+                      for (int8_t tc = from_col + step; tc != att_col; tc += step) {
+                          if (GetPiece(from_row, tc).Present()) {
+                            occupied = true;
+                            break;
+                          }
+                      }
+                      if (occupied == true) {
+                        *current++ = Move(location, attacker, GetPiece(att_row, att_col));
+                        threats += 16;
+                      }
+                  } else if (from_col == att_col) {
+                      int8_t step = (att_row > from_row) ? 1 : -1;
+                      for (int8_t tr = from_row + step; tr != att_row; tr += step) {
+                          if (GetPiece(tr, from_col).Present()) {
+                            occupied = true;
+                            break;
+                          }
+                      }
+                      if (occupied == true) {
+                        *current++ = Move(location, attacker, GetPiece(att_row, att_col));
+                        threats += 16;
+                      }
+                  }
               }  break;
-              //case BISHOP: break;
-            case BISHOP:  current = GetBishopMovesDirect(current, end - current, location, current_color, threats, my_team);
-            //  break;
-            case PAWN:    current = GetPawnMovesDirect(current, location, current_color, my_team); break;
-            case KNIGHT:  current = GetKnightMovesDirect(current, end - current, location, current_color, threats, my_team);
-              break;
+            case BISHOP:  {
+                  bool occupied = false;
+                  // try to capture the attacker - bishops move diagonally
+                  int8_t row_diff = att_row - from_row;
+                  int8_t col_diff = att_col - from_col;
+                  // Check if attacker is on same diagonal (equal absolute differences)
+                  if (std::abs(row_diff) == std::abs(col_diff) && row_diff != 0) {
+                      int8_t row_step = (row_diff > 0) ? 1 : -1;
+                      int8_t col_step = (col_diff > 0) ? 1 : -1;
+                      int8_t tr = from_row + row_step;
+                      int8_t tc = from_col + col_step;
+                      while (tr != att_row && tc != att_col) {
+                          if (GetPiece(tr, tc).Present()) {
+                            occupied = true;
+                            break;
+                          }
+                          tr += row_step;
+                          tc += col_step;
+                      }
+                      if (!occupied) {
+                        *current++ = Move(location, attacker, GetPiece(att_row, att_col));
+                        threats += 16;
+                      }
+                  }
+            } break;
+            case PAWN: {
+                // Check if attacker is on a pawn capture square based on color
+                int8_t row_diff = att_row - from_row;
+                int8_t col_diff = att_col - from_col;
+                
+                switch (current_color) {
+                    case RED:
+                        // RED captures up-left (-1,-1) and up-right (-1,+1)
+                        if (row_diff == -1 && (col_diff == -1 || col_diff == 1)) {
+                            *current++ = Move(location, attacker, GetPiece(att_row, att_col));
+                            threats += 16;
+                        }
+                        break;
+                    case BLUE:
+                        // BLUE captures up-right (-1,+1) and down-right (+1,+1)
+                        if (col_diff == 1 && (row_diff == -1 || row_diff == 1)) {
+                            *current++ = Move(location, attacker, GetPiece(att_row, att_col));
+                            threats += 16;
+                        }
+                        break;
+                    case YELLOW:
+                        // YELLOW captures down-right (+1,+1) and down-left (+1,-1)
+                        if (row_diff == 1 && (col_diff == 1 || col_diff == -1)) {
+                            *current++ = Move(location, attacker, GetPiece(att_row, att_col));
+                            threats += 16;
+                        }
+                        break;
+                    case GREEN:
+                        // GREEN captures down-left (+1,-1) and up-left (-1,-1)
+                        if (col_diff == -1 && (row_diff == 1 || row_diff == -1)) {
+                            *current++ = Move(location, attacker, GetPiece(att_row, att_col));
+                            threats += 16;
+                        }
+                        break;
+                    default: break;
+                }
+            } break;
+            case KNIGHT:  {
+                // Check if attacker is on a valid knight capture square
+                int8_t row_diff = att_row - from_row;
+                int8_t col_diff = att_col - from_col;
+                int8_t abs_row_diff = std::abs(row_diff);
+                int8_t abs_col_diff = std::abs(col_diff);
+                
+                // Knight moves in L-shape: 2+1 or 1+2
+                if ((abs_row_diff == 2 && abs_col_diff == 1) ||
+                    (abs_row_diff == 1 && abs_col_diff == 2)) {
+                    *current++ = Move(location, attacker, GetPiece(att_row, att_col));
+                    threats += 16;
+                }
+            } break;
             case KING: {
               // just move/capture in all 8 directions
                 current = GetKingMovesCheck(current, end - current, location, current_color, my_team);
-            }
-            break;
+            } break;
             default: assert(false && "Movegen: Invalid piece type");
         }
 
-        } else if (
+        } else if ( // can only capture the attacker
           attacking_piece.GetPieceType() == KNIGHT ||
           attacking_piece.GetPieceType() == PAWN
       ) {
@@ -856,7 +1149,6 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
 
         switch (type) {
             case QUEEN:   {
-                //current = GetBishopMovesDirect(current, end - current, location, current_color, threats, my_team);
                   bool occupied = false;
                   // try to capture the attacker - bishops move diagonally
                   int8_t row_diff = att_row - from_row;
@@ -1059,9 +1351,9 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
       auto avg_ns = total_time.count() / call_count;
       auto current_avg = pgen_duration.count() / 1;  // Current call's time in ns
 
-      //std::cout << "--- -- [MoveGen]"
-      //<< "Average: " << avg_ns << " ns, "
-      //<< "Call count: " << call_count << std::endl;
+      std::cout << "--- -- [MoveGen]"
+      << "Average: " << avg_ns << " ns, "
+      << "Call count: " << call_count << std::endl;
 
     }
     return result;

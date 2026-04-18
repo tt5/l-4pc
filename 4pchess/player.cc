@@ -310,11 +310,11 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   bool fail_high = false;
 
   while (true) {
+    auto startA2 = std::chrono::high_resolution_clock::now();
     const Move* move_ptr = GetNextMove2(&picker);
     if (move_ptr == nullptr) break;
     const Move& move = *move_ptr;
 
-    auto startA2 = std::chrono::high_resolution_clock::now();
 
     //const auto& to = move.To();
     
@@ -420,12 +420,12 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     if (call_countA2 % 200000 == 0) {
       auto avg_ns = total_timeA2.count() / call_countA2;
 
-      //std::cout << "---[Move - before recursion]"
-      //          << "Average: " << avg_ns << " ns, "
-      //          << "Call count: " << call_countA2 << std::endl
-      //          << "Singular searches: " << GetNumSingularExtensionSearches() << std::endl
-      //          << "Singular hits: " << GetNumSingularExtensions() << std::endl
-      //          << "CM skips: " << cm_skip_count << std::endl;
+      std::cout << "---[Move - before recursion]"
+                << "Average: " << avg_ns << " ns, "
+                << "Call count: " << call_countA2 << std::endl
+                << "Singular searches: " << GetNumSingularExtensionSearches() << std::endl
+                << "Singular hits: " << GetNumSingularExtensions() << std::endl
+                << "CM skips: " << cm_skip_count << std::endl;
     }
 
     if (depth >= 4

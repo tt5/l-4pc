@@ -33,6 +33,7 @@ struct MovePicker2 {
     int16_t (*history_heuristic)[14][14][14][14]; // Pointer to current ply's history heuristic [piece_type][from_row][from_col][to_row][to_col]
     std::vector<size_t> move_indices;   // To store sorted indices of remaining moves
     bool remaining_sorted; // Whether remaining moves are already sorted
+    size_t sorted_current; // Current position in sorted order
 };
 // Initialize with board, moves, and optional PV move
 inline void InitMovePicker2(
@@ -51,6 +52,7 @@ inline void InitMovePicker2(
     picker->phase = 0;
     picker->remaining_sorted = false;
     picker->history_heuristic = history_heuristic;
+    picker->sorted_current = 0;
     
     // Initialize move indices
     picker->move_indices.resize(count);
@@ -77,11 +79,6 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
             case 0:
                 picker->phase++;
                 if (picker->pv_move) {
-                    // Skip the PV move in the main move list if it exists there
-                    if (picker->current < picker->count && 
-                        picker->moves[picker->current] == *picker->pv_move) {
-                        picker->current++;
-                    }
                     return picker->pv_move;
                 }
                 // Fall through to next phase if no PV move
@@ -113,14 +110,15 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
 
                     // Calculate scores for remaining moves
                     for (size_t i = 0; i < remaining_moves; i++) {
-                        const Move& move = picker->moves[picker->current + i];
+                        const size_t move_idx = picker->current + i;
+                        const Move& move = picker->moves[move_idx];
 
                         const bool is_capture = move.IsCapture();
 
                         const auto from = move.From();
                         const Piece piece = picker->board->GetPiece(from);
                         const PieceType pt = piece.GetPieceType();
-                        
+
                         // Fast path for captures - give them a significant bonus
                         if (is_capture) {
                             //int32_t score = (remaining_moves - i) << 5;  // approx 0-1024 range
@@ -129,21 +127,21 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                             // Get captured piece type
                             const Piece captured_piece = move.GetCapturePiece();
                             const PieceType victim_pt = captured_piece.GetPieceType();
-                            
+
                             // Piece values scaled down: PAWN=1, KNIGHT=6, BISHOP=8, ROOK=10, QUEEN=20, KING=200
                             static constexpr int piece_values[6] = {1, 6, 8, 10, 20, 200};
-                            
+
                             const int victim_value = piece_values[victim_pt];
                             const int aggressor_value = piece_values[pt];
-                            
+
                             // Scaled MVV-LVA: victim * 10 - aggressor (range: ~4 to ~1994)
                             const int mvv_lva = (victim_value * 10) - aggressor_value;
-                            
+
                             // Base capture score scaled to fit int16_t (max ~30,000)
                             int16_t score = 30000 + static_cast<int16_t>(mvv_lva);
-                            
-                            scored_moves.push_back({i, score});
-                        } 
+
+                            scored_moves.push_back({move_idx, score});
+                        }
                         // Slower path for non-captures
                         else {
                             // Get move information
@@ -153,7 +151,7 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                             const int to_row = to.GetRow();
                             const int to_col = to.GetCol();
                             int16_t hist_value = picker->history_heuristic[pt][from_row][from_col][to_row][to_col];
-                            scored_moves.push_back({i, hist_value});
+                            scored_moves.push_back({move_idx, hist_value});
                         }
                     }
                     
@@ -175,9 +173,9 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                         std::sort(scored_moves.begin(), scored_moves.end(), move_comparator);
                     }
                     
-                    // Update move_indices with new order
+                    // Update move_indices with new order (write to beginning)
                     for (size_t i = 0; i < scored_moves.size(); i++) {
-                        picker->move_indices[picker->current + i] = scored_moves[i].idx;
+                        picker->move_indices[i] = scored_moves[i].idx;
                     }
                     
                     picker->remaining_sorted = true;
@@ -194,16 +192,24 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                     }
                     
                     if (orderings_count % 100000 == 0) {
-                        //std::cout << "--- -- [Move ordering] "
-                        //          << "Count: " << orderings_count << " "
-                        //          << "Avg: " << total_ordering_time.count() / orderings_count << "ns "
-                        //          << "Cur/Max moves: " << moves_this_time << "/" << max_moves_ordered << "\n";
+                        std::cout << "--- -- [Move ordering] "
+                                  << "Count: " << orderings_count << " "
+                                  << "Avg: " << total_ordering_time.count() / orderings_count << "ns "
+                                  << "Cur/Max moves: " << moves_this_time << "/" << max_moves_ordered << "\n";
                     }
                 }
                 
                 // Return next move in the sorted order
-                if (picker->current < picker->count) {
-                    size_t idx = picker->move_indices[picker->current++];
+                if (picker->sorted_current < picker->count) {
+                    size_t idx = picker->move_indices[picker->sorted_current++];
+                    if (idx >= picker->count) {
+                        std::cout << "Corrupted move index: " << idx << " >= " << picker->count << std::endl;
+                        abort();
+                    }
+                    // Skip PV move if it appears in the move list
+                    if (picker->pv_move && picker->moves[idx] == *picker->pv_move) {
+                        continue; // Skip to next move
+                    }
                     return &picker->moves[idx];
                 }
                 return nullptr;
