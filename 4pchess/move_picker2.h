@@ -83,9 +83,9 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                 if (!picker->remaining_sorted && 
                     remaining_moves > 1) {  // Changed condition to use remaining_moves
                     
-                    static std::chrono::nanoseconds total_ordering_time{0};
-                    static int orderings_count = 0;
-                    const auto start = std::chrono::high_resolution_clock::now();
+                    //static std::chrono::nanoseconds total_ordering_time{0};
+                    //static int orderings_count = 0;
+                    //const auto start = std::chrono::high_resolution_clock::now();
                     
                     struct ScoredMove {
                         size_t idx;
@@ -164,23 +164,23 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                     
                     picker->remaining_sorted = true;
                     
-                    const auto end = std::chrono::high_resolution_clock::now();
-                    const auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
-                    total_ordering_time += duration;
-                    orderings_count++;
+                    //const auto end = std::chrono::high_resolution_clock::now();
+                    //const auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+                    //total_ordering_time += duration;
+                    //orderings_count++;
                     
-                    static size_t max_moves_ordered = 0;
-                    size_t moves_this_time = picker->count - picker->current;
-                    if (moves_this_time > max_moves_ordered) {
-                        max_moves_ordered = moves_this_time;
-                    }
+                    //static size_t max_moves_ordered = 0;
+                    //size_t moves_this_time = picker->count - picker->current;
+                    //if (moves_this_time > max_moves_ordered) {
+                    //    max_moves_ordered = moves_this_time;
+                    //}
                     
-                    if (orderings_count % 100000 == 0) {
-                        std::cout << "--- -- [Move ordering] "
-                                  << "Count: " << orderings_count << " "
-                                  << "Avg: " << total_ordering_time.count() / orderings_count << "ns "
-                                  << "Cur/Max moves: " << moves_this_time << "/" << max_moves_ordered << "\n";
-                    }
+                    //if (orderings_count % 100000 == 0) {
+                    //    std::cout << "--- -- [Move ordering] "
+                    //              << "Count: " << orderings_count << " "
+                    //              << "Avg: " << total_ordering_time.count() / orderings_count << "ns "
+                    //              << "Cur/Max moves: " << moves_this_time << "/" << max_moves_ordered << "\n";
+                    //}
                 }
                 
                 // Return next move in the sorted order

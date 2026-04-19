@@ -130,6 +130,9 @@ class Piece {
   }
   
   Piece() : Piece(false, RED, NO_PIECE) { }
+  
+  // Raw constructor - bypasses validation for performance (caller must ensure valid)
+  Piece(int8_t raw_bits, bool /*raw*/) noexcept : bits_(raw_bits) { }
 
   static void AbortWithMessage(const std::string& message) {
     std::cerr << "FATAL ERROR: " << message << "\n";
@@ -285,6 +288,9 @@ class BoardLocation {
     loc_ = (row < 0 || row >= 14 || col < 0 || col >= 14)
       ? 196 : 14 * row + col;
   }
+  // Raw constructor - bypasses validation for performance (caller must ensure valid)
+  BoardLocation(int8_t row, int8_t col, bool /*raw*/) noexcept
+      : loc_(static_cast<uint8_t>(14 * row + col)) {}
 
   bool Present() const { return loc_ < 196; }
   bool Missing() const { return !Present(); }
@@ -400,13 +406,15 @@ class Move {
   // Standard move
   Move(BoardLocation from, BoardLocation to,
        Piece standard_capture = Piece::kNoPiece,
-       CastlingRights initial_castling_rights = CastlingRights::kMissingRights,
-       CastlingRights castling_rights = CastlingRights::kMissingRights)
+       CastlingRights initial_castling_rights = CastlingRights::kMissingRights)
     : from_(std::move(from)),
       to_(std::move(to)),
+      from_row_(from.GetRow()),
+      from_col_(from.GetCol()),
+      to_row_(to.GetRow()),
+      to_col_(to.GetCol()),
       standard_capture_(standard_capture),
-      initial_castling_rights_(std::move(initial_castling_rights)),
-      castling_rights_(std::move(castling_rights))
+      initial_castling_rights_(std::move(initial_castling_rights))
   {
     if (standard_capture_.Present() && 
         (!standard_capture_.IsValid() || standard_capture_.GetPieceType() == NO_PIECE)) {
@@ -451,6 +459,10 @@ class Move {
        PieceType promotion_piece_type = NO_PIECE)
     : from_(std::move(from)),
       to_(std::move(to)),
+      from_row_(from.GetRow()),
+      from_col_(from.GetCol()),
+      to_row_(to.GetRow()),
+      to_col_(to.GetCol()),
       standard_capture_(standard_capture),
       promotion_piece_type_(promotion_piece_type),
       en_passant_location_(en_passant_location),
@@ -460,17 +472,46 @@ class Move {
   // Castling
   Move(BoardLocation from, BoardLocation to,
        SimpleMove rook_move,
-       CastlingRights initial_castling_rights,
-       CastlingRights castling_rights)
+       CastlingRights initial_castling_rights)
     : from_(std::move(from)),
       to_(std::move(to)),
+      from_row_(from.GetRow()),
+      from_col_(from.GetCol()),
+      to_row_(to.GetRow()),
+      to_col_(to.GetCol()),
       rook_move_(rook_move),
-      initial_castling_rights_(std::move(initial_castling_rights)),
-      castling_rights_(std::move(castling_rights))
+      initial_castling_rights_(std::move(initial_castling_rights))
   { }
+
+  // Raw constructor - bypasses validation/overhead for performance (caller must ensure valid)
+  Move(int8_t from_r, int8_t from_c, int8_t to_r, int8_t to_c,
+       int8_t capture_raw, bool /*raw*/) noexcept
+      : from_(from_r, from_c, true),
+        to_(to_r, to_c, true),
+        from_row_(from_r),
+        from_col_(from_c),
+        to_row_(to_r),
+        to_col_(to_c),
+        standard_capture_(capture_raw, true) { }
+
+  // Raw constructor with castling rights - for king moves
+  Move(int8_t from_r, int8_t from_c, int8_t to_r, int8_t to_c,
+       int8_t capture_raw, CastlingRights castling_rights, bool /*raw*/) noexcept
+      : from_(from_r, from_c, true),
+        to_(to_r, to_c, true),
+        from_row_(from_r),
+        from_col_(from_c),
+        to_row_(to_r),
+        to_col_(to_c),
+        standard_capture_(capture_raw, true),
+        initial_castling_rights_(std::move(castling_rights)) { }
 
   const BoardLocation& From() const { return from_; }
   const BoardLocation& To() const { return to_; }
+  int8_t FromRow() const { return from_row_; }
+  int8_t FromCol() const { return from_col_; }
+  int8_t ToRow() const { return to_row_; }
+  int8_t ToCol() const { return to_col_; }
   bool Present() const { return from_.Present() && to_.Present(); }
   Piece GetStandardCapture() const {
     return standard_capture_;
@@ -491,9 +532,6 @@ class Move {
   CastlingRights GetInitialCastlingRights() const {
     return initial_castling_rights_;
   }
-  CastlingRights GetCastlingRights() const {
-    return castling_rights_;
-  }
 
   bool IsCapture() const {
     return standard_capture_.Present() || en_passant_capture_.Present();
@@ -510,8 +548,7 @@ class Move {
         && en_passant_location_ == other.en_passant_location_
         && en_passant_capture_ == other.en_passant_capture_
         && rook_move_ == other.rook_move_
-        && initial_castling_rights_ == other.initial_castling_rights_
-        && castling_rights_ == other.castling_rights_;
+        && initial_castling_rights_ == other.initial_castling_rights_;
   }
   bool operator!=(const Move& other) const {
     return !(*this == other);
@@ -523,6 +560,12 @@ class Move {
  private:
   BoardLocation from_;  // 1
   BoardLocation to_;  // 1
+
+  // Dual-format coordinates (redundant but avoids division)
+  int8_t from_row_;
+  int8_t from_col_;
+  int8_t to_row_;
+  int8_t to_col_;
 
   // Capture
   Piece standard_capture_; // 1
@@ -540,8 +583,6 @@ class Move {
   // Castling rights before the move
   CastlingRights initial_castling_rights_; // 1
 
-  // Castling rights after the move
-  CastlingRights castling_rights_; // 1
 };
 
 enum GameResult {
@@ -574,48 +615,6 @@ class PlacedPiece {
 struct EnpassantInitialization {
   // Indexed by PlayerColor
   std::optional<Move> enp_moves[4] = {std::nullopt, std::nullopt, std::nullopt, std::nullopt};
-};
-
-struct MoveBuffer {
-    Move* __restrict buffer = nullptr;
-    size_t pos = 0;
-    size_t limit = 0;
-
-    // Standard move
-    void AddMove(BoardLocation from, BoardLocation to, 
-                Piece capture = Piece::kNoPiece,
-                CastlingRights initial_castling = CastlingRights::kMissingRights,
-                CastlingRights castling = CastlingRights::kMissingRights) {
-        if (pos < limit) {
-            buffer[pos++] = Move(from, to, capture, initial_castling, castling);
-        }
-    }
-
-    // Pawn move with en passant and promotion
-    void AddPawnMove(BoardLocation from, BoardLocation to,
-                    Piece capture,
-                    BoardLocation en_passant_loc = BoardLocation::kNoLocation,
-                    Piece en_passant_capture = Piece::kNoPiece,
-                    PieceType promotion = NO_PIECE) {
-        if (pos < limit) {
-            buffer[pos++] = Move(from, to, capture, en_passant_loc, 
-                               en_passant_capture, promotion);
-        }
-    }
-
-    // Castling move
-    void AddCastle(BoardLocation from, BoardLocation to,
-                  SimpleMove rook_move,
-                  CastlingRights initial_castling,
-                  CastlingRights castling) {
-        if (pos < limit) {
-            buffer[pos++] = Move(from, to, rook_move, initial_castling, castling);
-        }
-    }
-
-    // Check if there's space for more moves
-    bool HasSpace() const { return pos < limit; }
-    size_t Size() const { return pos; }
 };
 
 
@@ -652,8 +651,9 @@ class Board {
   // Direct buffer access move generation functions
   Move* GetPawnMovesDirect(Move* moves, const BoardLocation& from, PlayerColor color, Team my_team) const;
   Move* GetKnightMovesDirect(Move* moves, const BoardLocation& from, PlayerColor color, int& threats, Team my_team) const;
-  Move* GetBishopMovesDirect(Move* moves, const BoardLocation& from, PlayerColor color, int& threats, Team my_team) const;
-  Move* GetRookMovesDirect(Move* moves, const BoardLocation& from, PlayerColor color, int& threats, Team my_team) const;
+  //Move* GetBishopMovesDirect(Move* moves, const BoardLocation& from, PlayerColor color, int& threats, Team my_team) const;
+  Move* GetBishopMovesDirect(Move* moves, const BoardLocation& from, const int8_t from_row, const int8_t from_col, PlayerColor color, int& threats, Team my_team) const;
+  Move* GetRookMovesDirect(Move* moves, const BoardLocation& from, const int8_t from_row, const int8_t from_col, PlayerColor color, int& threats, Team my_team) const;
   Move* GetQueenMovesDirect(Move* moves, const BoardLocation& from, PlayerColor color, int& threats, Team my_team) const;
   Move* GetKingMovesDirect(Move* moves, const BoardLocation& from, PlayerColor color, Team my_team) const;
 
@@ -674,7 +674,17 @@ class Board {
   const Player& GetTurn() const { return turn_; }
   bool IsAttackedByTeam(
       Team team,
-      const BoardLocation& location) const;
+      int8_t loc_row,
+      int8_t loc_col
+      ) const;
+
+  bool IsAttackedByTeamAligned(
+      Team team,
+      int8_t loc_row,
+      int8_t loc_col,
+      int8_t rd,
+      int8_t cd
+      ) const;
 
   BoardLocation GetAttacker(
       Team team,
@@ -698,19 +708,11 @@ class Board {
   const Piece& GetPiece(int row, int col) const {
     return location_to_piece_[row][col];
   }
+ 
   const Piece& GetPiece(
       const BoardLocation& location) const {
     return GetPiece(location.GetRow(), location.GetCol());
   }
-  inline bool IsOnPathBetween(
-      const BoardLocation& from,
-      const BoardLocation& to,
-      const BoardLocation& between) const;
-  inline bool DiscoversCheck(
-      const BoardLocation& king_location,
-      const BoardLocation& move_from,
-      const BoardLocation& move_to,
-      Team attacking_team) const;
 
   int64_t HashKey() const { return hash_key_; }
 
@@ -732,41 +734,6 @@ class Board {
 
   // Print the current board state to stdout
   void PrintBoard() const;
-
-
-  void GetPawnMoves2(
-      MoveBuffer& moves,
-      const BoardLocation& from,
-      const Piece& piece) const;
-  void GetKnightMoves2(
-      MoveBuffer& moves,
-      const BoardLocation& from,
-      const Piece& piece) const;
-  void GetBishopMoves2(
-      MoveBuffer& moves,
-      const BoardLocation& from,
-      const Piece& piece) const;
-  void GetRookMoves2(
-      MoveBuffer& moves,
-      const BoardLocation& from,
-      const Piece& piece) const;
-  void GetQueenMoves2(
-      MoveBuffer& moves,
-      const BoardLocation& from,
-      const Piece& piece) const;
-  void GetKingMoves2(
-      MoveBuffer& moves,
-      const BoardLocation& from,
-      const Piece& piece) const;
-  void AddMovesFromIncrMovement2(
-      MoveBuffer& moves,
-      const Piece& piece,
-      const BoardLocation& from,
-      int incr_row,
-      int incr_col,
-      CastlingRights initial_castling_rights = CastlingRights::kMissingRights,
-      CastlingRights castling_rights = CastlingRights::kMissingRights) const;
-
 
   friend std::ostream& operator<<(
       std::ostream& os, const Board& board);

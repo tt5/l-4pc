@@ -164,7 +164,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     pv_move.has_value() ? pv_move : tt_move);
   thread_state.TotalMoves()[player_color] = result.mobility_counts[player_color];
   thread_state.NThreats()[player_color] = result.threat_counts[player_color];
-  bool in_check = result.in_check;
+  //bool in_check = result.in_check;
 
   //~20ns
   //if (tt_hit && tte->eval != value_none_tt) {
@@ -312,7 +312,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     const Move* move_ptr = GetNextMove2(&picker);
     if (move_ptr == nullptr) break;
     const Move& move = *move_ptr;
-    auto startA2 = std::chrono::high_resolution_clock::now();
+    //auto startA2 = std::chrono::high_resolution_clock::now();
 
 
     //const auto& to = move.To();
@@ -321,26 +321,21 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
     const auto capture = move.GetCapturePiece();
     if (UNLIKELY(capture.Present() && capture.GetPieceType() == KING)) {
+        // capturing the king not always wins but it always ends the game
         
-        // Track unique checkmate positions
-        Board checkmateboard = board;
-        //Move last_move = board.GetLastMove();
-        checkmateboard.UndoMove();
-        int64_t hash_key = checkmateboard.HashKey();
-
         bool is_new_checkmate = false;
         
         // First try a read-only check with shared lock
         {
           std::shared_lock<std::shared_mutex> lock(checkmate_mutex_);
-          is_new_checkmate = (checkmate_positions_.find(hash_key) == checkmate_positions_.end());
+          is_new_checkmate = (checkmate_positions_.find(key) == checkmate_positions_.end());
         }
         
         // If it's a new checkmate, take exclusive lock to update
         if (is_new_checkmate) {
           std::unique_lock<std::shared_mutex> lock(checkmate_mutex_);
           // Double-check in case another thread added it between our check and now
-          checkmate_positions_.insert(hash_key).second;
+          checkmate_positions_.insert(key).second;
         }
 
       //const auto game_result = capture.GetTeam() == RED_YELLOW ? WIN_BG : WIN_RY;
@@ -357,23 +352,16 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       return std::make_tuple(eval, std::nullopt);
     }
 
+    const auto oldkinglocation = board.GetKingLocation(player_color);
     //~20ns
     board.MakeMove(move);
 
     const auto kinglocation = board.GetKingLocation(player_color);
-    if (in_check) {
-      bool is_king_in_check = board.IsAttackedByTeam(other_team, kinglocation);
-      if (is_king_in_check) { // invalid move
-        board.UndoMove();
-        continue;
-      }
-    } else {
-
-      const int8_t king_row = kinglocation.GetRow();
-      const int8_t king_col = kinglocation.GetCol();
-      const auto& from = move.From();
-      const int8_t from_row = from.GetRow();
-      const int8_t from_col = from.GetCol();
+    const int8_t king_row = kinglocation.GetRow();
+    const int8_t king_col = kinglocation.GetCol();
+    if (kinglocation == oldkinglocation) {
+      const int8_t from_row = move.FromRow();
+      const int8_t from_col = move.FromCol();
       const int8_t row_diff = king_row - from_row;
       const int8_t col_diff = king_col - from_col;
       const bool aligned_with_king = 
@@ -382,12 +370,24 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         row_diff * row_diff == col_diff * col_diff;  // diagonal
 
       if (aligned_with_king) { // possible pinned or king move
-        bool is_king_in_check = board.IsAttackedByTeam(other_team, kinglocation);
+        bool is_king_in_check = board.IsAttackedByTeamAligned(
+          other_team, king_row, king_col, 
+          (row_diff > 0) - (row_diff < 0),  // sign of row_diff: -1, 0, or 1
+          (col_diff > 0) - (col_diff < 0)   // sign of col_diff
+        );
         if (is_king_in_check) { // invalid move
           board.UndoMove();
           continue;
         }
       }
+    } else { // king moved
+        bool is_king_in_check = board.IsAttackedByTeam(
+          other_team, king_row, king_col
+        );
+        if (is_king_in_check) { // invalid move
+          board.UndoMove();
+          continue;
+        }
     }
 
     static std::atomic<int64_t> cm_skip_count{0};
@@ -414,20 +414,20 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
     int r = 1;
 
-    auto endA2 = std::chrono::high_resolution_clock::now();
-    auto durationA2 = std::chrono::duration_cast<std::chrono::nanoseconds>(endA2 - startA2);
-    total_timeA2 += durationA2;
-    call_countA2++;
-    if (call_countA2 % 800000 == 0) {
-      auto avg_ns = total_timeA2.count() / call_countA2;
+    //auto endA2 = std::chrono::high_resolution_clock::now();
+    //auto durationA2 = std::chrono::duration_cast<std::chrono::nanoseconds>(endA2 - startA2);
+    //total_timeA2 += durationA2;
+    //call_countA2++;
+    //if (call_countA2 % 800000 == 0) {
+    //  auto avg_ns = total_timeA2.count() / call_countA2;
 
-      std::cout << "---[Move - before recursion]"
-                << "Average: " << avg_ns << " ns, "
-                << "Call count: " << call_countA2 << std::endl
-                << "Singular searches: " << GetNumSingularExtensionSearches() << std::endl
-                << "Singular hits: " << GetNumSingularExtensions() << std::endl
-                << "CM skips: " << cm_skip_count << std::endl;
-    }
+    //  std::cout << "---[Move - before recursion]"
+    //            << "Average: " << avg_ns << " ns, "
+    //            << "Call count: " << call_countA2 << std::endl
+    //            << "Singular searches: " << GetNumSingularExtensionSearches() << std::endl
+    //            << "Singular hits: " << GetNumSingularExtensions() << std::endl
+    //            << "CM skips: " << cm_skip_count << std::endl;
+    //}
 
     if (depth >= 4
         && tt_hit
@@ -546,7 +546,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
           -beta, -alpha, !maximizing_player,
           *child_pvinfo, false);
     }
-    auto startB = std::chrono::high_resolution_clock::now();
+    //auto startB = std::chrono::high_resolution_clock::now();
 
     board.UndoMove();
 
@@ -580,30 +580,30 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       pvinfo.SetChild(child_pvinfo);
       pvinfo.SetBestMove(move);
     }
-    auto endB = std::chrono::high_resolution_clock::now();
-    auto durationB = std::chrono::duration_cast<std::chrono::nanoseconds>(endB - startB);
-    total_timeB += durationB;
-    call_countB++;
-    // Track full searches and checkmate searches
-    thread_local int64_t total_full_searches = 0;
+    //auto endB = std::chrono::high_resolution_clock::now();
+    //auto durationB = std::chrono::duration_cast<std::chrono::nanoseconds>(endB - startB);
+    //total_timeB += durationB;
+    //call_countB++;
+    //// Track full searches and checkmate searches
+    //thread_local int64_t total_full_searches = 0;
     
-    if (full_search) total_full_searches++;
+    //if (full_search) total_full_searches++;
     
-    if (call_countB % 800000 == 0) {
-      auto avg_ns = total_timeB.count() / call_countB;
-      auto current_avg = durationB.count() / 1;  // Current call's time in ns
+    //if (call_countB % 800000 == 0) {
+    //  auto avg_ns = total_timeB.count() / call_countB;
+    //  auto current_avg = durationB.count() / 1;  // Current call's time in ns
 
-      //std::cout << "[Move - after recursion]"
-      //          << " Average: " << avg_ns << " ns,"
-      //          << " Calls: " << call_countB << std::endl
-      //          << "Full searches: " << total_full_searches
-      //          << " capture extension: " << capture_extension_count
-      //          << " check extension: " << check_extension_count << std::endl;
-    }
+    //  //std::cout << "[Move - after recursion]"
+    //  //          << " Average: " << avg_ns << " ns,"
+    //  //          << " Calls: " << call_countB << std::endl
+    //  //          << "Full searches: " << total_full_searches
+    //  //          << " capture extension: " << capture_extension_count
+    //  //          << " check extension: " << check_extension_count << std::endl;
+    //}
   }
   static std::atomic<int64_t> total_checkmates_found = 0;
   thread_local int checkmates_in_this_search = 0;
-  auto startC = std::chrono::high_resolution_clock::now();
+  //auto startC = std::chrono::high_resolution_clock::now();
 
   if (!fail_low && best_move) {  // Add null check for best_move
     auto from = best_move->From();  // Use best_move
@@ -663,20 +663,20 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   transposition_table_->Save(board.HashKey(), depth, best_move, score, ss->static_eval, bound, is_pv_node);
 
   thread_state.ReleaseMoveBufferPartition();
-  auto endC = std::chrono::high_resolution_clock::now();
-  auto durationC = std::chrono::duration_cast<std::chrono::nanoseconds>(endC - startC);
-  total_timeC += durationC;
-  call_countC++;
-  if (call_countC % 800000 == 0) {
-    auto avg_ns = total_timeB.count() / call_countC;
-    auto current_avg = durationC.count() / 1;  // Current call's time in ns
+  //auto endC = std::chrono::high_resolution_clock::now();
+  //auto durationC = std::chrono::duration_cast<std::chrono::nanoseconds>(endC - startC);
+  //total_timeC += durationC;
+  //call_countC++;
+  //if (call_countC % 800000 == 0) {
+  //  auto avg_ns = total_timeB.count() / call_countC;
+  //  auto current_avg = durationC.count() / 1;  // Current call's time in ns
 
-    //std::cout << "[Search - after move]"
-    //          << " Average: " << avg_ns << " ns,"
-    //          << " Call count: " << call_countC
-    //          << ", Checkmates (this search/total): " 
-    //          << checkmates_in_this_search << "/" << total_checkmates_found << std::endl;
-  }
+  //  //std::cout << "[Search - after move]"
+  //  //          << " Average: " << avg_ns << " ns,"
+  //  //          << " Call count: " << call_countC
+  //  //          << ", Checkmates (this search/total): " 
+  //  //          << checkmates_in_this_search << "/" << total_checkmates_found << std::endl;
+  //}
   return std::make_tuple(score, best_move);
 }
 

@@ -147,7 +147,7 @@ void CommandLine::StartEvaluation() {
     */
 
     auto start = system_clock::now();
-    //int num_eval_start = player->GetNumEvaluations();
+    int num_eval_start = player->GetNumEvaluations();
     std::optional<Move> best_move;
 
     std::optional<milliseconds> time_limit;
@@ -158,13 +158,13 @@ void CommandLine::StartEvaluation() {
       auto res = player->MakeMove(*board, depth);
 
       if (res.has_value()) {
-        //auto duration_ms = duration_cast<milliseconds>(
-        //    system_clock::now() - start);
-        //int num_evals = player->GetNumEvaluations() - num_eval_start;
-        //std::optional<int> nps;
-        //if (duration_ms.count() > 0) {
-        //  nps = (int) (((float)num_evals) / (duration_ms.count() / 1000.0));
-        //}
+        auto duration_ms = duration_cast<milliseconds>(
+            system_clock::now() - start);
+        int num_evals = player->GetNumEvaluations() - num_eval_start;
+        std::optional<int> nps;
+        if (duration_ms.count() > 0) {
+          nps = (int) (((float)num_evals) / (duration_ms.count() / 1000.0));
+        }
         int score_centipawn = std::get<0>(*res);
         if (board->GetTurn().GetTeam() == BLUE_GREEN) {
           score_centipawn = -score_centipawn;
@@ -200,13 +200,13 @@ void CommandLine::StartEvaluation() {
         std::cout
           << "info"
           << " depth " << depth
-          //<< " time " << duration_ms.count()
-          //<< " nodes " << num_evals
+          << " time " << duration_ms.count()
+          << " nodes " << num_evals
           << " pv " << pv
           << " score " << score_centipawn;
-        //if (nps.has_value()) {
-        //  std::cout << " nps " << *nps;
-        //}
+        if (nps.has_value()) {
+          std::cout << " nps " << *nps;
+        }
         std::cout << std::endl;
 
         best_move = std::get<1>(*res);
