@@ -94,10 +94,10 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     bool is_cut_node) {
 
 
+  num_nodes_++;
   if (depth <= 0) {
     return std::make_tuple(-((ss-1)->static_eval), std::nullopt);
   }
-  num_nodes_++;
   if (canceled_) {
     return std::nullopt;
   }
@@ -146,10 +146,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
   ss->move_count = 0;
 
-  //~50ns
-  //bool in_check = board.IsAttackedByTeam(other_team, board.GetKingLocation(player_color));
-  //ss->in_check = in_check;
-
   std::optional<Move> best_move;
 
   std::optional<Move> pv_move = pvinfo.GetBestMove();
@@ -166,108 +162,101 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   //bool in_check = result.in_check;
 
   //~20ns
-  //if (tt_hit && tte->eval != value_none_tt) {
   int eval = 0;
   if (tt_hit) {
     eval = tte->eval;
   } else {
-      bool checkmate = IsKnownCheckmate(key);
-      if (UNLIKELY(checkmate)) {
-        eval = maximizing_player ? kMateValue : -kMateValue;
-      } else {
-        eval = board.PieceEvaluation();
-        
-        static const uint8_t LOG2_MOVES[256] = {
-            0, 0, 0, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
-            4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-            5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-            5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-            6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
-            6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
-            6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
-            6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
-            7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-            7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-            7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-            7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-            7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-            7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-            7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-            7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
-        };
+    eval = board.PieceEvaluation();
+    
+    static const uint8_t LOG2_MOVES[256] = {
+        0, 0, 0, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
+        4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+        5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+        5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+        6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+        6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+        6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+        6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+        7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+        7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+        7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+        7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+        7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+        7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+        7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+        7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
+    };
 
-        static const uint8_t LOG2_THREATS[64] = {
-            0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4,
-            4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
-            5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-            5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5
-        };
+    static const uint8_t LOG2_THREATS[64] = {
+        0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4,
+        4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5,
+        5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+        5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5
+    };
 
-        static const int8_t THREAT_SCORE[64] = {
-            -8, -8, -8, -8, -8, -8, -8, -8,
-            -8, -8, -8, -8, -8, -8, -8, -8,
-            -8, -8,
-            8, 16, 24, 32, 40, 48, 56,
-            -56, -48, -40, -32, -24, -16,
-            -50, -50, -50, -50, -50, -50, -50, -50,
-            -50, -50, -50, -50, -50, -50, -50, -50,
-            -50, -50, -50, -50, -50, -50, -50, -50,
-            -50, -50, -50, -50, -50, -50, -50, -50
-        };
+    static const int8_t THREAT_SCORE[64] = {
+        -8, -8, -8, -8, -8, -8, -8, -8,
+        -8, -8, -8, -8, -8, -8, -8, -8,
+        -8, -8,
+        8, 16, 24, 32, 40, 48, 56,
+        -56, -48, -40, -32, -24, -16,
+        -50, -50, -50, -50, -50, -50, -50, -50,
+        -50, -50, -50, -50, -50, -50, -50, -50,
+        -50, -50, -50, -50, -50, -50, -50, -50,
+        -50, -50, -50, -50, -50, -50, -50, -50
+    };
 
-        int moves_eval;
-        int threat_eval;
+    int moves_eval;
+    int threat_eval;
 
-        int logR = LOG2_MOVES[thread_state.TotalMoves()[RED]];
-        int logY = LOG2_MOVES[thread_state.TotalMoves()[YELLOW]];
-        int logB = LOG2_MOVES[thread_state.TotalMoves()[BLUE]];
-        int logG = LOG2_MOVES[thread_state.TotalMoves()[GREEN]];
+    int logR = LOG2_MOVES[thread_state.TotalMoves()[RED]];
+    int logY = LOG2_MOVES[thread_state.TotalMoves()[YELLOW]];
+    int logB = LOG2_MOVES[thread_state.TotalMoves()[BLUE]];
+    int logG = LOG2_MOVES[thread_state.TotalMoves()[GREEN]];
 
-        int logRY = (logR + logY) << 2;  // 4 * sum
-        int logBG = (logB + logG) << 2;
+    int logRY = (logR + logY) << 2;  // 4 * sum
+    int logBG = (logB + logG) << 2;
 
-        int lb, sign;
-        if (logRY > logBG) {
-          lb = logRY + 1;
-          sign = (other_team != RED_YELLOW) ? 1 : -1;
-        } else if (logBG > logRY) {
-          lb = logBG + 1;
-          sign = (other_team != RED_YELLOW) ? -1 : 1;
-        } else {
-          lb = logRY + 1;
-          sign = 0;
-        }
-        moves_eval = sign * (lb < 27 ? 10 : 5 * (lb - 25));
+    int lb, sign;
+    if (logRY > logBG) {
+      lb = logRY + 1;
+      sign = (other_team != RED_YELLOW) ? 1 : -1;
+    } else if (logBG > logRY) {
+      lb = logBG + 1;
+      sign = (other_team != RED_YELLOW) ? -1 : 1;
+    } else {
+      lb = logRY + 1;
+      sign = 0;
+    }
+    moves_eval = sign * (lb < 27 ? 10 : 5 * (lb - 25));
 
-        int logtR = LOG2_THREATS[thread_state.NThreats()[RED] & 63];
-        int logtY = LOG2_THREATS[thread_state.NThreats()[YELLOW] & 63];
-        int logtB = LOG2_THREATS[thread_state.NThreats()[BLUE] & 63];
-        int logtG = LOG2_THREATS[thread_state.NThreats()[GREEN] & 63];
+    int logtR = LOG2_THREATS[thread_state.NThreats()[RED] & 63];
+    int logtY = LOG2_THREATS[thread_state.NThreats()[YELLOW] & 63];
+    int logtB = LOG2_THREATS[thread_state.NThreats()[BLUE] & 63];
+    int logtG = LOG2_THREATS[thread_state.NThreats()[GREEN] & 63];
 
-        int logtRY = (logtR + logtY) << 2;
-        int logtBG = (logtB + logtG) << 2;
+    int logtRY = (logtR + logtY) << 2;
+    int logtBG = (logtB + logtG) << 2;
 
-        int len_idx;
-        int threat_sign;
-        if (logtRY > logtBG) {
-          len_idx = logtRY;
-          threat_sign = (other_team != RED_YELLOW) ? 1 : -1;
-        } else if (logtBG > logtRY) {
-          len_idx = logtBG;
-          threat_sign = (other_team != RED_YELLOW) ? -1 : 1;
-        } else {
-          len_idx = 0;
-          threat_sign = 0;
-        }
+    int len_idx;
+    int threat_sign;
+    if (logtRY > logtBG) {
+      len_idx = logtRY;
+      threat_sign = (other_team != RED_YELLOW) ? 1 : -1;
+    } else if (logtBG > logtRY) {
+      len_idx = logtBG;
+      threat_sign = (other_team != RED_YELLOW) ? -1 : 1;
+    } else {
+      len_idx = 0;
+      threat_sign = 0;
+    }
 
-        len_idx = (len_idx < 0) ? 0 : (len_idx > 63 ? 63 : len_idx);
-        threat_eval = threat_sign * THREAT_SCORE[len_idx];
+    len_idx = (len_idx < 0) ? 0 : (len_idx > 63 ? 63 : len_idx);
+    threat_eval = threat_sign * THREAT_SCORE[len_idx];
 
-        eval += moves_eval + threat_eval;
+    eval += moves_eval + threat_eval;
 
-        eval = maximizing_player ? eval : -eval;
-      }
-    //}
+    eval = maximizing_player ? eval : -eval;
   } 
 
   ss->static_eval = eval;
@@ -313,11 +302,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     const Move* move_ptr = GetNextMove2(&picker);
     if (move_ptr == nullptr) break;
     const Move& move = *move_ptr;
-    //auto startA2 = std::chrono::high_resolution_clock::now();
+    auto startA2 = std::chrono::high_resolution_clock::now();
 
-
-    //const auto& to = move.To();
-    
     std::optional<std::tuple<int, std::optional<Move>>> value_and_move_or;
 
     const auto capture = move.GetCapturePiece();
@@ -415,20 +401,20 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
     int r = 1;
 
-    //auto endA2 = std::chrono::high_resolution_clock::now();
-    //auto durationA2 = std::chrono::duration_cast<std::chrono::nanoseconds>(endA2 - startA2);
-    //total_timeA2 += durationA2;
-    //call_countA2++;
-    //if (call_countA2 % 1000000 == 0) {
-    //  auto avg_ns = total_timeA2.count() / call_countA2;
+    auto endA2 = std::chrono::high_resolution_clock::now();
+    auto durationA2 = std::chrono::duration_cast<std::chrono::nanoseconds>(endA2 - startA2);
+    total_timeA2 += durationA2;
+    call_countA2++;
+    if (call_countA2 % 1000000 == 0) {
+      auto avg_ns = total_timeA2.count() / call_countA2;
 
-    //  std::cout << "---[Move - before recursion]"
-    //            << "Average: " << avg_ns << " ns, "
-    //            << "Call count: " << call_countA2 << std::endl
-    //            << "Singular searches: " << GetNumSingularExtensionSearches() << std::endl
-    //            << "Singular hits: " << GetNumSingularExtensions() << std::endl
-    //            << "CM skips: " << cm_skip_count << std::endl;
-    //}
+      std::cout << "---[Move - before recursion]"
+                << "Average: " << avg_ns << " ns, "
+                << "Call count: " << call_countA2 << std::endl
+                << "Singular searches: " << GetNumSingularExtensionSearches() << std::endl
+                << "Singular hits: " << GetNumSingularExtensions() << std::endl
+                << "CM skips: " << cm_skip_count << std::endl;
+    }
 
     if (depth >= 5
         && tt_hit
@@ -455,20 +441,11 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       }
     }
 
-
     static std::atomic<int64_t> capture_extension_count{0};
     static std::atomic<int64_t> check_extension_count{0};
 
-    /*
-    if (depth < 2
-        && ((ss-1)->current_move.To() == to
-            || (ss-3)->current_move.To() == to)) {
-        capture_extension_count++;
-        r = -1;
-    }
-    */
-
-    if (depth < 2 && move.IsCapture()) {
+    constexpr int kMaxExtensionsPerPath = 1;
+    if (depth < 2 && move.IsCapture() && ss->extension_count < kMaxExtensionsPerPath) {
         capture_extension_count++;
         r = -1;
     }
@@ -476,13 +453,14 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     // lmr
     if (move_count >= 1) {
       // First search with reduced depth and null window
+      (ss+1)->extension_count = ss->extension_count + (r < 0 ? 1 : 0);
       value_and_move_or = Search(
           ss+1, NonPV, thread_state, board, ply + 1, depth - 1
           - (depth/2)*(r > 0)*(depth>3)
           - (depth/4)*(r > 0)*(depth>7)
           - (depth/8)*(r > 0)*(depth>15)
-          - (depth/16)*(r > 0)*(depth>31),
-          //+ (r < 0),
+          - (depth/16)*(r > 0)*(depth>31)
+          + (r < 0),
           -alpha-1, -alpha, !maximizing_player,
           *child_pvinfo, is_cut_node);
           
@@ -494,18 +472,20 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
           
           // If the score is not failing high by much, try a reduced-window search first
           if (score < alpha + 300) {
+            (ss+1)->extension_count = ss->extension_count;
             value_and_move_or = Search(
                 ss+1, NonPV, thread_state, board, ply + 1, depth - 1
                 - (depth/2)*(r > 0)*(depth>3)
                 - (depth/4)*(r > 0)*(depth>7)
                 - (depth/8)*(r > 0)*(depth>15)
                 - (depth/16)*(r > 0)*(depth>31)
-                + (r < 0) ,
+                + (r < 0),
                 -alpha-20, -alpha, !maximizing_player,
                 *child_pvinfo, is_cut_node);
                 
             if (value_and_move_or && -std::get<0>(*value_and_move_or) > alpha) {
               // If the reduced window search still fails high, do a full search
+              (ss+1)->extension_count = ss->extension_count;
               value_and_move_or = Search(
                 ss+1, NonPV, thread_state, board, ply + 1, depth - 1
                 - (depth/3)*(r > 0)*(depth>2)
@@ -516,6 +496,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
             }
           } else {
             // Failing high by a lot, do a full search immediately
+            (ss+1)->extension_count = ss->extension_count;
             value_and_move_or = Search(
               ss+1, NonPV, thread_state, board, ply + 1, depth - 1
               - (depth/3)*(r > 0)*(depth>2)
@@ -540,14 +521,14 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
               );
 
     if (full_search) {
-      
+      (ss+1)->extension_count = ss->extension_count + (r < 0 ? 1 : 0);
       value_and_move_or = Search(
           ss+1, PV, thread_state, board, ply + 1, depth - 1
           + (r < 0),
           -beta, -alpha, !maximizing_player,
           *child_pvinfo, is_cut_node);
     }
-    //auto startB = std::chrono::high_resolution_clock::now();
+    auto startB = std::chrono::high_resolution_clock::now();
 
     board.UndoMove();
 
@@ -581,30 +562,29 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       pvinfo.SetChild(child_pvinfo);
       pvinfo.SetBestMove(move);
     }
-    //auto endB = std::chrono::high_resolution_clock::now();
-    //auto durationB = std::chrono::duration_cast<std::chrono::nanoseconds>(endB - startB);
-    //total_timeB += durationB;
-    //call_countB++;
-    //// Track full searches and checkmate searches
-    //thread_local int64_t total_full_searches = 0;
+    auto endB = std::chrono::high_resolution_clock::now();
+    auto durationB = std::chrono::duration_cast<std::chrono::nanoseconds>(endB - startB);
+    total_timeB += durationB;
+    call_countB++;
+    // Track full searches and checkmate searches
+    thread_local int64_t total_full_searches = 0;
     
-    //if (full_search) total_full_searches++;
+    if (full_search) total_full_searches++;
     
-    //if (call_countB % 1000000 == 0) {
-    //  auto avg_ns = total_timeB.count() / call_countB;
-    //  auto current_avg = durationB.count() / 1;  // Current call's time in ns
+    if (call_countB % 1000000 == 0) {
+      auto avg_ns = total_timeB.count() / call_countB;
+      auto current_avg = durationB.count() / 1;  // Current call's time in ns
 
-    //  std::cout << "[Move - after recursion]"
-    //            << " Average: " << avg_ns << " ns,"
-    //            << " Calls: " << call_countB << std::endl
-    //            << "Full searches: " << total_full_searches
-    //            << " capture extension: " << capture_extension_count
-    //            << " check extension: " << check_extension_count << std::endl;
-    //}
+      std::cout << "[Move - after recursion]"
+                << " Average: " << avg_ns << " ns,"
+                << " Calls: " << call_countB << std::endl
+                << "Full searches: " << total_full_searches
+                << " capture extension: " << capture_extension_count
+                << " check extension: " << check_extension_count << std::endl;
+    }
   }
   static std::atomic<int64_t> total_checkmates_found = 0;
-  thread_local int checkmates_in_this_search = 0;
-  //auto startC = std::chrono::high_resolution_clock::now();
+  auto startC = std::chrono::high_resolution_clock::now();
 
   if (!fail_low && best_move) {  // Add null check for best_move
     auto from = best_move->From();  // Use best_move
@@ -651,9 +631,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         std::unique_lock<std::shared_mutex> lock(checkmate_mutex_);
         // Double-check in case another thread added it between our check and now
         checkmate_positions_.insert(hash_key).second;
+        total_checkmates_found++;     // Increment total checkmate counter
       }
-      checkmates_in_this_search++;  // Increment checkmate counter for this search
-      total_checkmates_found++;     // Increment total checkmate counter
     /*
     }
     */
@@ -664,20 +643,20 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   transposition_table_->Save(board.HashKey(), depth, best_move, score, ss->static_eval, bound, is_pv_node);
 
   thread_state.ReleaseMoveBufferPartition();
-  //auto endC = std::chrono::high_resolution_clock::now();
-  //auto durationC = std::chrono::duration_cast<std::chrono::nanoseconds>(endC - startC);
-  //total_timeC += durationC;
-  //call_countC++;
-  //if (call_countC % 1000000 == 0) {
-  //  auto avg_ns = total_timeC.count() / call_countC;
-  //  auto current_avg = durationC.count() / 1;  // Current call's time in ns
+  auto endC = std::chrono::high_resolution_clock::now();
+  auto durationC = std::chrono::duration_cast<std::chrono::nanoseconds>(endC - startC);
+  total_timeC += durationC;
+  call_countC++;
+  if (call_countC % 1000000 == 0) {
+    auto avg_ns = total_timeC.count() / call_countC;
+    auto current_avg = durationC.count() / 1;  // Current call's time in ns
 
-  //  std::cout << "[Search - after move]"
-  //            << " Average: " << avg_ns << " ns,"
-  //            << " Call count: " << call_countC
-  //            << ", Checkmates (this search/total): " 
-  //            << checkmates_in_this_search << "/" << total_checkmates_found << std::endl;
-  //}
+    std::cout << "[Search - after move]"
+              << " Average: " << avg_ns << " ns,"
+              << " Call count: " << call_countC
+              << ", Checkmates: " 
+              << total_checkmates_found << std::endl;
+  }
   return std::make_tuple(score, best_move);
 }
 

@@ -99,6 +99,7 @@ struct Stack {
   Move current_move;
   int root_depth = 0;
   int static_eval = 0;
+  int extension_count = 0;
 };
 
 enum NodeType {
