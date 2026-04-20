@@ -97,18 +97,6 @@ Move* Board::GetPawnMovesDirect(
   int8_t row = from.GetRow();
   int8_t col = from.GetCol();
 
-  /*
-  // Lookup table for promotion conditions: [color] -> {target_row, target_col, row_check, col_check}
-  // target_row/target_col: The target row/column for promotion
-  // row_check/col_check: Whether to check row (1), column (2), or both (3)
-  static constexpr int kPromotionConditions[4][4] = {
-    {3, -1, 1, 0},  // RED: check row == 3
-    {-1, 10, 0, 1}, // BLUE: check col == 10
-    {10, -1, 1, 0}, // YELLOW: check row == 10
-    {-1, 3, 0, 1}   // GREEN: check col == 3
-  };
-  */
-
   // Consolidated direction data for pawn movement and captures
   // Indexed by PlayerColor (RED=0, BLUE=1, YELLOW=2, GREEN=3)
   struct PawnDirectionData {
@@ -132,20 +120,6 @@ Move* Board::GetPawnMovesDirect(
     // GREEN: moves left, captures down-left and up-left
     {0, -1, 1, -1, -1, -1}
   };
-
-
-  // Precompute promotion check using lookup table
-  //const int* promo_cond = kPromotionConditions[static_cast<int>(color)];
-  // Simplified promotion check - the -1 values in promo_cond make the other comparison always false
-  //const bool is_promotion = (promo_cond[0] == row) || (promo_cond[1] == col);
-
-  /*
-  // Helper function to add promotion moves
-  auto AddPromotionMoves = [&](const BoardLocation& to, const Piece& captured = Piece::kNoPiece) -> Move* {
-    *current++ = Move(from, to, captured, BoardLocation::kNoLocation, Piece::kNoPiece, QUEEN);
-    return current;
-  };
-  */
 
   // Get direction data for current color
   const PawnDirectionData& dir = kPawnDirections[static_cast<int>(color)];
@@ -189,15 +163,23 @@ Move* Board::GetPawnMovesDirect(
   bool not_moved = (color == RED || color == YELLOW) 
       ? (row == kStartingRow[static_cast<int>(color)])
       : (col == kStartingCol[static_cast<int>(color)]);
+  
+  // Promotion detection: each color promotes on different edges
+  static constexpr int8_t kPromotionRow[4] = {0, -1, 13, -1};   // RED, BLUE, YELLOW, GREEN
+  static constexpr int8_t kPromotionCol[4] = {-1, 13, -1, 0};   // -1 means not used
+
+  const bool is_promotion = (color == RED || color == YELLOW) 
+      ? (forward_row == kPromotionRow[static_cast<int>(color)])
+      : (forward_col == kPromotionCol[static_cast<int>(color)]);
     
   if (!forward_piece.Present()) [[likely]] {
     // Handle promotion or regular move
-    //if (is_promotion) [[unlikely]] {
-      //current = AddPromotionMoves(forward1);
-    //} else {
+    if (is_promotion) [[unlikely]] {
+      *current++ = Move(from, forward1, Piece::kNoPiece, BoardLocation::kNoLocation, Piece::kNoPiece, QUEEN);
+    } else {
       //*current++ = Move(from, forward1);
       new (current++) Move(row, col, forward_row, forward_col, 0, true);
-    //}
+    }
     
     // Double step from starting position
     if (not_moved) {
@@ -229,13 +211,13 @@ Move* Board::GetPawnMovesDirect(
     } else {
       // Regular capture - use cached piece
       if (capture1_piece.Present() && capture1_piece.GetTeam() != my_team) {
-        // Handle promotion on capture or regular capture
-        //if (is_promotion) [[unlikely]] {
-          //current = AddPromotionMoves(to1, captured1);
-        //} else {
+        //Handle promotion on capture or regular capture
+        if (is_promotion) [[unlikely]] {
+          *current++ = Move(from, {capture1_row, capture1_col}, capture1_piece, BoardLocation::kNoLocation, Piece::kNoPiece, QUEEN);
+        } else {
           //*current++ = Move(from, capture1_loc, captured1);
           new (current++) Move(row, col, capture1_row, capture1_col, capture1_piece.GetRaw(), true);
-        //}
+        }
       }
     }
   }
@@ -256,12 +238,12 @@ Move* Board::GetPawnMovesDirect(
       // Regular capture - use cached piece
       if (capture2_piece.Present() && capture2_piece.GetTeam() != my_team) {
         // Handle promotion on capture or regular capture
-        //if (is_promotion) [[unlikely]] {
-          //current = AddPromotionMoves(to2, captured2);
-        //} else {
+        if (is_promotion) [[unlikely]] {
+          *current++ = Move(from, {capture2_row, capture2_col}, capture2_piece, BoardLocation::kNoLocation, Piece::kNoPiece, QUEEN);
+        } else {
           //*current++ = Move(from, to2, captured2);
           new (current++) Move(row, col, capture2_row, capture2_col, capture2_piece.GetRaw(), true);
-        //}
+        }
       }
     }
   }
@@ -1955,19 +1937,6 @@ void Board::MakeMove(const Move& move) {
     }
     abort();
   }
-  /*
-  auto& placed_pieces = piece_list_[color];
-  auto it = std::find_if(placed_pieces.begin(), placed_pieces.end(),
-      [&from](const auto& placed_piece) {
-          return placed_piece.GetLocation() == from;
-      });
-  if (it != placed_pieces.end()) {
-      placed_pieces.erase(it);
-  } else {
-      std::cerr << "Failed to find captured piece in piece_list_:\n";
-      std::abort();
-  }
-  */
 
   UpdatePieceHash(piece, from);
   location_to_piece_[from_row][from_col] = Piece();
@@ -1982,17 +1951,45 @@ void Board::MakeMove(const Move& move) {
   // Update the board
   location_to_piece_[to_row][to_col] = piece;
 
-  /*
-  auto& pieces = piece_list_[color];
-  pieces.emplace_back(to, piece);
-  */
-
   UpdatePieceHash(piece, to);
   // Update king location
   if (piece_type == KING) {
     king_locations_[color] = to;
   }
   // end set piece
+
+  // Handle promotion: replace pawn with promoted piece
+  const PieceType promotion_type = move.GetPromotionPieceType();
+  if (promotion_type != NO_PIECE) {
+    // Create promoted piece with same player/color
+    const Piece promoted_piece(piece.GetPlayer(), promotion_type);
+    
+    // Replace in piece_list_
+    auto& pieces = piece_list_[color];
+    auto it = std::find_if(pieces.begin(), pieces.end(),
+      [&to](const auto& placed_piece) {
+        return placed_piece.GetLocation() == to;
+      });
+    if (it != pieces.end()) {
+      *it = PlacedPiece(to, promoted_piece);
+    }
+    
+    // Replace on board
+    location_to_piece_[to_row][to_col] = promoted_piece;
+    
+    // Update piece hash: remove pawn, add promoted piece
+    UpdatePieceHash(piece, to);  // Remove pawn hash
+    UpdatePieceHash(promoted_piece, to);  // Add promoted piece hash
+    
+    // Update evaluation: subtract pawn, add promoted piece
+    const int promotion_eval = kPieceEvaluations[promotion_type] - kPieceEvaluations[PAWN];
+    if (team == RED_YELLOW) {
+      piece_evaluation_ += promotion_eval;
+    } else {
+      piece_evaluation_ -= promotion_eval;
+    }
+    player_piece_evaluations_[color] += promotion_eval;
+  }
 
   const auto rook_move = move.GetRookMove();
   if (rook_move.Present()) {
@@ -2041,7 +2038,6 @@ void Board::UndoMove() {
   // 4. Promotion
   // 5. Castling (rights, rook move)
 
-  //assert(!moves_.empty());
   const Move& move = moves_.back();
 
   const BoardLocation& to = move.To();
@@ -2049,31 +2045,12 @@ void Board::UndoMove() {
 
   const auto piece = GetPiece(to);
   
-  /*
-  if (piece.Missing()) {
-    std::cout << "piece missing in UndoMove" << std::endl;
-    abort();
-  }
-  */
-  
   const PlayerColor color = piece.GetColor();
   Player turn_before = (color == RED)    ? kRedPlayer :
                        (color == BLUE)   ? kBluePlayer :
                        (color == YELLOW) ? kYellowPlayer :
                        kGreenPlayer;
                        
-  /*
-  Player turn_before2 = GetPreviousPlayer(GetTurn());
-  if (turn_before != turn_before2) {
-    std::cout << "[UndoMove] Error: Turn mismatch: color=" << static_cast<int>(color) 
-          << " current_turn=" << static_cast<int>(GetTurn().GetColor())
-          << " turn_before=" << static_cast<int>(turn_before.GetColor())
-          << " turn_before2=" << static_cast<int>(turn_before2.GetColor()) 
-          << std::endl;
-    abort();
-  }
-    */
-
   // Find and update the moved piece's location in one pass
   auto& pieces = piece_list_[color];
   auto it = std::find_if(pieces.begin(), pieces.end(),
@@ -2088,14 +2065,6 @@ void Board::UndoMove() {
       std::abort();
   }
 
-  /*
-  if (auto it = std::find_if(piece_list_[color].begin(), piece_list_[color].end(),
-    [&to](const auto& p) { return p.GetLocation() == to; });
-    it != piece_list_[color].end()) {
-    piece_list_[color].erase(it);
-  }
-  */
-
   UpdatePieceHash(piece, to);
   location_to_piece_[move.ToRow()][move.ToCol()] = Piece();
 
@@ -2103,14 +2072,40 @@ void Board::UndoMove() {
 
   //SetPiece(from, piece);
   // Update the board
-  location_to_piece_[move.FromRow()][move.FromCol()] = piece;
-
-  /*
-  auto& pieces = piece_list_[color];
-  pieces.emplace_back(from, piece);
-  */
-
-  UpdatePieceHash(piece, from);
+  // Handle promotion undo: restore original pawn instead of promoted piece
+  const PieceType promotion_type = move.GetPromotionPieceType();
+  if (promotion_type != NO_PIECE) {
+    // Create original pawn piece
+    const Piece pawn_piece(piece.GetPlayer(), PAWN);
+    location_to_piece_[move.FromRow()][move.FromCol()] = pawn_piece;
+    
+    // Replace promoted piece with pawn in piece_list_
+    auto& pieces = piece_list_[color];
+    auto it = std::find_if(pieces.begin(), pieces.end(),
+      [&from](const auto& placed_piece) {
+        return placed_piece.GetLocation() == from;
+      });
+    if (it != pieces.end()) {
+      *it = PlacedPiece(from, pawn_piece);
+    }
+    
+    // Update hash: remove promoted piece, add pawn
+    UpdatePieceHash(piece, from);  // Remove promoted piece
+    UpdatePieceHash(pawn_piece, from);  // Add pawn hash
+    
+    // Update evaluation: subtract promoted piece, add pawn
+    const int undo_promotion_eval = kPieceEvaluations[PAWN] - kPieceEvaluations[promotion_type];
+    const Team team = piece.GetTeam();
+    if (team == RED_YELLOW) {
+      piece_evaluation_ += undo_promotion_eval;
+    } else {
+      piece_evaluation_ -= undo_promotion_eval;
+    }
+    player_piece_evaluations_[color] += undo_promotion_eval;
+  } else {
+    location_to_piece_[move.FromRow()][move.FromCol()] = piece;
+    UpdatePieceHash(piece, from);
+  }
 
   // Update king location
   if (piece.GetPieceType() == KING) {

@@ -10,7 +10,7 @@ cp cli ..
 
 # TODO
 
-- [ ] engine promotion
+- [x] engine promotion
 - [ ] client promotion
 - [ ] rotate board
 - [ ] promote branch
