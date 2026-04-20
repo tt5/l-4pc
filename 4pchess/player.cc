@@ -93,18 +93,17 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     PVInfo& pvinfo,
     bool is_cut_node) {
 
+
+  if (depth <= 0) {
+    return std::make_tuple(-((ss-1)->static_eval), std::nullopt);
+  }
+  num_nodes_++;
   if (canceled_) {
     return std::nullopt;
   }
-  num_nodes_++;
-  auto startA = std::chrono::high_resolution_clock::now();
-  int eval = board.PieceEvaluation();
 
-  if (depth <= 0) {
-    eval = (ss-1)->static_eval - (eval * 2);
-    eval = maximizing_player ? -eval : eval;
-    return std::make_tuple(eval, std::nullopt);
-  }
+  //auto startA = std::chrono::high_resolution_clock::now();
+
   Player player = board.GetTurn();
   PlayerColor player_color = player.GetColor();
   Team other_team = OtherTeam(player.GetTeam());
@@ -168,6 +167,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
   //~20ns
   //if (tt_hit && tte->eval != value_none_tt) {
+  int eval = 0;
   if (tt_hit) {
     eval = tte->eval;
   } else {
@@ -175,6 +175,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       if (UNLIKELY(checkmate)) {
         eval = maximizing_player ? kMateValue : -kMateValue;
       } else {
+        eval = board.PieceEvaluation();
         
         static const uint8_t LOG2_MOVES[256] = {
             0, 0, 0, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
@@ -288,19 +289,19 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     pv_ptr,
     history_heuristic);
 
-  auto endA = std::chrono::high_resolution_clock::now();
-  auto durationA = std::chrono::duration_cast<std::chrono::nanoseconds>(endA - startA);
-  total_timeA += durationA;
-  call_countA++;
-  if (call_countA % 100000 == 0) {
-    auto avg_ns = total_timeA.count() / call_countA;
+  //auto endA = std::chrono::high_resolution_clock::now();
+  //auto durationA = std::chrono::duration_cast<std::chrono::nanoseconds>(endA - startA);
+  //total_timeA += durationA;
+  //call_countA++;
+  //if (call_countA % 200000 == 0) {
+  //  auto avg_ns = total_timeA.count() / call_countA;
 
-    //std::cout << "--- [Search - before move]"
-    //          << "Average: " << avg_ns << " ns, "
-    //          << "Call count: " << call_countA << ", " 
-    //          << "cache hits: " << num_cache_hits_
-    //          << std::endl;
-  }
+  //  //std::cout << "--- [Search - before move]"
+  //  //          << "Average: " << avg_ns << " ns, "
+  //  //          << "Call count: " << call_countA << ", " 
+  //  //          << "cache hits: " << num_cache_hits_
+  //  //          << std::endl;
+  //}
   
   bool has_legal_moves = false;
   int move_count = 0;
@@ -418,7 +419,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     //auto durationA2 = std::chrono::duration_cast<std::chrono::nanoseconds>(endA2 - startA2);
     //total_timeA2 += durationA2;
     //call_countA2++;
-    //if (call_countA2 % 800000 == 0) {
+    //if (call_countA2 % 1000000 == 0) {
     //  auto avg_ns = total_timeA2.count() / call_countA2;
 
     //  std::cout << "---[Move - before recursion]"
@@ -429,10 +430,10 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     //            << "CM skips: " << cm_skip_count << std::endl;
     //}
 
-    if (depth >= 4
+    if (depth >= 5
         && tt_hit
         && (tte->bound == LOWER_BOUND)
-        //&& tte->depth >= depth >> 1
+        && tte->depth >= depth >> 1
         ) {
       num_singular_extension_searches_.fetch_add(1, std::memory_order_relaxed);
       
@@ -483,7 +484,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
           - (depth/16)*(r > 0)*(depth>31),
           //+ (r < 0),
           -alpha-1, -alpha, !maximizing_player,
-          *child_pvinfo, false);
+          *child_pvinfo, is_cut_node);
           
       if (value_and_move_or.has_value()) {
         int score = -std::get<0>(*value_and_move_or);
@@ -492,7 +493,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         if (score > alpha) {
           
           // If the score is not failing high by much, try a reduced-window search first
-          if (score < alpha + 500) {
+          if (score < alpha + 300) {
             value_and_move_or = Search(
                 ss+1, NonPV, thread_state, board, ply + 1, depth - 1
                 - (depth/2)*(r > 0)*(depth>3)
@@ -501,7 +502,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
                 - (depth/16)*(r > 0)*(depth>31)
                 + (r < 0) ,
                 -alpha-20, -alpha, !maximizing_player,
-                *child_pvinfo, false);
+                *child_pvinfo, is_cut_node);
                 
             if (value_and_move_or && -std::get<0>(*value_and_move_or) > alpha) {
               // If the reduced window search still fails high, do a full search
@@ -511,7 +512,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
                 - (depth/6)*(r > 0)*(depth>6)
                 + (r < 0),
                 -beta, -alpha, !maximizing_player,
-                *child_pvinfo, false);
+                *child_pvinfo, is_cut_node);
             }
           } else {
             // Failing high by a lot, do a full search immediately
@@ -521,7 +522,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
               - (depth/6)*(r > 0)*(depth>6)
               + (r < 0),
               -beta, -alpha, !maximizing_player,
-              *child_pvinfo, false);
+              *child_pvinfo, is_cut_node);
           }
         }
       }
@@ -544,7 +545,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
           ss+1, PV, thread_state, board, ply + 1, depth - 1
           + (r < 0),
           -beta, -alpha, !maximizing_player,
-          *child_pvinfo, false);
+          *child_pvinfo, is_cut_node);
     }
     //auto startB = std::chrono::high_resolution_clock::now();
 
@@ -589,16 +590,16 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     
     //if (full_search) total_full_searches++;
     
-    //if (call_countB % 800000 == 0) {
+    //if (call_countB % 1000000 == 0) {
     //  auto avg_ns = total_timeB.count() / call_countB;
     //  auto current_avg = durationB.count() / 1;  // Current call's time in ns
 
-    //  //std::cout << "[Move - after recursion]"
-    //  //          << " Average: " << avg_ns << " ns,"
-    //  //          << " Calls: " << call_countB << std::endl
-    //  //          << "Full searches: " << total_full_searches
-    //  //          << " capture extension: " << capture_extension_count
-    //  //          << " check extension: " << check_extension_count << std::endl;
+    //  std::cout << "[Move - after recursion]"
+    //            << " Average: " << avg_ns << " ns,"
+    //            << " Calls: " << call_countB << std::endl
+    //            << "Full searches: " << total_full_searches
+    //            << " capture extension: " << capture_extension_count
+    //            << " check extension: " << check_extension_count << std::endl;
     //}
   }
   static std::atomic<int64_t> total_checkmates_found = 0;
@@ -667,15 +668,15 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   //auto durationC = std::chrono::duration_cast<std::chrono::nanoseconds>(endC - startC);
   //total_timeC += durationC;
   //call_countC++;
-  //if (call_countC % 800000 == 0) {
-  //  auto avg_ns = total_timeB.count() / call_countC;
+  //if (call_countC % 1000000 == 0) {
+  //  auto avg_ns = total_timeC.count() / call_countC;
   //  auto current_avg = durationC.count() / 1;  // Current call's time in ns
 
-  //  //std::cout << "[Search - after move]"
-  //  //          << " Average: " << avg_ns << " ns,"
-  //  //          << " Call count: " << call_countC
-  //  //          << ", Checkmates (this search/total): " 
-  //  //          << checkmates_in_this_search << "/" << total_checkmates_found << std::endl;
+  //  std::cout << "[Search - after move]"
+  //            << " Average: " << avg_ns << " ns,"
+  //            << " Call count: " << call_countC
+  //            << ", Checkmates (this search/total): " 
+  //            << checkmates_in_this_search << "/" << total_checkmates_found << std::endl;
   //}
   return std::make_tuple(score, best_move);
 }
