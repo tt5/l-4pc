@@ -1,0 +1,45 @@
+#ifndef _UTILS_H_
+#define _UTILS_H_
+
+#include <memory>
+#include <optional>
+#include <sstream>
+#include <string>
+#include <vector>
+
+#include "board.h"
+
+// Branch prediction hints
+#if defined(__GNUC__) || defined(__clang__)
+  #define LIKELY(x)   __builtin_expect(!!(x), 1)
+  #define UNLIKELY(x) __builtin_expect(!!(x), 0)
+#else
+  #define LIKELY(x)   (x)
+  #define UNLIKELY(x) (x)
+#endif
+
+
+namespace chess {
+
+std::vector<std::string> SplitStrOnWhitespace(const std::string& x);
+
+std::vector<std::string> SplitStr(std::string s, std::string delimiter);
+
+std::optional<int> ParseInt(const std::string& input);
+
+std::optional<std::vector<bool>> ParseCastlingAvailability(
+    const std::string& fen_substr);
+
+std::shared_ptr<Board> ParseBoardFromFEN(const std::string& fen);
+
+void SendInfoMessage(const std::string& message);
+
+void SendInvalidCommandMessage(const std::string& line);
+
+std::optional<Move> ParseMove(Board& board, const std::string& move_str);
+
+std::optional<BoardLocation> ParseEnpLocation(const std::string& enp);
+
+}  // namespace chess
+
+#endif  // _UTILS_H_
