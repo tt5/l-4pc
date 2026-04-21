@@ -416,6 +416,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
                 << "CM skips: " << cm_skip_count << std::endl;
     }
 
+    /*
     if (depth >= 5
         && tt_hit
         && (tte->bound == LOWER_BOUND)
@@ -440,6 +441,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         }
       }
     }
+    */
 
     static std::atomic<int64_t> capture_extension_count{0};
     static std::atomic<int64_t> check_extension_count{0};
