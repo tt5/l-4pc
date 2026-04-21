@@ -144,43 +144,11 @@ class Piece {
     if (!present) {
       color = RED;
       piece_type = NO_PIECE;
-    } else {
-      // Validate present pieces
-      if (piece_type == NO_PIECE) {
-        std::cerr << "FATAL: Cannot create present piece with NO_PIECE type\n"
-                  << "  Color: " << static_cast<int>(color) << "\n"
-                  << "  Present: true" << std::endl;
-        std::abort();
-      }
-      
-      // Validate piece type
-      if (piece_type < PAWN || piece_type > KING) {
-        std::cerr << "FATAL: Attempted to create piece with invalid type: " 
-                  << static_cast<int>(piece_type) 
-                  << " (valid range: 0=PAWN to 5=KING, 6=NO_PIECE)\n"
-                  << "  Color: " << static_cast<int>(color) << "\n"
-                  << "  Present: true" << std::endl;
-        std::abort();
-      }
-      
-      // Validate color
-      if (color != PlayerColor::RED && 
-          color != PlayerColor::YELLOW &&
-          color != PlayerColor::GREEN &&
-          color != PlayerColor::BLUE) {
-        std::cerr << "FATAL: Invalid piece color: " << static_cast<int>(color) 
-                  << " (valid: 0=RED, 1=BLUE, 2=YELLOW, 3=GREEN)\n"
-                  << "  Piece type: " << static_cast<int>(piece_type) << "\n"
-                  << "  Present: true" << std::endl;
-        std::abort();
-      }
     }
-    
+
     bits_ = (((int8_t)present) << 7) |
             (((int8_t)color) << 5) |
             (((int8_t)piece_type) << 2);
-            
-    Validate();
   }
 
   std::string DebugString() const {
@@ -415,16 +383,7 @@ class Move {
       to_col_(to.GetCol()),
       standard_capture_(standard_capture),
       initial_castling_rights_(std::move(initial_castling_rights))
-  {
-    if (standard_capture_.Present() && 
-        (!standard_capture_.IsValid() || standard_capture_.GetPieceType() == NO_PIECE)) {
-      std::cerr << "MOVE VALIDATION ERROR: Invalid captured piece in move from " 
-                << from_.PrettyStr() << " to " << to_.PrettyStr()
-                << ": " << standard_capture_.DebugString() << std::endl;
-      std::abort();
-    }
-
-  }
+  { }
 
       std::string DebugString() const {
         std::ostringstream ss;
@@ -689,13 +648,38 @@ class Board {
       int8_t loc_col
       ) const;
 
-  bool IsAttackedByTeamAligned(
+  // Check if scanning from piece location toward edge finds an attacker
+  // Optimized version: starts scanning from from_row/from_col (now empty) rather than from king
+  // This skips the known-empty squares between king and piece
+  inline bool IsAttackedByTeamAligned(
       Team team,
-      int8_t loc_row,
-      int8_t loc_col,
+      int8_t from_row,
+      int8_t from_col,
       int8_t rd,
       int8_t cd
-      ) const;
+      ) const {
+    const bool is_orthogonal = (rd == 0) || (cd == 0);
+    // Start scanning from the piece's original location (now empty)
+    int8_t row = from_row + rd;
+    int8_t col = from_col + cd;
+    while (IsLegalLocation(row, col)) {
+        const auto piece = GetPiece(row, col);
+        if (piece.Present()) {
+            if (piece.GetTeam() == team) {
+                PieceType type = piece.GetPieceType();
+                if (is_orthogonal) {
+                    if (type == QUEEN || type == ROOK) return true;
+                } else { // diagonal
+                    if (type == QUEEN || type == BISHOP) return true;
+                }
+            }
+            break;  // Blocked by any piece
+        }
+        row += rd;
+        col += cd;
+    }
+    return false;
+  }
 
   BoardLocation GetAttacker(
       Team team,

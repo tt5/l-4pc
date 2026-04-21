@@ -294,37 +294,6 @@ BoardLocation Board::GetRevAttacker(Team team, const BoardLocation& location) co
   return BoardLocation::kNoLocation;
 }
 
-bool Board::IsAttackedByTeamAligned(Team team, int8_t loc_row, int8_t loc_col, int8_t rd, int8_t cd) const {
-  // Search only in the specified direction for aligned attackers
-  
-  // Determine attacker type based on direction
-  const bool is_orthogonal = (rd == 0) || (cd == 0);
-  const bool is_diagonal = (rd != 0) && (cd != 0) && (rd * rd == cd * cd);
-  
-  //if (!is_orthogonal && !is_diagonal) {std::cout << "invalid direction" << std::endl; abort();};
-  
-  // Scan in the given direction until we hit a piece or board edge
-  int8_t row = loc_row + rd;
-  int8_t col = loc_col + cd;
-  while (IsLegalLocation(row, col)) {
-      const auto piece = GetPiece(row, col);
-      if (piece.Present()) {
-          if (piece.GetTeam() == team) {
-              PieceType type = piece.GetPieceType();
-              if (is_orthogonal) {
-                  if (type == QUEEN || type == ROOK) return true;
-              } else { // diagonal
-                  if (type == QUEEN || type == BISHOP) return true;
-              }
-          }
-          break;  // Blocked by any piece
-      }
-      row += rd;
-      col += cd;
-  }
-  return false;
-}
-
 // Optimized version of GetAttackers2 for limit=1 that returns as soon as it finds an attacker
 bool Board::IsAttackedByTeam(Team team, int8_t loc_row, int8_t loc_col) const {
 
@@ -444,7 +413,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
 
     if (buffer == nullptr || limit == 0) return result;
     
-    //auto pstart = std::chrono::high_resolution_clock::now();
+    auto pstart = std::chrono::high_resolution_clock::now();
 
     const PlayerColor current_color = GetTurn().GetColor();
     const Team my_team = GetTeam(current_color);
@@ -2027,13 +1996,13 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     //result.in_check = in_check;
 
 
-    //static std::chrono::nanoseconds total_time{0};
-    //static size_t call_count = 0;
-    //auto pgen_end = std::chrono::high_resolution_clock::now();
-    //total_time += std::chrono::duration_cast<std::chrono::nanoseconds>(pgen_end - pstart);
-    //if (++call_count % 100000 == 0) {
-    //    std::cout << "---[MoveGen] Avg: " << (total_time.count() / call_count) << " ns, Calls: " << call_count << std::endl;
-    //}
+    static std::chrono::nanoseconds total_time{0};
+    static size_t call_count = 0;
+    auto pgen_end = std::chrono::high_resolution_clock::now();
+    total_time += std::chrono::duration_cast<std::chrono::nanoseconds>(pgen_end - pstart);
+    if (++call_count % 100000 == 0) {
+        std::cout << "---[MoveGen] Avg: " << (total_time.count() / call_count) << " ns, Calls: " << call_count << std::endl;
+    }
     return result;
 }
 
@@ -2378,6 +2347,10 @@ void Board::UndoMove() {
 
   const BoardLocation& to = move.To();
   const BoardLocation& from = move.From();
+  const auto to_row = move.ToRow();
+  const auto to_col = move.ToCol();
+  const auto from_row = move.FromRow();
+  const auto from_col = move.FromCol();
 
   const auto piece = GetPiece(to);
   
@@ -2402,7 +2375,7 @@ void Board::UndoMove() {
   }
 
   UpdatePieceHash(piece, to);
-  location_to_piece_[move.ToRow()][move.ToCol()] = Piece();
+  location_to_piece_[to_row][to_col] = Piece();
 
   // end remove
 
@@ -2413,7 +2386,7 @@ void Board::UndoMove() {
   if (promotion_type != NO_PIECE) {
     // Create original pawn piece
     const Piece pawn_piece(piece.GetPlayer(), PAWN);
-    location_to_piece_[move.FromRow()][move.FromCol()] = pawn_piece;
+    location_to_piece_[from_row][from_col] = pawn_piece;
     
     // Replace promoted piece with pawn in piece_list_
     auto& pieces = piece_list_[color];
@@ -2439,7 +2412,7 @@ void Board::UndoMove() {
     }
     player_piece_evaluations_[color] += undo_promotion_eval;
   } else {
-    location_to_piece_[move.FromRow()][move.FromCol()] = piece;
+    location_to_piece_[from_row][from_col] = piece;
     UpdatePieceHash(piece, from);
   }
 
@@ -2466,7 +2439,7 @@ void Board::UndoMove() {
   // Place back captured pieces
   const auto standard_capture = move.GetStandardCapture();
   if (standard_capture.Present()) {
-      location_to_piece_[to.GetRow()][to.GetCol()] = standard_capture;
+      location_to_piece_[to_row][to_col] = standard_capture;
       piece_list_[standard_capture.GetColor()].emplace_back(to, standard_capture);
       UpdatePieceHash(standard_capture, to);
       // Update king location if needed

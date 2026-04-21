@@ -160,7 +160,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   std::optional<Move> pv_move = pvinfo.GetBestMove();
   Move* moves = thread_state.GetNextMoveBufferPartition();
   
-  //~500ns
+  //~400ns
   // Generate moves first
   auto result = board.GetPseudoLegalMoves2(
     moves,
@@ -368,10 +368,11 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         row_diff * row_diff == col_diff * col_diff;  // diagonal
 
       if (aligned_with_king) { // possible pinned or king move
+        int8_t rd = (row_diff > 0) - (row_diff < 0);  // sign of row_diff: -1, 0, or 1
+        int8_t cd = (col_diff > 0) - (col_diff < 0);   // sign of col_diff
         bool is_king_in_check = board.IsAttackedByTeamAligned(
-          other_team, king_row, king_col, 
-          (row_diff > 0) - (row_diff < 0),  // sign of row_diff: -1, 0, or 1
-          (col_diff > 0) - (col_diff < 0)   // sign of col_diff
+          other_team, from_row, from_col,  // scan from piece location
+          rd, cd
         );
         if (is_king_in_check) { // invalid move
           board.UndoMove();
