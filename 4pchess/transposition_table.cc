@@ -38,9 +38,9 @@ void TranspositionTable::Save(
     entry.key = key;
     entry.depth = depth;
     if (move.has_value()) {
-      entry.move = *move;
+      entry.packed_move = move->Pack();
     } else {
-      entry.move = Move();
+      entry.packed_move = 0;  // 0 means no move
     }
     entry.score = score;
     entry.eval = eval;

@@ -557,6 +557,17 @@ class Move {
   friend std::ostream& operator<<(
       std::ostream& os, const Move& move);
   std::string PrettyStr() const;
+
+  // Packed representation for transposition table (32 bits)
+  // Bits 0-7: from square (0-195, 196=invalid)
+  // Bits 8-15: to square (0-195, 196=invalid)
+  // Bits 16-18: promotion piece type (0-6)
+  // Bit 19: is castling
+  // Bit 20: is en passant
+  // Bits 21-31: reserved (0)
+  uint32_t Pack() const;
+  static Move Unpack(uint32_t packed, const Board& board);
+
  private:
   BoardLocation from_;  // 1
   BoardLocation to_;  // 1
@@ -719,7 +730,7 @@ class Board {
   static std::shared_ptr<Board> CreateStandardSetup();
 //  bool operator==(const Board& other) const;
 //  bool operator!=(const Board& other) const;
-  const CastlingRights& GetCastlingRights(const Player& player);
+  const CastlingRights& GetCastlingRights(const Player& player) const;
 
   void MakeMove(const Move& move);
   void UndoMove();

@@ -19,7 +19,8 @@ struct MovePicker2 {
     size_t count;          // Total number of moves
     size_t current;        // Current move index
     const Move* pv_move;   // PV move to prioritize
-    int phase;             // Current phase (0=PV, 1=Remaining)
+    const Move* tt_move;   // TT move to try after PV move
+    int phase;             // Current phase (0=PV, 1=TT, 2=Remaining)
     int16_t (*history_heuristic)[196][196]; // Pointer to current ply's history heuristic [piece_type][from_sq][to_sq] where sq = row*14+col
     std::vector<size_t> move_indices;   // To store sorted indices of remaining moves
     bool remaining_sorted; // Whether remaining moves are already sorted
@@ -32,6 +33,7 @@ inline void InitMovePicker2(
     const Move* moves,
     size_t count,
     const Move* pv_move,
+    const Move* tt_move = nullptr,
     int16_t (*history_heuristic)[196][196] = nullptr)
 {
     picker->board = board;
@@ -39,6 +41,7 @@ inline void InitMovePicker2(
     picker->count = count;
     picker->current = 0;
     picker->pv_move = pv_move;
+    picker->tt_move = tt_move;
     picker->phase = 0;
     picker->remaining_sorted = false;
     picker->history_heuristic = history_heuristic;
@@ -72,9 +75,17 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                     return picker->pv_move;
                 }
                 // Fall through to next phase if no PV move
-                
-            // Phase 1: Return remaining moves with history-aware ordering
-            case 1: {
+
+            // Phase 1: Return TT move if available and different from PV
+            case 1:
+                picker->phase++;
+                if (picker->tt_move && picker->tt_move != picker->pv_move) {
+                    return picker->tt_move;
+                }
+                // Fall through to next phase if no TT move or same as PV
+
+            // Phase 2: Return remaining moves with history-aware ordering
+            case 2: {
                 // Sort remaining moves by combined score if not already sorted
                 // Calculate once and reuse
                 const size_t remaining_moves = picker->count - picker->current;
@@ -194,6 +205,10 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                     */
                     // Skip PV move if it appears in the move list
                     if (picker->pv_move && picker->moves[idx] == *picker->pv_move) {
+                        continue; // Skip to next move
+                    }
+                    // Skip TT move if it appears in the move list (to avoid duplicates)
+                    if (picker->tt_move && picker->moves[idx] == *picker->tt_move) {
                         continue; // Skip to next move
                     }
                     return &picker->moves[idx];

@@ -2020,6 +2020,8 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
         }
     }
 
+    //if (has_pv_move == -1) {std::cout << "no matching pv move" << std::endl; abort();}
+
     // Final updates to the result
     result.pv_index = pv_index;
     //result.in_check = in_check;
@@ -2845,7 +2847,7 @@ std::ostream& operator<<(
   return os;
 }
 
-const CastlingRights& Board::GetCastlingRights(const Player& player) {
+const CastlingRights& Board::GetCastlingRights(const Player& player) const {
   return castling_rights_[player.GetColor()];
 }
 
@@ -2904,6 +2906,85 @@ std::string Move::PrettyStr() const {
     s += "=" + ToStr(promotion_piece_type_);
   }
   return s;
+}
+
+uint32_t Move::Pack() const {
+  uint32_t packed = 0;
+  packed |= (static_cast<uint32_t>(from_.GetSquare()) & 0xFF);
+  packed |= (static_cast<uint32_t>(to_.GetSquare()) & 0xFF) << 8;
+  packed |= (static_cast<uint32_t>(promotion_piece_type_) & 0x7) << 16;
+  if (rook_move_.Present()) {
+    packed |= (1u << 19);  // Is castling
+  }
+  if (en_passant_capture_.Present()) {
+    packed |= (1u << 20);  // Is en passant
+  }
+  return packed;
+}
+
+Move Move::Unpack(uint32_t packed, const Board& board) {
+  uint8_t from_sq = packed & 0xFF;
+  uint8_t to_sq = (packed >> 8) & 0xFF;
+  PieceType promotion = static_cast<PieceType>((packed >> 16) & 0x7);
+  bool is_castling = (packed >> 19) & 1;
+  bool is_en_passant = (packed >> 20) & 1;
+
+  int8_t from_r = from_sq / 14;
+  int8_t from_c = from_sq % 14;
+  int8_t to_r = to_sq / 14;
+  int8_t to_c = to_sq % 14;
+
+  BoardLocation from(from_r, from_c, true);
+  BoardLocation to(to_r, to_c, true);
+
+  if (is_castling) {
+    // For castling, we need to determine the rook move based on king's movement
+    CastlingRights rights = board.GetCastlingRights(board.GetTurn());
+    // Rook move is derived from king's from/to
+    SimpleMove rook_move;
+    if (to_c > from_c) {  // Kingside
+      rook_move = SimpleMove(
+          BoardLocation(from_r, 13, true),
+          BoardLocation(from_r, to_c - 1, true));
+    } else {  // Queenside
+      rook_move = SimpleMove(
+          BoardLocation(from_r, 0, true),
+          BoardLocation(from_r, to_c + 1, true));
+    }
+    return Move(from, to, rook_move, rights);
+  }
+
+  if (is_en_passant) {
+    // En passant: capture piece is on a different square than destination
+    const Piece& moving_piece = board.GetPiece(from);
+    // The captured pawn is one square behind the destination
+    int8_t captured_row = moving_piece.GetColor() == RED ? to_r - 1 :
+                          moving_piece.GetColor() == YELLOW ? to_r + 1 :
+                          moving_piece.GetColor() == BLUE ? to_r : to_r;
+    int8_t captured_col = moving_piece.GetColor() == BLUE ? to_c - 1 :
+                          moving_piece.GetColor() == GREEN ? to_c + 1 : to_c;
+    if (moving_piece.GetColor() == RED || moving_piece.GetColor() == YELLOW) {
+      captured_row = (moving_piece.GetColor() == RED) ? to_r - 1 : to_r + 1;
+      captured_col = to_c;
+    } else {
+      captured_row = to_r;
+      captured_col = (moving_piece.GetColor() == BLUE) ? to_c - 1 : to_c + 1;
+    }
+    BoardLocation captured_loc(captured_row, captured_col, true);
+    const Piece& captured = board.GetPiece(captured_loc);
+    return Move(from, to, Piece(), captured_loc, captured, promotion);
+  }
+
+  // Standard move or promotion
+  const Piece& captured = board.GetPiece(to);
+  if (promotion != NO_PIECE) {
+    return Move(from, to, captured,
+                BoardLocation(), Piece(), promotion);
+  }
+
+  // Regular move with possible capture
+  int8_t capture_raw = captured.Missing() ? Piece().GetRaw() : captured.GetRaw();
+  return Move(from_r, from_c, to_r, to_c, capture_raw, true);
 }
 
 void Board::PrintBoard() const {
