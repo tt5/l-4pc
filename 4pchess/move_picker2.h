@@ -116,8 +116,7 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
 
                         const bool is_capture = move.IsCapture();
 
-                        const auto from = move.From();
-                        const Piece piece = picker->board->GetPiece(from);
+                        const Piece piece = picker->board->GetPiece(move.FromRow(), move.FromCol());
                         const PieceType pt = piece.GetPieceType();
 
                         if (is_capture) {
@@ -142,9 +141,8 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                         }
                         else { // non-catpures
                             // Get move information
-                            const auto to = move.To();
-                            const int from_sq = from.GetSquare();
-                            const int to_sq = to.GetSquare();
+                            const int from_sq = move.FromRow() * 14 + move.FromCol();
+                            const int to_sq = move.ToRow() * 14 + move.ToCol();
                             int16_t hist_value = picker->history_heuristic[pt][from_sq][to_sq];
                             scored_moves.push_back({move_idx, hist_value});
                         }

@@ -440,7 +440,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       PVInfo pvinfo;
       auto res = Search(ss, NonPV, thread_state, board, ply+1,
         depth - 1 - (depth/2),
-        beta - 50, beta,
+        beta - 100, beta,
         maximizing_player, pvinfo, is_cut_node);
 
       if (res.has_value()) {
@@ -484,7 +484,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         if (score > alpha) {
           
           // If the score is not failing high by much, try a reduced-window search first
-          if (score < alpha + 300) {
+          if (score < alpha + 100) {
             (ss+1)->extension_count = ss->extension_count;
             int new_depth = depth - 1
                 - (depth/2)*(r > 0)*(depth>3)
@@ -494,7 +494,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
                 + (r < 0);
             SEARCH_OR_EVAL(value_and_move_or, new_depth,
                 ss+1, NonPV, thread_state, board, ply + 1, new_depth,
-                -alpha-20, -alpha, !maximizing_player,
+                -alpha-50, -alpha, !maximizing_player,
                 *child_pvinfo, is_cut_node);
                 
             if (value_and_move_or && -std::get<0>(*value_and_move_or) > alpha) {
@@ -603,15 +603,17 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   auto startC = std::chrono::high_resolution_clock::now();
 
   if (!fail_low && best_move) {  // Add null check for best_move
-    auto from = best_move->From();  // Use best_move
-    auto to = best_move->To();      // Use best_move
-    Piece piece = board.GetPiece(from);  // Use best_move
+    int8_t from_row = best_move->FromRow();
+    int8_t from_col = best_move->FromCol();
+    int8_t to_row = best_move->ToRow();
+    int8_t to_col = best_move->ToCol();
+    Piece piece = board.GetPiece(from_row, from_col);
 
     int bonus = 1 + (fail_high ? (depth << 1) : depth);
     //if (bonus > 32767) bonus = 32767;  // Cap for int16_t
 
-    int from_sq = from.GetSquare();
-    int to_sq = to.GetSquare();
+    int from_sq = 14 * from_row + from_col;
+    int to_sq = 14 * to_row + to_col;
     size_t lock_key = (from_sq * 196) + to_sq;
     std::lock_guard<std::mutex> lock(heuristic_mutexes_[lock_key % kHeuristicMutexes]);
     history_heuristic[piece.GetPieceType()][from_sq][to_sq] += bonus;

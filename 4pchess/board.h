@@ -113,31 +113,11 @@ namespace chess {
 class Piece {
  public:
   static int invalid_piece_count;
-  static void LogInvalidPiece(const char* context) {
-    std::cerr << "INVALID PIECE in " << context 
-              << " (total: " << ++invalid_piece_count << ")\n";
-    if (invalid_piece_count < 10) {  // Only show first few errors to avoid spam
-      std::cerr << "  Backtrace:\n";
-      // This is a simple way to get a backtrace - you might need to adjust for your platform
-      void* callstack[10];
-      int frames = backtrace(callstack, 10);
-      char** strs = backtrace_symbols(callstack, frames);
-      for (int i = 1; i < frames; ++i) {
-        std::cerr << "    " << strs[i] << "\n";
-      }
-      free(strs);
-    }
-  }
   
   Piece() : Piece(false, RED, NO_PIECE) { }
   
   // Raw constructor - bypasses validation for performance (caller must ensure valid)
   Piece(int8_t raw_bits, bool /*raw*/) noexcept : bits_(raw_bits) { }
-
-  static void AbortWithMessage(const std::string& message) {
-    std::cerr << "FATAL ERROR: " << message << "\n";
-    std::abort();
-  }
 
   Piece(bool present, PlayerColor color, PieceType piece_type) {
     // For non-present pieces, ensure clean state
@@ -149,17 +129,6 @@ class Piece {
     bits_ = (((int8_t)present) << 7) |
             (((int8_t)color) << 5) |
             (((int8_t)piece_type) << 2);
-  }
-
-  std::string DebugString() const {
-    std::ostringstream ss;
-    ss << "Piece["
-        << "present=" << Present()
-        << ", color=" << static_cast<int>(GetColor())
-        << ", type=" << static_cast<int>(GetPieceType())
-        << ", bits=0x" << std::hex << (bits_ & 0xFF) << std::dec
-        << "]";
-    return ss.str();
   }
 
   Piece(PlayerColor color, PieceType piece_type)
@@ -211,50 +180,6 @@ class Piece {
     192,  // YELLOW=2: 128 | 64 | 0
     224   // GREEN=3: 128 | 96 | 0
   };
-
-  bool IsValid() const {
-        // Check if piece type is valid
-        PieceType type = GetPieceType();
-        if (!IsValidPieceType(type)) {
-            std::cerr << "INVALID PIECE: Invalid type: " << static_cast<int>(type) 
-                      << " (valid range: 0=PAWN to 5=KING, 6=NO_PIECE)\n"
-                      << "  Full piece: " << DebugString() << std::endl;
-            return false;
-        }
-        
-        // Check if color is valid
-        PlayerColor color = GetColor();
-        if (color != PlayerColor::RED && 
-            color != PlayerColor::YELLOW &&
-            color != PlayerColor::GREEN &&
-            color != PlayerColor::BLUE) {
-            std::cerr << "INVALID PIECE: Invalid color: " << static_cast<int>(color) << std::endl;
-            return false;
-        }
-        
-        // Additional validation for present pieces
-        if (Present()) {
-            if (type == NO_PIECE) {
-                std::cerr << "INVALID PIECE: Present piece has NO_PIECE type" << std::endl;
-                return false;
-            }
-        } else {
-            // For non-present pieces, type and color should be 0
-            if (type != NO_PIECE || color != PlayerColor::RED) {
-                std::cerr << "INVALID PIECE: Non-present piece has non-zero type/color" << std::endl;
-                return false;
-            }
-        }
-        
-        return true;
-    }
-    
-    void Validate() const {
-        if (!IsValid()) {
-            std::cerr << "FATAL: Invalid piece detected: " << DebugString() << std::endl;
-            AbortWithMessage("Invalid piece validation failed");
-        }
-    }
 
  private:
   // bit 0: presence
@@ -321,24 +246,50 @@ struct std::hash<chess::BoardLocation>
 
 namespace chess {
 
+  // Precomputed legal positions for 4-player chess board
+  // 1 = legal, 0 = illegal
+  static constexpr bool kLegalPositions[14][14] = {
+      // Row 0-2: Only columns 3-10 are legal
+      {0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0}, // Row 0
+      {0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0}, // Row 1
+      {0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0}, // Row 2
+      // Rows 3-10: All columns are legal
+      {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // Row 3
+      {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // Row 4
+      {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // Row 5
+      {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // Row 6
+      {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // Row 7
+      {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // Row 8
+      {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // Row 9
+      {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // Row 10
+      // Rows 11-13: Only columns 3-10 are legal
+      {0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0}, // Row 11
+      {0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0}, // Row 12
+      {0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0}, // Row 13
+  };
+
 // Move or capture. Does not include pawn promotion, en-passant, or castling.
 class SimpleMove {
  public:
   SimpleMove() = default;
 
-  SimpleMove(BoardLocation from,
-             BoardLocation to)
-    : from_(std::move(from)),
-      to_(std::move(to))
-  { }
+  // Raw constructor - bypasses validation/overhead for performance (caller must ensure valid)
+  SimpleMove(int8_t from_r, int8_t from_c, int8_t to_r, int8_t to_c, bool /*raw*/) noexcept
+      : from_row_(from_r),
+        from_col_(from_c),
+        to_row_(to_r),
+        to_col_(to_c) { }
 
-  bool Present() const { return from_.Present() && to_.Present(); }
-  const BoardLocation& From() const { return from_; }
-  const BoardLocation& To() const { return to_; }
+  int8_t FromRow() const { return from_row_; }
+  int8_t FromCol() const { return from_col_; }
+  int8_t ToRow() const { return to_row_; }
+  int8_t ToCol() const { return to_col_; }
 
   bool operator==(const SimpleMove& other) const {
-    return from_ == other.from_
-        && to_ == other.to_;
+    return from_row_ == other.from_row_
+        && from_col_ == other.from_col_
+        && to_row_ == other.to_row_
+        && to_col_ == other.to_col_;
   }
 
   bool operator!=(const SimpleMove& other) const {
@@ -346,8 +297,10 @@ class SimpleMove {
   }
 
  private:
-  BoardLocation from_;
-  BoardLocation to_;
+  int8_t from_row_;
+  int8_t from_col_;
+  int8_t to_row_;
+  int8_t to_col_;
 };
 
 enum CastlingType {
@@ -392,6 +345,7 @@ class Move {
  public:
   Move() = default;
 
+  /*
   // Standard move
   Move(BoardLocation from, BoardLocation to,
        Piece standard_capture = Piece::kNoPiece,
@@ -405,31 +359,6 @@ class Move {
       standard_capture_(standard_capture),
       initial_castling_rights_(std::move(initial_castling_rights))
   { }
-
-      std::string DebugString() const {
-        std::ostringstream ss;
-        ss << "Move[from=" << from_.PrettyStr() 
-           << ", to=" << to_.PrettyStr();
-        
-        if (standard_capture_.Present()) {
-            ss << ", capture=" << standard_capture_.DebugString();
-        }
-        if (promotion_piece_type_ != NO_PIECE) {
-            ss << ", promote_to=" << static_cast<int>(promotion_piece_type_);
-        }
-        if (en_passant_location_.Present()) {
-            ss << ", ep=" << en_passant_location_.PrettyStr();
-        }
-        if (en_passant_capture_.Present()) {
-            ss << ", ep_capture=" << en_passant_capture_.DebugString();
-        }
-        if (rook_move_.Present()) {
-            ss << ", rook_from=" << rook_move_.From().PrettyStr()
-               << ", rook_to=" << rook_move_.To().PrettyStr();
-        }
-        ss << "]";
-        return ss.str();
-    }
 
   // Pawn move
   Move(BoardLocation from, BoardLocation to,
@@ -445,7 +374,6 @@ class Move {
       to_col_(to.GetCol()),
       standard_capture_(standard_capture),
       promotion_piece_type_(promotion_piece_type),
-      en_passant_location_(en_passant_location),
       en_passant_capture_(en_passant_capture),
       ep_target_row_(en_passant_location.Present() ? en_passant_location.GetRow() : -1),
       ep_target_col_(en_passant_location.Present() ? en_passant_location.GetCol() : -1)
@@ -464,63 +392,74 @@ class Move {
       rook_move_(rook_move),
       initial_castling_rights_(std::move(initial_castling_rights))
   { }
+  */
+
+  // Raw constructor for castling - bypasses validation/overhead for performance (caller must ensure valid)
+  Move(int8_t king_from_r, int8_t king_from_c, int8_t king_to_r, int8_t king_to_c,
+       int8_t rook_from_r, int8_t rook_from_c, int8_t rook_to_r, int8_t rook_to_c,
+       CastlingRights initial_castling_rights, bool /*raw*/) noexcept
+      : from_row_(king_from_r),
+        from_col_(king_from_c),
+        to_row_(king_to_r),
+        to_col_(king_to_c),
+        rook_move_(SimpleMove(rook_from_r, rook_from_c, rook_to_r, rook_to_c, true)),
+        initial_castling_rights_(std::move(initial_castling_rights)) { }
 
   // Raw constructor - bypasses validation/overhead for performance (caller must ensure valid)
   Move(int8_t from_r, int8_t from_c, int8_t to_r, int8_t to_c,
        int8_t capture_raw, bool /*raw*/) noexcept
-      : from_(from_r, from_c, true),
-        to_(to_r, to_c, true),
-        from_row_(from_r),
+      : from_row_(from_r),
         from_col_(from_c),
         to_row_(to_r),
         to_col_(to_c),
+        rook_move_(SimpleMove(-1, -1, -1, -1, true)),
         standard_capture_(capture_raw, true) { }
 
   // Raw constructor with castling rights - for king moves
   Move(int8_t from_r, int8_t from_c, int8_t to_r, int8_t to_c,
        int8_t capture_raw, CastlingRights castling_rights, bool /*raw*/) noexcept
-      : from_(from_r, from_c, true),
-        to_(to_r, to_c, true),
-        from_row_(from_r),
+      : from_row_(from_r),
         from_col_(from_c),
         to_row_(to_r),
         to_col_(to_c),
+        rook_move_(SimpleMove(-1, -1, -1, -1, true)),
         standard_capture_(capture_raw, true),
         initial_castling_rights_(std::move(castling_rights)) { }
 
   // Raw constructor for promotion moves
   Move(int8_t from_r, int8_t from_c, int8_t to_r, int8_t to_c,
        int8_t capture_raw, PieceType promotion_type, bool /*raw*/) noexcept
-      : from_(from_r, from_c, true),
-        to_(to_r, to_c, true),
-        from_row_(from_r),
+      : from_row_(from_r),
         from_col_(from_c),
         to_row_(to_r),
         to_col_(to_c),
+        rook_move_(SimpleMove(-1, -1, -1, -1, true)),
         standard_capture_(capture_raw, true),
         promotion_piece_type_(promotion_type) { }
 
   // Raw constructor for en passant moves
   Move(int8_t from_r, int8_t from_c, int8_t to_r, int8_t to_c,
        int8_t ep_row, int8_t ep_col, int8_t ep_capture_raw, bool /*raw*/) noexcept
-      : from_(from_r, from_c, true),
-        to_(to_r, to_c, true),
-        from_row_(from_r),
+      : from_row_(from_r),
         from_col_(from_c),
         to_row_(to_r),
         to_col_(to_c),
-        en_passant_location_(ep_row, ep_col, true),
+        rook_move_(SimpleMove(-1, -1, -1, -1, true)),
         en_passant_capture_(ep_capture_raw, true),
         ep_target_row_(ep_row),
         ep_target_col_(ep_col) { }
 
-  const BoardLocation& From() const { return from_; }
-  const BoardLocation& To() const { return to_; }
   int8_t FromRow() const { return from_row_; }
   int8_t FromCol() const { return from_col_; }
   int8_t ToRow() const { return to_row_; }
   int8_t ToCol() const { return to_col_; }
-  bool Present() const { return from_.Present() && to_.Present(); }
+  //bool Present() const { return from_.Present() && to_.Present(); }
+  bool PresentFast() const {
+    return from_row_ >= 0 && from_row_ < 14 &&
+           from_col_ >= 0 && from_col_ < 14 &&
+           to_row_ >= 0 && to_row_ < 14 &&
+           to_col_ >= 0 && to_col_ < 14;
+  }
   Piece GetStandardCapture() const {
     return standard_capture_;
   }
@@ -529,9 +468,6 @@ class Move {
   }
   PieceType GetPromotionPieceType() const {
     return promotion_piece_type_;
-  }
-  const BoardLocation GetEnpassantLocation() const {
-    return en_passant_location_;
   }
   int8_t GetEnpassantTargetRow() const { return ep_target_row_; }
   int8_t GetEnpassantTargetCol() const { return ep_target_col_; }
@@ -551,19 +487,22 @@ class Move {
   }
 
   bool operator==(const Move& other) const {
-    return from_ == other.from_
-        && to_ == other.to_
-        && standard_capture_ == other.standard_capture_
-        && promotion_piece_type_ == other.promotion_piece_type_
-        && en_passant_location_ == other.en_passant_location_
-        && en_passant_capture_ == other.en_passant_capture_
-        && rook_move_ == other.rook_move_
-        && initial_castling_rights_ == other.initial_castling_rights_;
+  return from_row_ == other.from_row_
+      && from_col_ == other.from_col_
+      && to_row_ == other.to_row_
+      && to_col_ == other.to_col_
+      && standard_capture_ == other.standard_capture_
+      && promotion_piece_type_ == other.promotion_piece_type_
+      && ep_target_row_ == other.ep_target_row_
+      && ep_target_col_ == other.ep_target_col_
+      && en_passant_capture_ == other.en_passant_capture_
+      && rook_move_ == other.rook_move_
+      && initial_castling_rights_ == other.initial_castling_rights_;
   }
   bool operator!=(const Move& other) const {
     return !(*this == other);
   }
-  int ManhattanDistance() const;
+  //int ManhattanDistance() const;
   friend std::ostream& operator<<(
       std::ostream& os, const Move& move);
   std::string PrettyStr() const;
@@ -579,10 +518,7 @@ class Move {
   static Move Unpack(uint32_t packed, const Board& board);
 
  private:
-  BoardLocation from_;  // 1
-  BoardLocation to_;  // 1
 
-  // Dual-format coordinates (redundant but avoids division)
   int8_t from_row_;
   int8_t from_col_;
   int8_t to_row_;
@@ -595,7 +531,6 @@ class Move {
   PieceType promotion_piece_type_ = NO_PIECE; // 1
 
   // En-passant
-  BoardLocation en_passant_location_; // 1
   Piece en_passant_capture_;  // 1
   int8_t ep_target_row_ = -1;
   int8_t ep_target_col_ = -1;
@@ -669,24 +604,6 @@ class Board {
     size_t limit, 
     const std::optional<Move>& pv_move = std::nullopt);
   
-  // Direct buffer access move generation functions
-  Move* GetPawnMovesDirect(Move* moves, const BoardLocation& from, PlayerColor color, Team my_team) const;
-  Move* GetKnightMovesDirect(Move* moves, const BoardLocation& from, PlayerColor color, int& threats, Team my_team) const;
-  //Move* GetBishopMovesDirect(Move* moves, const BoardLocation& from, PlayerColor color, int& threats, Team my_team) const;
-  Move* GetBishopMovesDirect(Move* moves, const BoardLocation& from, const int8_t from_row, const int8_t from_col, PlayerColor color, int& threats, Team my_team) const;
-  Move* GetRookMovesDirect(Move* moves, const BoardLocation& from, const int8_t from_row, const int8_t from_col, PlayerColor color, int& threats, Team my_team) const;
-  Move* GetQueenMovesDirect(Move* moves, const BoardLocation& from, PlayerColor color, int& threats, Team my_team) const;
-  Move* GetKingMovesDirect(Move* moves, const BoardLocation& from, PlayerColor color, Team my_team) const;
-
-  Move* GetKingMovesCheck(Move* moves, const BoardLocation& from, PlayerColor color, Team my_team) const;
-  Move* GetKingMovesNoCheck(Move* moves, const BoardLocation& from, PlayerColor color, Team my_team) const;
-
-  bool IsKingInCheck(const Player& player) const;
-  bool IsKingInCheck(Team team) const;
-
-  GameResult CheckWasLastMoveKingCapture() const;
-  GameResult GetGameResult(); // Avoid calling during search.
-
   Team TeamToPlay() const;
   int PieceEvaluation() const;
   int PieceEvaluation(PlayerColor color) const;
@@ -732,14 +649,9 @@ class Board {
     return false;
   }
 
-  BoardLocation GetAttacker(
-      Team team,
-      const BoardLocation& location) const;
-  BoardLocation GetAttacker(Team team, int8_t row, int8_t col) const;
+  std::pair<int8_t, int8_t> GetAttacker(Team team, int8_t row, int8_t col) const;
 
-  BoardLocation GetRevAttacker(
-      Team team,
-      const BoardLocation& location) const;
+  std::pair<int8_t, int8_t> GetRevAttacker(Team team, int8_t row, int8_t col) const;
 
 //  std::vector<PlacedPiece> GetAttackers(
 //      Team team, const BoardLocation& location,
@@ -752,7 +664,6 @@ class Board {
   int8_t GetKingRow(PlayerColor color) const { return king_row_[color]; }
   int8_t GetKingCol(PlayerColor color) const { return king_col_[color]; }
   bool KingPresent(PlayerColor color) const { return king_row_[color] >= 0; }
-  bool DeliversCheck(const Move& move);
 
   const Piece& GetPiece(int row, int col) const {
     return location_to_piece_[row][col];
@@ -790,27 +701,6 @@ class Board {
   static std::chrono::nanoseconds total_time;
   static size_t call_count;
 
-  // Precomputed legal positions for 4-player chess board
-  // 1 = legal, 0 = illegal
-  static constexpr bool kLegalPositions[14][14] = {
-      // Row 0-2: Only columns 3-10 are legal
-      {0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0}, // Row 0
-      {0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0}, // Row 1
-      {0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0}, // Row 2
-      // Rows 3-10: All columns are legal
-      {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // Row 3
-      {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // Row 4
-      {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // Row 5
-      {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // Row 6
-      {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // Row 7
-      {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // Row 8
-      {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // Row 9
-      {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, // Row 10
-      // Rows 11-13: Only columns 3-10 are legal
-      {0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0}, // Row 11
-      {0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0}, // Row 12
-      {0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0}, // Row 13
-  };
 
   bool IsLegalLocation(int row, int col) const {
     // Bounds check first (faster to fail fast for out-of-bounds)
@@ -819,52 +709,17 @@ class Board {
     }
     return kLegalPositions[row][col];
   }
-  bool IsLegalLocation(const BoardLocation& location) const {
-    return IsLegalLocation(location.GetRow(), location.GetCol());
-  }
+
   const EnpassantInitialization& GetEnpassantInitialization() { return enp_; }
   const std::vector<std::vector<PlacedPiece>>& GetPieceList() { return piece_list_; };
 
  private:
-  void AddMovesFromIncrMovement(
-      std::vector<Move>& moves,
-      const Piece& piece,
-      const BoardLocation& from,
-      int incr_row,
-      int incr_col,
-      CastlingRights initial_castling_rights = CastlingRights::kMissingRights,
-      CastlingRights castling_rights = CastlingRights::kMissingRights) const;
   int GetMaxRow() const { return 13; }
   int GetMaxCol() const { return 13; }
   std::optional<CastlingType> GetRookLocationType(
       const Player& player, const BoardLocation& location) const;
-  inline void SetPiece(const BoardLocation& location,
-                const Piece& piece);
-  inline void RemovePiece(const BoardLocation& location);
-  inline bool QueenAttacks(
-      const BoardLocation& queen_loc,
-      const BoardLocation& other_loc) const;
-  inline bool RookAttacks(
-      const BoardLocation& rook_loc,
-      const BoardLocation& other_loc) const;
-  inline bool BishopAttacks(
-      const BoardLocation& bishop_loc,
-      const BoardLocation& other_loc) const;
-  inline bool KingAttacks(
-      const BoardLocation& king_loc,
-      const BoardLocation& other_loc) const;
-  inline bool KnightAttacks(
-      const BoardLocation& knight_loc,
-      const BoardLocation& other_loc) const;
-  inline bool PawnAttacks(
-      const BoardLocation& pawn_loc,
-      PlayerColor pawn_color,
-      const BoardLocation& other_loc) const;
 
   void InitializeHash();
-  void UpdatePieceHash(const Piece& piece, const BoardLocation& loc) {
-    UpdatePieceHash(piece, loc.GetRow(), loc.GetCol());
-  }
   void UpdatePieceHash(const Piece& piece, int8_t row, int8_t col) {
     hash_key_ ^= piece_hashes_[piece.GetColor()][piece.GetPieceType()]
       [row][col];
@@ -878,8 +733,6 @@ class Board {
   Piece location_to_piece_[14][14];
   std::vector<std::vector<PlacedPiece>> piece_list_;
 
-  BoardLocation locations_[14][14];
-
   CastlingRights castling_rights_[4];
   EnpassantInitialization enp_;
   std::vector<Move> moves_; // list of moves from beginning of game
@@ -892,7 +745,11 @@ class Board {
   int64_t turn_hashes_[4];
   int8_t king_row_[4] = {-1, -1, -1, -1};
   int8_t king_col_[4] = {-1, -1, -1, -1};
-  BoardLocation en_passant_targets_[4];  // One for each player color
+  struct EnPassantTarget {
+    int8_t row = -1;
+    int8_t col = -1;
+  };
+  EnPassantTarget en_passant_targets_[4];  // One for each player color
 
   size_t move_buffer_size_ = 300;
   Move move_buffer_2_[300];

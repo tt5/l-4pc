@@ -250,8 +250,6 @@ class AlphaBetaPlayer {
                    const std::vector<Move>& searched_moves);
   void UpdateQuietStats(Stack* ss, const Move& move);
   void UpdateMobilityEvaluation(ThreadState& thread_state, Board& board, Player turn);
-  bool HasShield(Board& board, PlayerColor color, const BoardLocation& king_loc);
-  bool OnBackRank(const BoardLocation& king_loc);
 
   std::atomic<int64_t> num_nodes_ = 0; // debugging
   std::atomic<int64_t> num_cache_hits_ = 0;

@@ -102,6 +102,7 @@ std::optional<BoardLocation> ParseEnpLocation(const std::string& enp) {
   return BoardLocation(row, col);
 }
 
+/*
 std::shared_ptr<Board> ParseBoardFromFEN(const std::string& fen) {
   std::vector<std::string> parts = SplitStr(fen, "-");
   if (parts.size() < 7 || parts.size() > 8) {
@@ -303,6 +304,7 @@ std::shared_ptr<Board> ParseBoardFromFEN(const std::string& fen) {
       std::move(player), std::move(location_to_piece),
       std::move(castling_rights), std::move(enp));
 }
+*/
 
 void SendInfoMessage(const std::string& message) {
   std::cout << "info string " << message << std::endl;
@@ -416,7 +418,8 @@ std::optional<Move> ParseMove(Board& board, const std::string& move_str_ref) {
 
   for (size_t i = 0; i < num_moves; i++) {
     const auto& move = moves[i];
-    if (move.From() == from_loc && move.To() == to_loc
+    if (move.FromRow() == from_loc.GetRow() && move.FromCol() == from_loc.GetCol() &&
+        move.ToRow() == to_loc.GetRow() && move.ToCol() == to_loc.GetCol()
         && move.GetPromotionPieceType() == promotion_piece_type) {
       return move;
     }

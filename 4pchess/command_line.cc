@@ -330,23 +330,23 @@ void CommandLine::HandleCommand(
     size_t next_pos = 1;
     std::shared_ptr<Board> board;
 
-    if (parts[1] == "fen") {
-      if (parts.size() < 3) {
-        SendInvalidCommandMessage(line);
-      }
-      const auto& fen = parts[2];
-      board = ParseBoardFromFEN(fen);
-      if (board == nullptr) {
-        SendInfoMessage("Invalid FEN: " + fen);
-        return;
-      }
-      next_pos += 2;
-    } else {
-      if (parts[1] == "startpos") {
-        next_pos += 1;
-      }
-      board = Board::CreateStandardSetup();
-    }
+    //if (parts[1] == "fen") {
+    //  if (parts.size() < 3) {
+    //    SendInvalidCommandMessage(line);
+    //  }
+    //  const auto& fen = parts[2];
+    //  board = ParseBoardFromFEN(fen);
+    //  if (board == nullptr) {
+    //    SendInfoMessage("Invalid FEN: " + fen);
+    //    return;
+    //  }
+    //  next_pos += 2;
+    //} else {
+    //  if (parts[1] == "startpos") {
+    //    next_pos += 1;
+    //  }
+    //  board = Board::CreateStandardSetup();
+    //}
 
     if (parts.size() < next_pos + 1) {
       // Invalid, but we'll accept it
