@@ -191,7 +191,28 @@ class Piece {
 
     uint8_t GetRaw() const { return bits_; }
 
-    bool IsValid() const {
+  // Helper to compute raw bits for a present piece (constexpr for compile-time)
+  static constexpr int8_t ComputeRawBits(PlayerColor color, PieceType piece_type) {
+    return (1 << 7) | (((int8_t)color) << 5) | (((int8_t)piece_type) << 2);
+  }
+
+  // Precomputed raw bits for ROOK pieces (used in castling checks)
+  // Formula: (1 << 7) | (color << 5) | (ROOK << 2)
+  static constexpr uint8_t kRawRedRook = 140;    // 128 | 0 | 12
+  static constexpr uint8_t kRawBlueRook = 172;   // 128 | 32 | 12
+  static constexpr uint8_t kRawYellowRook = 204;  // 128 | 64 | 12
+  static constexpr uint8_t kRawGreenRook = 236;   // 128 | 96 | 12
+
+  // Precomputed raw bits for PAWN (used in demotion)
+  // Formula: (1 << 7) | (color << 5) | (PAWN << 2)
+  static constexpr uint8_t kRawPawn[4] = {
+    128,  // RED=0: 128 | 0 | 0
+    160,  // BLUE=1: 128 | 32 | 0
+    192,  // YELLOW=2: 128 | 64 | 0
+    224   // GREEN=3: 128 | 96 | 0
+  };
+
+  bool IsValid() const {
         // Check if piece type is valid
         PieceType type = GetPieceType();
         if (!IsValidPieceType(type)) {
@@ -425,7 +446,9 @@ class Move {
       standard_capture_(standard_capture),
       promotion_piece_type_(promotion_piece_type),
       en_passant_location_(en_passant_location),
-      en_passant_capture_(en_passant_capture)
+      en_passant_capture_(en_passant_capture),
+      ep_target_row_(en_passant_location.Present() ? en_passant_location.GetRow() : -1),
+      ep_target_col_(en_passant_location.Present() ? en_passant_location.GetCol() : -1)
   { }
 
   // Castling
@@ -465,6 +488,32 @@ class Move {
         standard_capture_(capture_raw, true),
         initial_castling_rights_(std::move(castling_rights)) { }
 
+  // Raw constructor for promotion moves
+  Move(int8_t from_r, int8_t from_c, int8_t to_r, int8_t to_c,
+       int8_t capture_raw, PieceType promotion_type, bool /*raw*/) noexcept
+      : from_(from_r, from_c, true),
+        to_(to_r, to_c, true),
+        from_row_(from_r),
+        from_col_(from_c),
+        to_row_(to_r),
+        to_col_(to_c),
+        standard_capture_(capture_raw, true),
+        promotion_piece_type_(promotion_type) { }
+
+  // Raw constructor for en passant moves
+  Move(int8_t from_r, int8_t from_c, int8_t to_r, int8_t to_c,
+       int8_t ep_row, int8_t ep_col, int8_t ep_capture_raw, bool /*raw*/) noexcept
+      : from_(from_r, from_c, true),
+        to_(to_r, to_c, true),
+        from_row_(from_r),
+        from_col_(from_c),
+        to_row_(to_r),
+        to_col_(to_c),
+        en_passant_location_(ep_row, ep_col, true),
+        en_passant_capture_(ep_capture_raw, true),
+        ep_target_row_(ep_row),
+        ep_target_col_(ep_col) { }
+
   const BoardLocation& From() const { return from_; }
   const BoardLocation& To() const { return to_; }
   int8_t FromRow() const { return from_row_; }
@@ -484,6 +533,8 @@ class Move {
   const BoardLocation GetEnpassantLocation() const {
     return en_passant_location_;
   }
+  int8_t GetEnpassantTargetRow() const { return ep_target_row_; }
+  int8_t GetEnpassantTargetCol() const { return ep_target_col_; }
   Piece GetEnpassantCapture() const {
     return en_passant_capture_;
   }
@@ -546,6 +597,8 @@ class Move {
   // En-passant
   BoardLocation en_passant_location_; // 1
   Piece en_passant_capture_;  // 1
+  int8_t ep_target_row_ = -1;
+  int8_t ep_target_col_ = -1;
 
   // For castling moves
   SimpleMove rook_move_; // 2
@@ -564,22 +617,20 @@ enum GameResult {
 
 class PlacedPiece {
  public:
-  PlacedPiece() = default;
+  PlacedPiece() : row_(-1), col_(-1) { }
 
-  PlacedPiece(const BoardLocation& location,
-              const Piece& piece)
-    : location_(location),
-      piece_(piece)
+  PlacedPiece(int8_t row, int8_t col)
+    : row_(row), col_(col)
   { }
 
-  const BoardLocation& GetLocation() const { return location_; }
-  const Piece& GetPiece() const { return piece_; }
+  int8_t GetRow() const { return row_; }
+  int8_t GetCol() const { return col_; }
   friend std::ostream& operator<<(
       std::ostream& os, const PlacedPiece& placed_piece);
 
  private:
-  BoardLocation location_;
-  Piece piece_;
+  int8_t row_;
+  int8_t col_;
 };
 
 struct EnpassantInitialization {
@@ -684,6 +735,7 @@ class Board {
   BoardLocation GetAttacker(
       Team team,
       const BoardLocation& location) const;
+  BoardLocation GetAttacker(Team team, int8_t row, int8_t col) const;
 
   BoardLocation GetRevAttacker(
       Team team,
@@ -697,7 +749,9 @@ class Board {
       PlacedPiece* buffer, size_t limit,
       Team team, const BoardLocation& location) const;
 
-  BoardLocation GetKingLocation(PlayerColor color) const;
+  int8_t GetKingRow(PlayerColor color) const { return king_row_[color]; }
+  int8_t GetKingCol(PlayerColor color) const { return king_col_[color]; }
+  bool KingPresent(PlayerColor color) const { return king_row_[color] >= 0; }
   bool DeliversCheck(const Move& move);
 
   const Piece& GetPiece(int row, int col) const {
@@ -809,8 +863,11 @@ class Board {
 
   void InitializeHash();
   void UpdatePieceHash(const Piece& piece, const BoardLocation& loc) {
+    UpdatePieceHash(piece, loc.GetRow(), loc.GetCol());
+  }
+  void UpdatePieceHash(const Piece& piece, int8_t row, int8_t col) {
     hash_key_ ^= piece_hashes_[piece.GetColor()][piece.GetPieceType()]
-      [loc.GetRow()][loc.GetCol()];
+      [row][col];
   }
   void UpdateTurnHash(int turn) {
     hash_key_ ^= turn_hashes_[turn];
@@ -833,7 +890,8 @@ class Board {
   int64_t hash_key_ = 0;
   int64_t piece_hashes_[4][6][14][14];
   int64_t turn_hashes_[4];
-  BoardLocation king_locations_[4];
+  int8_t king_row_[4] = {-1, -1, -1, -1};
+  int8_t king_col_[4] = {-1, -1, -1, -1};
   BoardLocation en_passant_targets_[4];  // One for each player color
 
   size_t move_buffer_size_ = 300;

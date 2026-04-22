@@ -160,7 +160,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   std::optional<Move> pv_move = pvinfo.GetBestMove();
   Move* moves = thread_state.GetNextMoveBufferPartition();
   
-  //~400ns
+  //~300ns
   // Generate moves first
   auto result = board.GetPseudoLegalMoves2(
     moves,
@@ -350,14 +350,14 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       return std::make_tuple(eval, std::nullopt);
     }
 
-    const auto oldkinglocation = board.GetKingLocation(player_color);
+    const int8_t old_king_row = board.GetKingRow(player_color);
+    const int8_t old_king_col = board.GetKingCol(player_color);
     //~20ns
     board.MakeMove(move);
 
-    const auto kinglocation = board.GetKingLocation(player_color);
-    const int8_t king_row = kinglocation.GetRow();
-    const int8_t king_col = kinglocation.GetCol();
-    if (kinglocation == oldkinglocation) {
+    const int8_t king_row = board.GetKingRow(player_color);
+    const int8_t king_col = board.GetKingCol(player_color);
+    if (king_row == old_king_row && king_col == old_king_col) {
       const int8_t from_row = move.FromRow();
       const int8_t from_col = move.FromCol();
       const int8_t row_diff = king_row - from_row;
