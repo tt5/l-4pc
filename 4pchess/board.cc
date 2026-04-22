@@ -413,7 +413,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
 
     if (buffer == nullptr || limit == 0) return result;
     
-    auto pstart = std::chrono::high_resolution_clock::now();
+    //auto pstart = std::chrono::high_resolution_clock::now();
 
     const PlayerColor current_color = GetTurn().GetColor();
     const Team my_team = GetTeam(current_color);
@@ -1962,13 +1962,13 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     //result.in_check = in_check;
 
 
-    static std::chrono::nanoseconds total_time{0};
-    static size_t call_count = 0;
-    auto pgen_end = std::chrono::high_resolution_clock::now();
-    total_time += std::chrono::duration_cast<std::chrono::nanoseconds>(pgen_end - pstart);
-    if (++call_count % 100000 == 0) {
-        std::cout << "---[MoveGen] Avg: " << (total_time.count() / call_count) << " ns, Calls: " << call_count << std::endl;
-    }
+    //static std::chrono::nanoseconds total_time{0};
+    //static size_t call_count = 0;
+    //auto pgen_end = std::chrono::high_resolution_clock::now();
+    //total_time += std::chrono::duration_cast<std::chrono::nanoseconds>(pgen_end - pstart);
+    //if (++call_count % 100000 == 0) {
+    //    std::cout << "---[MoveGen] Avg: " << (total_time.count() / call_count) << " ns, Calls: " << call_count << std::endl;
+    //}
     return result;
 }
 

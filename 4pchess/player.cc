@@ -313,7 +313,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     const Move* move_ptr = GetNextMove2(&picker);
     if (move_ptr == nullptr) break;
     const Move& move = *move_ptr;
-    auto startA2 = std::chrono::high_resolution_clock::now();
+    //auto startA2 = std::chrono::high_resolution_clock::now();
 
     std::optional<std::tuple<int, std::optional<Move>>> value_and_move_or;
 
@@ -413,20 +413,20 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
     int r = 1;
 
-    auto endA2 = std::chrono::high_resolution_clock::now();
-    auto durationA2 = std::chrono::duration_cast<std::chrono::nanoseconds>(endA2 - startA2);
-    total_timeA2 += durationA2;
-    call_countA2++;
-    if (call_countA2 % 1000000 == 0) {
-      auto avg_ns = total_timeA2.count() / call_countA2;
+    //auto endA2 = std::chrono::high_resolution_clock::now();
+    //auto durationA2 = std::chrono::duration_cast<std::chrono::nanoseconds>(endA2 - startA2);
+    //total_timeA2 += durationA2;
+    //call_countA2++;
+    //if (call_countA2 % 1000000 == 0) {
+    //  auto avg_ns = total_timeA2.count() / call_countA2;
 
-      std::cout << "---[Move - before recursion]"
-                << "Average: " << avg_ns << " ns, "
-                << "Call count: " << call_countA2 << std::endl
-                << "Singular searches: " << GetNumSingularExtensionSearches() << std::endl
-                << "Singular hits: " << GetNumSingularExtensions() << std::endl
-                << "CM skips: " << cm_skip_count << std::endl;
-    }
+    //  std::cout << "---[Move - before recursion]"
+    //            << "Average: " << avg_ns << " ns, "
+    //            << "Call count: " << call_countA2 << std::endl
+    //            << "Singular searches: " << GetNumSingularExtensionSearches() << std::endl
+    //            << "Singular hits: " << GetNumSingularExtensions() << std::endl
+    //            << "CM skips: " << cm_skip_count << std::endl;
+    //}
 
     if (depth >= 5
         && tt_hit
@@ -544,7 +544,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
           -beta, -alpha, !maximizing_player,
           *child_pvinfo, is_cut_node);
     }
-    auto startB = std::chrono::high_resolution_clock::now();
+    //auto startB = std::chrono::high_resolution_clock::now();
 
     board.UndoMove();
 
@@ -578,29 +578,29 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       pvinfo.SetChild(child_pvinfo);
       pvinfo.SetBestMove(move);
     }
-    auto endB = std::chrono::high_resolution_clock::now();
-    auto durationB = std::chrono::duration_cast<std::chrono::nanoseconds>(endB - startB);
-    total_timeB += durationB;
-    call_countB++;
-    // Track full searches and checkmate searches
-    thread_local int64_t total_full_searches = 0;
+    //auto endB = std::chrono::high_resolution_clock::now();
+    //auto durationB = std::chrono::duration_cast<std::chrono::nanoseconds>(endB - startB);
+    //total_timeB += durationB;
+    //call_countB++;
+    //// Track full searches and checkmate searches
+    //thread_local int64_t total_full_searches = 0;
     
-    if (full_search) total_full_searches++;
+    //if (full_search) total_full_searches++;
     
-    if (call_countB % 1000000 == 0) {
-      auto avg_ns = total_timeB.count() / call_countB;
-      auto current_avg = durationB.count() / 1;  // Current call's time in ns
+    //if (call_countB % 1000000 == 0) {
+    //  auto avg_ns = total_timeB.count() / call_countB;
+    //  auto current_avg = durationB.count() / 1;  // Current call's time in ns
 
-      std::cout << "[Move - after recursion]"
-                << " Average: " << avg_ns << " ns,"
-                << " Calls: " << call_countB << std::endl
-                << "Full searches: " << total_full_searches
-                << " capture extension: " << capture_extension_count
-                << " check extension: " << check_extension_count << std::endl;
-    }
+    //  std::cout << "[Move - after recursion]"
+    //            << " Average: " << avg_ns << " ns,"
+    //            << " Calls: " << call_countB << std::endl
+    //            << "Full searches: " << total_full_searches
+    //            << " capture extension: " << capture_extension_count
+    //            << " check extension: " << check_extension_count << std::endl;
+    //}
   }
   static std::atomic<int64_t> total_checkmates_found = 0;
-  auto startC = std::chrono::high_resolution_clock::now();
+  //auto startC = std::chrono::high_resolution_clock::now();
 
   if (!fail_low && best_move) {  // Add null check for best_move
     int8_t from_row = best_move->FromRow();
@@ -661,20 +661,20 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   transposition_table_->Save(board.HashKey(), depth, best_move, score, ss->static_eval, bound, is_pv_node);
 
   thread_state.ReleaseMoveBufferPartition();
-  auto endC = std::chrono::high_resolution_clock::now();
-  auto durationC = std::chrono::duration_cast<std::chrono::nanoseconds>(endC - startC);
-  total_timeC += durationC;
-  call_countC++;
-  if (call_countC % 1000000 == 0) {
-    auto avg_ns = total_timeC.count() / call_countC;
-    auto current_avg = durationC.count() / 1;  // Current call's time in ns
+  //auto endC = std::chrono::high_resolution_clock::now();
+  //auto durationC = std::chrono::duration_cast<std::chrono::nanoseconds>(endC - startC);
+  //total_timeC += durationC;
+  //call_countC++;
+  //if (call_countC % 1000000 == 0) {
+  //  auto avg_ns = total_timeC.count() / call_countC;
+  //  auto current_avg = durationC.count() / 1;  // Current call's time in ns
 
-    std::cout << "[Search - after move]"
-              << " Average: " << avg_ns << " ns,"
-              << " Call count: " << call_countC
-              << ", Checkmates: " 
-              << total_checkmates_found << std::endl;
-  }
+  //  std::cout << "[Search - after move]"
+  //            << " Average: " << avg_ns << " ns,"
+  //            << " Call count: " << call_countC
+  //            << ", Checkmates: " 
+  //            << total_checkmates_found << std::endl;
+  //}
   return std::make_tuple(score, best_move);
 }
 

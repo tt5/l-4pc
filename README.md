@@ -8,9 +8,15 @@ make -B cli
 cp cli ..
 ```
 
+# Limitations
+
+- no en passant promotion
+- no en passant double capture
+- can still castle if rook moved away and back to initial square
+- no underpromotion
+
 # TODO
 
-- [x] engine promotion
 - [ ] client promotion
 - [ ] rotate board
 - [ ] promote branch

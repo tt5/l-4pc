@@ -342,10 +342,10 @@ void CommandLine::HandleCommand(
     //  }
     //  next_pos += 2;
     //} else {
-    //  if (parts[1] == "startpos") {
-    //    next_pos += 1;
-    //  }
-    //  board = Board::CreateStandardSetup();
+      if (parts[1] == "startpos") {
+        next_pos += 1;
+      }
+      board = Board::CreateStandardSetup();
     //}
 
     if (parts.size() < next_pos + 1) {
