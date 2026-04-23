@@ -542,6 +542,7 @@ const Board: Component<BoardProps> = (props) => {
     );
   };
   
+  /*
   // update FEN4 when position changes
   createEffect(() => {
     const points = basePoints();
@@ -549,6 +550,7 @@ const Board: Component<BoardProps> = (props) => {
     const newFen4 = generateFen4(points, turnIndex);
     setFen4(newFen4);
   });
+  */
 
   const getCurrentFen4 = (): string => fen4();
 
@@ -1259,15 +1261,6 @@ const Board: Component<BoardProps> = (props) => {
 
   // Validates a move from start to target coordinates
   const validateMove = (pointToMove: BasePoint, targetX: number, targetY: number) => {
-    const index: SquareIndex = (targetY * BOARD_CONFIG.GRID_SIZE + targetX) as SquareIndex;
-    const validation = validateSquarePlacementLocal(index);
-    
-    if (!validation.isValid) {
-      return { 
-        isValid: false, 
-        error: `Invalid placement` 
-      };
-    }
 
     if (!pointToMove) {
       return { 
@@ -1311,35 +1304,35 @@ const Board: Component<BoardProps> = (props) => {
     };
   };
 
-  // Helper function to get the target position for a move
-  const getMoveTarget = (): Point | null => {
-    // Try to get the target from the target position state
-    const target = targetPosition();
-    if (target) return target;
+    // Helper function to get the target position for a move
+    const getMoveTarget = (): Point | null => {
+      // Try to get the target from the target position state
+      const target = targetPosition();
+      if (target) return target;
 
-    // Fall back to the hovered cell if no explicit target
-    const hovered = hoveredCell();
-    if (hovered) {
-      const newTarget: Point = createPoint(hovered[0], hovered[1]);
-      setTargetPosition(newTarget);
-      return newTarget;
-    }
+      // Fall back to the hovered cell if no explicit target
+      const hovered = hoveredCell();
+      if (hovered) {
+        const newTarget: Point = createPoint(hovered[0], hovered[1]);
+        setTargetPosition(newTarget);
+        return newTarget;
+      }
 
-    return null;
-  };
-
-  /**
-   * Saves the current game state for potential rollback
-   */
-  const saveCurrentStateForRollback = () => {
-    return {
-      basePoints: [...basePoints()],
-      restrictedSquares: [...getRestrictedSquares()],
-      restrictedSquaresInfo: [...restrictedSquaresInfo()],
-      moveHistory: [...fullMoveHistory()],
-      currentMoveIndex: currentMoveIndex()
+      return null;
     };
-  };
+
+    /**
+     * Saves the current game state for potential rollback
+     */
+    const saveCurrentStateForRollback = () => {
+      return {
+        basePoints: [...basePoints()],
+        restrictedSquares: [...getRestrictedSquares()],
+        restrictedSquaresInfo: [...restrictedSquaresInfo()],
+        moveHistory: [...fullMoveHistory()],
+        currentMoveIndex: currentMoveIndex()
+      };
+    };
 
   // Handle mouse up anywhere on the document to complete dragging
   const handleGlobalMouseUp = async (e?: MouseEvent | Event) => {
