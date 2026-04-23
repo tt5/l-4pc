@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getSquaresInDirection, isPathClear, canPieceAttack, type EightDirections } from './gameUtils';
+import { getSquaresInDirection, isPathClear, canPieceAttack, isSquareUnderAttack, type EightDirections } from './gameUtils';
 import { createPoint, type BasePoint, type LegalMove } from '~/types/board';
 
 // Helper functions for test data
@@ -556,5 +556,154 @@ describe('canPieceAttack', () => {
 
       expect(result).toBe(false);
     });
+  });
+});
+
+describe('isSquareUnderAttack', () => {
+  it('returns true when square is attacked by rook', () => {
+    const target = createPoint(10, 7);
+    const rook = createTestPiece(1, 7, 7, 1, 'RED', 'rook');
+    const board = createBoardWithPieces([rook]);
+
+    const result = isSquareUnderAttack(target, 1, board);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns true when square is attacked by bishop', () => {
+    const target = createPoint(10, 10);
+    const bishop = createTestPiece(1, 7, 7, 1, 'RED', 'bishop');
+    const board = createBoardWithPieces([bishop]);
+
+    const result = isSquareUnderAttack(target, 1, board);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns true when square is attacked by queen', () => {
+    const target = createPoint(10, 7);
+    const queen = createTestPiece(1, 7, 7, 1, 'RED', 'queen');
+    const board = createBoardWithPieces([queen]);
+
+    const result = isSquareUnderAttack(target, 1, board);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns true when square is attacked by knight', () => {
+    const target = createPoint(9, 8);
+    const knight = createTestPiece(1, 7, 7, 1, 'RED', 'knight');
+    const board = createBoardWithPieces([knight]);
+
+    const result = isSquareUnderAttack(target, 1, board);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns true when square is attacked by pawn', () => {
+    const target = createPoint(8, 6);
+    const pawn = createTestPiece(1, 7, 7, 1, 'RED', 'pawn');
+    const targetPiece = createTestPiece(2, 8, 6, 2, 'BLUE', 'pawn');
+    const board = createBoardWithPieces([pawn, targetPiece]);
+
+    const result = isSquareUnderAttack(target, 1, board);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns false when no pieces can attack the square', () => {
+    const target = createPoint(10, 10);
+    const rook = createTestPiece(1, 7, 7, 1, 'RED', 'rook');
+    const board = createBoardWithPieces([rook]);
+
+    const result = isSquareUnderAttack(target, 1, board);
+
+    expect(result).toBe(false);
+  });
+
+  it('returns false when only opponent pieces are on board', () => {
+    const target = createPoint(10, 7);
+    const rook = createTestPiece(1, 7, 7, 2, 'BLUE', 'rook');
+    const board = createBoardWithPieces([rook]);
+
+    const result = isSquareUnderAttack(target, 1, board);
+
+    expect(result).toBe(false);
+  });
+
+  it('returns false when attacking piece is blocked by teammate', () => {
+    const target = createPoint(12, 7);
+    const rook = createTestPiece(1, 7, 7, 1, 'RED', 'rook');
+    const blockingPiece = createTestPiece(2, 9, 7, 1, 'RED', 'pawn');
+    const board = createBoardWithPieces([rook, blockingPiece]);
+
+    const result = isSquareUnderAttack(target, 1, board);
+
+    expect(result).toBe(false);
+  });
+
+  it('returns true when multiple pieces can attack the square', () => {
+    const target = createPoint(10, 7);
+    const rook = createTestPiece(1, 7, 7, 1, 'RED', 'rook');
+    const queen = createTestPiece(2, 7, 10, 1, 'RED', 'queen');
+    const board = createBoardWithPieces([rook, queen]);
+
+    const result = isSquareUnderAttack(target, 1, board);
+
+    expect(result).toBe(true);
+  });
+
+  it('ignores piece on the target square itself', () => {
+    const target = createPoint(7, 7);
+    const pieceOnTarget = createTestPiece(1, 7, 7, 1, 'RED', 'pawn');
+    const rook = createTestPiece(2, 7, 10, 1, 'RED', 'rook');
+    const board = createBoardWithPieces([pieceOnTarget, rook]);
+
+    const result = isSquareUnderAttack(target, 1, board);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns false when only piece on target square is from attacking team', () => {
+    const target = createPoint(7, 7);
+    const pieceOnTarget = createTestPiece(1, 7, 7, 1, 'RED', 'pawn');
+    const board = createBoardWithPieces([pieceOnTarget]);
+
+    const result = isSquareUnderAttack(target, 1, board);
+
+    expect(result).toBe(false);
+  });
+
+  it('correctly identifies attack from team 2', () => {
+    const target = createPoint(10, 7);
+    const rook = createTestPiece(1, 7, 7, 2, 'BLUE', 'rook');
+    const board = createBoardWithPieces([rook]);
+
+    const result = isSquareUnderAttack(target, 2, board);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns false for empty board', () => {
+    const target = createPoint(7, 7);
+    const board = createEmptyBoard();
+
+    const result = isSquareUnderAttack(target, 1, board);
+
+    expect(result).toBe(false);
+  });
+
+  it('handles complex board with multiple pieces', () => {
+    const target = createPoint(10, 10);
+    const pieces = [
+      createTestPiece(1, 7, 7, 1, 'RED', 'queen'),
+      createTestPiece(2, 5, 5, 2, 'BLUE', 'rook'),
+      createTestPiece(3, 12, 12, 1, 'RED', 'bishop'),
+    ];
+    const board = createBoardWithPieces(pieces);
+
+    const result = isSquareUnderAttack(target, 1, board);
+
+    expect(result).toBe(true);
   });
 });

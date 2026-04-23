@@ -402,7 +402,6 @@ export function isKingInCheck(
       }
     }
   }
-  //console.log(`[isKingInCheck] isInCheck: ${isInCheck}, x: ${king.x}, y: ${king.y}`)
   
   return isInCheck;
 }
