@@ -62,7 +62,8 @@ export const toChessNotation = (move: Move): string => {
     pieceNotation = '';
   }
   
-  // Get the target square
+  // Get the source and target squares for long algebraic notation
+  const sourceSquare = `${getFile(fromX)}${getRank(fromY)}`;
   const targetSquare = `${getFile(toX)}${getRank(toY)}`;
   
   // Handle captures
@@ -85,8 +86,8 @@ export const toChessNotation = (move: Move): string => {
     else if (fromX < 3) finalColorPrefix = 'g'; // Green starts at left
   }
   
-  // Build the move string - always include color prefix and piece notation
-  const moveString = `${finalColorPrefix}${pieceNotation}${captureNotation}${targetSquare}${promotionNotation}${checkNotation}`;
+  // Build the move string using PGN4 long algebraic notation: color+piece+fromSquare+capture+toSquare+promotion+check
+  const moveString = `${finalColorPrefix}${pieceNotation}${sourceSquare}${captureNotation}${targetSquare}${promotionNotation}${checkNotation}`;
   
   return moveString;
 };
