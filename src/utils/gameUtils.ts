@@ -110,7 +110,6 @@ export function isPathClear(
 
   // Only check up to, but not including, the end position
   while (!(x === b[0] && y === b[1])) {
-    //console.log(`[isPathClear] from: ${a[0]}/${a[1]} to: ${b[0]}/${b[1]}, x: ${x}, y: ${y}, dx: ${dx}, dy: ${dy}`)
     if (allBasePoints.some(p => p.x === x && p.y === y)) {
       return false;
     }
@@ -130,6 +129,7 @@ export function canPieceAttack(
   const dy = Math.abs(piece.y - target[1]);
   
   const pieceTeam = piece.team;
+  const from = createPoint(piece.x, piece.y);
   
   /*
   // King movement (1 square in any direction)
@@ -142,8 +142,7 @@ export function canPieceAttack(
   if (piece.pieceType === 'queen') {
     // Check if moving in a straight line or diagonal
     if (piece.x === target[0] || piece.y === target[1] || Math.abs(dx) === Math.abs(dy)) {
-      const isClear = isPathClear(createPoint(piece.x, piece.y), target, allBasePoints);
-      //console.log(`[canPieceAttack] from: ${piece.x}/${piece.y}, ${isClear}`)
+      const isClear = isPathClear(from, target, allBasePoints);
       return isClear
     }
     return false;
@@ -152,7 +151,7 @@ export function canPieceAttack(
   // Rook movement (any number of squares horizontally or vertically)
   if (piece.pieceType === 'rook') {
     if (piece.x === target[0] || piece.y === target[1]) {
-      return isPathClear(createPoint(piece.x, piece.y), target, allBasePoints);
+      return isPathClear(from, target, allBasePoints);
     }
     return false;
   }
@@ -160,7 +159,7 @@ export function canPieceAttack(
   // Bishop movement (any number of squares diagonally)
   if (piece.pieceType === 'bishop') {
     if (dx === dy) {
-      return isPathClear(createPoint(piece.x, piece.y), target, allBasePoints);
+      return isPathClear(from, target, allBasePoints);
     }
     return false;
   }
@@ -897,7 +896,7 @@ export const canCastle = (
   castleType: CastleType,
 ): boolean => {
 
-    // Check if king has moved - we'll rely on the movedPieces set
+  // Check if king has moved - we'll rely on the movedPieces set
   const kingKey = getPieceKey(king);
   if (movedPieces.has(kingKey)) {
     return false;

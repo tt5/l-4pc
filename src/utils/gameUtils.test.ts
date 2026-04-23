@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getSquaresInDirection, type EightDirections } from './gameUtils';
+import { getSquaresInDirection, isPathClear, type EightDirections } from './gameUtils';
 import { createPoint, type BasePoint, type LegalMove } from '~/types/board';
 
 // Helper functions for test data
@@ -112,5 +112,155 @@ describe('getSquaresInDirection', () => {
     const result = getSquaresInDirection(start, RIGHT, board, team);
 
     expect(result).toHaveLength(0);
+  });
+});
+
+describe('isPathClear', () => {
+  it('returns true for empty horizontal path', () => {
+    const from = createPoint(3, 7);
+    const to = createPoint(10, 7);
+    const board = createEmptyBoard();
+
+    const result = isPathClear(from, to, board);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns true for empty vertical path', () => {
+    const from = createPoint(7, 3);
+    const to = createPoint(7, 10);
+    const board = createEmptyBoard();
+
+    const result = isPathClear(from, to, board);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns true for empty diagonal path', () => {
+    const from = createPoint(3, 3);
+    const to = createPoint(10, 10);
+    const board = createEmptyBoard();
+
+    const result = isPathClear(from, to, board);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns false when piece blocks horizontal path', () => {
+    const from = createPoint(3, 7);
+    const to = createPoint(10, 7);
+    const blockingPiece = createTestPiece(1, 7, 7, 2, 'BLUE', 'pawn');
+    const board = createBoardWithPieces([blockingPiece]);
+
+    const result = isPathClear(from, to, board);
+
+    expect(result).toBe(false);
+  });
+
+  it('returns false when piece blocks vertical path', () => {
+    const from = createPoint(7, 3);
+    const to = createPoint(7, 10);
+    const blockingPiece = createTestPiece(1, 7, 7, 2, 'BLUE', 'pawn');
+    const board = createBoardWithPieces([blockingPiece]);
+
+    const result = isPathClear(from, to, board);
+
+    expect(result).toBe(false);
+  });
+
+  it('returns false when piece blocks diagonal path', () => {
+    const from = createPoint(3, 3);
+    const to = createPoint(10, 10);
+    const blockingPiece = createTestPiece(1, 6, 6, 2, 'BLUE', 'pawn');
+    const board = createBoardWithPieces([blockingPiece]);
+
+    const result = isPathClear(from, to, board);
+
+    expect(result).toBe(false);
+  });
+
+  it('returns true for adjacent squares (no squares in between)', () => {
+    const from = createPoint(7, 7);
+    const to = createPoint(8, 7);
+    const board = createEmptyBoard();
+
+    const result = isPathClear(from, to, board);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns true when piece is at destination (not in between)', () => {
+    const from = createPoint(3, 7);
+    const to = createPoint(10, 7);
+    const destinationPiece = createTestPiece(1, 10, 7, 2, 'BLUE', 'pawn');
+    const board = createBoardWithPieces([destinationPiece]);
+
+    const result = isPathClear(from, to, board);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns true when piece is at start (not in between)', () => {
+    const from = createPoint(3, 7);
+    const to = createPoint(10, 7);
+    const startPiece = createTestPiece(1, 3, 7, 2, 'BLUE', 'pawn');
+    const board = createBoardWithPieces([startPiece]);
+
+    const result = isPathClear(from, to, board);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns false for diagonal path with multiple blocking pieces', () => {
+    const from = createPoint(3, 3);
+    const to = createPoint(10, 10);
+    const blockingPiece1 = createTestPiece(1, 5, 5, 2, 'BLUE', 'pawn');
+    const blockingPiece2 = createTestPiece(2, 7, 7, 2, 'BLUE', 'pawn');
+    const board = createBoardWithPieces([blockingPiece1, blockingPiece2]);
+
+    const result = isPathClear(from, to, board);
+
+    expect(result).toBe(false);
+  });
+
+  it('returns true for reverse diagonal path', () => {
+    const from = createPoint(10, 3);
+    const to = createPoint(3, 10);
+    const board = createEmptyBoard();
+
+    const result = isPathClear(from, to, board);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns false for reverse diagonal path with blocking piece', () => {
+    const from = createPoint(10, 3);
+    const to = createPoint(3, 10);
+    const blockingPiece = createTestPiece(1, 7, 6, 2, 'BLUE', 'pawn');
+    const board = createBoardWithPieces([blockingPiece]);
+
+    const result = isPathClear(from, to, board);
+
+    expect(result).toBe(false);
+  });
+
+  it('handles leftward horizontal movement', () => {
+    const from = createPoint(10, 7);
+    const to = createPoint(3, 7);
+    const board = createEmptyBoard();
+
+    const result = isPathClear(from, to, board);
+
+    expect(result).toBe(true);
+  });
+
+  it('handles downward vertical movement', () => {
+    const from = createPoint(7, 10);
+    const to = createPoint(7, 3);
+    const board = createEmptyBoard();
+
+    const result = isPathClear(from, to, board);
+
+    expect(result).toBe(true);
   });
 });
