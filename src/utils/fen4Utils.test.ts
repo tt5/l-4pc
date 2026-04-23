@@ -158,6 +158,65 @@ describe('pgn4StringToMove (integration test via fen4FromMoves)', () => {
   });
 });
 
+describe('parseFen4', () => {
+  it('rejects FEN4 with fewer than 8 parts', () => {
+    const invalidFen4 = 'R-0,0,0,0-1,1,1,1-1,1,1,1-0,0,0,0-0-14/14/14/14/14/14/14/7,rK,6/14';
+    
+    expect(() => parseFen4(invalidFen4)).toThrow('Invalid FEN4 string: Must have 8 parts separated by hyphens');
+  });
+
+  it('rejects FEN4 with more than 8 parts', () => {
+    const invalidFen4 = 'R-0,0,0,0-1,1,1,1-1,1,1,1-0,0,0,0-0-14/14/14/14/14/14/14/7,rK,6/14/14/14/14/14/14-,,,-extra';
+    
+    expect(() => parseFen4(invalidFen4)).toThrow('Invalid FEN4 string: Must have 8 parts separated by hyphens');
+  });
+
+  it('parses valid FEN4 with 8 parts', () => {
+    const validFen4 = generateFen4([{ id: 1, x: 7, y: 7, color: 'RED', pieceType: 'king', team: 1, hasMoved: false, isCastle: false, castleType: null }], 0);
+    const result = parseFen4(validFen4);
+    
+    expect(result).toBeDefined();
+    expect(result.basePoints).toBeInstanceOf(Array);
+    expect(result.currentPlayerIndex).toBe(0);
+  });
+
+  it('parses FEN4 with custom piece placement', () => {
+    const customFen4 = generateFen4([{ id: 1, x: 7, y: 7, color: 'RED', pieceType: 'king', team: 1, hasMoved: false, isCastle: false, castleType: null }], 0);
+    const { basePoints } = parseFen4(customFen4);
+    
+    const king = basePoints.find(p => p.pieceType === 'king' && p.color === 'RED');
+    expect(king).toBeDefined();
+    expect(king?.x).toBe(7);
+    expect(king?.y).toBe(7);
+  });
+
+  it('parses FEN4 with knight at center', () => {
+    const customFen4 = generateFen4([{ id: 1, x: 7, y: 7, color: 'RED', pieceType: 'knight', team: 1, hasMoved: false, isCastle: false, castleType: null }], 0);
+    const { basePoints } = parseFen4(customFen4);
+    
+    const knight = basePoints.find(p => p.pieceType === 'knight' && p.color === 'RED');
+    expect(knight).toBeDefined();
+    expect(knight?.x).toBe(7);
+    expect(knight?.y).toBe(7);
+  });
+
+  it('parses FEN4 with multiple pieces', () => {
+    const customFen4 = generateFen4([
+      { id: 1, x: 7, y: 7, color: 'RED', pieceType: 'queen', team: 1, hasMoved: false, isCastle: false, castleType: null },
+      { id: 2, x: 8, y: 7, color: 'RED', pieceType: 'knight', team: 1, hasMoved: false, isCastle: false, castleType: null }
+    ], 0);
+    const { basePoints } = parseFen4(customFen4);
+    
+    const queen = basePoints.find(p => p.pieceType === 'queen' && p.color === 'RED');
+    const knight = basePoints.find(p => p.pieceType === 'knight' && p.color === 'RED');
+    
+    expect(queen).toBeDefined();
+    expect(knight).toBeDefined();
+    expect(queen?.x).toBe(7);
+    expect(knight?.x).toBe(8);
+  });
+});
+
 describe('pgn4ToString', () => {
   it('extracts moves from PGN4 content', () => {
     const pgn4Content = `

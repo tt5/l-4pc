@@ -1321,7 +1321,7 @@ describe('getLegalMoves - Integration Tests', () => {
 
   it('king standard moves from FEN4 position', () => {
     // Simple position with king in center - must have exactly 14 ranks
-    const customFen4 = 'R-0,0,0,0-1,1,1,1-1,1,1,1-0,0,0,0-0-14/14/14/14/14/14/14/14/14/14/14/14/7,rK,6/14';
+    const customFen4 = 'R-0,0,0,0-1,1,1,1-1,1,1,1-0,0,0,0-0-14/14/14/14/14/14/14/14/14/14/14/14/7,rK,6/14-,,,';
     const { basePoints } = parseFen4(customFen4);
 
     const king = basePoints.find(p => p.pieceType === 'king' && p.color === 'RED');
@@ -1352,7 +1352,7 @@ describe('getLegalMoves - Integration Tests', () => {
 
   it('knight L-shaped moves from FEN4 position', () => {
     // Knight at center of board - must have exactly 14 ranks
-    const customFen4 = 'R-0,0,0,0-1,1,1,1-1,1,1,1-0,0,0,0-0-14/14/14/14/14/14/14/7,rN,6/14/14/14/14/14/14';
+    const customFen4 = 'R-0,0,0,0-1,1,1,1-1,1,1,1-0,0,0,0-0-14/14/14/14/14/14/14/7,rN,6/14/14/14/14/14/14-,,,';
     const { basePoints } = parseFen4(customFen4);
 
     const knight = basePoints.find(p => p.pieceType === 'knight' && p.color === 'RED');
@@ -1367,7 +1367,7 @@ describe('getLegalMoves - Integration Tests', () => {
 
   it('simple position with multiple pieces', () => {
     // Position with queen and knight - must have exactly 14 ranks
-    const customFen4 = 'R-0,0,0,0-1,1,1,1-1,1,1,1-0,0,0,0-0-14/14/14/14/14/14/14/7,rQ,rN,5/14/14/14/14/14/14';
+    const customFen4 = 'R-0,0,0,0-1,1,1,1-1,1,1,1-0,0,0,0-0-14/14/14/14/14/14/14/7,rQ,rN,5/14/14/14/14/14/14-,,,';
     const { basePoints } = parseFen4(customFen4);
 
     const queen = basePoints.find(p => p.pieceType === 'queen' && p.color === 'RED');

@@ -87,6 +87,8 @@ const Board: Component<BoardProps> = (props) => {
     'BLUE': null,
     'GREEN': null
   });
+  const [kingsideCastling, setKingsideCastling] = createSignal<string>('1,1,1,1');
+  const [queensideCastling, setQueensideCastling] = createSignal<string>('1,1,1,1');
   const [fullMoveHistory, setFullMoveHistory] = createSignal<Move[]>([]);
   const [kingsInCheck, setKingsInCheck] = createSignal<{[key: string]: boolean}>({});
   const [error, setError] = createSignal<string | null>(null);
@@ -541,6 +543,22 @@ const Board: Component<BoardProps> = (props) => {
       () => getRestrictedSquares() as RestrictedSquares,
     );
   };
+
+  const convertEnPassantStringToRecord = (epString: string): Record<NamedColor, {x: number, y: number, color: NamedColor} | null> => {
+    const targets = epString.split(',');
+    const colors: NamedColor[] = ['RED', 'YELLOW', 'BLUE', 'GREEN'];
+    return colors.reduce((acc, color, i) => {
+      const square = targets[i];
+      if (square) {
+        const x = square.charCodeAt(0) - 97;
+        const y = 14 - parseInt(square.slice(1));
+        acc[color] = { x, y, color };
+      } else {
+        acc[color] = null;
+      }
+      return acc;
+    }, {} as Record<NamedColor, {x: number, y: number, color: NamedColor} | null>);
+  };
   
   /*
   // update FEN4 when position changes
@@ -637,6 +655,8 @@ const Board: Component<BoardProps> = (props) => {
     setBasePoints(initialBasePoints);
     setRestrictedSquares(INITIAL_RESTRICTED_SQUARES);
     setRestrictedSquaresInfo(INITIAL_RESTRICTED_SQUARES_INFO as RestrictedSquareInfo[]);
+    setKingsideCastling('1,1,1,1');
+    setQueensideCastling('1,1,1,1');
   };
 
   const handleSaveGame = async () => {
@@ -865,12 +885,15 @@ const Board: Component<BoardProps> = (props) => {
     });
 
     // Update local state
-    const { basePoints: replayedPieces } = replayMoves(newMoveHistory, newMoveHistory.length - 1);
+    const { basePoints: replayedPieces, kingsideCastling: ks, queensideCastling: qs, enPassantTargets: ep } = replayMoves(newMoveHistory, newMoveHistory.length - 1);
     const currentBranch = currentBranchName();
     const newMoveIndex = Math.max(-1, currentIndex);
     const newTurnIndex = (newMoveIndex) % PLAYER_COLORS.length;
     batch(()=> {
       setBasePoints(replayedPieces);
+      setKingsideCastling(ks);
+      setQueensideCastling(qs);
+      setEnPassantTargets(convertEnPassantStringToRecord(ep));
       setMoveHistory(newMoveHistory);
       setCurrentMoveIndex(newMoveIndex);
       setCurrentTurnIndex(newTurnIndex);
@@ -890,11 +913,14 @@ const Board: Component<BoardProps> = (props) => {
     setMoveHistory(history);
     
     // 1. Replay all moves up to the target index
-    const { basePoints: updatedBasePoints } = replayMoves(history, currentIndex);
+    const { basePoints: updatedBasePoints, kingsideCastling: ks, queensideCastling: qs, enPassantTargets: ep } = replayMoves(history, currentIndex);
     
     batch(() => {
     // 2. Update board state and move index
     setBasePoints(updatedBasePoints);
+    setKingsideCastling(ks);
+    setQueensideCastling(qs);
+    setEnPassantTargets(convertEnPassantStringToRecord(ep));
     const newIndex = currentIndex + 1;
     setCurrentMoveIndex(newIndex);
     
@@ -981,8 +1007,11 @@ const Board: Component<BoardProps> = (props) => {
       batch(() => {
         setMoveHistory(history);
         
-        const { basePoints: updatedBasePoints } = replayMoves(history, newIndex-1);
+        const { basePoints: updatedBasePoints, kingsideCastling: ks, queensideCastling: qs, enPassantTargets: ep } = replayMoves(history, newIndex-1);
         setBasePoints(updatedBasePoints);
+        setKingsideCastling(ks);
+        setQueensideCastling(qs);
+        setEnPassantTargets(convertEnPassantStringToRecord(ep));
         setCurrentMoveIndex(newIndex);
         
         const targetMove = history[newIndex];
