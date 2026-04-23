@@ -1,6 +1,6 @@
 import { For, Show, createEffect, createSignal, onCleanup } from 'solid-js';
 import styles from './MoveHistory.module.css';
-import { formatMove } from '../../utils/chessNotation';
+import { formatMove, generatePgn4 } from '../../utils/chessNotation';
 import type { BranchPoints, Move, NamedColor, SimpleMove } from '../../types/board';
 import { PLAYER_COLORS } from '~/constants/game';
 
@@ -15,6 +15,7 @@ type MoveHistoryProps = {
 
 export const MoveHistory = (props: MoveHistoryProps) => {
   const [prevMoveIndex, setPrevMoveIndex] = createSignal<number | null>(null);
+  const [copyButtonText, setCopyButtonText] = createSignal('Copy PGN4');
 
   // Effect to handle move highlighting
   createEffect(() => {
@@ -81,6 +82,19 @@ export const MoveHistory = (props: MoveHistoryProps) => {
   const getCurrentPlayerColor = () => {
     const colorIndex = props.currentMoveIndex % PLAYER_COLORS.length;
     return PLAYER_COLORS[colorIndex] || 'RED'; // fallback to RED if undefined
+  };
+
+  const handleCopyPgn4 = async () => {
+    try {
+      const pgn4 = generatePgn4(props.moves, props.branchPoints);
+      await navigator.clipboard.writeText(pgn4);
+      setCopyButtonText('Copied!');
+      setTimeout(() => setCopyButtonText('Copy PGN4'), 2000);
+    } catch (error) {
+      console.error('Failed to copy PGN4:', error);
+      setCopyButtonText('Failed');
+      setTimeout(() => setCopyButtonText('Copy PGN4'), 2000);
+    }
   };
 
         console.log(`MoveHistor turn: ${JSON.stringify(getCurrentPlayerColor())}`)
@@ -187,6 +201,13 @@ export const MoveHistory = (props: MoveHistoryProps) => {
           </For>
         </Show>
       </div>
+      <button 
+        class={styles.copyButton}
+        onClick={handleCopyPgn4}
+        disabled={props.moves.length === 0}
+      >
+        {copyButtonText()}
+      </button>
     </div>
   );
 };

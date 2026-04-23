@@ -12,6 +12,8 @@ type Move = {
   capturedPiece?: any;
 };
 
+import type { BranchPoints } from '../types/board';
+
 // Map piece types to their algebraic notation letters
 const PIECE_NOTATION: Record<string, string> = {
   king: 'K',
@@ -106,4 +108,93 @@ export const formatMove = (move: Move): string => {
     console.error('Error formatting move:', error, move);
     return `(${move.fromX},${move.fromY}) → (${move.toX},${move.toY})`;
   }
+};
+
+// Convert a move to PGN4 long algebraic notation (without color prefix)
+const toPgn4Notation = (move: Move): string => {
+  const { fromX, fromY, toX, toY, pieceType = 'pawn', isCapture = false, isCheck = false, promotionPiece } = move;
+  
+  // Determine piece notation
+  let pieceNotation = '';
+  if (pieceType) {
+    pieceNotation = PIECE_NOTATION[pieceType] || '';
+  } else {
+    pieceNotation = '';
+  }
+  
+  // Get the source and target squares
+  const sourceSquare = `${getFile(fromX)}${getRank(fromY)}`;
+  const targetSquare = `${getFile(toX)}${getRank(toY)}`;
+  
+  // Handle captures
+  const isActualCapture = isCapture || !!move.capturedPiece;
+  const captureNotation = isActualCapture ? 'x' : '-';
+  
+  // Handle promotion
+  const promotionNotation = promotionPiece ? `=${PIECE_NOTATION[promotionPiece.toLowerCase()] || promotionPiece}` : '';
+  
+  // Handle check/checkmate
+  const checkNotation = isCheck ? '+' : '';
+  
+  // Build the move string using PGN4 long algebraic notation: piece+fromSquare+capture+toSquare+promotion+check
+  const moveString = `${pieceNotation}${sourceSquare}${captureNotation}${targetSquare}${promotionNotation}${checkNotation}`;
+  
+  return moveString;
+};
+
+// Generate complete PGN4 from moves and branches
+export const generatePgn4 = (moves: Move[], branchPoints?: BranchPoints): string => {
+  const today = new Date().toISOString().split('T')[0];
+  
+  // Generate tag pairs
+  const tags = [
+    '[Variant "FFA"]',
+    '[Red "Player1"]',
+    '[Blue "Player2"]',
+    '[Yellow "Player3"]',
+    '[Green "Player4"]',
+    '[Result "*"]',
+    `[Date "${today}"]`,
+    '[Site "4pc"]',
+  ];
+  
+  // Generate movetext
+  const movetext: string[] = [];
+  let moveNumber = 1;
+  
+  for (let i = 0; i < moves.length; i++) {
+    const move = moves[i];
+    
+    // Start a new move number every 4 moves (one full turn)
+    if (i % 4 === 0) {
+      movetext.push(`${moveNumber}.`);
+    }
+    
+    // Format the main move
+    const moveNotation = toPgn4Notation(move);
+    movetext.push(moveNotation);
+    
+    // Add branches if they exist at this move index
+    if (branchPoints && branchPoints[i] && branchPoints[i].length > 0) {
+      const branchNotations = branchPoints[i].map(branch => {
+        return toPgn4Notation(branch.firstMove);
+      });
+      if (branchNotations.length > 0) {
+        movetext.push(`(${branchNotations.join(' ')})`);
+      }
+    }
+    
+    // Add separator between moves (two periods)
+    if ((i + 1) % 4 !== 0 && i < moves.length - 1) {
+      movetext.push('..');
+    }
+    
+    // Increment move number after 4 moves
+    if ((i + 1) % 4 === 0) {
+      moveNumber++;
+    }
+  }
+  
+  // Combine tags and movetext
+  return [...tags, '', movetext.join(' '), ''].join('\n');
 };
