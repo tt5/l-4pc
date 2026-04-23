@@ -452,7 +452,8 @@ export const fen4FromMoves = (pgn4Moves: string[]): string => {
       }
     }
     
-    currentBasePoints = replayMoves(moves, i, basePoints);
+    const { basePoints } = replayMoves(moves, i, basePoints);
+    currentBasePoints = basePoints;
   }
   
   // currentBasePoints already has the final position from the last iteration

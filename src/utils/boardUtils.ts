@@ -131,17 +131,60 @@ export const updateMove = async (
  * Replays moves on the board up to a specific index
  * @param moves - Array of moves to replay
  * @param endIndex - Index to stop replaying at
- * @param startingPosition - Optional starting position (defaults to STARTING_FEN4)
- * @returns Board state after replaying moves
+ * @param startingPosition - Optional starting position (BasePoint[] or FEN4 string, defaults to STARTING_FEN4)
+ * @returns Board state, castling rights, and en passant targets after replaying moves
  */
-export const replayMoves = (moves: Move[], endIndex: number, startingPosition?: BasePoint[]): BasePoint[] => {
+export const replayMoves = (
+  moves: Move[], 
+  endIndex: number, 
+  startingPosition?: BasePoint[] | string
+): {
+  basePoints: BasePoint[];
+  kingsideCastling: string;
+  queensideCastling: string;
+  enPassantTargets: string;
+} => {
   const positionMap = new Map<string, BasePoint>();
 
   // Reset moved pieces tracking for fresh replay
   resetMovedPieces();
 
   // Initialize with a fresh copy of the initial board state or provided starting position
-  const basePoints = startingPosition || parseFen4(STARTING_FEN4).basePoints;
+  let basePoints: BasePoint[];
+  let kingsideCastling: string;
+  let queensideCastling: string;
+  let enPassantTargets: string;
+  let currentPlayerIndex: number;
+
+  if (typeof startingPosition === 'string') {
+    // Parse FEN4 string
+    const parsed = parseFen4(startingPosition);
+    basePoints = parsed.basePoints;
+    kingsideCastling = parsed.kingsideCastling;
+    queensideCastling = parsed.queensideCastling;
+    enPassantTargets = parsed.enPassantTargets;
+    currentPlayerIndex = parsed.currentPlayerIndex;
+  } else if (startingPosition) {
+    // Use provided BasePoint array with default castling rights
+    basePoints = startingPosition;
+    kingsideCastling = '1,1,1,1';
+    queensideCastling = '1,1,1,1';
+    enPassantTargets = ',,,';
+    currentPlayerIndex = 0;
+  } else {
+    // Use default STARTING_FEN4
+    const parsed = parseFen4(STARTING_FEN4);
+    basePoints = parsed.basePoints;
+    kingsideCastling = parsed.kingsideCastling;
+    queensideCastling = parsed.queensideCastling;
+    enPassantTargets = parsed.enPassantTargets;
+    currentPlayerIndex = parsed.currentPlayerIndex;
+  }
+
+  // Track castling rights as arrays for easier updates
+  let ksCastling = kingsideCastling.split(',').map(Number);
+  let qsCastling = queensideCastling.split(',').map(Number);
+  let epTargets = enPassantTargets.split(',');
   basePoints.forEach(bp => {
     positionMap.set(`${bp.x},${bp.y}`, { ...bp });
   });
@@ -200,6 +243,48 @@ export const replayMoves = (moves: Move[], endIndex: number, startingPosition?: 
       });
     }
 
+    // Update castling rights when king or rook moves
+    const playerIdx = ['RED', 'BLUE', 'YELLOW', 'GREEN'].indexOf(piece.color);
+    if (playerIdx !== -1) {
+      if (piece.pieceType === 'king') {
+        // King moves: lose all castling rights for this player
+        ksCastling[playerIdx] = 0;
+        qsCastling[playerIdx] = 0;
+      } else if (piece.pieceType === 'rook') {
+        // Rook moves: lose castling rights for this player
+        ksCastling[playerIdx] = 0;
+        qsCastling[playerIdx] = 0;
+      }
+    }
+
+    // Update en passant targets when pawn moves 2 squares
+    const currentTurnPlayerIdx = (currentPlayerIndex + i) % 4;
+    if (piece.pieceType === 'pawn') {
+      const dy = Math.abs(move.toY - move.fromY);
+      const dx = Math.abs(move.toX - move.fromX);
+      
+      // Check if this is a 2-square pawn move
+      if ((dy === 2 && dx === 0) || (dx === 2 && dy === 0)) {
+        // Calculate the square that was skipped (the en passant target)
+        const skippedX = (move.fromX + move.toX) / 2;
+        const skippedY = (move.fromY + move.toY) / 2;
+        
+        // Convert to square notation
+        const file = String.fromCharCode(97 + skippedX);
+        const rank = (14 - skippedY).toString();
+        const square = `${file}${rank}`;
+        
+        // Set en passant target for the current player's next opponent
+        epTargets[currentTurnPlayerIdx] = square;
+      } else {
+        // Reset en passant target for this player after any other pawn move
+        epTargets[currentTurnPlayerIdx] = '';
+      }
+    } else {
+      // Reset en passant target for current player after non-pawn move
+      epTargets[currentTurnPlayerIdx] = '';
+    }
+
     // Handle captures
     if (positionMap.has(toKey)) {
       const capturedPiece = positionMap.get(toKey);
@@ -232,5 +317,10 @@ export const replayMoves = (moves: Move[], endIndex: number, startingPosition?: 
     console.log(`[replayMoves] Applied move ${i+1}/${endIndex+1}: [${fromX},${fromY}]→[${toX},${toY}]`);
   }
 
-  return Array.from(positionMap.values());
+  return {
+    basePoints: Array.from(positionMap.values()),
+    kingsideCastling: ksCastling.join(','),
+    queensideCastling: qsCastling.join(','),
+    enPassantTargets: epTargets.join(',')
+  };
 };

@@ -865,7 +865,7 @@ const Board: Component<BoardProps> = (props) => {
     });
 
     // Update local state
-    const replayedPieces = replayMoves(newMoveHistory, newMoveHistory.length - 1);
+    const { basePoints: replayedPieces } = replayMoves(newMoveHistory, newMoveHistory.length - 1);
     const currentBranch = currentBranchName();
     const newMoveIndex = Math.max(-1, currentIndex);
     const newTurnIndex = (newMoveIndex) % PLAYER_COLORS.length;
@@ -890,7 +890,7 @@ const Board: Component<BoardProps> = (props) => {
     setMoveHistory(history);
     
     // 1. Replay all moves up to the target index
-    const updatedBasePoints = replayMoves(history, currentIndex);
+    const { basePoints: updatedBasePoints } = replayMoves(history, currentIndex);
     
     batch(() => {
     // 2. Update board state and move index
@@ -981,7 +981,7 @@ const Board: Component<BoardProps> = (props) => {
       batch(() => {
         setMoveHistory(history);
         
-        const updatedBasePoints = replayMoves(history, newIndex-1);
+        const { basePoints: updatedBasePoints } = replayMoves(history, newIndex-1);
         setBasePoints(updatedBasePoints);
         setCurrentMoveIndex(newIndex);
         
