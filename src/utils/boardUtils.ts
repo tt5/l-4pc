@@ -5,6 +5,7 @@ import type { ApiResponse } from './api';
 import { getLegalMoves, resetMovedPieces, trackPieceMovement } from './gameUtils';
 import { makeAuthenticatedApiCall, parseApiResponse, generateRequestId, makeApiCall } from './clientApi';
 import { useAuth } from '../contexts/AuthContext';
+import { STARTING_FEN4, parseFen4 } from './fen4Utils';
 
 export const generateNewGameId = (): string => {
   // Generate a random 8-character alphanumeric ID
@@ -130,7 +131,7 @@ export const updateMove = async (
  * Replays moves on the board up to a specific index
  * @param moves - Array of moves to replay
  * @param endIndex - Index to stop replaying at
- * @param startingPosition - Optional starting position (defaults to INITIAL_BASE_POINTS)
+ * @param startingPosition - Optional starting position (defaults to STARTING_FEN4)
  * @returns Board state after replaying moves
  */
 export const replayMoves = (moves: Move[], endIndex: number, startingPosition?: BasePoint[]): BasePoint[] => {
@@ -140,7 +141,7 @@ export const replayMoves = (moves: Move[], endIndex: number, startingPosition?: 
   resetMovedPieces();
 
   // Initialize with a fresh copy of the initial board state or provided starting position
-  const basePoints = startingPosition || INITIAL_BASE_POINTS;
+  const basePoints = startingPosition || parseFen4(STARTING_FEN4).basePoints;
   basePoints.forEach(bp => {
     positionMap.set(`${bp.x},${bp.y}`, { ...bp });
   });
