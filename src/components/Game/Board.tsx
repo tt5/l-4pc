@@ -1274,10 +1274,6 @@ const Board: Component<BoardProps> = (props) => {
     const color = currentBasePoint.color;
     const pieceType = currentBasePoint.pieceType;
 
-    setEnPassantTargets(prev => ({
-      ...prev, [color]: null
-    }));
-
     const target = getMoveTarget();
     if (!target) {
       cleanupDragState();
@@ -1308,6 +1304,11 @@ const Board: Component<BoardProps> = (props) => {
       cleanupDragState();
       return;
     }
+
+    // Clear en passant target for current player when move is valid
+    setEnPassantTargets(prev => ({
+      ...prev, [color]: null
+    }));
 
     // Handle en passant
     let isEnPassantCapture = false;
