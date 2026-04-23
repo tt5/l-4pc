@@ -1,4 +1,6 @@
 // src/utils/fen4Utils.ts
+import { replayMoves } from './boardUtils';
+import type { Move } from '../types/board';
 import type { BasePoint, Color, NamedColor, PieceType } from '~/types/board';
 
 const PIECE_TO_FEN: Record<string, string> = {
@@ -224,6 +226,49 @@ const uciToSimpleMove = (uci: string): SimpleMove => {
 };
 
 /**
+ * Converts a UCI move string to a full Move object by looking up the piece
+ * @param uci - UCI move string (e.g., 'a2a4')
+ * @param basePoints - Current board state to look up piece info
+ * @param moveNumber - The move number in the sequence
+ * @returns Full Move object
+ */
+const uciToMove = (uci: string, basePoints: BasePoint[], moveNumber: number): Move => {
+  const simpleMove = uciToSimpleMove(uci);
+  const { fromX, fromY, toX, toY } = simpleMove;
+  
+  // Find the piece being moved
+  const piece = basePoints.find(p => p.x === fromX && p.y === fromY);
+  if (!piece) {
+    throw new Error(`No piece found at position (${fromX}, ${fromY}) for UCI: ${uci}`);
+  }
+  
+  // Convert NamedColor to HexColor
+  const colorMap: Record<NamedColor, string> = {
+    'RED': '#F44336',
+    'BLUE': '#2196F3',
+    'YELLOW': '#FFEB3B',
+    'GREEN': '#4CAF50'
+  };
+  
+  return {
+    fromX,
+    fromY,
+    toX,
+    toY,
+    pieceType: piece.pieceType,
+    id: `uci-${moveNumber}-${uci}`,
+    color: colorMap[piece.color] as any,
+    branchName: 'main',
+    parentBranchName: null,
+    moveNumber,
+    isCastle: false,
+    castleType: null,
+    isBranch: false,
+    isEnPassant: false
+  };
+};
+
+/**
  * Applies a move to the basePoints array
  * @param basePoints - Current board state
  * @param move - Move to apply
@@ -273,17 +318,22 @@ export const fen4FromMoves = (uciMoves: string[]): string => {
   // Parse the starting position
   const { basePoints, currentPlayerIndex } = parseFen4(STARTING_FEN4);
   
-  // Apply each move sequentially
+  // Convert UCI moves to full Move objects
   let currentBasePoints = [...basePoints];
-  let currentPlayerIdx = currentPlayerIndex;
+  const moves: Move[] = [];
   
-  for (const uci of uciMoves) {
-    const move = uciToSimpleMove(uci);
+  for (let i = 0; i < uciMoves.length; i++) {
+    const move = uciToMove(uciMoves[i], currentBasePoints, i);
+    moves.push(move);
     currentBasePoints = applySimpleMove(currentBasePoints, move);
-    // Alternate to next player (R -> B -> Y -> G -> R)
-    currentPlayerIdx = (currentPlayerIdx + 1) % 4;
   }
   
+  // Use replayMoves to get the final position
+  const finalBasePoints = replayMoves(moves, moves.length - 1, basePoints);
+  
+  // Calculate final player index
+  const currentPlayerIdx = (currentPlayerIndex + uciMoves.length) % 4;
+  
   // Generate the final FEN4
-  return generateFen4(currentBasePoints, currentPlayerIdx);
+  return generateFen4(finalBasePoints, currentPlayerIdx);
 };
