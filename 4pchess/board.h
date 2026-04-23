@@ -550,6 +550,8 @@ class Board {
 
   int64_t HashKey() const { return hash_key_; }
 
+  std::string ToFEN() const;
+
   static std::shared_ptr<Board> CreateStandardSetup();
 //  bool operator==(const Board& other) const;
 //  bool operator!=(const Board& other) const;

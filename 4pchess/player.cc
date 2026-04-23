@@ -57,6 +57,16 @@ AlphaBetaPlayer::AlphaBetaPlayer(std::optional<PlayerOptions> options) {
 
   heuristic_mutexes_ = std::make_unique<std::mutex[]>(kHeuristicMutexes);
   ResetHistoryHeuristics();
+
+  // Initialize checkmate discovery mode
+  if (options_.checkmate_discovery_mode) {
+    checkmate_file_ = std::make_unique<std::ofstream>(options_.checkmate_output_file);
+    if (!checkmate_file_->is_open()) {
+      std::cerr << "Warning: Could not open checkmate output file: "
+                << options_.checkmate_output_file << std::endl;
+      checkmate_file_.reset();
+    }
+  }
 }
 
 AlphaBetaPlayer::~AlphaBetaPlayer() {
@@ -320,20 +330,34 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     const auto capture = move.GetCapturePiece();
     if (UNLIKELY(capture.Present() && capture.GetPieceType() == KING)) {
         // capturing the king not always wins but it always ends the game
-        
+
         bool is_new_checkmate = false;
-        
+
         // First try a read-only check with shared lock
         {
           std::shared_lock<std::shared_mutex> lock(checkmate_mutex_);
           is_new_checkmate = (checkmate_positions_.find(key) == checkmate_positions_.end());
         }
-        
+
         // If it's a new checkmate, take exclusive lock to update
         if (is_new_checkmate) {
           std::unique_lock<std::shared_mutex> lock(checkmate_mutex_);
           // Double-check in case another thread added it between our check and now
           checkmate_positions_.insert(key).second;
+
+          // Checkmate discovery mode: export FEN to file
+          if (options_.checkmate_discovery_mode && checkmate_file_ && checkmate_file_->is_open()) {
+            std::lock_guard<std::mutex> file_lock(checkmate_file_mutex_);
+            std::string fen = board.ToFEN();
+            *checkmate_file_ << fen << std::endl;
+            checkmate_file_->flush();
+
+            int discovered = checkmates_discovered_.fetch_add(1) + 1;
+            if (discovered >= options_.max_checkmates_to_discover) {
+              canceled_ = true;
+              std::cout << "Checkmate discovery complete: found " << discovered << " checkmates" << std::endl;
+            }
+          }
         }
 
       //const auto game_result = capture.GetTeam() == RED_YELLOW ? WIN_BG : WIN_RY;
@@ -633,7 +657,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       // checkmate
     */
       score = std::min(beta, std::max(alpha, -kMateValue));
-      
+
       // Track unique checkmate positions
       Board checkmateboard = board;
       //Move last_move = board.GetLastMove();
@@ -641,19 +665,33 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       int64_t hash_key = checkmateboard.HashKey();
 
       bool is_new_checkmate = false;
-      
+
       // First try a read-only check with shared lock
       {
         std::shared_lock<std::shared_mutex> lock(checkmate_mutex_);
         is_new_checkmate = (checkmate_positions_.find(hash_key) == checkmate_positions_.end());
       }
-      
+
       // If it's a new checkmate, take exclusive lock to update
       if (is_new_checkmate) {
         std::unique_lock<std::shared_mutex> lock(checkmate_mutex_);
         // Double-check in case another thread added it between our check and now
         checkmate_positions_.insert(hash_key).second;
         //total_checkmates_found++;     // Increment total checkmate counter
+
+        // Checkmate discovery mode: export FEN to file
+        if (options_.checkmate_discovery_mode && checkmate_file_ && checkmate_file_->is_open()) {
+          std::lock_guard<std::mutex> file_lock(checkmate_file_mutex_);
+          std::string fen = checkmateboard.ToFEN();
+          *checkmate_file_ << fen << std::endl;
+          checkmate_file_->flush();
+
+          int discovered = checkmates_discovered_.fetch_add(1) + 1;
+          if (discovered >= options_.max_checkmates_to_discover) {
+            canceled_ = true;
+            std::cout << "Checkmate discovery complete: found " << discovered << " checkmates" << std::endl;
+          }
+        }
       }
     /*
     }

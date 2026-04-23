@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
+#include <fstream>
 #include <limits>
 #include <memory>
 #include <mutex>
@@ -88,6 +89,11 @@ struct PlayerOptions {
   // transposition table
   size_t transposition_table_size = kTranspositionTableSize;
   std::optional<int> max_search_depth;
+
+  // checkmate discovery mode
+  bool checkmate_discovery_mode = false;
+  int max_checkmates_to_discover = 100;
+  std::string checkmate_output_file = "checkmates.txt";
 };
 
 struct Stack {
@@ -308,6 +314,11 @@ class AlphaBetaPlayer {
   // Checkmate position tracking
   std::unordered_set<int64_t> checkmate_positions_;
   mutable std::shared_mutex checkmate_mutex_;  // mutable allows const methods to lock it
+
+  // Checkmate discovery mode
+  std::atomic<int> checkmates_discovered_ = 0;
+  std::unique_ptr<std::ofstream> checkmate_file_;
+  std::mutex checkmate_file_mutex_;
 };
 
 }  // namespace chess

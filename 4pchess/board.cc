@@ -2823,5 +2823,112 @@ void Board::PrintBoard() const {
   std::cout << "\nCurrent turn: " << ToStr(GetTurn().GetColor()) << "\n";
 }
 
+std::string Board::ToFEN() const {
+  std::ostringstream fen;
+
+  // Part 0: Current player
+  char player_char;
+  switch (turn_.GetColor()) {
+    case RED:    player_char = 'R'; break;
+    case BLUE:   player_char = 'B'; break;
+    case YELLOW: player_char = 'Y'; break;
+    case GREEN:  player_char = 'G'; break;
+    default:     player_char = 'R'; break;
+  }
+  fen << player_char;
+
+  // Part 1: Eliminated players (unused, set to 0,0,0,0)
+  fen << "-0,0,0,0";
+
+  // Part 2: Kingside castling rights
+  fen << "-";
+  for (int i = 0; i < 4; i++) {
+    if (i > 0) fen << ",";
+    Player pl(static_cast<PlayerColor>(i));
+    fen << (castling_rights_[i].Kingside() ? "1" : "0");
+  }
+
+  // Part 3: Queenside castling rights
+  fen << "-";
+  for (int i = 0; i < 4; i++) {
+    if (i > 0) fen << ",";
+    Player pl(static_cast<PlayerColor>(i));
+    fen << (castling_rights_[i].Queenside() ? "1" : "0");
+  }
+
+  // Part 4: Points (unused, set to 0,0,0,0)
+  fen << "-0,0,0,0";
+
+  // Part 5: Halfmove clock (unused, set to 0)
+  fen << "-0";
+
+  // Part 6: Piece placement (14 rows)
+  fen << "-";
+  for (int row = 0; row < 14; row++) {
+    if (row > 0) fen << "/";
+
+    int empty_count = 0;
+    for (int col = 0; col < 14; col++) {
+      const Piece& piece = location_to_piece_[row][col];
+
+      if (piece.Missing()) {
+        empty_count++;
+      } else {
+        // Output empty count if any
+        if (empty_count > 0) {
+          fen << empty_count;
+          empty_count = 0;
+        }
+
+        // Output piece
+        char color_char;
+        switch (piece.GetColor()) {
+          case RED:    color_char = 'r'; break;
+          case BLUE:   color_char = 'b'; break;
+          case YELLOW: color_char = 'y'; break;
+          case GREEN:  color_char = 'g'; break;
+          default:     color_char = 'r'; break;
+        }
+
+        char piece_char;
+        switch (piece.GetPieceType()) {
+          case PAWN:   piece_char = 'P'; break;
+          case KNIGHT: piece_char = 'N'; break;
+          case BISHOP: piece_char = 'B'; break;
+          case ROOK:   piece_char = 'R'; break;
+          case QUEEN:  piece_char = 'Q'; break;
+          case KING:   piece_char = 'K'; break;
+          default:     piece_char = 'P'; break;
+        }
+
+        fen << color_char << piece_char;
+      }
+    }
+
+    // Output trailing empty count
+    if (empty_count > 0) {
+      fen << empty_count;
+    }
+  }
+
+  // Part 7: En passant targets
+  fen << "-";
+  for (int i = 0; i < 4; i++) {
+    if (i > 0) fen << ",";
+    if (en_passant_targets_[i].row >= 0) {
+      int8_t row = en_passant_targets_[i].row;
+      int8_t col = en_passant_targets_[i].col;
+      // Convert to square notation (file a-n, rank 1-14)
+      char file = 'a' + col;
+      int rank = 14 - row;
+      fen << file << rank;
+    } else {
+      fen << "";
+    }
+  }
+
+  return fen.str();
+}
+
 }  // namespace chess
 
