@@ -218,8 +218,8 @@ const Board: Component<BoardProps> = (props) => {
     
     try {
       // Compute hash for current position
-      const currentPoints = points();
-      const currentTurn = turnIndex();
+      const currentPoints = basePoints();
+      const currentTurn = currentTurnIndex();
       const hashKey = computeBoardHash(currentPoints, currentTurn);
       console.log(`[Engine] Computed hash: ${hashKey}`);
       
@@ -1706,7 +1706,7 @@ const Board: Component<BoardProps> = (props) => {
           <div>Eval: <strong>{analysis()?.score || '-'}</strong></div>
           <div>Depth: <strong>{analysis()?.depth || '-'}</strong></div>
           <div>Best: <strong>{analysis()?.bestMove || '-'}</strong></div>
-          {fromCache() && <div style={{color: '#4CAF50', fontSize: '0.8em', marginTop: '4px'}}>✓ Cached</div>}
+          {fromCache() && <div style={{color: '#4CAF50'}}>✓ Cached</div>}
         </div>
         <div class={styles.engineControls}>
           <ThreadControl 
