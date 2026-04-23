@@ -4,7 +4,7 @@ import { type BasePoint, type PieceType, type Move, type LegalMove, type Point, 
 
 type CastleType = `${NamedColor}_${'KING_SIDE' | 'QUEEN_SIDE'}`;
 
-type EightDirections = 
+export type EightDirections = 
     [0, 1]|   // up
     [1, 0]|   // right
     [0, -1]|  // down
