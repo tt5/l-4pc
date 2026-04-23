@@ -11,9 +11,9 @@ describe('fen4FromMoves', () => {
   });
 
   it('applies a single pawn move correctly', () => {
-    // Move red pawn from d2 to d3 (UCI: d2d3)
+    // Move red pawn from d2 to d3 (PGN4: d2-d3)
     // In the starting position, red pawns are at rank 2 (y=12 in code coordinates)
-    const moves = ['d2d3'];
+    const moves = ['d2-d3'];
     const result = fen4FromMoves(moves);
     
     // Parse the result to verify
@@ -30,7 +30,7 @@ describe('fen4FromMoves', () => {
 
   it('applies multiple moves sequentially', () => {
     // Red pawn d2->d3, Blue pawn b4->b5
-    const moves = ['d2d3', 'b4b5'];
+    const moves = ['d2-d3', 'b4-b5'];
     const result = fen4FromMoves(moves);
     
     const { currentPlayerIndex } = parseFen4(result);
@@ -46,7 +46,7 @@ describe('fen4FromMoves', () => {
     // Note: This would require setting up a custom starting position
     // which is beyond the scope of this basic test.
     
-    const moves = ['d2d3'];
+    const moves = ['d2-d3'];
     const result = fen4FromMoves(moves);
     
     expect(result).toBeDefined();
@@ -54,8 +54,8 @@ describe('fen4FromMoves', () => {
   });
 
   it('alternates players correctly through all 4 players', () => {
-    // Red: d2d3, Blue: b4b5, Yellow: d13d12, Green: m4m5
-    const moves = ['d2d3', 'b4b5', 'd13d12', 'm4m5'];
+    // Red: d2-d3, Blue: b4-b5, Yellow: d13-d12, Green: m4-m5
+    const moves = ['d2-d3', 'b4-b5', 'd13-d12', 'm4-m5'];
     const result = fen4FromMoves(moves);
     
     const { currentPlayerIndex } = parseFen4(result);
@@ -65,7 +65,7 @@ describe('fen4FromMoves', () => {
   });
 
   it('produces valid FEN4 format', () => {
-    const moves = ['d2d3'];
+    const moves = ['d2-d3'];
     const result = fen4FromMoves(moves);
     
     // Should have 7 parts separated by hyphens
@@ -77,7 +77,7 @@ describe('fen4FromMoves', () => {
   });
 
   it('round-trips: parse -> apply moves -> generate -> parse should be consistent', () => {
-    const moves = ['d2d3', 'b4b5'];
+    const moves = ['d2-d3', 'b4-b5'];
     const result = fen4FromMoves(moves);
     
     // Parse the result
@@ -90,33 +90,33 @@ describe('fen4FromMoves', () => {
     expect(regenerated).toBe(result);
   });
 
-  it('handles invalid UCI format gracefully', () => {
+  it('handles invalid PGN4 format gracefully', () => {
     const moves = ['invalid'];
     
-    expect(() => fen4FromMoves(moves)).toThrow('Invalid UCI move');
+    expect(() => fen4FromMoves(moves)).toThrow('Invalid PGN4 move');
   });
 
-  it('handles UCI coordinates out of bounds', () => {
-    const moves = ['z15z16']; // Beyond 14x14 board
+  it('handles PGN4 coordinates out of bounds', () => {
+    const moves = ['z15-z16']; // Beyond 14x14 board
     
     expect(() => fen4FromMoves(moves)).toThrow();
   });
 });
 
-describe('uciToSimpleMove (integration test via fen4FromMoves)', () => {
-  it('correctly converts UCI file letters to x coordinates', () => {
+describe('pgn4ToMove (integration test via fen4FromMoves)', () => {
+  it('correctly converts PGN4 file letters to x coordinates', () => {
     // 'a' should be x=0, 'n' should be x=13
     // Blue pawn at b4 (x=1, y=10) moving to b5 (x=1, y=9)
-    const moves = ['b4b5'];
+    const moves = ['b4-b5'];
     const result = fen4FromMoves(moves);
     
     expect(result).toBeDefined();
   });
 
-  it('correctly converts UCI rank numbers to y coordinates', () => {
+  it('correctly converts PGN4 rank numbers to y coordinates', () => {
     // Rank 1 should be y=13, rank 14 should be y=0
     // Yellow pawn at d13 (x=3, y=1) moving to d12 (x=3, y=2)
-    const moves = ['d13d12'];
+    const moves = ['d13-d12'];
     const result = fen4FromMoves(moves);
     
     expect(result).toBeDefined();

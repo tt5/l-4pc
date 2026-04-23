@@ -1337,7 +1337,7 @@ describe('getLegalMoves - Integration Tests', () => {
 
   it('pawn forward moves from UCI sequence', () => {
     // Red pawn moves forward one square
-    const moves: string[] = ['d2d3'];
+    const moves: string[] = ['d2-d3'];
     const fen4 = fen4FromMoves(moves);
     const { basePoints } = parseFen4(fen4);
 
