@@ -475,6 +475,7 @@ export function getLegalMoves(
   } = {}
 ): LegalMove[] {
 
+  const from = createPoint(basePoint.x, basePoint.y);
   const pieceType = basePoint.pieceType
   const team = basePoint.team;
   const color = basePoint.color;
@@ -494,7 +495,7 @@ export function getLegalMoves(
     ];
     
     possibleMoves = directions.flatMap(([dx, dy]) => 
-      getSquaresInDirection(createPoint(basePoint.x, basePoint.y), [dx, dy] as EightDirections, allBasePoints, team)
+      getSquaresInDirection(from, [dx, dy] as EightDirections, allBasePoints, team)
     );
   } else if (pieceType === 'king') {
     // Standard king moves (1 square in any direction)
@@ -541,9 +542,6 @@ export function getLegalMoves(
     const castlingMoves = [];
     
     if (color) {
-      if (!color) {
-        return standardMoves; // Return standard moves without castling
-      }
       
       // King-side castling
       const kingSideCastleType: CastleType = `${color}_KING_SIDE`;
@@ -758,7 +756,7 @@ export function getLegalMoves(
     ];
     
     possibleMoves = [...directions.flatMap(([dx, dy]) => 
-      getSquaresInDirection(createPoint(basePoint.x, basePoint.y), [dx, dy] as EightDirections, allBasePoints, team)
+      getSquaresInDirection(from, [dx, dy] as EightDirections, allBasePoints, team)
     )];
   } else if (pieceType === 'knight') {
     // Knight moves in an L-shape: 2 squares in one direction and then 1 square perpendicular
@@ -816,7 +814,7 @@ export function getLegalMoves(
     ];
     
     possibleMoves = [...directions.flatMap(([dx, dy]) => 
-      getSquaresInDirection(createPoint(basePoint.x, basePoint.y), [dx, dy] as EightDirections, allBasePoints, team)
+      getSquaresInDirection(from, [dx, dy] as EightDirections, allBasePoints, team)
     )];
   }
 
