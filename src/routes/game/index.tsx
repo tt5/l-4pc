@@ -4,6 +4,7 @@ import { useSearchParams } from '@solidjs/router';
 import { useAuth } from '~/contexts/AuthContext';
 import { RestrictedSquaresProvider } from '~/contexts/RestrictedSquaresContext';
 import Board from '~/components/Game/Board';
+import Pgn4ImportModal from '~/components/Game/Pgn4ImportModal';
 import { DEFAULT_GAME_ID } from '~/constants/game';
 import { makeAuthenticatedApiCall, parseApiResponse } from '~/utils/clientApi';
 import styles from './game.module.css';
@@ -16,6 +17,9 @@ function GameContent() {
   const [gameId, setGameId] = createSignal<string>(
     (Array.isArray(searchParams.gameId) ? searchParams.gameId[0] : searchParams.gameId) || DEFAULT_GAME_ID
   );
+  
+  // Modal state
+  const [isImportModalOpen, setIsImportModalOpen] = createSignal(false);
   
   // Fetch all game IDs for the user
   const [games, { refetch }] = createResource(
@@ -71,6 +75,13 @@ function GameContent() {
     window.history.replaceState({}, '', newUrl);
   });
   
+  // Handle successful PGN4 import
+  const handleImportSuccess = (newGameId: string) => {
+    setGameId(newGameId);
+    setIsImportModalOpen(false);
+    refetch();
+  };
+  
   return (
     <div class={styles.container}>
       <Title>Game</Title>
@@ -93,6 +104,7 @@ function GameContent() {
               <div class={styles.settingsContainer}>
                 <h2>{user()?.username}</h2>
                 <button onClick={() => logout()}>Logout</button>
+                <button onClick={() => setIsImportModalOpen(true)}>Import PGN4</button>
                 <div>Games: {games()?.join(', ') || 'No games found'}</div>
               </div>
               <Board 
@@ -104,6 +116,12 @@ function GameContent() {
           </RestrictedSquaresProvider>
         </Show>
       </Show>
+      
+      <Pgn4ImportModal
+        isOpen={isImportModalOpen()}
+        onClose={() => setIsImportModalOpen(false)}
+        onImportSuccess={handleImportSuccess}
+      />
     </div>
   );
 }
