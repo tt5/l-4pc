@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { getSquaresInDirection, isPathClear, canPieceAttack, isSquareUnderAttack, isKingInCheck, isSquareBetween, canCastle, resetMovedPieces, trackPieceMovement, type CastleType, type EightDirections } from './gameUtils';
+import { getSquaresInDirection, isPathClear, canPieceAttack, isSquareUnderAttack, isKingInCheck, isSquareBetween, canCastle, resetMovedPieces, trackPieceMovement, wouldResolveCheck, type CastleType, type EightDirections } from './gameUtils';
 import { createPoint, type BasePoint, type LegalMove } from '~/types/board';
 
 // Helper functions for test data
@@ -1173,5 +1173,131 @@ describe('canCastle', () => {
 
       expect(result).toBe(false);
     });
+  });
+});
+
+describe('wouldResolveCheck', () => {
+  it('returns true when no king is found', () => {
+    const movingPiece = createTestPiece(1, 7, 7, 1, 'RED', 'pawn');
+    const to = createPoint(7, 6);
+    const board = createBoardWithPieces([movingPiece]);
+
+    const result = wouldResolveCheck(movingPiece, to, 'RED', board);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns true when king is not in check', () => {
+    const king = createTestPiece(1, 7, 7, 1, 'RED', 'king');
+    const movingPiece = createTestPiece(2, 5, 5, 1, 'RED', 'pawn');
+    const to = createPoint(5, 4);
+    const board = createBoardWithPieces([king, movingPiece]);
+
+    const result = wouldResolveCheck(movingPiece, to, 'RED', board);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns true when king moves to safe square', () => {
+    const king = createTestPiece(1, 7, 7, 1, 'RED', 'king');
+    const opponentRook = createTestPiece(2, 7, 10, 2, 'BLUE', 'rook');
+    const board = createBoardWithPieces([king, opponentRook]);
+
+    const to = createPoint(8, 7);
+
+    const result = wouldResolveCheck(king, to, 'RED', board);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns false when king moves to unsafe square', () => {
+    const king = createTestPiece(1, 7, 7, 1, 'RED', 'king');
+    const opponentRook = createTestPiece(2, 7, 10, 2, 'BLUE', 'rook');
+    const board = createBoardWithPieces([king, opponentRook]);
+
+    const to = createPoint(7, 8);
+
+    const result = wouldResolveCheck(king, to, 'RED', board);
+
+    expect(result).toBe(false);
+  });
+
+  it('returns true when piece captures the attacker', () => {
+    const king = createTestPiece(1, 7, 7, 1, 'RED', 'king');
+    const movingPiece = createTestPiece(2, 5, 5, 1, 'RED', 'rook');
+    const attacker = createTestPiece(3, 5, 10, 2, 'BLUE', 'rook');
+    const board = createBoardWithPieces([king, movingPiece, attacker]);
+
+    const to = createPoint(5, 10);
+
+    const result = wouldResolveCheck(movingPiece, to, 'RED', board);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns true when piece blocks the attack', () => {
+    const king = createTestPiece(1, 7, 7, 1, 'RED', 'king');
+    const movingPiece = createTestPiece(2, 5, 5, 1, 'RED', 'pawn');
+    const attacker = createTestPiece(3, 7, 10, 2, 'BLUE', 'rook');
+    const board = createBoardWithPieces([king, movingPiece, attacker]);
+
+    const to = createPoint(7, 8);
+
+    const result = wouldResolveCheck(movingPiece, to, 'RED', board);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns false when multiple attackers exist (only king can resolve)', () => {
+    const king = createTestPiece(1, 7, 7, 1, 'RED', 'king');
+    const movingPiece = createTestPiece(2, 5, 5, 1, 'RED', 'pawn');
+    const attacker1 = createTestPiece(3, 7, 10, 2, 'BLUE', 'rook');
+    const attacker2 = createTestPiece(4, 10, 10, 2, 'BLUE', 'bishop');
+    const board = createBoardWithPieces([king, movingPiece, attacker1, attacker2]);
+
+    const to = createPoint(7, 8);
+
+    const result = wouldResolveCheck(movingPiece, to, 'RED', board);
+
+    expect(result).toBe(false);
+  });
+
+  it('returns false when move does not capture or block attacker', () => {
+    const king = createTestPiece(1, 7, 7, 1, 'RED', 'king');
+    const movingPiece = createTestPiece(2, 5, 5, 1, 'RED', 'pawn');
+    const attacker = createTestPiece(3, 7, 10, 2, 'BLUE', 'rook');
+    const board = createBoardWithPieces([king, movingPiece, attacker]);
+
+    const to = createPoint(5, 4);
+
+    const result = wouldResolveCheck(movingPiece, to, 'RED', board);
+
+    expect(result).toBe(false);
+  });
+
+  it('returns false when move does not block knight attack (knights cannot be blocked)', () => {
+    const king = createTestPiece(1, 7, 7, 1, 'RED', 'king');
+    const movingPiece = createTestPiece(2, 5, 5, 1, 'RED', 'pawn');
+    const attacker = createTestPiece(3, 9, 8, 2, 'BLUE', 'knight');
+    const board = createBoardWithPieces([king, movingPiece, attacker]);
+
+    const to = createPoint(7, 8);
+
+    const result = wouldResolveCheck(movingPiece, to, 'RED', board);
+
+    expect(result).toBe(false);
+  });
+
+  it('works for team 2 (BLUE)', () => {
+    const king = createTestPiece(1, 7, 7, 2, 'BLUE', 'king');
+    const movingPiece = createTestPiece(2, 5, 5, 2, 'BLUE', 'rook');
+    const attacker = createTestPiece(3, 5, 10, 1, 'RED', 'rook');
+    const board = createBoardWithPieces([king, movingPiece, attacker]);
+
+    const to = createPoint(5, 10);
+
+    const result = wouldResolveCheck(movingPiece, to, 'BLUE', board);
+
+    expect(result).toBe(true);
   });
 });
