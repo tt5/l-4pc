@@ -177,19 +177,38 @@ interface SimpleMove {
 
 /**
  * Converts a UCI move string to SimpleMove coordinates
- * UCI format: 'a2a4' where a=0, n=13 for files and 1-14 for ranks (inverted)
- * @param uci - UCI move string (e.g., 'a2a4')
+ * UCI format: 'a2a4' for ranks 1-9, 'a10a12' for ranks 10-14
+ * where a=0, n=13 for files and 1-14 for ranks (inverted)
+ * @param uci - UCI move string (e.g., 'a2a4' or 'a10a12')
  * @returns SimpleMove with coordinates
  */
 const uciToSimpleMove = (uci: string): SimpleMove => {
-  if (uci.length !== 4) {
-    throw new Error(`Invalid UCI move: ${uci}. Must be 4 characters.`);
+  // Handle both 4-char (ranks 1-9) and 6-char (ranks 10-14) formats
+  if (uci.length !== 4 && uci.length !== 6) {
+    throw new Error(`Invalid UCI move: ${uci}. Must be 4 or 6 characters.`);
   }
 
   const fromFile = uci.charCodeAt(0) - 97; // 'a' = 0
-  const fromRank = 14 - parseInt(uci[1], 10); // Rank 1 is at y=13
-  const toFile = uci.charCodeAt(2) - 97;
-  const toRank = 14 - parseInt(uci[3], 10);
+  
+  let fromRankStr: string;
+  let toRankStr: string;
+  let toFileOffset: number;
+
+  if (uci.length === 4) {
+    // Format: a2a4 (single digit ranks)
+    fromRankStr = uci[1];
+    toFileOffset = 2;
+    toRankStr = uci[3];
+  } else {
+    // Format: a10a12 (double digit ranks)
+    fromRankStr = uci.substring(1, 3);
+    toFileOffset = 3;
+    toRankStr = uci.substring(4, 6);
+  }
+
+  const fromRank = 14 - parseInt(fromRankStr, 10); // Rank 1 is at y=13
+  const toFile = uci.charCodeAt(toFileOffset) - 97;
+  const toRank = 14 - parseInt(toRankStr, 10);
 
   if (fromFile < 0 || fromFile > 13 || toFile < 0 || toFile > 13 ||
       fromRank < 0 || fromRank > 13 || toRank < 0 || toRank > 13) {
