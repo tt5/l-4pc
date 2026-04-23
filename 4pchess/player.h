@@ -298,8 +298,8 @@ class AlphaBetaPlayer {
   Team root_team_ = NO_TEAM;
 
   // Heuristics (shared across threads)
-  // (piece_type, from_square, to_square) where square = row * 14 + col
-  int16_t history_heuristic[6][196][196];
+  // (queen_or_not, from_square, to_square) where square = row * 16 + col (power of 2 for bit shift)
+  int16_t history_heuristic[2][224][224];
   // (piece_type, piece_color, capture_piece_type, capture_piece_color, to_row, to_col)
 
   static constexpr size_t kHeuristicMutexes = 256;

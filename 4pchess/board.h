@@ -158,6 +158,15 @@ class Piece {
   // Formula: 0 (since present bit is 0)
   static constexpr uint8_t kRawNoPiece = 0;
 
+  // Static helpers to extract color/piece type from raw bits (bypasses virtual calls)
+  static constexpr PlayerColor ExtractColor(uint8_t raw_bits) {
+    return static_cast<PlayerColor>((raw_bits & 0b01100000) >> 5);
+  }
+
+  static constexpr PieceType ExtractPieceType(uint8_t raw_bits) {
+    return static_cast<PieceType>((raw_bits >> 2) & 0b00000111);
+  }
+
  private:
   // bit 0: presence
   // bit 1-2: player
@@ -435,6 +444,9 @@ class PlacedPiece {
 
   int8_t GetRow() const { return row_; }
   int8_t GetCol() const { return col_; }
+  
+  const Piece& GetPiece(const Board& board) const;
+  
   friend std::ostream& operator<<(
       std::ostream& os, const PlacedPiece& placed_piece);
 
@@ -548,9 +560,6 @@ class Board {
   bool LastMoveWasCapture() const {
     return !moves_.empty() && moves_.back().GetStandardCapture().Present();
   }
-  const Move& GetLastMove() const {
-    return moves_.back();
-  }
   int NumMoves() const { return moves_.size(); }
   const std::vector<Move>& Moves() { return moves_; }
 
@@ -584,9 +593,16 @@ class Board {
     hash_key_ ^= piece_hashes_[piece.GetColor()][piece.GetPieceType()]
       [row][col];
   }
+  void UpdatePieceHash(uint8_t raw_bits, int8_t row, int8_t col) {
+    hash_key_ ^= piece_hashes_[Piece::ExtractColor(raw_bits)][Piece::ExtractPieceType(raw_bits)]
+      [row][col];
+  }
   void UpdateTurnHash(int turn) {
     hash_key_ ^= turn_hashes_[turn];
   }
+
+  friend class Move;
+  friend class PlacedPiece;
 
   Player turn_;
 

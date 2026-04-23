@@ -456,7 +456,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     //static std::atomic<int64_t> capture_extension_count{0};
     //static std::atomic<int64_t> check_extension_count{0};
 
-    constexpr int kMaxExtensionsPerPath = 1;
+    constexpr int kMaxExtensionsPerPath = 2;
     if (depth < 2 && move.IsCapture() && ss->extension_count < kMaxExtensionsPerPath) {
         //capture_extension_count++;
         r = -1;
@@ -609,14 +609,18 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     int8_t to_col = best_move->ToCol();
     Piece piece = board.GetPiece(from_row, from_col);
 
-    int bonus = 1 + (fail_high ? (depth << 1) : depth);
-    //if (bonus > 32767) bonus = 32767;  // Cap for int16_t
+    int bonus = 1 + (fail_high ? (depth << 2) : depth);
+    if (bonus > 32767) bonus = 32767;  // Cap for int16_t
 
-    int from_sq = 14 * from_row + from_col;
-    int to_sq = 14 * to_row + to_col;
-    size_t lock_key = (from_sq * 196) + to_sq;
+    // [224][224] some values unused
+    int from_sq = (from_row << 4) + from_col;
+    int to_sq = (to_row << 4) + to_col;
+    size_t lock_key = (from_sq * 224) + to_sq;
     std::lock_guard<std::mutex> lock(heuristic_mutexes_[lock_key % kHeuristicMutexes]);
-    history_heuristic[piece.GetPieceType()][from_sq][to_sq] += bonus;
+    int queen_idx = (piece.GetPieceType() == QUEEN) ? 1 : 0;
+    history_heuristic[queen_idx][from_sq][to_sq] += bonus;
+    history_heuristic[queen_idx][from_sq][to_sq] =
+    (history_heuristic[queen_idx][from_sq][to_sq] >> 1) | (rand() & 0x7);
   }
 
   int score = alpha;
@@ -684,9 +688,9 @@ void AlphaBetaPlayer::ResetHistoryHeuristics() {
 
 void AlphaBetaPlayer::AgeHistoryHeuristics() {
   // Age quiet move history heuristic by dividing all scores by 2
-  for (int pt = 0; pt < 6; ++pt) {
-    for (int sq = 0; sq < 196 * 196; ++sq) {
-      history_heuristic[pt][0][sq] >>= 1;
+  for (int queen_idx = 0; queen_idx < 2; ++queen_idx) {
+    for (int sq = 0; sq < 224 * 224; ++sq) {
+      history_heuristic[queen_idx][0][sq] >>= 1;
     }
   }
 }
@@ -722,7 +726,7 @@ AlphaBetaPlayer::MakeMove(
   }
 
   // ResetHistoryHeuristics();
-  AgeHistoryHeuristics();
+  //AgeHistoryHeuristics();
 
   int num_threads = 1;
   if (options_.enable_multithreading) {

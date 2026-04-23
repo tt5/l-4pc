@@ -21,7 +21,7 @@ struct MovePicker2 {
     const Move* pv_move;   // PV move to prioritize
     const Move* tt_move;   // TT move to try after PV move
     int phase;             // Current phase (0=PV, 1=TT, 2=Remaining)
-    int16_t (*history_heuristic)[196][196]; // Pointer to current ply's history heuristic [piece_type][from_sq][to_sq] where sq = row*14+col
+    int16_t (*history_heuristic)[224][224]; // Pointer to current ply's history heuristic [piece_type][from_sq][to_sq] where sq = row*16+col
     std::vector<size_t> move_indices;   // To store sorted indices of remaining moves
     bool remaining_sorted; // Whether remaining moves are already sorted
     size_t sorted_current; // Current position in sorted order
@@ -34,7 +34,7 @@ inline void InitMovePicker2(
     size_t count,
     const Move* pv_move,
     const Move* tt_move = nullptr,
-    int16_t (*history_heuristic)[196][196] = nullptr)
+    int16_t (*history_heuristic)[224][224] = nullptr)
 {
     picker->board = board;
     picker->moves = moves;
@@ -141,9 +141,10 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                         }
                         else { // non-catpures
                             // Get move information
-                            const int from_sq = move.FromRow() * 14 + move.FromCol();
-                            const int to_sq = move.ToRow() * 14 + move.ToCol();
-                            int16_t hist_value = picker->history_heuristic[pt][from_sq][to_sq];
+                            const int from_sq = (move.FromRow() << 4) + move.FromCol();
+                            const int to_sq = (move.ToRow() << 4) + move.ToCol();
+                            int queen_idx = (pt == QUEEN) ? 1 : 0;
+                            int16_t hist_value = picker->history_heuristic[queen_idx][from_sq][to_sq];
                             scored_moves.push_back({move_idx, hist_value});
                         }
                     }
