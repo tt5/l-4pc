@@ -229,7 +229,7 @@ const uciToSimpleMove = (uci: string): SimpleMove => {
  * @param move - Move to apply
  * @returns Updated basePoints
  */
-const applyMove = (basePoints: BasePoint[], move: SimpleMove): BasePoint[] => {
+const applySimpleMove = (basePoints: BasePoint[], move: SimpleMove): BasePoint[] => {
   const { fromX, fromY, toX, toY } = move;
   
   // Find the piece being moved
@@ -279,7 +279,7 @@ export const fen4FromMoves = (uciMoves: string[]): string => {
   
   for (const uci of uciMoves) {
     const move = uciToSimpleMove(uci);
-    currentBasePoints = applyMove(currentBasePoints, move);
+    currentBasePoints = applySimpleMove(currentBasePoints, move);
     // Alternate to next player (R -> B -> Y -> G -> R)
     currentPlayerIdx = (currentPlayerIdx + 1) % 4;
   }

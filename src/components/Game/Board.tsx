@@ -30,7 +30,7 @@ import {
   trackPieceMovement,
   resetMovedPieces
 } from '~/utils/gameUtils';
-import { calculateRestrictedSquares, updateMove, generateNewGameId } from '~/utils/boardUtils';
+import { calculateRestrictedSquares, updateMove, generateNewGameId, replayMoves } from '~/utils/boardUtils';
 import { getColorHex } from '~/utils/colorUtils';
 
 import { type Point, type BasePoint, type Move, type BranchPoints, type SquareIndex, createPoint, RestrictedSquareInfo, RestrictedSquares, PieceType, HexColor, ApiMove, BranchList, BranchListItem, SimpleMove } from '../../types/board';
@@ -637,111 +637,6 @@ const Board: Component<BoardProps> = (props) => {
     setBasePoints(initialBasePoints);
     setRestrictedSquares(INITIAL_RESTRICTED_SQUARES);
     setRestrictedSquaresInfo(INITIAL_RESTRICTED_SQUARES_INFO as RestrictedSquareInfo[]);
-  };
-
-  /**
-   * Replays moves on the board up to a specific index
-   */
-  const replayMoves = (moves: Move[], endIndex: number): BasePoint[] => {
-    const positionMap = new Map<string, BasePoint>();
-
-    // Reset moved pieces tracking for fresh replay
-    resetMovedPieces();
-
-    // Initialize with a fresh copy of the initial board state
-    INITIAL_BASE_POINTS.forEach(bp => {
-      positionMap.set(`${bp.x},${bp.y}`, { ...bp });
-    });
-
-    // Replay each move up to the target index
-    for (let i = 0; i <= endIndex; i++) {
-      const move = moves[i];
-      if (!move) {
-        throw new Error(`[replayMoves] Missing move at index ${i}`);
-      }
-
-      const { 
-        fromX, 
-        fromY, 
-        toX, 
-        toY, 
-        isCastle = false,
-        castleType = null,
-        isEnPassant = false
-      } = move;
-      
-      const fromKey = `${fromX},${fromY}`;
-      const toKey = `${toX},${toY}`;
-      const piece = positionMap.get(fromKey);
-
-      if (!piece) {
-        throw new Error(`[replayMoves] No piece at source position (${fromX},${fromY})`);
-      }
-
-      // Handle castling moves
-      if (isCastle && castleType) {
-        console.log(`[replayMoves] Castling move`);
-        
-        const fullCastleType = `${piece.color}_${castleType}` as keyof typeof MOVE_PATTERNS.CASTLING;
-        const castlingConfig = MOVE_PATTERNS.CASTLING[fullCastleType];
-        if (!castlingConfig) {
-          console.error(`[replayMoves] Invalid castling type: ${fullCastleType}`);
-          continue;
-        }
-        const [kingDx, kingDy, , rookX, rookY, rookDx, rookDy] = castlingConfig;
-        const rookFromKey = `${rookX},${rookY}`;
-        const rookToKey = `${rookX + rookDx},${rookY + rookDy}`;
-        const rook = positionMap.get(rookFromKey);
-        if (!rook) {
-          console.error(`[replayMoves] Rook not found at (${rookX},${rookY}) for castling`);
-          continue;
-        }
-        // Move the rook
-        positionMap.delete(rookFromKey);
-        trackPieceMovement(rook);
-        positionMap.set(rookToKey, {
-          ...rook,
-          x: rookX + rookDx,
-          y: rookY + rookDy,
-          hasMoved: true
-        });
-      }
-
-      // Handle captures
-      if (positionMap.has(toKey)) {
-        const capturedPiece = positionMap.get(toKey);
-        console.log(`[replayMoves] Capturing piece at [${toX},${toY}]: ${JSON.stringify(capturedPiece, null, 2)}`);
-        positionMap.delete(toKey);
-      }
-
-      // Handle en passant capture
-      if (isEnPassant && move.capturedPiece) {
-        const { x: capturedX, y: capturedY } = move.capturedPiece;
-        const capturedKey = `${capturedX},${capturedY}`;
-        console.log(`[replayMoves] En passant capture at [${capturedX},${capturedY}]`);
-        positionMap.delete(capturedKey);
-      }
-
-      // Update the piece
-      const movedPiece = {
-        ...piece,
-        x: toX,
-        y: toY,
-        // promotion (?)
-        //pieceType:
-        hasMoved: true,
-        isCastle: isCastle,
-        castleType: castleType
-      };
-
-      positionMap.delete(fromKey);
-      trackPieceMovement(movedPiece);
-      positionMap.set(toKey, movedPiece);
-      
-      console.log(`[replayMoves] Applied move ${i+1}/${endIndex+1}: [${fromX},${fromY}]→[${toX},${toY}]`);
-    }
-
-    return Array.from(positionMap.values());
   };
 
   const handleSaveGame = async () => {
