@@ -610,7 +610,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     Piece piece = board.GetPiece(from_row, from_col);
 
     int bonus = 1 + (fail_high ? (depth << 2) : depth);
-    if (bonus > 32767) bonus = 32767;  // Cap for int16_t
+    if (bonus > 16383) bonus = 16383;  // Cap for int16_t
 
     // [224][224] some values unused
     int from_sq = (from_row << 4) + from_col;
