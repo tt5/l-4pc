@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { getSquaresInDirection, isPathClear, canPieceAttack, isSquareUnderAttack, isKingInCheck, isSquareBetween, type EightDirections } from './gameUtils';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { getSquaresInDirection, isPathClear, canPieceAttack, isSquareUnderAttack, isKingInCheck, isSquareBetween, canCastle, resetMovedPieces, trackPieceMovement, type CastleType, type EightDirections } from './gameUtils';
 import { createPoint, type BasePoint, type LegalMove } from '~/types/board';
 
 // Helper functions for test data
@@ -988,5 +988,190 @@ describe('isSquareBetween', () => {
     const result = isSquareBetween(from, to, between);
 
     expect(result).toBe(false);
+  });
+});
+
+describe('canCastle', () => {
+  beforeEach(() => {
+    resetMovedPieces();
+  });
+
+  describe('RED team (bottom, horizontal castling)', () => {
+    it('allows king-side castling when conditions are met', () => {
+      const king = createTestPiece(1, 7, 13, 1, 'RED', 'king');
+      const rook = createTestPiece(2, 10, 13, 1, 'RED', 'rook');
+      const board = createBoardWithPieces([king, rook]);
+
+      const result = canCastle(king, board, 'RED_KING_SIDE');
+
+      expect(result).toBe(true);
+    });
+
+    it('allows queen-side castling when conditions are met', () => {
+      const king = createTestPiece(1, 7, 13, 1, 'RED', 'king');
+      const rook = createTestPiece(2, 3, 13, 1, 'RED', 'rook');
+      const board = createBoardWithPieces([king, rook]);
+
+      const result = canCastle(king, board, 'RED_QUEEN_SIDE');
+
+      expect(result).toBe(true);
+    });
+
+    it('prevents castling when king has moved', () => {
+      const king = createTestPiece(1, 7, 13, 1, 'RED', 'king');
+      const rook = createTestPiece(2, 10, 13, 1, 'RED', 'rook');
+      const board = createBoardWithPieces([king, rook]);
+
+      trackPieceMovement(king);
+
+      const result = canCastle(king, board, 'RED_KING_SIDE');
+
+      expect(result).toBe(false);
+    });
+
+    it('prevents castling when rook has moved', () => {
+      const king = createTestPiece(1, 7, 13, 1, 'RED', 'king');
+      const rook = createTestPiece(2, 10, 13, 1, 'RED', 'rook');
+      const board = createBoardWithPieces([king, rook]);
+
+      trackPieceMovement(rook);
+
+      const result = canCastle(king, board, 'RED_KING_SIDE');
+
+      expect(result).toBe(false);
+    });
+
+    it('prevents castling when king is under attack', () => {
+      const king = createTestPiece(1, 7, 13, 1, 'RED', 'king');
+      const rook = createTestPiece(2, 10, 13, 1, 'RED', 'rook');
+      const opponentRook = createTestPiece(3, 7, 10, 2, 'BLUE', 'rook');
+      const board = createBoardWithPieces([king, rook, opponentRook]);
+
+      const result = canCastle(king, board, 'RED_KING_SIDE');
+
+      expect(result).toBe(false);
+    });
+
+    it('prevents castling when path is blocked', () => {
+      const king = createTestPiece(1, 7, 13, 1, 'RED', 'king');
+      const rook = createTestPiece(2, 10, 13, 1, 'RED', 'rook');
+      const blockingPiece = createTestPiece(3, 8, 13, 1, 'RED', 'pawn');
+      const board = createBoardWithPieces([king, rook, blockingPiece]);
+
+      const result = canCastle(king, board, 'RED_KING_SIDE');
+
+      expect(result).toBe(false);
+    });
+
+    it('prevents castling when path square is under attack', () => {
+      const king = createTestPiece(1, 7, 13, 1, 'RED', 'king');
+      const rook = createTestPiece(2, 10, 13, 1, 'RED', 'rook');
+      const opponentRook = createTestPiece(3, 8, 10, 2, 'BLUE', 'rook');
+      const board = createBoardWithPieces([king, rook, opponentRook]);
+
+      const result = canCastle(king, board, 'RED_KING_SIDE');
+
+      expect(result).toBe(false);
+    });
+
+    it('prevents castling when rook is missing', () => {
+      const king = createTestPiece(1, 7, 13, 1, 'RED', 'king');
+      const board = createBoardWithPieces([king]);
+
+      const result = canCastle(king, board, 'RED_KING_SIDE');
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('YELLOW team (top, horizontal castling)', () => {
+    it('allows king-side castling when conditions are met', () => {
+      const king = createTestPiece(1, 6, 0, 1, 'YELLOW', 'king');
+      const rook = createTestPiece(2, 3, 0, 1, 'YELLOW', 'rook');
+      const board = createBoardWithPieces([king, rook]);
+
+      const result = canCastle(king, board, 'YELLOW_KING_SIDE');
+
+      expect(result).toBe(true);
+    });
+
+    it('prevents castling when path is blocked', () => {
+      const king = createTestPiece(1, 6, 0, 1, 'YELLOW', 'king');
+      const rook = createTestPiece(2, 3, 0, 1, 'YELLOW', 'rook');
+      const blockingPiece = createTestPiece(3, 5, 0, 1, 'YELLOW', 'pawn');
+      const board = createBoardWithPieces([king, rook, blockingPiece]);
+
+      const result = canCastle(king, board, 'YELLOW_KING_SIDE');
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('BLUE team (left, vertical castling)', () => {
+    it('allows king-side castling when conditions are met', () => {
+      const king = createTestPiece(1, 0, 7, 2, 'BLUE', 'king');
+      const rook = createTestPiece(2, 0, 10, 2, 'BLUE', 'rook');
+      const board = createBoardWithPieces([king, rook]);
+
+      const result = canCastle(king, board, 'BLUE_KING_SIDE');
+
+      expect(result).toBe(true);
+    });
+
+    it('allows queen-side castling when conditions are met', () => {
+      const king = createTestPiece(1, 0, 7, 2, 'BLUE', 'king');
+      const rook = createTestPiece(2, 0, 3, 2, 'BLUE', 'rook');
+      const board = createBoardWithPieces([king, rook]);
+
+      const result = canCastle(king, board, 'BLUE_QUEEN_SIDE');
+
+      expect(result).toBe(true);
+    });
+
+    it('prevents castling when king is under attack', () => {
+      const king = createTestPiece(1, 0, 7, 2, 'BLUE', 'king');
+      const rook = createTestPiece(2, 0, 10, 2, 'BLUE', 'rook');
+      const opponentRook = createTestPiece(3, 3, 7, 1, 'RED', 'rook');
+      const board = createBoardWithPieces([king, rook, opponentRook]);
+
+      const result = canCastle(king, board, 'BLUE_KING_SIDE');
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('GREEN team (right, vertical castling)', () => {
+    it('allows king-side castling when conditions are met', () => {
+      const king = createTestPiece(1, 13, 6, 2, 'GREEN', 'king');
+      const rook = createTestPiece(2, 13, 3, 2, 'GREEN', 'rook');
+      const board = createBoardWithPieces([king, rook]);
+
+      const result = canCastle(king, board, 'GREEN_KING_SIDE');
+
+      expect(result).toBe(true);
+    });
+
+    it('prevents castling when path is blocked', () => {
+      const king = createTestPiece(1, 13, 6, 2, 'GREEN', 'king');
+      const rook = createTestPiece(2, 13, 3, 2, 'GREEN', 'rook');
+      const blockingPiece = createTestPiece(3, 13, 5, 2, 'GREEN', 'pawn');
+      const board = createBoardWithPieces([king, rook, blockingPiece]);
+
+      const result = canCastle(king, board, 'GREEN_KING_SIDE');
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('invalid castle type', () => {
+    it('returns false for invalid castle type', () => {
+      const king = createTestPiece(1, 7, 13, 1, 'RED', 'king');
+      const rook = createTestPiece(2, 10, 13, 1, 'RED', 'rook');
+      const board = createBoardWithPieces([king, rook]);
+
+      const result = canCastle(king, board, 'INVALID_CASTLE' as CastleType);
+
+      expect(result).toBe(false);
+    });
   });
 });

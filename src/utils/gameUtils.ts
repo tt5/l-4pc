@@ -2,7 +2,7 @@ import { isInNonPlayableCorner, BOARD_CONFIG } from '~/constants/game';
 import { MOVE_PATTERNS, PIECE_TYPES } from '~/constants/movePatterns';
 import { type BasePoint, type PieceType, type Move, type LegalMove, type Point, createPoint, NamedColor, Color, HexColor } from '~/types/board';
 
-type CastleType = `${NamedColor}_${'KING_SIDE' | 'QUEEN_SIDE'}`;
+export type CastleType = `${NamedColor}_${'KING_SIDE' | 'QUEEN_SIDE'}`;
 
 export type EightDirections = 
     [0, 1]|   // up
@@ -448,14 +448,14 @@ export function wouldResolveCheck(
   const attacker = attackers[0];
   // Check if the move captures the attacker
   if (to[0] === attacker.x && to[1] === attacker.y) {
-    // check if move is legal (not pinned)
+    // the move must be legal (not pinned)
     return true;
   }
 
   // Check if the move blocks the attack from queen, rook or bishop
   const blocksAttack = isSquareBetween(createPoint(attacker.x, attacker.y), createPoint(king.x, king.y), to);
   if (blocksAttack) {
-    // check if move is legal (not pinned)
+    // the move must be legal (not pinned)
     return true;
   }
 
@@ -856,6 +856,7 @@ export function getLegalMoves(
 
   // Then filter moves that would leave the king in check
   if (pieceType !== 'king') {
+    // moves are legal (not pinned)
     possibleMoves = possibleMoves.filter(move => {
       return wouldResolveCheck(
         basePoint,
