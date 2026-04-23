@@ -2,7 +2,7 @@ import { BOARD_CONFIG, INITIAL_BASE_POINTS } from '../constants/game';
 import { MOVE_PATTERNS } from '../constants/movePatterns';
 import { BasePoint, SquareIndex, RestrictedByInfo, RestrictedSquareInfo, Point, NamedColor, PieceType, Move } from '../types/board';
 import type { ApiResponse } from './api';
-import { getLegalMoves, resetMovedPieces, trackPieceMovement } from './gameUtils';
+import { getLegalMoves } from './gameUtils';
 import { makeAuthenticatedApiCall, parseApiResponse, generateRequestId, makeApiCall } from './clientApi';
 import { useAuth } from '../contexts/AuthContext';
 import { STARTING_FEN4, parseFen4 } from './fen4Utils';
@@ -146,9 +146,6 @@ export const replayMoves = (
 } => {
   const positionMap = new Map<string, BasePoint>();
 
-  // Reset moved pieces tracking for fresh replay
-  resetMovedPieces();
-
   // Initialize with a fresh copy of the initial board state or provided starting position
   let basePoints: BasePoint[];
   let kingsideCastling: string;
@@ -234,7 +231,6 @@ export const replayMoves = (
       }
       // Move the rook
       positionMap.delete(rookFromKey);
-      trackPieceMovement(rook);
       positionMap.set(rookToKey, {
         ...rook,
         x: rookX + rookDx,
@@ -311,7 +307,6 @@ export const replayMoves = (
     };
 
     positionMap.delete(fromKey);
-    trackPieceMovement(movedPiece);
     positionMap.set(toKey, movedPiece);
     
     console.log(`[replayMoves] Applied move ${i+1}/${endIndex+1}: [${fromX},${fromY}]→[${toX},${toY}]`);

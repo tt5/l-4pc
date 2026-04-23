@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { getSquaresInDirection, isPathClear, canPieceAttack, isSquareUnderAttack, isKingInCheck, isSquareBetween, canCastle, resetMovedPieces, trackPieceMovement, wouldResolveCheck, getLegalMoves, type CastleType, type EightDirections } from './gameUtils';
+import { getSquaresInDirection, isPathClear, canPieceAttack, isSquareUnderAttack, isKingInCheck, isSquareBetween, canCastle, wouldResolveCheck, getLegalMoves, type CastleType, type EightDirections } from './gameUtils';
 import { createPoint, type BasePoint, type LegalMove } from '~/types/board';
 import { parseFen4, fen4FromMoves } from './fen4Utils';
 
@@ -10,7 +10,8 @@ function createTestPiece(
   y: number,
   team: 1 | 2,
   color: 'RED' | 'BLUE' | 'YELLOW' | 'GREEN',
-  pieceType: 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king'
+  pieceType: 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king',
+  hasMoved: boolean = false
 ): BasePoint {
   return {
     id,
@@ -19,7 +20,7 @@ function createTestPiece(
     team,
     color,
     pieceType,
-    hasMoved: false,
+    hasMoved,
     isCastle: false,
     castleType: null
   };
@@ -993,10 +994,6 @@ describe('isSquareBetween', () => {
 });
 
 describe('canCastle', () => {
-  beforeEach(() => {
-    resetMovedPieces();
-  });
-
   describe('RED team (bottom, horizontal castling)', () => {
     it('allows king-side castling when conditions are met', () => {
       const king = createTestPiece(1, 7, 13, 1, 'RED', 'king');
@@ -1019,11 +1016,9 @@ describe('canCastle', () => {
     });
 
     it('prevents castling when king has moved', () => {
-      const king = createTestPiece(1, 7, 13, 1, 'RED', 'king');
+      const king = createTestPiece(1, 7, 13, 1, 'RED', 'king', true);
       const rook = createTestPiece(2, 10, 13, 1, 'RED', 'rook');
       const board = createBoardWithPieces([king, rook]);
-
-      trackPieceMovement(king);
 
       const result = canCastle(king, board, 'RED_KING_SIDE');
 
@@ -1032,10 +1027,8 @@ describe('canCastle', () => {
 
     it('prevents castling when rook has moved', () => {
       const king = createTestPiece(1, 7, 13, 1, 'RED', 'king');
-      const rook = createTestPiece(2, 10, 13, 1, 'RED', 'rook');
+      const rook = createTestPiece(2, 10, 13, 1, 'RED', 'rook', true);
       const board = createBoardWithPieces([king, rook]);
-
-      trackPieceMovement(rook);
 
       const result = canCastle(king, board, 'RED_KING_SIDE');
 

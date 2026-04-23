@@ -23,12 +23,10 @@ import { generateFen4, parseFen4 } from '~/utils/fen4Utils';
 import { makeApiCall, parseApiResponse, generateRequestId, makeAuthenticatedApiCall } from '~/utils/clientApi';
 import { generateBranchName, buildFullBranchName } from '~/utils/branchUtils';
 import { MOVE_PATTERNS } from '~/constants/movePatterns';
-import {
+import { 
   getLegalMoves,
   isKingInCheck,
-  moveToUCI,
-  trackPieceMovement,
-  resetMovedPieces
+  moveToUCI
 } from '~/utils/gameUtils';
 import { calculateRestrictedSquares, updateMove, generateNewGameId, replayMoves } from '~/utils/boardUtils';
 import { getColorHex } from '~/utils/colorUtils';
@@ -650,7 +648,6 @@ const Board: Component<BoardProps> = (props) => {
     setBranchPoints({});
     setMainLineMoves([]);
     setGameId(DEFAULT_GAME_ID);
-    resetMovedPieces();
     const initialBasePoints = JSON.parse(JSON.stringify(INITIAL_BASE_POINTS));
     setBasePoints(initialBasePoints);
     setRestrictedSquares(INITIAL_RESTRICTED_SQUARES);

@@ -14,7 +14,6 @@ export type EightDirections =
     [-1, -1]| // down-left
     [-1, 1]   // up-left
   
-
 /**
  * Converts a move object to UCI (Universal Chess Interface) format
  * @param move - The move to convert
@@ -870,32 +869,14 @@ export function getLegalMoves(
   return possibleMoves;
 }
 
-// Track moved pieces for castling
-export const movedPieces = new Set<number>();
-
-// Helper to get piece key for tracking
-export const getPieceKey = (piece: BasePoint): number => {
-  return piece.id;
-};
-
-export const trackPieceMovement = (piece: BasePoint): void => {
-  const pieceKey = getPieceKey(piece);
-  movedPieces.add(pieceKey);
-};
-
-export const resetMovedPieces = (): void => {
-  movedPieces.clear();
-};
-
 export const canCastle = (
   king: BasePoint,
   allBasePoints: BasePoint[],
   castleType: CastleType,
 ): boolean => {
 
-  // Check if king has moved - we'll rely on the movedPieces set
-  const kingKey = getPieceKey(king);
-  if (movedPieces.has(kingKey)) {
+  // Check if king has moved
+  if (king.hasMoved) {
     return false;
   }
 
@@ -924,8 +905,7 @@ export const canCastle = (
     return false;
   }
 
-  const rookKey = getPieceKey(rook);
-  if (movedPieces.has(rookKey)) {
+  if (rook.hasMoved) {
     return false;
   }
 
