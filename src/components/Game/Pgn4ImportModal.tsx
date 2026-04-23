@@ -33,6 +33,10 @@ export default function Pgn4ImportModal(props: Pgn4ImportModalProps) {
       const result = parsePgn4ToMoves(text);
       const token = getToken();
 
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+
       // Import each move sequentially
       for (const move of result.moves) {
         const response = await updateMove(
@@ -77,7 +81,7 @@ export default function Pgn4ImportModal(props: Pgn4ImportModalProps) {
   };
 
   return (
-    <Show when={props.isOpen()}>
+    <Show when={props.isOpen}>
       <div style={{
         position: 'fixed',
         top: '0',

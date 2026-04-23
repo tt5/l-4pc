@@ -265,7 +265,7 @@ export const pgn4ToString = (pgn4Content: string): string[] => {
  * @param moveNumber - The move number in the sequence
  * @returns Move object
  */
-const pgn4StringToMove = (pgn4: string, basePoints: BasePoint[], moveNumber: number): Move => {
+export const pgn4StringToMove = (pgn4: string, basePoints: BasePoint[], moveNumber: number): Move => {
   // Handle castling
   if (pgn4 === '0-0' || pgn4 === '0-0-0') {
     const isQueenside = pgn4 === '0-0-0';
