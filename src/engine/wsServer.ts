@@ -1,11 +1,15 @@
 import { WebSocketServer } from 'ws';
 import { UCIEngine } from './uciWrapper';
+import { getDb } from '../lib/server/db';
+import { AnalysisCacheRepository } from '../lib/server/repositories/analysisCache.repository';
 
 export function createEngineWebSocketServer(port: number = 8080) {
   const wss = new WebSocketServer({ port });
   let engine: UCIEngine | null = null;
   let isInitialized = false;
   let isEngineRunning = false;
+  let cacheRepo: AnalysisCacheRepository | null = null;
+  const ENGINE_VERSION = '0.1';
 
   async function initialize() {
     if (isInitialized && engine) return true;
@@ -23,6 +27,21 @@ export function createEngineWebSocketServer(port: number = 8080) {
       engine = null;
       isInitialized = false;
       isEngineRunning = false;
+      throw error;
+    }
+  }
+
+  async function initializeCache() {
+    if (cacheRepo) return true;
+    
+    try {
+      const db = await getDb();
+      cacheRepo = new AnalysisCacheRepository(db);
+      console.log('Analysis cache repository initialized');
+      return true;
+    } catch (error) {
+      console.error('Failed to initialize cache repository:', error);
+      cacheRepo = null;
       throw error;
     }
   }
@@ -147,6 +166,27 @@ export function createEngineWebSocketServer(port: number = 8080) {
 
           case 'startAnalysis':
             await initialize();
+            await initializeCache();
+            
+            // Check cache first if hash is provided
+            if (data.hashKey && cacheRepo) {
+              const cached = await cacheRepo.get(data.hashKey);
+              if (cached) {
+                console.log(`[Cache] Hit for hash ${data.hashKey}`);
+                ws.send(JSON.stringify({
+                  type: 'cacheHit',
+                  data: {
+                    bestMove: cached.bestMove,
+                    depth: cached.depth,
+                    engineVersion: cached.engineVersion,
+                    fromCache: true
+                  }
+                }));
+                return;
+              } else {
+                console.log(`[Cache] Miss for hash ${data.hashKey}`);
+              }
+            }
             
             // Only proceed if engine is properly initialized
             if (engine) {
@@ -159,6 +199,18 @@ export function createEngineWebSocketServer(port: number = 8080) {
                   type: 'analysisUpdate',
                   data: analysis
                 }));
+                
+                // Cache the result when we have a best move and sufficient depth
+                if (analysis.bestMove && analysis.depth >= 10 && data.hashKey && cacheRepo) {
+                  cacheRepo.set({
+                    hashKey: data.hashKey,
+                    bestMove: analysis.bestMove,
+                    depth: analysis.depth,
+                    engineVersion: ENGINE_VERSION
+                  }).catch(err => {
+                    console.error('[Cache] Failed to store result:', err);
+                  });
+                }
               };
               
               // Set the position using move history if available
@@ -251,6 +303,32 @@ export function createEngineWebSocketServer(port: number = 8080) {
                 type: 'error',
                 data: { message: errorMsg }
               }));
+            }
+            break;
+            
+          case 'clearCache':
+            await initializeCache();
+            if (cacheRepo) {
+              try {
+                if (data.version) {
+                  const count = await cacheRepo.clearByVersion(data.version);
+                  ws.send(JSON.stringify({
+                    type: 'cacheCleared',
+                    data: { count, version: data.version }
+                  }));
+                } else {
+                  const count = await cacheRepo.clearAll();
+                  ws.send(JSON.stringify({
+                    type: 'cacheCleared',
+                    data: { count }
+                  }));
+                }
+              } catch (error) {
+                ws.send(JSON.stringify({
+                  type: 'error',
+                  data: { message: 'Failed to clear cache', error: error instanceof Error ? error.message : 'Unknown error' }
+                }));
+              }
             }
             break;
         }

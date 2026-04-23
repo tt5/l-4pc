@@ -20,6 +20,7 @@ import { useAuth } from '~/contexts/AuthContext';
 import { useRestrictedSquares } from '../../contexts/RestrictedSquaresContext';
 
 import { generateFen4, parseFen4 } from '~/utils/fen4Utils';
+import { computeBoardHash } from '~/utils/zobristHash';
 import { makeApiCall, parseApiResponse, generateRequestId, makeAuthenticatedApiCall } from '~/utils/clientApi';
 import { generateBranchName, buildFullBranchName } from '~/utils/branchUtils';
 import { MOVE_PATTERNS } from '~/constants/movePatterns';
@@ -75,6 +76,7 @@ const Board: Component<BoardProps> = (props) => {
   const [isAnalyzing, setIsAnalyzing] = createSignal(false);
   const [isSaving, setIsSaving] = createSignal(false);
   const [isAnalysisStopped, setIsAnalysisStopped] = createSignal(false);
+  const [fromCache, setFromCache] = createSignal(false);
   const [threads, setThreads] = createSignal(1);
   const [isLoadingThreads, setIsLoadingThreads] = createSignal(false);
   const [analysis, setAnalysis] = createSignal<{score: string; depth: number; bestMove: string} | null>(null);
@@ -212,9 +214,16 @@ const Board: Component<BoardProps> = (props) => {
     console.log(`[Engine] Starting analysis`);
     analysisInProgress.current = true;
     setIsAnalyzing(true);
+    setFromCache(false);
     
     try {
-      await engine.startAnalysis(ucimoves);
+      // Compute hash for current position
+      const currentPoints = points();
+      const currentTurn = turnIndex();
+      const hashKey = computeBoardHash(currentPoints, currentTurn);
+      console.log(`[Engine] Computed hash: ${hashKey}`);
+      
+      await engine.startAnalysis(ucimoves, hashKey);
       return true;
     } catch (error) {
       console.error('[Engine] Error during analysis:', error);
@@ -304,12 +313,29 @@ const Board: Component<BoardProps> = (props) => {
         depth: update.depth,
         bestMove: update.bestMove
       });
+      if (update.fromCache) {
+        setFromCache(true);
+      }
+    };
+    
+    const handleCacheHit = (data: any) => {
+      console.log('[Board] Cache hit received:', data);
+      setFromCache(true);
+      setAnalysis({
+        score: 'cached',
+        depth: data.depth,
+        bestMove: data.bestMove
+      });
+      setIsAnalyzing(false);
+      analysisInProgress.current = false;
     };
     
     engine.on('analysis', handleAnalysis);
+    engine.on('cacheHit', handleCacheHit);
     
     return () => {
       engine.off('analysis', handleAnalysis);
+      engine.off('cacheHit', handleCacheHit);
     };
   });
   
@@ -1680,6 +1706,7 @@ const Board: Component<BoardProps> = (props) => {
           <div>Eval: <strong>{analysis()?.score || '-'}</strong></div>
           <div>Depth: <strong>{analysis()?.depth || '-'}</strong></div>
           <div>Best: <strong>{analysis()?.bestMove || '-'}</strong></div>
+          {fromCache() && <div style={{color: '#4CAF50', fontSize: '0.8em', marginTop: '4px'}}>✓ Cached</div>}
         </div>
         <div class={styles.engineControls}>
           <ThreadControl 

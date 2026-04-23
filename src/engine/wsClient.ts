@@ -7,7 +7,7 @@ export interface EngineClient {
   disconnect: () => void;
   on: (event: string, callback: EventCallback) => () => void;
   off: (event: string, callback: EventCallback) => void;
-  startAnalysis: (moveHistory?: string[]) => boolean;
+  startAnalysis: (moveHistory?: string[], hashKey?: number) => boolean;
   stopAnalysis: () => boolean;
   stopEngine: () => Promise<boolean>;
   setThreads: (threads: number) => boolean;
@@ -202,6 +202,19 @@ function createEngineClient(): EngineClient {
             if (bestMove) {
               emit('bestmove', bestMove);
             }
+          } else if (data.type === 'cacheHit') {
+            console.log('Engine: Cache hit', data.data);
+            const cacheData = {
+              depth: data.data.depth,
+              score: 'cached',
+              bestMove: data.data.bestMove,
+              pv: 'cached',
+              fromCache: true,
+              engineVersion: data.data.engineVersion
+            };
+            setAnalysis(cacheData);
+            emit('analysis', cacheData);
+            emit('cacheHit', data.data);
           } else {
             console.log('Engine: Received message', { type: data.type, data: data.data });
           }
@@ -338,8 +351,8 @@ function createEngineClient(): EngineClient {
     });
   };
   
-  const startAnalysis = (moveHistory: string[] = []) => {
-    console.log('Starting analysis with moves:', moveHistory);
+  const startAnalysis = (moveHistory: string[] = [], hashKey?: number) => {
+    console.log('Starting analysis with moves:', moveHistory, 'hash:', hashKey);
     
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       console.error('Engine: WebSocket not connected');
@@ -350,12 +363,15 @@ function createEngineClient(): EngineClient {
       // Clear any existing analysis state when starting new analysis
       setAnalysis(null);
       
-      // Start new analysis
+      // Start new analysis with hash key
+      const data: any = { moveHistory };
+      if (hashKey !== undefined) {
+        data.hashKey = hashKey;
+      }
+      
       ws.send(JSON.stringify({
         type: 'startAnalysis',
-        data: { 
-          moveHistory
-        }
+        data
       }));
       return true;
     } catch (error) {
