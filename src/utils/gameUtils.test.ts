@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getSquaresInDirection, isPathClear, canPieceAttack, isSquareUnderAttack, isKingInCheck, type EightDirections } from './gameUtils';
+import { getSquaresInDirection, isPathClear, canPieceAttack, isSquareUnderAttack, isKingInCheck, isSquareBetween, type EightDirections } from './gameUtils';
 import { createPoint, type BasePoint, type LegalMove } from '~/types/board';
 
 // Helper functions for test data
@@ -844,5 +844,149 @@ describe('isKingInCheck', () => {
     const result = isKingInCheck(king, board);
 
     expect(result).toBe(true);
+  });
+});
+
+describe('isSquareBetween', () => {
+  it('returns true for point between on horizontal line', () => {
+    const from = createPoint(3, 7);
+    const to = createPoint(10, 7);
+    const between = createPoint(6, 7);
+
+    const result = isSquareBetween(from, to, between);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns true for point between on vertical line', () => {
+    const from = createPoint(7, 3);
+    const to = createPoint(7, 10);
+    const between = createPoint(7, 6);
+
+    const result = isSquareBetween(from, to, between);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns true for point between on diagonal line', () => {
+    const from = createPoint(3, 3);
+    const to = createPoint(10, 10);
+    const between = createPoint(6, 6);
+
+    const result = isSquareBetween(from, to, between);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns true for point between on reverse diagonal line', () => {
+    const from = createPoint(10, 3);
+    const to = createPoint(3, 10);
+    const between = createPoint(7, 6);
+
+    const result = isSquareBetween(from, to, between);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns false when point is not in a straight line', () => {
+    const from = createPoint(3, 3);
+    const to = createPoint(10, 10);
+    const between = createPoint(6, 7);
+
+    const result = isSquareBetween(from, to, between);
+
+    expect(result).toBe(false);
+  });
+
+  it('returns false when point is at from position (exclusive)', () => {
+    const from = createPoint(3, 3);
+    const to = createPoint(10, 10);
+    const between = createPoint(3, 3);
+
+    const result = isSquareBetween(from, to, between);
+
+    expect(result).toBe(false);
+  });
+
+  it('returns false when point is at to position (exclusive)', () => {
+    const from = createPoint(3, 3);
+    const to = createPoint(10, 10);
+    const between = createPoint(10, 10);
+
+    const result = isSquareBetween(from, to, between);
+
+    expect(result).toBe(false);
+  });
+
+  it('returns false when point is outside the range', () => {
+    const from = createPoint(3, 3);
+    const to = createPoint(10, 10);
+    const between = createPoint(12, 12);
+
+    const result = isSquareBetween(from, to, between);
+
+    expect(result).toBe(false);
+  });
+
+  it('works with reverse direction (from > to)', () => {
+    const from = createPoint(10, 7);
+    const to = createPoint(3, 7);
+    const between = createPoint(6, 7);
+
+    const result = isSquareBetween(from, to, between);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns false for adjacent squares (no square between)', () => {
+    const from = createPoint(7, 7);
+    const to = createPoint(8, 7);
+    const between = createPoint(7, 7);
+
+    const result = isSquareBetween(from, to, between);
+
+    expect(result).toBe(false);
+  });
+
+  it('handles multiple points between on same line', () => {
+    const from = createPoint(3, 3);
+    const to = createPoint(10, 10);
+    const between1 = createPoint(4, 4);
+    const between2 = createPoint(7, 7);
+    const between3 = createPoint(9, 9);
+
+    expect(isSquareBetween(from, to, between1)).toBe(true);
+    expect(isSquareBetween(from, to, between2)).toBe(true);
+    expect(isSquareBetween(from, to, between3)).toBe(true);
+  });
+
+  it('returns false for point on line but before from', () => {
+    const from = createPoint(5, 5);
+    const to = createPoint(10, 10);
+    const between = createPoint(3, 3);
+
+    const result = isSquareBetween(from, to, between);
+
+    expect(result).toBe(false);
+  });
+
+  it('returns false for point on line but after to', () => {
+    const from = createPoint(5, 5);
+    const to = createPoint(10, 10);
+    const between = createPoint(12, 12);
+
+    const result = isSquareBetween(from, to, between);
+
+    expect(result).toBe(false);
+  });
+
+  it('handles zero-length line (from equals to)', () => {
+    const from = createPoint(5, 5);
+    const to = createPoint(5, 5);
+    const between = createPoint(5, 5);
+
+    const result = isSquareBetween(from, to, between);
+
+    expect(result).toBe(false);
   });
 });

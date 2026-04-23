@@ -448,17 +448,14 @@ export function wouldResolveCheck(
   const attacker = attackers[0];
   // Check if the move captures the attacker
   if (to[0] === attacker.x && to[1] === attacker.y) {
-    // If the attacker is a king, allow capturing it even if in check
-    if (attacker.pieceType === 'king') {
-      return true;
-    }
-    // For other pieces, check if this capture resolves the check
+    // check if move is legal (not pinned)
     return true;
   }
 
   // Check if the move blocks the attack from queen, rook or bishop
   const blocksAttack = isSquareBetween(createPoint(attacker.x, attacker.y), createPoint(king.x, king.y), to);
   if (blocksAttack) {
+    // check if move is legal (not pinned)
     return true;
   }
 
