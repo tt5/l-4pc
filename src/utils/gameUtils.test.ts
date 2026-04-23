@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getSquaresInDirection, isPathClear, type EightDirections } from './gameUtils';
+import { getSquaresInDirection, isPathClear, canPieceAttack, type EightDirections } from './gameUtils';
 import { createPoint, type BasePoint, type LegalMove } from '~/types/board';
 
 // Helper functions for test data
@@ -262,5 +262,299 @@ describe('isPathClear', () => {
     const result = isPathClear(from, to, board);
 
     expect(result).toBe(true);
+  });
+});
+
+describe('canPieceAttack', () => {
+  describe('queen', () => {
+    it('attacks horizontally on empty board', () => {
+      const queen = createTestPiece(1, 7, 7, 1, 'RED', 'queen');
+      const target = createPoint(12, 7);
+      const board = createEmptyBoard();
+
+      const result = canPieceAttack(queen, target, board);
+
+      expect(result).toBe(true);
+    });
+
+    it('attacks vertically on empty board', () => {
+      const queen = createTestPiece(1, 7, 7, 1, 'RED', 'queen');
+      const target = createPoint(7, 12);
+      const board = createEmptyBoard();
+
+      const result = canPieceAttack(queen, target, board);
+
+      expect(result).toBe(true);
+    });
+
+    it('attacks diagonally on empty board', () => {
+      const queen = createTestPiece(1, 7, 7, 1, 'RED', 'queen');
+      const target = createPoint(12, 12);
+      const board = createEmptyBoard();
+
+      const result = canPieceAttack(queen, target, board);
+
+      expect(result).toBe(true);
+    });
+
+    it('cannot attack when path is blocked', () => {
+      const queen = createTestPiece(1, 7, 7, 1, 'RED', 'queen');
+      const target = createPoint(12, 7);
+      const blockingPiece = createTestPiece(2, 9, 7, 2, 'BLUE', 'pawn');
+      const board = createBoardWithPieces([blockingPiece]);
+
+      const result = canPieceAttack(queen, target, board);
+
+      expect(result).toBe(false);
+    });
+
+    it('cannot attack non-linear positions', () => {
+      const queen = createTestPiece(1, 7, 7, 1, 'RED', 'queen');
+      const target = createPoint(10, 8);
+      const board = createEmptyBoard();
+
+      const result = canPieceAttack(queen, target, board);
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('rook', () => {
+    it('attacks horizontally on empty board', () => {
+      const rook = createTestPiece(1, 7, 7, 1, 'RED', 'rook');
+      const target = createPoint(12, 7);
+      const board = createEmptyBoard();
+
+      const result = canPieceAttack(rook, target, board);
+
+      expect(result).toBe(true);
+    });
+
+    it('attacks vertically on empty board', () => {
+      const rook = createTestPiece(1, 7, 7, 1, 'RED', 'rook');
+      const target = createPoint(7, 12);
+      const board = createEmptyBoard();
+
+      const result = canPieceAttack(rook, target, board);
+
+      expect(result).toBe(true);
+    });
+
+    it('cannot attack when path is blocked', () => {
+      const rook = createTestPiece(1, 7, 7, 1, 'RED', 'rook');
+      const target = createPoint(12, 7);
+      const blockingPiece = createTestPiece(2, 9, 7, 2, 'BLUE', 'pawn');
+      const board = createBoardWithPieces([blockingPiece]);
+
+      const result = canPieceAttack(rook, target, board);
+
+      expect(result).toBe(false);
+    });
+
+    it('cannot attack diagonally', () => {
+      const rook = createTestPiece(1, 7, 7, 1, 'RED', 'rook');
+      const target = createPoint(10, 10);
+      const board = createEmptyBoard();
+
+      const result = canPieceAttack(rook, target, board);
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('bishop', () => {
+    it('attacks diagonally on empty board', () => {
+      const bishop = createTestPiece(1, 7, 7, 1, 'RED', 'bishop');
+      const target = createPoint(12, 12);
+      const board = createEmptyBoard();
+
+      const result = canPieceAttack(bishop, target, board);
+
+      expect(result).toBe(true);
+    });
+
+    it('attacks reverse diagonal on empty board', () => {
+      const bishop = createTestPiece(1, 10, 3, 1, 'RED', 'bishop');
+      const target = createPoint(3, 10);
+      const board = createEmptyBoard();
+
+      const result = canPieceAttack(bishop, target, board);
+
+      expect(result).toBe(true);
+    });
+
+    it('cannot attack when path is blocked', () => {
+      const bishop = createTestPiece(1, 7, 7, 1, 'RED', 'bishop');
+      const target = createPoint(12, 12);
+      const blockingPiece = createTestPiece(2, 9, 9, 2, 'BLUE', 'pawn');
+      const board = createBoardWithPieces([blockingPiece]);
+
+      const result = canPieceAttack(bishop, target, board);
+
+      expect(result).toBe(false);
+    });
+
+    it('cannot attack horizontally', () => {
+      const bishop = createTestPiece(1, 7, 7, 1, 'RED', 'bishop');
+      const target = createPoint(12, 7);
+      const board = createEmptyBoard();
+
+      const result = canPieceAttack(bishop, target, board);
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('knight', () => {
+    it('attacks in L-shape (2 right, 1 up)', () => {
+      const knight = createTestPiece(1, 7, 7, 1, 'RED', 'knight');
+      const target = createPoint(9, 8);
+      const board = createEmptyBoard();
+
+      const result = canPieceAttack(knight, target, board);
+
+      expect(result).toBe(true);
+    });
+
+    it('attacks in L-shape (1 right, 2 up)', () => {
+      const knight = createTestPiece(1, 7, 7, 1, 'RED', 'knight');
+      const target = createPoint(8, 9);
+      const board = createEmptyBoard();
+
+      const result = canPieceAttack(knight, target, board);
+
+      expect(result).toBe(true);
+    });
+
+    it('attacks in all L-shape directions', () => {
+      const knight = createTestPiece(1, 7, 7, 1, 'RED', 'knight');
+      const board = createEmptyBoard();
+
+      // All 8 possible knight moves
+      const targets = [
+        createPoint(9, 8),  // right 2, up 1
+        createPoint(8, 9),  // right 1, up 2
+        createPoint(8, 5),  // right 1, down 2
+        createPoint(9, 6),  // right 2, down 1
+        createPoint(5, 6),  // left 2, down 1
+        createPoint(6, 5),  // left 1, down 2
+        createPoint(6, 9),  // left 1, up 2
+        createPoint(5, 8),  // left 2, up 1
+      ];
+
+      for (const target of targets) {
+        expect(canPieceAttack(knight, target, board)).toBe(true);
+      }
+    });
+
+    it('cannot attack non-L-shape positions', () => {
+      const knight = createTestPiece(1, 7, 7, 1, 'RED', 'knight');
+      const target = createPoint(9, 9);
+      const board = createEmptyBoard();
+
+      const result = canPieceAttack(knight, target, board);
+
+      expect(result).toBe(false);
+    });
+
+    it('can attack even with pieces in between (jumps over)', () => {
+      const knight = createTestPiece(1, 7, 7, 1, 'RED', 'knight');
+      const target = createPoint(9, 8);
+      const blockingPiece = createTestPiece(2, 8, 7, 2, 'BLUE', 'pawn');
+      const board = createBoardWithPieces([blockingPiece]);
+
+      const result = canPieceAttack(knight, target, board);
+
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('pawn', () => {
+    it('attacks diagonally forward for team 1 (red)', () => {
+      const pawn = createTestPiece(1, 7, 7, 1, 'RED', 'pawn');
+      const target = createPoint(8, 6);
+      const targetPiece = createTestPiece(2, 8, 6, 2, 'BLUE', 'pawn');
+      const board = createBoardWithPieces([targetPiece]);
+
+      const result = canPieceAttack(pawn, target, board);
+
+      expect(result).toBe(true);
+    });
+
+    it('attacks diagonally forward for team 2 (blue)', () => {
+      const pawn = createTestPiece(1, 7, 7, 2, 'BLUE', 'pawn');
+      const target = createPoint(8, 8);
+      const targetPiece = createTestPiece(2, 8, 8, 1, 'RED', 'pawn');
+      const board = createBoardWithPieces([targetPiece]);
+
+      const result = canPieceAttack(pawn, target, board);
+
+      expect(result).toBe(true);
+    });
+
+    it('cannot attack forward (only diagonal)', () => {
+      const pawn = createTestPiece(1, 7, 7, 1, 'RED', 'pawn');
+      const target = createPoint(7, 6);
+      const targetPiece = createTestPiece(2, 7, 6, 2, 'BLUE', 'pawn');
+      const board = createBoardWithPieces([targetPiece]);
+
+      const result = canPieceAttack(pawn, target, board);
+
+      expect(result).toBe(false);
+    });
+
+    it('cannot attack diagonal backward for team 1', () => {
+      const pawn = createTestPiece(1, 7, 7, 1, 'RED', 'pawn');
+      const target = createPoint(8, 8);
+      const targetPiece = createTestPiece(2, 8, 8, 2, 'BLUE', 'pawn');
+      const board = createBoardWithPieces([targetPiece]);
+
+      const result = canPieceAttack(pawn, target, board);
+
+      expect(result).toBe(false);
+    });
+
+    it('cannot attack diagonal backward for team 2', () => {
+      const pawn = createTestPiece(1, 7, 7, 2, 'BLUE', 'pawn');
+      const target = createPoint(8, 6);
+      const targetPiece = createTestPiece(2, 8, 6, 1, 'RED', 'pawn');
+      const board = createBoardWithPieces([targetPiece]);
+
+      const result = canPieceAttack(pawn, target, board);
+
+      expect(result).toBe(false);
+    });
+
+    it('cannot attack empty square', () => {
+      const pawn = createTestPiece(1, 7, 7, 1, 'RED', 'pawn');
+      const target = createPoint(8, 6);
+      const board = createEmptyBoard();
+
+      const result = canPieceAttack(pawn, target, board);
+
+      expect(result).toBe(false);
+    });
+
+    it('cannot attack teammate', () => {
+      const pawn = createTestPiece(1, 7, 7, 1, 'RED', 'pawn');
+      const target = createPoint(8, 6);
+      const targetPiece = createTestPiece(2, 8, 6, 1, 'RED', 'pawn');
+      const board = createBoardWithPieces([targetPiece]);
+
+      const result = canPieceAttack(pawn, target, board);
+
+      expect(result).toBe(false);
+    });
+
+    it('cannot attack more than 1 square diagonally', () => {
+      const pawn = createTestPiece(1, 7, 7, 1, 'RED', 'pawn');
+      const target = createPoint(9, 5);
+      const targetPiece = createTestPiece(2, 9, 5, 2, 'BLUE', 'pawn');
+      const board = createBoardWithPieces([targetPiece]);
+
+      const result = canPieceAttack(pawn, target, board);
+
+      expect(result).toBe(false);
+    });
   });
 });
