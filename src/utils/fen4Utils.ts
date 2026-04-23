@@ -163,3 +163,78 @@ export const parseFen4 = (fen4: string): {
     currentPlayerIndex: playerIndex
   };
 };
+
+// Add this to src/utils/fen4Utils.ts
+
+const STARTING_FEN4 = 'R-0,0,0,0-1,1,1,1-1,1,1,1-0,0,0,0-0-3,yR,yN,yB,yK,yQ,yB,yN,yR,3/3,yP,yP,yP,yP,yP,yP,yP,yP,3/14/bR,bP,10,gP,gR/bN,bP,10,gP,gN/bB,bP,10,gP,gB/bK,bP,10,gP,gQ/bQ,bP,10,gP,gK/bB,bP,10,gP,gB/bN,bP,10,gP,gN/bR,bP,10,gP,gR/14/3,rP,rP,rP,rP,rP,rP,rP,rP,3/3,rR,rN,rB,rQ,rK,rB,rN,rR,3';
+
+interface SimpleMove {
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+}
+
+/**
+ * Applies a move to the basePoints array
+ * @param basePoints - Current board state
+ * @param move - Move to apply
+ * @returns Updated basePoints
+ */
+const applyMove = (basePoints: BasePoint[], move: SimpleMove): BasePoint[] => {
+  const { fromX, fromY, toX, toY } = move;
+  
+  // Find the piece being moved
+  const movingPieceIndex = basePoints.findIndex(p => p.x === fromX && p.y === fromY);
+  if (movingPieceIndex === -1) {
+    throw new Error(`No piece found at position (${fromX}, ${fromY})`);
+  }
+  
+  const movingPiece = basePoints[movingPieceIndex];
+  
+  // Check if there's a piece at the destination (capture)
+  const capturedPieceIndex = basePoints.findIndex(p => p.x === toX && p.y === toY);
+  
+  // Create a new array with the move applied
+  const newBasePoints = basePoints.map((point, index) => {
+    if (index === movingPieceIndex) {
+      // Update the moving piece's position
+      return {
+        ...point,
+        x: toX,
+        y: toY,
+        hasMoved: true
+      };
+    }
+    // Remove captured piece (if any)
+    if (index === capturedPieceIndex) {
+      return null;
+    }
+    return point;
+  }).filter((point): point is BasePoint => point !== null);
+  
+  return newBasePoints;
+};
+
+/**
+ * Creates a FEN4 string from a list of moves starting from the initial position
+ * @param moves - Array of moves to apply
+ * @returns FEN4 string representing the position after all moves
+ */
+export const fen4FromMoves = (moves: SimpleMove[]): string => {
+  // Parse the starting position
+  const { basePoints, currentPlayerIndex } = parseFen4(STARTING_FEN4);
+  
+  // Apply each move sequentially
+  let currentBasePoints = [...basePoints];
+  let currentPlayerIdx = currentPlayerIndex;
+  
+  for (const move of moves) {
+    currentBasePoints = applyMove(currentBasePoints, move);
+    // Alternate to next player (R -> B -> Y -> G -> R)
+    currentPlayerIdx = (currentPlayerIdx + 1) % 4;
+  }
+  
+  // Generate the final FEN4
+  return generateFen4(currentBasePoints, currentPlayerIdx);
+};
