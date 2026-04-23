@@ -48,7 +48,7 @@ export interface BoardConfig {
   }[];
 }
 
-export interface AddBasePointResponse extends ApiResponse<BasePoint> {}
+export type AddBasePointResponse = ApiResponse<BasePoint>;
 
 export interface RestrictedByInfo {
   basePointId: number;

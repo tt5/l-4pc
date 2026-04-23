@@ -53,7 +53,7 @@ export function colorToHex(color: NamedColor): HexColor | undefined {
   return COLOR_MAP[color];
 }
 
-function getSquaresInDirection(
+export function getSquaresInDirection(
   start: Point,
   directionStep: EightDirections,
   allBasePoints: BasePoint[],
