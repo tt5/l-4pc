@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getSquaresInDirection, isPathClear, canPieceAttack, isSquareUnderAttack, type EightDirections } from './gameUtils';
+import { getSquaresInDirection, isPathClear, canPieceAttack, isSquareUnderAttack, isKingInCheck, type EightDirections } from './gameUtils';
 import { createPoint, type BasePoint, type LegalMove } from '~/types/board';
 
 // Helper functions for test data
@@ -703,6 +703,145 @@ describe('isSquareUnderAttack', () => {
     const board = createBoardWithPieces(pieces);
 
     const result = isSquareUnderAttack(target, 1, board);
+
+    expect(result).toBe(true);
+  });
+});
+
+describe('isKingInCheck', () => {
+  it('returns false when king is not under attack', () => {
+    const king = createTestPiece(1, 7, 7, 1, 'RED', 'king');
+    const rook = createTestPiece(2, 7, 10, 1, 'RED', 'rook');
+    const board = createBoardWithPieces([king, rook]);
+
+    const result = isKingInCheck(king, board);
+
+    expect(result).toBe(false);
+  });
+
+  it('returns true when king is attacked by rook', () => {
+    const king = createTestPiece(1, 7, 7, 1, 'RED', 'king');
+    const rook = createTestPiece(2, 7, 10, 2, 'BLUE', 'rook');
+    const board = createBoardWithPieces([king, rook]);
+
+    const result = isKingInCheck(king, board);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns true when king is attacked by bishop', () => {
+    const king = createTestPiece(1, 7, 7, 1, 'RED', 'king');
+    const bishop = createTestPiece(2, 10, 10, 2, 'BLUE', 'bishop');
+    const board = createBoardWithPieces([king, bishop]);
+
+    const result = isKingInCheck(king, board);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns true when king is attacked by queen', () => {
+    const king = createTestPiece(1, 7, 7, 1, 'RED', 'king');
+    const queen = createTestPiece(2, 7, 10, 2, 'BLUE', 'queen');
+    const board = createBoardWithPieces([king, queen]);
+
+    const result = isKingInCheck(king, board);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns true when king is attacked by knight', () => {
+    const king = createTestPiece(1, 7, 7, 1, 'RED', 'king');
+    const knight = createTestPiece(2, 9, 8, 2, 'BLUE', 'knight');
+    const board = createBoardWithPieces([king, knight]);
+
+    const result = isKingInCheck(king, board);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns true when king is attacked by pawn', () => {
+    const king = createTestPiece(1, 7, 7, 1, 'RED', 'king');
+    const pawn = createTestPiece(2, 8, 6, 2, 'BLUE', 'pawn');
+    const board = createBoardWithPieces([king, pawn]);
+
+    const result = isKingInCheck(king, board);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns false when attacker is blocked by teammate', () => {
+    const king = createTestPiece(1, 7, 7, 1, 'RED', 'king');
+    const rook = createTestPiece(2, 7, 12, 2, 'BLUE', 'rook');
+    const blockingPiece = createTestPiece(3, 7, 9, 1, 'RED', 'pawn');
+    const board = createBoardWithPieces([king, rook, blockingPiece]);
+
+    const result = isKingInCheck(king, board);
+
+    expect(result).toBe(false);
+  });
+
+  it('returns true when multiple pieces attack the king', () => {
+    const king = createTestPiece(1, 7, 7, 1, 'RED', 'king');
+    const rook = createTestPiece(2, 7, 10, 2, 'BLUE', 'rook');
+    const bishop = createTestPiece(3, 10, 10, 2, 'BLUE', 'bishop');
+    const board = createBoardWithPieces([king, rook, bishop]);
+
+    const result = isKingInCheck(king, board);
+
+    expect(result).toBe(true);
+  });
+
+  it('works for team 2 king', () => {
+    const king = createTestPiece(1, 7, 7, 2, 'BLUE', 'king');
+    const rook = createTestPiece(2, 7, 10, 1, 'RED', 'rook');
+    const board = createBoardWithPieces([king, rook]);
+
+    const result = isKingInCheck(king, board);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns false for king alone on board', () => {
+    const king = createTestPiece(1, 7, 7, 1, 'RED', 'king');
+    const board = createBoardWithPieces([king]);
+
+    const result = isKingInCheck(king, board);
+
+    expect(result).toBe(false);
+  });
+
+  it('ignores teammate pieces when checking for check', () => {
+    const king = createTestPiece(1, 7, 7, 1, 'RED', 'king');
+    const teammateRook = createTestPiece(2, 7, 10, 1, 'RED', 'rook');
+    const board = createBoardWithPieces([king, teammateRook]);
+
+    const result = isKingInCheck(king, board);
+
+    expect(result).toBe(false);
+  });
+
+  it('detects check from knight even with pieces in between', () => {
+    const king = createTestPiece(1, 7, 7, 1, 'RED', 'king');
+    const knight = createTestPiece(2, 9, 8, 2, 'BLUE', 'knight');
+    const blockingPiece = createTestPiece(3, 8, 7, 1, 'RED', 'pawn');
+    const board = createBoardWithPieces([king, knight, blockingPiece]);
+
+    const result = isKingInCheck(king, board);
+
+    expect(result).toBe(true);
+  });
+
+  it('handles complex board state', () => {
+    const king = createTestPiece(1, 7, 7, 1, 'RED', 'king');
+    const pieces = [
+      createTestPiece(2, 7, 10, 1, 'RED', 'pawn'),
+      createTestPiece(3, 10, 10, 2, 'BLUE', 'bishop'),
+      createTestPiece(4, 5, 5, 2, 'BLUE', 'rook'),
+      createTestPiece(5, 9, 8, 2, 'BLUE', 'knight'),
+    ];
+    const board = createBoardWithPieces([king, ...pieces]);
+
+    const result = isKingInCheck(king, board);
 
     expect(result).toBe(true);
   });
