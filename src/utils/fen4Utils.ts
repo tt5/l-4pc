@@ -117,6 +117,7 @@ export const parseFen4 = (fen4: string): {
     throw new Error('Invalid FEN4: Must have exactly 14 ranks');
   }
 
+  let idCounter = 1; // Start from 1 to match game.ts
   rows.forEach((row, y) => {
     let x = 0;
     const elements = row.split(',');
@@ -141,14 +142,15 @@ export const parseFen4 = (fen4: string): {
       
       if (x < 14) {  // Ensure we don't go beyond the board width
         basePoints.push({
-          id: Date.now() + Math.random(), // Generate a unique ID
+          id: idCounter++,
           x,
           y,
           color,
           pieceType,
-          userId: '',
           team,
-          hasMoved: false
+          hasMoved: false,
+          isCastle: false,
+          castleType: null
         });
       }
       
