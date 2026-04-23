@@ -37,15 +37,21 @@ const PREFIX_TO_COLOR: Record<string, string> = {
 
 export const generateFen4 = (
   basePoints: BasePoint[],
-  currentPlayerIndex: number
+  currentPlayerIndex: number,
+  options: {
+    kingsideCastling?: string;
+    queensideCastling?: string;
+    enPassantTargets?: string;
+  } = {}
 ): string => {
   const playerColors = ['R', 'B', 'Y', 'G'];
   const currentPlayer = playerColors[currentPlayerIndex] || 'R';
   const eliminatedPlayers = '0,0,0,0';
-  const kingsideCastling = '1,1,1,1';
-  const queensideCastling = '1,1,1,1';
+  const kingsideCastling = options.kingsideCastling || '1,1,1,1';
+  const queensideCastling = options.queensideCastling || '1,1,1,1';
   const points = '0,0,0,0';
   const halfmoveClock = '0';
+  const enPassantTargets = options.enPassantTargets || ',,,';
   
   // Initialize 14x14 board with empty strings
   const board = Array(14).fill(null).map(() => Array(14).fill(''));
@@ -93,20 +99,24 @@ export const generateFen4 = (
     queensideCastling,
     points,
     halfmoveClock,
-    fenRows.join('/')
+    fenRows.join('/'),
+    enPassantTargets
   ].join('-');
 };
 
 export const parseFen4 = (fen4: string): {
   basePoints: BasePoint[];
   currentPlayerIndex: number;
+  kingsideCastling: string;
+  queensideCastling: string;
+  enPassantTargets: string;
 } => {
   const parts = fen4.split('-');
-  if (parts.length !== 7) {
-    throw new Error('Invalid FEN4 string: Must have 7 parts separated by hyphens');
+  if (parts.length !== 8) {
+    throw new Error('Invalid FEN4 string: Must have 8 parts separated by hyphens');
   }
 
-  const [currentPlayer, , , , , , piecePlacement] = parts;
+  const [currentPlayer, , kingsideCastling, queensideCastling, , , piecePlacement, enPassantTargets] = parts;
   const playerIndex = ['R', 'B', 'Y', 'G'].indexOf(currentPlayer);
   if (playerIndex === -1) {
     throw new Error('Invalid current player in FEN4');
@@ -162,13 +172,16 @@ export const parseFen4 = (fen4: string): {
 
   return {
     basePoints,
-    currentPlayerIndex: playerIndex
+    currentPlayerIndex: playerIndex,
+    kingsideCastling,
+    queensideCastling,
+    enPassantTargets
   };
 };
 
 // Add this to src/utils/fen4Utils.ts
 
-const STARTING_FEN4 = 'R-0,0,0,0-1,1,1,1-1,1,1,1-0,0,0,0-0-3,yR,yN,yB,yK,yQ,yB,yN,yR,3/3,yP,yP,yP,yP,yP,yP,yP,yP,3/14/bR,bP,10,gP,gR/bN,bP,10,gP,gN/bB,bP,10,gP,gB/bK,bP,10,gP,gQ/bQ,bP,10,gP,gK/bB,bP,10,gP,gB/bN,bP,10,gP,gN/bR,bP,10,gP,gR/14/3,rP,rP,rP,rP,rP,rP,rP,rP,3/3,rR,rN,rB,rQ,rK,rB,rN,rR,3';
+const STARTING_FEN4 = 'R-0,0,0,0-1,1,1,1-1,1,1,1-0,0,0,0-0-3,yR,yN,yB,yK,yQ,yB,yN,yR,3/3,yP,yP,yP,yP,yP,yP,yP,yP,3/14/bR,bP,10,gP,gR/bN,bP,10,gP,gN/bB,bP,10,gP,gB/bK,bP,10,gP,gQ/bQ,bP,10,gP,gK/bB,bP,10,gP,gB/bN,bP,10,gP,gN/bR,bP,10,gP,gR/14/3,rP,rP,rP,rP,rP,rP,rP,rP,3/3,rR,rN,rB,rQ,rK,rB,rN,rR,3-,,,';
 
 /**
  * Parses a square notation (e.g., 'a2', 'n14') to coordinates
@@ -225,7 +238,7 @@ const pgn4ToMove = (pgn4: string, basePoints: BasePoint[], moveNumber: number): 
       parentBranchName: null,
       moveNumber,
       isCastle: true,
-      castleType: isQueenside ? 'queenside' : 'kingside',
+      castleType: isQueenside ? 'QUEEN_SIDE' : 'KING_SIDE',
       isBranch: false,
       isEnPassant: false
     };
@@ -325,15 +338,69 @@ const pgn4ToMove = (pgn4: string, basePoints: BasePoint[], moveNumber: number): 
  */
 export const fen4FromMoves = (pgn4Moves: string[]): string => {
   // Parse the starting position
-  const { basePoints, currentPlayerIndex } = parseFen4(STARTING_FEN4);
+  const { basePoints, currentPlayerIndex, kingsideCastling, queensideCastling } = parseFen4(STARTING_FEN4);
   
   // Convert PGN4 moves to full Move objects
   let currentBasePoints = [...basePoints];
   const moves: Move[] = [];
   
+  // Track castling rights (0 = lost, 1 = available) for each player [R, B, Y, G]
+  let ksCastling = kingsideCastling.split(',').map(Number);
+  let qsCastling = queensideCastling.split(',').map(Number);
+  
+  // Track en passant targets (square notation or empty string for each player)
+  let enPassantTargets = ['R', 'B', 'Y', 'G'].map(() => '');
+  
   for (let i = 0; i < pgn4Moves.length; i++) {
     const move = pgn4ToMove(pgn4Moves[i], currentBasePoints, i);
     moves.push(move);
+    
+    // Update en passant targets: when a pawn moves 2 squares, the skipped square becomes target
+    if (move.pieceType === 'pawn') {
+      const dy = Math.abs(move.toY - move.fromY);
+      const dx = Math.abs(move.toX - move.fromX);
+      
+      // Check if this is a 2-square pawn move
+      if ((dy === 2 && dx === 0) || (dx === 2 && dy === 0)) {
+        // Calculate the square that was skipped (the en passant target)
+        const skippedX = (move.fromX + move.toX) / 2;
+        const skippedY = (move.fromY + move.toY) / 2;
+        
+        // Convert to square notation
+        const file = String.fromCharCode(97 + skippedX);
+        const rank = (14 - skippedY).toString();
+        const square = `${file}${rank}`;
+        
+        // Set en passant target for the current player's next opponent
+        const playerIdx = (currentPlayerIndex + i) % 4;
+        enPassantTargets[playerIdx] = square;
+      } else {
+        // Reset en passant target for this player after any other pawn move
+        const playerIdx = (currentPlayerIndex + i) % 4;
+        enPassantTargets[playerIdx] = '';
+      }
+    } else {
+      // Reset en passant target for current player after non-pawn move
+      const playerIdx = (currentPlayerIndex + i) % 4;
+      enPassantTargets[playerIdx] = '';
+    }
+    
+    // Update castling rights when king or rook moves
+    const playerIdx = ['RED', 'BLUE', 'YELLOW', 'GREEN'].indexOf(move.color);
+    if (playerIdx !== -1) {
+      if (move.pieceType === 'king') {
+        // King moves: lose all castling rights for this player
+        ksCastling[playerIdx] = 0;
+        qsCastling[playerIdx] = 0;
+      } else if (move.pieceType === 'rook') {
+        // Rook moves: check if it's a castling rook and lose that side's rights
+        // For simplicity, we'll lose castling rights if any rook moves
+        // A more precise implementation would check the starting position
+        ksCastling[playerIdx] = 0;
+        qsCastling[playerIdx] = 0;
+      }
+    }
+    
     currentBasePoints = replayMoves(moves, i, basePoints);
   }
   
@@ -343,6 +410,13 @@ export const fen4FromMoves = (pgn4Moves: string[]): string => {
   // Calculate final player index
   const currentPlayerIdx = (currentPlayerIndex + pgn4Moves.length) % 4;
   
+  // Format en passant targets as comma-separated string
+  const enPassantStr = enPassantTargets.join(',');
+  
   // Generate the final FEN4
-  return generateFen4(finalBasePoints, currentPlayerIdx);
+  return generateFen4(finalBasePoints, currentPlayerIdx, {
+    kingsideCastling: ksCastling.join(','),
+    queensideCastling: qsCastling.join(','),
+    enPassantTargets: enPassantStr
+  });
 };
