@@ -208,12 +208,6 @@ const parseSquare = (square: string): { x: number; y: number } => {
   return { x: file, y: 14 - rank }; // Invert rank: rank 1 = y=13
 };
 
-/**
- * Parses a PGN4 file/string and extracts individual move strings
- * PGN4 format includes tag pairs and movetext. This function extracts just the moves.
- * @param pgn4Content - PGN4 file content as a string
- * @returns Array of move strings (e.g., ['d2-d4', 'b8-c8', 'k13-k11', 'm8-l8'])
- */
 export const pgn4ToString = (pgn4Content: string): string[] => {
   const moves: string[] = [];
   
@@ -243,6 +237,9 @@ export const pgn4ToString = (pgn4Content: string): string[] => {
     
     // Remove check/checkmate/elimination markers (+, #, R, T)
     moveLine = moveLine.replace(/[+#RT]/g, '');
+    
+    // Remove variations (parentheses and their contents) to keep only main line
+    moveLine = moveLine.replace(/\([^)]*\)/g, '');
     
     // Split by two periods to get individual moves
     const parts = moveLine.split(/\.\./);
@@ -382,11 +379,6 @@ const pgn4StringToMove = (pgn4: string, basePoints: BasePoint[], moveNumber: num
   };
 };
 
-/**
- * Creates a FEN4 string from a list of PGN4 moves starting from the initial position
- * @param pgn4Moves - Array of PGN4 move strings (e.g., ['d2-d4', 'b8-c8'])
- * @returns FEN4 string representing the position after all moves
- */
 export const fen4FromMoves = (pgn4Moves: string[]): string => {
   // Parse the starting position
   const { basePoints, currentPlayerIndex, kingsideCastling, queensideCastling } = parseFen4(STARTING_FEN4);
@@ -452,8 +444,8 @@ export const fen4FromMoves = (pgn4Moves: string[]): string => {
       }
     }
     
-    const { basePoints } = replayMoves(moves, i, basePoints);
-    currentBasePoints = basePoints;
+    const { basePoints: replayedBasePoints } = replayMoves(moves, i, basePoints);
+    currentBasePoints = replayedBasePoints;
   }
   
   // currentBasePoints already has the final position from the last iteration
