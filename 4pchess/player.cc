@@ -129,7 +129,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     if (tte->key == key) { // valid entry
       tt_hit = true;
       if (tte->depth >= depth) {
-        num_cache_hits_++;
+        //num_cache_hits_++;
         // at non-PV nodes check for an early TT cutoff
         if (!is_root_node
             && !is_pv_node
@@ -389,12 +389,12 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         }
     }
 
-    static std::atomic<int64_t> cm_skip_count{0};
+    //static std::atomic<int64_t> cm_skip_count{0};
     int64_t current_hash = board.HashKey();
     bool checkmate = IsKnownCheckmate(current_hash);
     if (checkmate) {
       board.UndoMove();
-      cm_skip_count++;
+      //cm_skip_count++;
       continue;
     }
 
@@ -433,7 +433,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         && (tte->bound == LOWER_BOUND)
         && tte->depth >= depth >> 1
         ) {
-      num_singular_extension_searches_.fetch_add(1, std::memory_order_relaxed);
+      //num_singular_extension_searches_.fetch_add(1, std::memory_order_relaxed);
       
       int beta = tte->score;
 
@@ -447,18 +447,18 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         int score = std::get<0>(*res);
         // If the search fails low, we didn't find a better move
         if (score < beta) {
-          num_singular_extensions_.fetch_add(1, std::memory_order_relaxed);
+          //num_singular_extensions_.fetch_add(1, std::memory_order_relaxed);
           r = -1;
         }
       }
     }
 
-    static std::atomic<int64_t> capture_extension_count{0};
-    static std::atomic<int64_t> check_extension_count{0};
+    //static std::atomic<int64_t> capture_extension_count{0};
+    //static std::atomic<int64_t> check_extension_count{0};
 
     constexpr int kMaxExtensionsPerPath = 1;
     if (depth < 2 && move.IsCapture() && ss->extension_count < kMaxExtensionsPerPath) {
-        capture_extension_count++;
+        //capture_extension_count++;
         r = -1;
     }
 
@@ -599,7 +599,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     //            << " check extension: " << check_extension_count << std::endl;
     //}
   }
-  static std::atomic<int64_t> total_checkmates_found = 0;
+  //static std::atomic<int64_t> total_checkmates_found = 0;
   //auto startC = std::chrono::high_resolution_clock::now();
 
   if (!fail_low && best_move) {  // Add null check for best_move
@@ -649,7 +649,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         std::unique_lock<std::shared_mutex> lock(checkmate_mutex_);
         // Double-check in case another thread added it between our check and now
         checkmate_positions_.insert(hash_key).second;
-        total_checkmates_found++;     // Increment total checkmate counter
+        //total_checkmates_found++;     // Increment total checkmate counter
       }
     /*
     }

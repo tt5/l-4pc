@@ -30,7 +30,7 @@ std::optional<int> ParseInt(const std::string& input);
 std::optional<std::vector<bool>> ParseCastlingAvailability(
     const std::string& fen_substr);
 
-std::shared_ptr<Board> ParseBoardFromFEN(const std::string& fen);
+//std::shared_ptr<Board> ParseBoardFromFEN(const std::string& fen);
 
 void SendInfoMessage(const std::string& message);
 
@@ -38,7 +38,7 @@ void SendInvalidCommandMessage(const std::string& line);
 
 std::optional<Move> ParseMove(Board& board, const std::string& move_str);
 
-std::optional<BoardLocation> ParseEnpLocation(const std::string& enp);
+std::optional<std::pair<int8_t, int8_t>> ParseEnpLocation(const std::string& enp);
 
 }  // namespace chess
 

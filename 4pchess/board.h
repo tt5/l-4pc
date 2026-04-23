@@ -83,33 +83,6 @@ struct std::hash<chess::Player>
 
 namespace chess {
 
-//class Piece {
-// public:
-//  Piece() : piece_type_(NO_PIECE) { }
-//
-//  Piece(Player player, PieceType piece_type)
-//    : player_(std::move(player)),
-//      piece_type_(piece_type)
-//  { }
-//
-//  const Player& GetPlayer() const { return player_; }
-//  PieceType GetPieceType() const { return piece_type_; }
-//  Team GetTeam() const { return GetPlayer().GetTeam(); }
-//  PlayerColor GetColor() const { return GetPlayer().GetColor(); }
-//  bool operator==(const Piece& other) const {
-//    return player_ == other.player_ && piece_type_ == other.piece_type_;
-//  }
-//  bool operator!=(const Piece& other) const {
-//    return !(*this == other);
-//  }
-//  friend std::ostream& operator<<(
-//      std::ostream& os, const Piece& piece);
-//
-// private:
-//  Player player_;
-//  PieceType piece_type_;
-//};
-
 class Piece {
  public:
   static int invalid_piece_count;
@@ -117,7 +90,7 @@ class Piece {
   Piece() : Piece(false, RED, NO_PIECE) { }
   
   // Raw constructor - bypasses validation for performance (caller must ensure valid)
-  Piece(int8_t raw_bits, bool /*raw*/) noexcept : bits_(raw_bits) { }
+  Piece(int8_t raw_bits) noexcept : bits_(raw_bits) { }
 
   Piece(bool present, PlayerColor color, PieceType piece_type) {
     // For non-present pieces, ensure clean state
@@ -181,6 +154,10 @@ class Piece {
     224   // GREEN=3: 128 | 96 | 0
   };
 
+  // Precomputed raw bits for empty piece (present=false)
+  // Formula: 0 (since present bit is 0)
+  static constexpr uint8_t kRawNoPiece = 0;
+
  private:
   // bit 0: presence
   // bit 1-2: player
@@ -194,52 +171,15 @@ class Piece {
 
 //extern const Piece* kPieceSet[4][6];
 
-
-class BoardLocation {
- public:
-  BoardLocation() : loc_(196) {}
-  BoardLocation(int8_t row, int8_t col) {
-    loc_ = (row < 0 || row >= 14 || col < 0 || col >= 14)
-      ? 196 : 14 * row + col;
-  }
-  // Raw constructor - bypasses validation for performance (caller must ensure valid)
-  BoardLocation(int8_t row, int8_t col, bool /*raw*/) noexcept
-      : loc_(static_cast<uint8_t>(14 * row + col)) {}
-
-  bool Present() const { return loc_ < 196; }
-  bool Missing() const { return !Present(); }
-  int8_t GetRow() const { return loc_ / 14; }
-  int8_t GetCol() const { return loc_ % 14; }
-  int8_t GetSquare() const { return loc_; }
-
-  BoardLocation Relative(int8_t delta_row, int8_t delta_col) const {
-    return BoardLocation(GetRow() + delta_row, GetCol() + delta_col);
-  }
-
-  bool operator==(const BoardLocation& other) const { return loc_ == other.loc_; }
-  bool operator!=(const BoardLocation& other) const { return loc_ != other.loc_; }
-
-  friend std::ostream& operator<<(
-      std::ostream& os, const BoardLocation& location);
-  std::string PrettyStr() const;
-
-  static BoardLocation kNoLocation;
-
- private:
-  // value 0-195: 1 + 14*row + col
-  // value 196: not present
-  uint8_t loc_;
-};
-
 }  // namespace chess
 
 template <>
-struct std::hash<chess::BoardLocation>
+struct std::hash<std::pair<int8_t, int8_t>>
 {
-  std::size_t operator()(const chess::BoardLocation& x) const
+  std::size_t operator()(const std::pair<int8_t, int8_t>& x) const
   {
-    std::size_t hash = 14479 + 14593 * x.GetRow();
-    hash += 24439 * x.GetCol();
+    std::size_t hash = 14479 + 14593 * x.first;
+    hash += 24439 * x.second;
     return hash;
   }
 };
@@ -269,40 +209,6 @@ namespace chess {
   };
 
 // Move or capture. Does not include pawn promotion, en-passant, or castling.
-class SimpleMove {
- public:
-  SimpleMove() = default;
-
-  // Raw constructor - bypasses validation/overhead for performance (caller must ensure valid)
-  SimpleMove(int8_t from_r, int8_t from_c, int8_t to_r, int8_t to_c, bool /*raw*/) noexcept
-      : from_row_(from_r),
-        from_col_(from_c),
-        to_row_(to_r),
-        to_col_(to_c) { }
-
-  int8_t FromRow() const { return from_row_; }
-  int8_t FromCol() const { return from_col_; }
-  int8_t ToRow() const { return to_row_; }
-  int8_t ToCol() const { return to_col_; }
-
-  bool operator==(const SimpleMove& other) const {
-    return from_row_ == other.from_row_
-        && from_col_ == other.from_col_
-        && to_row_ == other.to_row_
-        && to_col_ == other.to_col_;
-  }
-
-  bool operator!=(const SimpleMove& other) const {
-    return !(*this == other);
-  }
-
- private:
-  int8_t from_row_;
-  int8_t from_col_;
-  int8_t to_row_;
-  int8_t to_col_;
-};
-
 enum CastlingType {
   KINGSIDE = 0, QUEENSIDE = 1,
 };
@@ -345,121 +251,81 @@ class Move {
  public:
   Move() = default;
 
-  /*
-  // Standard move
-  Move(BoardLocation from, BoardLocation to,
-       Piece standard_capture = Piece::kNoPiece,
-       CastlingRights initial_castling_rights = CastlingRights::kMissingRights)
-    : from_(std::move(from)),
-      to_(std::move(to)),
-      from_row_(from.GetRow()),
-      from_col_(from.GetCol()),
-      to_row_(to.GetRow()),
-      to_col_(to.GetCol()),
-      standard_capture_(standard_capture),
-      initial_castling_rights_(std::move(initial_castling_rights))
-  { }
-
-  // Pawn move
-  Move(BoardLocation from, BoardLocation to,
-       Piece standard_capture,
-       BoardLocation en_passant_location,
-       Piece en_passant_capture,
-       PieceType promotion_piece_type = NO_PIECE)
-    : from_(std::move(from)),
-      to_(std::move(to)),
-      from_row_(from.GetRow()),
-      from_col_(from.GetCol()),
-      to_row_(to.GetRow()),
-      to_col_(to.GetCol()),
-      standard_capture_(standard_capture),
-      promotion_piece_type_(promotion_piece_type),
-      en_passant_capture_(en_passant_capture),
-      ep_target_row_(en_passant_location.Present() ? en_passant_location.GetRow() : -1),
-      ep_target_col_(en_passant_location.Present() ? en_passant_location.GetCol() : -1)
-  { }
-
-  // Castling
-  Move(BoardLocation from, BoardLocation to,
-       SimpleMove rook_move,
-       CastlingRights initial_castling_rights)
-    : from_(std::move(from)),
-      to_(std::move(to)),
-      from_row_(from.GetRow()),
-      from_col_(from.GetCol()),
-      to_row_(to.GetRow()),
-      to_col_(to.GetCol()),
-      rook_move_(rook_move),
-      initial_castling_rights_(std::move(initial_castling_rights))
-  { }
-  */
-
   // Raw constructor for castling - bypasses validation/overhead for performance (caller must ensure valid)
   Move(int8_t king_from_r, int8_t king_from_c, int8_t king_to_r, int8_t king_to_c,
        int8_t rook_from_r, int8_t rook_from_c, int8_t rook_to_r, int8_t rook_to_c,
-       CastlingRights initial_castling_rights, bool /*raw*/) noexcept
+       CastlingRights initial_castling_rights) noexcept
       : from_row_(king_from_r),
         from_col_(king_from_c),
         to_row_(king_to_r),
         to_col_(king_to_c),
-        rook_move_(SimpleMove(rook_from_r, rook_from_c, rook_to_r, rook_to_c, true)),
+        rook_from_row_(rook_from_r),
+        rook_from_col_(rook_from_c),
+        rook_to_row_(rook_to_r),
+        rook_to_col_(rook_to_c),
         initial_castling_rights_(std::move(initial_castling_rights)) { }
 
   // Raw constructor - bypasses validation/overhead for performance (caller must ensure valid)
   Move(int8_t from_r, int8_t from_c, int8_t to_r, int8_t to_c,
-       int8_t capture_raw, bool /*raw*/) noexcept
+       int8_t capture_raw) noexcept
       : from_row_(from_r),
         from_col_(from_c),
         to_row_(to_r),
         to_col_(to_c),
-        rook_move_(SimpleMove(-1, -1, -1, -1, true)),
-        standard_capture_(capture_raw, true) { }
+        standard_capture_(capture_raw),
+        rook_from_row_(-1),
+        rook_from_col_(-1),
+        rook_to_row_(-1),
+        rook_to_col_(-1) { }
 
   // Raw constructor with castling rights - for king moves
   Move(int8_t from_r, int8_t from_c, int8_t to_r, int8_t to_c,
-       int8_t capture_raw, CastlingRights castling_rights, bool /*raw*/) noexcept
+       int8_t capture_raw, CastlingRights castling_rights) noexcept
       : from_row_(from_r),
         from_col_(from_c),
         to_row_(to_r),
         to_col_(to_c),
-        rook_move_(SimpleMove(-1, -1, -1, -1, true)),
-        standard_capture_(capture_raw, true),
+        standard_capture_(capture_raw),
+        rook_from_row_(-1),
+        rook_from_col_(-1),
+        rook_to_row_(-1),
+        rook_to_col_(-1),
         initial_castling_rights_(std::move(castling_rights)) { }
 
   // Raw constructor for promotion moves
   Move(int8_t from_r, int8_t from_c, int8_t to_r, int8_t to_c,
-       int8_t capture_raw, PieceType promotion_type, bool /*raw*/) noexcept
+       int8_t capture_raw, PieceType promotion_type) noexcept
       : from_row_(from_r),
         from_col_(from_c),
         to_row_(to_r),
         to_col_(to_c),
-        rook_move_(SimpleMove(-1, -1, -1, -1, true)),
-        standard_capture_(capture_raw, true),
-        promotion_piece_type_(promotion_type) { }
+        standard_capture_(capture_raw),
+        promotion_piece_type_(promotion_type),
+        rook_from_row_(-1),
+        rook_from_col_(-1),
+        rook_to_row_(-1),
+        rook_to_col_(-1) { }
 
   // Raw constructor for en passant moves
   Move(int8_t from_r, int8_t from_c, int8_t to_r, int8_t to_c,
-       int8_t ep_row, int8_t ep_col, int8_t ep_capture_raw, bool /*raw*/) noexcept
+       int8_t ep_row, int8_t ep_col, int8_t ep_capture_raw) noexcept
       : from_row_(from_r),
         from_col_(from_c),
         to_row_(to_r),
         to_col_(to_c),
-        rook_move_(SimpleMove(-1, -1, -1, -1, true)),
-        en_passant_capture_(ep_capture_raw, true),
+        standard_capture_(),
+        en_passant_capture_(ep_capture_raw),
         ep_target_row_(ep_row),
-        ep_target_col_(ep_col) { }
+        ep_target_col_(ep_col),
+        rook_from_row_(-1),
+        rook_from_col_(-1),
+        rook_to_row_(-1),
+        rook_to_col_(-1) { }
 
   int8_t FromRow() const { return from_row_; }
   int8_t FromCol() const { return from_col_; }
   int8_t ToRow() const { return to_row_; }
   int8_t ToCol() const { return to_col_; }
-  //bool Present() const { return from_.Present() && to_.Present(); }
-  bool PresentFast() const {
-    return from_row_ >= 0 && from_row_ < 14 &&
-           from_col_ >= 0 && from_col_ < 14 &&
-           to_row_ >= 0 && to_row_ < 14 &&
-           to_col_ >= 0 && to_col_ < 14;
-  }
   Piece GetStandardCapture() const {
     return standard_capture_;
   }
@@ -474,7 +340,10 @@ class Move {
   Piece GetEnpassantCapture() const {
     return en_passant_capture_;
   }
-  SimpleMove GetRookMove() const { return rook_move_; }
+  int8_t RookFromRow() const { return rook_from_row_; }
+  int8_t RookFromCol() const { return rook_from_col_; }
+  int8_t RookToRow() const { return rook_to_row_; }
+  int8_t RookToCol() const { return rook_to_col_; }
   CastlingRights GetInitialCastlingRights() const {
     return initial_castling_rights_;
   }
@@ -496,7 +365,10 @@ class Move {
       && ep_target_row_ == other.ep_target_row_
       && ep_target_col_ == other.ep_target_col_
       && en_passant_capture_ == other.en_passant_capture_
-      && rook_move_ == other.rook_move_
+      && rook_from_row_ == other.rook_from_row_
+      && rook_from_col_ == other.rook_from_col_
+      && rook_to_row_ == other.rook_to_row_
+      && rook_to_col_ == other.rook_to_col_
       && initial_castling_rights_ == other.initial_castling_rights_;
   }
   bool operator!=(const Move& other) const {
@@ -536,7 +408,10 @@ class Move {
   int8_t ep_target_col_ = -1;
 
   // For castling moves
-  SimpleMove rook_move_; // 2
+  int8_t rook_from_row_ = -1;
+  int8_t rook_from_col_ = -1;
+  int8_t rook_to_row_ = -1;
+  int8_t rook_to_col_ = -1;
 
   // Castling rights before the move
   CastlingRights initial_castling_rights_; // 1
@@ -584,7 +459,7 @@ class Board {
  public:
   Board(
       Player turn,
-      std::unordered_map<BoardLocation, Piece> location_to_piece,
+      std::unordered_map<std::pair<int8_t, int8_t>, Piece> location_to_piece,
       std::optional<std::unordered_map<Player, CastlingRights>>
         castling_rights = std::nullopt,
       std::optional<EnpassantInitialization> enp = std::nullopt);
@@ -653,25 +528,12 @@ class Board {
 
   std::pair<int8_t, int8_t> GetRevAttacker(Team team, int8_t row, int8_t col) const;
 
-//  std::vector<PlacedPiece> GetAttackers(
-//      Team team, const BoardLocation& location,
-//      bool return_early = false) const;
-
-  size_t GetAttackers2(
-      PlacedPiece* buffer, size_t limit,
-      Team team, const BoardLocation& location) const;
-
   int8_t GetKingRow(PlayerColor color) const { return king_row_[color]; }
   int8_t GetKingCol(PlayerColor color) const { return king_col_[color]; }
   bool KingPresent(PlayerColor color) const { return king_row_[color] >= 0; }
 
   const Piece& GetPiece(int row, int col) const {
     return location_to_piece_[row][col];
-  }
- 
-  const Piece& GetPiece(
-      const BoardLocation& location) const {
-    return GetPiece(location.GetRow(), location.GetCol());
   }
 
   int64_t HashKey() const { return hash_key_; }
@@ -716,8 +578,6 @@ class Board {
  private:
   int GetMaxRow() const { return 13; }
   int GetMaxCol() const { return 13; }
-  std::optional<CastlingType> GetRookLocationType(
-      const Player& player, const BoardLocation& location) const;
 
   void InitializeHash();
   void UpdatePieceHash(const Piece& piece, int8_t row, int8_t col) {
@@ -732,11 +592,11 @@ class Board {
 
   Piece location_to_piece_[14][14];
   std::vector<std::vector<PlacedPiece>> piece_list_;
+  int8_t piece_list_index_[14][14];  // Maps (row,col) to index in piece_list_[color], -1 if empty
 
   CastlingRights castling_rights_[4];
   EnpassantInitialization enp_;
   std::vector<Move> moves_; // list of moves from beginning of game
-  std::vector<Move> move_buffer_;
   int piece_evaluation_ = 0;
   int player_piece_evaluations_[4] = {0, 0, 0, 0}; // one per player
 
@@ -750,9 +610,6 @@ class Board {
     int8_t col = -1;
   };
   EnPassantTarget en_passant_targets_[4];  // One for each player color
-
-  size_t move_buffer_size_ = 300;
-  Move move_buffer_2_[300];
 };
 
 // Helper functions
@@ -762,12 +619,6 @@ Team GetTeam(PlayerColor color);
 Player GetNextPlayer(const Player& player);
 Player GetPreviousPlayer(const Player& player);
 Player GetPartner(const Player& player);
-
-// Returns the static exchange evaluation of a capture.
-int StaticExchangeEvaluationCapture(
-    const int piece_evaluations[6],
-    Board& board,
-    const Move& move);
 
 
 }  // namespace chess

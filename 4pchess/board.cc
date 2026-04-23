@@ -32,18 +32,22 @@ size_t Board::call_count = 0;
 int Piece::invalid_piece_count = 0;
 
 constexpr int kMobilityMultiplier = 5;
-Piece Piece::kNoPiece = Piece();
-BoardLocation BoardLocation::kNoLocation = BoardLocation();
+Piece Piece::kNoPiece = Piece(Piece::kRawNoPiece);
 CastlingRights CastlingRights::kMissingRights = CastlingRights();
 
-const BoardLocation kRedInitialRookLocationKingside(13, 10);
-const BoardLocation kRedInitialRookLocationQueenside(13, 3);
-const BoardLocation kBlueInitialRookLocationKingside(10, 0);
-const BoardLocation kBlueInitialRookLocationQueenside(3, 0);
-const BoardLocation kYellowInitialRookLocationKingside(0, 3);
-const BoardLocation kYellowInitialRookLocationQueenside(0, 10);
-const BoardLocation kGreenInitialRookLocationKingside(3, 13);
-const BoardLocation kGreenInitialRookLocationQueenside(10, 13);
+struct Coords {
+  int8_t row;
+  int8_t col;
+};
+
+const Coords kRedInitialRookLocationKingside{13, 10};
+const Coords kRedInitialRookLocationQueenside{13, 3};
+const Coords kBlueInitialRookLocationKingside{10, 0};
+const Coords kBlueInitialRookLocationQueenside{3, 0};
+const Coords kYellowInitialRookLocationKingside{0, 3};
+const Coords kYellowInitialRookLocationQueenside{0, 10};
+const Coords kGreenInitialRookLocationKingside{3, 13};
+const Coords kGreenInitialRookLocationQueenside{10, 13};
 
 const Player kRedPlayer = Player(RED);
 const Player kBluePlayer = Player(BLUE);
@@ -169,7 +173,7 @@ std::pair<int8_t, int8_t> Board::GetAttacker(Team team, int8_t row, int8_t col) 
               int row = loc_row + dr, col = loc_col + dc;
               if (IsLegalLocation(row, col)) {
                   const auto piece = GetPiece(row, col);
-                  if (piece.Present() && piece.GetPieceType() == PAWN && piece.GetColor() == color)
+                  if (piece.GetRaw() == Piece::kRawPawn[color])
                       return {row, col};
               }
           }
@@ -182,7 +186,7 @@ std::pair<int8_t, int8_t> Board::GetAttacker(Team team, int8_t row, int8_t col) 
               int row = loc_row + dr, col = loc_col + dc;
               if (IsLegalLocation(row, col)) {
                   const auto piece = GetPiece(row, col);
-                  if (piece.Present() && piece.GetPieceType() == PAWN && piece.GetColor() == color)
+                  if (piece.GetRaw() == Piece::kRawPawn[color])
                       return {row, col};
               }
           }
@@ -211,7 +215,7 @@ std::pair<int8_t, int8_t> Board::GetRevAttacker(Team team, int8_t row, int8_t co
               int row = loc_row + dr, col = loc_col + dc;
               if (IsLegalLocation(row, col)) {
                   const auto piece = GetPiece(row, col);
-                  if (piece.Present() && piece.GetPieceType() == PAWN && piece.GetColor() == color)
+                  if (piece.GetRaw() == Piece::kRawPawn[color])
                       return {row, col};
               }
           }
@@ -223,7 +227,7 @@ std::pair<int8_t, int8_t> Board::GetRevAttacker(Team team, int8_t row, int8_t co
               int row = loc_row + dr, col = loc_col + dc;
               if (IsLegalLocation(row, col)) {
                   const auto piece = GetPiece(row, col);
-                  if (piece.Present() && piece.GetPieceType() == PAWN && piece.GetColor() == color)
+                  if (piece.GetRaw() == Piece::kRawPawn[color])
                       return {row, col};
               }
           }
@@ -373,7 +377,7 @@ for (const auto& [dr, dc] : diagonal) {
               int8_t row = loc_row + dr, col = loc_col + dc;
               if (IsLegalLocation(row, col)) {
                   const auto piece = GetPiece(row, col);
-                  if (piece.Present() && piece.GetPieceType() == PAWN && piece.GetColor() == color)
+                  if (piece.GetRaw() == Piece::kRawPawn[color])
                       return true;
               }
           }
@@ -386,7 +390,7 @@ for (const auto& [dr, dc] : diagonal) {
               int8_t row = loc_row + dr, col = loc_col + dc;
               if (IsLegalLocation(row, col)) {
                   const auto piece = GetPiece(row, col);
-                  if (piece.Present() && piece.GetPieceType() == PAWN && piece.GetColor() == color)
+                  if (piece.GetRaw() == Piece::kRawPawn[color])
                       return true;
               }
           }
@@ -424,7 +428,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     const int8_t king_col = GetKingCol(current_color);
     auto attacker = GetAttacker(OtherTeam(my_team), king_row, king_col);
     const bool in_check = KingPresent(current_color) && attacker.first != -1;
-    const auto attacking_piece = in_check ? GetPiece(attacker.first, attacker.second) : Piece();
+    const auto attacking_piece = in_check ? GetPiece(attacker.first, attacker.second) : Piece(Piece::kRawNoPiece);
     const PieceType att_type = attacking_piece.GetPieceType();
 
     // Check for double check using reversed search
@@ -435,11 +439,39 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     }
 
     const auto& pieces = piece_list_[current_color];
-    const size_t num_pieces = pieces.size();
 
     Move* current = buffer;
 
     int threats = 0;
+
+    // Consolidated direction data for pawn movement and captures
+    // Indexed by PlayerColor (RED=0, BLUE=1, YELLOW=2, GREEN=3)
+    struct PawnDirectionData {
+      int8_t delta_row;         // Row delta for forward movement
+      int8_t delta_col;         // Column delta for forward movement
+      int8_t capture1_row;      // Row delta for first capture direction
+      int8_t capture1_col;      // Column delta for first capture direction
+      int8_t capture2_row;      // Row delta for second capture direction
+      int8_t capture2_col;      // Column delta for second capture direction
+    };
+    
+    static constexpr PawnDirectionData kPawnDirections[4] = {
+      // y direction 0 top, 13 bottom
+      // all colors capture to the left (first capture)
+      // RED: moves up, captures up-left and up-right
+      {-1, 0, -1, -1, -1, 1},
+      // BLUE: moves right, captures up-right and down-right
+      {0, 1, -1, 1, 1, 1},
+      // YELLOW: moves down, captures down-left and down-right
+      {1, 0, 1, 1, 1, -1},
+      // GREEN: moves left, captures down-left and up-left
+      {0, -1, 1, -1, -1, -1}
+    };
+
+    static constexpr int8_t kStartingRow[4] = {12, -1, 1, -1};  // RED, BLUE, YELLOW, GREEN
+    static constexpr int8_t kStartingCol[4] = {-1, 1, -1, 12};  // -1 means not used
+    static constexpr int8_t kPromotionRow[4] = {0, -1, 13, -1};   // RED, BLUE, YELLOW, GREEN
+    static constexpr int8_t kPromotionCol[4] = {-1, 13, -1, 0};   // -1 means not used
 
     for (const auto& placed_piece : piece_list_[current_color]) {
       const int8_t from_row = placed_piece.GetRow();
@@ -460,16 +492,16 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                 int8_t c = from_col + 1;
                 while (true) {
                   if (!IsLegalLocation(r, c)) break;
-                  const Piece captured = GetPiece(r, c);
+                  const Piece captured = location_to_piece_[r][c];
                   if (captured.Present()) {
                     if (captured.GetTeam() != my_team) {
-                      new (current++) Move(from_row, from_col, r, c, captured.GetRaw(), true);
+                      new (current++) Move(from_row, from_col, r, c, captured.GetRaw());
                       threats += 16;
                     }
                     threats += 4;
                     break;
                   }
-                  new (current++) Move(from_row, from_col, r, c, 0, true);
+                  new (current++) Move(from_row, from_col, r, c, 0);
                   threats++;
                   r++;
                   c++;
@@ -482,16 +514,16 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                 int8_t c = from_col - 1;
                 while (true) {
                   if (!IsLegalLocation(r, c)) break;
-                  const Piece captured = GetPiece(r, c);
+                  const Piece captured = location_to_piece_[r][c];
                   if (captured.Present()) {
                     if (captured.GetTeam() != my_team) {
-                      new (current++) Move(from_row, from_col, r, c, captured.GetRaw(), true);
+                      new (current++) Move(from_row, from_col, r, c, captured.GetRaw());
                       threats += 16;
                     }
                     threats += 4;
                     break;
                   }
-                  new (current++) Move(from_row, from_col, r, c, 0, true);
+                  new (current++) Move(from_row, from_col, r, c, 0);
                   threats++;
                   r++;
                   c--;
@@ -504,16 +536,16 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                 int8_t c = from_col + 1;
                 while (true) {
                   if (!IsLegalLocation(r, c)) break;
-                  const Piece captured = GetPiece(r, c);
+                  const Piece captured = location_to_piece_[r][c];
                   if (captured.Present()) {
                     if (captured.GetTeam() != my_team) {
-                      new (current++) Move(from_row, from_col, r, c, captured.GetRaw(), true);
+                      new (current++) Move(from_row, from_col, r, c, captured.GetRaw());
                       threats += 16;
                     }
                     threats += 4;
                     break;
                   }
-                  new (current++) Move(from_row, from_col, r, c, 0, true);
+                  new (current++) Move(from_row, from_col, r, c, 0);
                   threats++;
                   r--;
                   c++;
@@ -526,16 +558,16 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                 int8_t c = from_col - 1;
                 while (true) {
                   if (!IsLegalLocation(r, c)) break;
-                  const Piece captured = GetPiece(r, c);
+                  const Piece captured = location_to_piece_[r][c];
                   if (captured.Present()) {
                     if (captured.GetTeam() != my_team) {
-                      new (current++) Move(from_row, from_col, r, c, captured.GetRaw(), true);
+                      new (current++) Move(from_row, from_col, r, c, captured.GetRaw());
                       threats += 16;
                     }
                     threats += 4;
                     break;
                   }
-                  new (current++) Move(from_row, from_col, r, c, 0, true);
+                  new (current++) Move(from_row, from_col, r, c, 0);
                   threats++;
                   r--;
                   c--;
@@ -550,13 +582,13 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                       const Piece captured = location_to_piece_[from_row][c];
                       if (captured.Present()) {
                           if (captured.GetTeam() != my_team) {
-                              new (current++) Move(from_row, from_col, from_row, c, captured.GetRaw(), true);
+                              new (current++) Move(from_row, from_col, from_row, c, captured.GetRaw());
                               threats += 16;
                           }
                           threats += 4;
                           break;
                       }
-                      new (current++) Move(from_row, from_col, from_row, c, 0, true);
+                      new (current++) Move(from_row, from_col, from_row, c, 0);
                       threats++;
                       c++;
                   }
@@ -570,13 +602,13 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                       const Piece captured = location_to_piece_[from_row][c];
                       if (captured.Present()) {
                           if (captured.GetTeam() != my_team) {
-                              new (current++) Move(from_row, from_col, from_row, c, captured.GetRaw(), true);
+                              new (current++) Move(from_row, from_col, from_row, c, captured.GetRaw());
                               threats += 16;
                           }
                           threats += 4;
                           break;
                       }
-                      new (current++) Move(from_row, from_col, from_row, c, 0, true);
+                      new (current++) Move(from_row, from_col, from_row, c, 0);
                       threats++;
                       c--;
                   }
@@ -590,13 +622,13 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                       const Piece captured = location_to_piece_[r][from_col];
                       if (captured.Present()) {
                           if (captured.GetTeam() != my_team) {
-                              new (current++) Move(from_row, from_col, r, from_col, captured.GetRaw(), true);
+                              new (current++) Move(from_row, from_col, r, from_col, captured.GetRaw());
                               threats += 16;
                           }
                           threats += 4;
                           break;
                       }
-                      new (current++) Move(from_row, from_col, r, from_col, 0, true);
+                      new (current++) Move(from_row, from_col, r, from_col, 0);
                       threats++;
                       r++;
                   }
@@ -610,13 +642,13 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                       const Piece captured = location_to_piece_[r][from_col];
                       if (captured.Present()) {
                           if (captured.GetTeam() != my_team) {
-                              new (current++) Move(from_row, from_col, r, from_col, captured.GetRaw(), true);
+                              new (current++) Move(from_row, from_col, r, from_col, captured.GetRaw());
                               threats += 16;
                           }
                           threats += 4;
                           break;
                       }
-                      new (current++) Move(from_row, from_col, r, from_col, 0, true);
+                      new (current++) Move(from_row, from_col, r, from_col, 0);
                       threats++;
                       r--;
                   }
@@ -631,13 +663,13 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                       const Piece captured = location_to_piece_[from_row][c];
                       if (captured.Present()) {
                           if (captured.GetTeam() != my_team) {
-                              new (current++) Move(from_row, from_col, from_row, c, captured.GetRaw(), true);
+                              new (current++) Move(from_row, from_col, from_row, c, captured.GetRaw());
                               threats += 16;
                           }
                           threats += 4;
                           break;
                       }
-                      new (current++) Move(from_row, from_col, from_row, c, 0, true);
+                      new (current++) Move(from_row, from_col, from_row, c, 0);
                       threats++;
                       c++;
                   }
@@ -651,13 +683,13 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                       const Piece captured = location_to_piece_[from_row][c];
                       if (captured.Present()) {
                           if (captured.GetTeam() != my_team) {
-                              new (current++) Move(from_row, from_col, from_row, c, captured.GetRaw(), true);
+                              new (current++) Move(from_row, from_col, from_row, c, captured.GetRaw());
                               threats += 16;
                           }
                           threats += 4;
                           break;
                       }
-                      new (current++) Move(from_row, from_col, from_row, c, 0, true);
+                      new (current++) Move(from_row, from_col, from_row, c, 0);
                       threats++;
                       c--;
                   }
@@ -671,13 +703,13 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                       const Piece captured = location_to_piece_[r][from_col];
                       if (captured.Present()) {
                           if (captured.GetTeam() != my_team) {
-                              new (current++) Move(from_row, from_col, r, from_col, captured.GetRaw(), true);
+                              new (current++) Move(from_row, from_col, r, from_col, captured.GetRaw());
                               threats += 16;
                           }
                           threats += 4;
                           break;
                       }
-                      new (current++) Move(from_row, from_col, r, from_col, 0, true);
+                      new (current++) Move(from_row, from_col, r, from_col, 0);
                       threats++;
                       r++;
                   }
@@ -691,13 +723,13 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                       const Piece captured = location_to_piece_[r][from_col];
                       if (captured.Present()) {
                           if (captured.GetTeam() != my_team) {
-                              new (current++) Move(from_row, from_col, r, from_col, captured.GetRaw(), true);
+                              new (current++) Move(from_row, from_col, r, from_col, captured.GetRaw());
                               threats += 16;
                           }
                           threats += 4;
                           break;
                       }
-                      new (current++) Move(from_row, from_col, r, from_col, 0, true);
+                      new (current++) Move(from_row, from_col, r, from_col, 0);
                       threats++;
                       r--;
                   }
@@ -710,16 +742,16 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                 int8_t c = from_col + 1;
                 while (true) {
                   if (!IsLegalLocation(r, c)) break;
-                  const Piece captured = GetPiece(r, c);
+                  const Piece captured = location_to_piece_[r][c];
                   if (captured.Present()) {
                     if (captured.GetTeam() != my_team) {
-                      new (current++) Move(from_row, from_col, r, c, captured.GetRaw(), true);
+                      new (current++) Move(from_row, from_col, r, c, captured.GetRaw());
                       threats += 16;
                     }
                     threats += 4;
                     break;
                   }
-                  new (current++) Move(from_row, from_col, r, c, 0, true);
+                  new (current++) Move(from_row, from_col, r, c, 0);
                   threats++;
                   r++;
                   c++;
@@ -732,16 +764,16 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                 int8_t c = from_col - 1;
                 while (true) {
                   if (!IsLegalLocation(r, c)) break;
-                  const Piece captured = GetPiece(r, c);
+                  const Piece captured = location_to_piece_[r][c];
                   if (captured.Present()) {
                     if (captured.GetTeam() != my_team) {
-                      new (current++) Move(from_row, from_col, r, c, captured.GetRaw(), true);
+                      new (current++) Move(from_row, from_col, r, c, captured.GetRaw());
                       threats += 16;
                     }
                     threats += 4;
                     break;
                   }
-                  new (current++) Move(from_row, from_col, r, c, 0, true);
+                  new (current++) Move(from_row, from_col, r, c, 0);
                   threats++;
                   r++;
                   c--;
@@ -754,16 +786,16 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                 int8_t c = from_col + 1;
                 while (true) {
                   if (!IsLegalLocation(r, c)) break;
-                  const Piece captured = GetPiece(r, c);
+                  const Piece captured = location_to_piece_[r][c];
                   if (captured.Present()) {
                     if (captured.GetTeam() != my_team) {
-                      new (current++) Move(from_row, from_col, r, c, captured.GetRaw(), true);
+                      new (current++) Move(from_row, from_col, r, c, captured.GetRaw());
                       threats += 16;
                     }
                     threats += 4;
                     break;
                   }
-                  new (current++) Move(from_row, from_col, r, c, 0, true);
+                  new (current++) Move(from_row, from_col, r, c, 0);
                   threats++;
                   r--;
                   c++;
@@ -776,16 +808,16 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                 int8_t c = from_col - 1;
                 while (true) {
                   if (!IsLegalLocation(r, c)) break;
-                  const Piece captured = GetPiece(r, c);
+                  const Piece captured = location_to_piece_[r][c];
                   if (captured.Present()) {
                     if (captured.GetTeam() != my_team) {
-                      new (current++) Move(from_row, from_col, r, c, captured.GetRaw(), true);
+                      new (current++) Move(from_row, from_col, r, c, captured.GetRaw());
                       threats += 16;
                     }
                     threats += 4;
                     break;
                   }
-                  new (current++) Move(from_row, from_col, r, c, 0, true);
+                  new (current++) Move(from_row, from_col, r, c, 0);
                   threats++;
                   r--;
                   c--;
@@ -793,31 +825,6 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
               }
             } break;
             case PAWN: {
-
-              // Consolidated direction data for pawn movement and captures
-              // Indexed by PlayerColor (RED=0, BLUE=1, YELLOW=2, GREEN=3)
-              struct PawnDirectionData {
-                int8_t delta_row;         // Row delta for forward movement
-                int8_t delta_col;         // Column delta for forward movement
-                int8_t capture1_row;      // Row delta for first capture direction
-                int8_t capture1_col;      // Column delta for first capture direction
-                int8_t capture2_row;      // Row delta for second capture direction
-                int8_t capture2_col;      // Column delta for second capture direction
-              };
-              
-              static constexpr PawnDirectionData kPawnDirections[4] = {
-                // y direction 0 top, 13 bottom
-                // all colors capture to the left (first capture)
-                // RED: moves up, captures up-left and up-right
-                {-1, 0, -1, -1, -1, 1},
-                // BLUE: moves right, captures up-right and down-right
-                {0, 1, -1, 1, 1, 1},
-                // YELLOW: moves down, captures down-left and down-right
-                {1, 0, 1, 1, 1, -1},
-                // GREEN: moves left, captures down-left and up-left
-                {0, -1, 1, -1, -1, -1}
-              };
-
               // Get direction data for current color
               const PawnDirectionData& dir = kPawnDirections[static_cast<int>(current_color)];
               const int8_t delta_row = dir.delta_row;
@@ -846,19 +853,12 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
               const Piece capture2_piece = is_capture2_legal ? 
                   location_to_piece_[capture2_row][capture2_col] : Piece::kNoPiece;
 
-                // Precompute starting rows/cols for each color
-              static constexpr int8_t kStartingRow[4] = {12, -1, 1, -1};  // RED, BLUE, YELLOW, GREEN
-              static constexpr int8_t kStartingCol[4] = {-1, 1, -1, 12};  // -1 means not used
-
               // Later in the code:
               bool not_moved = (current_color == RED || current_color == YELLOW) 
                   ? (from_row == kStartingRow[static_cast<int>(current_color)])
                   : (from_col == kStartingCol[static_cast<int>(current_color)]);
               
               // Promotion detection: each color promotes on different edges
-              static constexpr int8_t kPromotionRow[4] = {0, -1, 13, -1};   // RED, BLUE, YELLOW, GREEN
-              static constexpr int8_t kPromotionCol[4] = {-1, 13, -1, 0};   // -1 means not used
-
               const bool is_promotion = (current_color == RED || current_color == YELLOW) 
                   ? (forward_row == kPromotionRow[static_cast<int>(current_color)])
                   : (forward_col == kPromotionCol[static_cast<int>(current_color)]);
@@ -866,10 +866,10 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
               if (!forward_piece.Present()) [[likely]] {
                 // Handle promotion or regular move
                 if (is_promotion) [[unlikely]] {
-                  new (current++) Move(from_row, from_col, forward_row, forward_col, 0, QUEEN, true);
+                  new (current++) Move(from_row, from_col, forward_row, forward_col, 0, QUEEN);
                 } else {
                   //*current++ = Move(from, forward1);
-                  new (current++) Move(from_row, from_col, forward_row, forward_col, 0, true);
+                  new (current++) Move(from_row, from_col, forward_row, forward_col, 0);
                 }
                 
                 // Double step from starting position
@@ -881,7 +881,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                   const Piece forward2_piece = GetPiece(forward2_row, forward2_col);
                   if (!forward2_piece.Present()) {
                     //*current++ = Move(from, forward2);
-                    new (current++) Move(from_row, from_col, forward2_row, forward2_col, 0, true);
+                    new (current++) Move(from_row, from_col, forward2_row, forward2_col, 0);
                   }
                 }
               }
@@ -898,16 +898,16 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                                               : en_passant_targets_[kEpEnemyColor[current_color]].col) ==
                         ((current_color & 1) == 0 ? capture1_row : capture1_col);
                 if (is_ep_capture) {
-                  new (current++) Move(from_row, from_col, capture1_row, capture1_col, forward_row, forward_col, forward_piece.GetRaw(), true);
+                  new (current++) Move(from_row, from_col, capture1_row, capture1_col, forward_row, forward_col, forward_piece.GetRaw());
                 } else {
                   // Regular capture - use cached piece
                   if (capture1_piece.Present() && capture1_piece.GetTeam() != my_team) {
                     //Handle promotion on capture or regular capture
                     if (is_promotion) [[unlikely]] {
-                      new (current++) Move(from_row, from_col, capture1_row, capture1_col, capture1_piece.GetRaw(), QUEEN, true);
+                      new (current++) Move(from_row, from_col, capture1_row, capture1_col, capture1_piece.GetRaw(), QUEEN);
                     } else {
                       //*current++ = Move(from, capture1_loc, captured1);
-                      new (current++) Move(from_row, from_col, capture1_row, capture1_col, capture1_piece.GetRaw(), true);
+                      new (current++) Move(from_row, from_col, capture1_row, capture1_col, capture1_piece.GetRaw());
                     }
                   }
                 }
@@ -925,16 +925,16 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                                               : en_passant_targets_[kEpEnemyColor2[current_color]].col) ==
                         ((current_color & 1) == 0 ? capture2_row : capture2_col);
                 if (is_ep_capture2) {
-                  new (current++) Move(from_row, from_col, capture2_row, capture2_col, forward_row, forward_col, forward_piece.GetRaw(), true);
+                  new (current++) Move(from_row, from_col, capture2_row, capture2_col, forward_row, forward_col, forward_piece.GetRaw());
                 } else {
                   // Regular capture - use cached piece
                   if (capture2_piece.Present() && capture2_piece.GetTeam() != my_team) {
                     // Handle promotion on capture or regular capture
                     if (is_promotion) [[unlikely]] {
-                      new (current++) Move(from_row, from_col, capture2_row, capture2_col, capture2_piece.GetRaw(), QUEEN, true);
+                      new (current++) Move(from_row, from_col, capture2_row, capture2_col, capture2_piece.GetRaw(), QUEEN);
                     } else {
                       //*current++ = Move(from, to2, captured2);
-                      new (current++) Move(from_row, from_col, capture2_row, capture2_col, capture2_piece.GetRaw(), true);
+                      new (current++) Move(from_row, from_col, capture2_row, capture2_col, capture2_piece.GetRaw());
                     }
                   }
                 }
@@ -946,12 +946,12 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                   const Piece p = location_to_piece_[from_row + 2][from_col + 1];
                   if (p.Present()) {
                       if (p.GetTeam() != my_team) {
-                          new (current++) Move(from_row, from_col, from_row + 2, from_col + 1, p.GetRaw(), true);
+                          new (current++) Move(from_row, from_col, from_row + 2, from_col + 1, p.GetRaw());
                           threats += 16;
                       }
                       threats += 1;
                   } else {
-                      new (current++) Move(from_row, from_col, from_row + 2, from_col + 1, 0, true);
+                      new (current++) Move(from_row, from_col, from_row + 2, from_col + 1, 0);
                   }
               }
               // (+2, -1)
@@ -959,12 +959,12 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                   const Piece p = location_to_piece_[from_row + 2][from_col - 1];
                   if (p.Present()) {
                       if (p.GetTeam() != my_team) {
-                          new (current++) Move(from_row, from_col, from_row + 2, from_col - 1, p.GetRaw(), true);
+                          new (current++) Move(from_row, from_col, from_row + 2, from_col - 1, p.GetRaw());
                           threats += 16;
                       }
                       threats += 1;
                   } else {
-                      new (current++) Move(from_row, from_col, from_row + 2, from_col - 1, 0, true);
+                      new (current++) Move(from_row, from_col, from_row + 2, from_col - 1, 0);
                   }
               }
               // (-2, +1)
@@ -972,12 +972,12 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                   const Piece p = location_to_piece_[from_row - 2][from_col + 1];
                   if (p.Present()) {
                       if (p.GetTeam() != my_team) {
-                          new (current++) Move(from_row, from_col, from_row - 2, from_col + 1, p.GetRaw(), true);
+                          new (current++) Move(from_row, from_col, from_row - 2, from_col + 1, p.GetRaw());
                           threats += 16;
                       }
                       threats += 1;
                   } else {
-                      new (current++) Move(from_row, from_col, from_row - 2, from_col + 1, 0, true);
+                      new (current++) Move(from_row, from_col, from_row - 2, from_col + 1, 0);
                   }
               }
               // (-2, -1)
@@ -985,12 +985,12 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                   const Piece p = location_to_piece_[from_row - 2][from_col - 1];
                   if (p.Present()) {
                       if (p.GetTeam() != my_team) {
-                          new (current++) Move(from_row, from_col, from_row - 2, from_col - 1, p.GetRaw(), true);
+                          new (current++) Move(from_row, from_col, from_row - 2, from_col - 1, p.GetRaw());
                           threats += 16;
                       }
                       threats += 1;
                   } else {
-                      new (current++) Move(from_row, from_col, from_row - 2, from_col - 1, 0, true);
+                      new (current++) Move(from_row, from_col, from_row - 2, from_col - 1, 0);
                   }
               }
               // (+1, +2)
@@ -998,12 +998,12 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                   const Piece p = location_to_piece_[from_row + 1][from_col + 2];
                   if (p.Present()) {
                       if (p.GetTeam() != my_team) {
-                          new (current++) Move(from_row, from_col, from_row + 1, from_col + 2, p.GetRaw(), true);
+                          new (current++) Move(from_row, from_col, from_row + 1, from_col + 2, p.GetRaw());
                           threats += 16;
                       }
                       threats += 1;
                   } else {
-                      new (current++) Move(from_row, from_col, from_row + 1, from_col + 2, 0, true);
+                      new (current++) Move(from_row, from_col, from_row + 1, from_col + 2, 0);
                   }
               }
               // (+1, -2)
@@ -1011,12 +1011,12 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                   const Piece p = location_to_piece_[from_row + 1][from_col - 2];
                   if (p.Present()) {
                       if (p.GetTeam() != my_team) {
-                          new (current++) Move(from_row, from_col, from_row + 1, from_col - 2, p.GetRaw(), true);
+                          new (current++) Move(from_row, from_col, from_row + 1, from_col - 2, p.GetRaw());
                           threats += 16;
                       }
                       threats += 1;
                   } else {
-                      new (current++) Move(from_row, from_col, from_row + 1, from_col - 2, 0, true);
+                      new (current++) Move(from_row, from_col, from_row + 1, from_col - 2, 0);
                   }
               }
               // (-1, +2)
@@ -1024,12 +1024,12 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                   const Piece p = location_to_piece_[from_row - 1][from_col + 2];
                   if (p.Present()) {
                       if (p.GetTeam() != my_team) {
-                          new (current++) Move(from_row, from_col, from_row - 1, from_col + 2, p.GetRaw(), true);
+                          new (current++) Move(from_row, from_col, from_row - 1, from_col + 2, p.GetRaw());
                           threats += 16;
                       }
                       threats += 1;
                   } else {
-                      new (current++) Move(from_row, from_col, from_row - 1, from_col + 2, 0, true);
+                      new (current++) Move(from_row, from_col, from_row - 1, from_col + 2, 0);
                   }
               }
               // (-1, -2)
@@ -1037,12 +1037,12 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                   const Piece p = location_to_piece_[from_row - 1][from_col - 2];
                   if (p.Present()) {
                       if (p.GetTeam() != my_team) {
-                          new (current++) Move(from_row, from_col, from_row - 1, from_col - 2, p.GetRaw(), true);
+                          new (current++) Move(from_row, from_col, from_row - 1, from_col - 2, p.GetRaw());
                           threats += 16;
                       }
                       threats += 1;
                   } else {
-                      new (current++) Move(from_row, from_col, from_row - 1, from_col - 2, 0, true);
+                      new (current++) Move(from_row, from_col, from_row - 1, from_col - 2, 0);
                   }
               }
   
@@ -1059,7 +1059,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
         const Piece captured = location_to_piece_[from_row - 1][from_col - 1];
         if (captured.Missing() || captured.GetTeam() != my_team) {
             //*current++ = Move(from, {row - 1, col - 1}, captured, castling_rights);
-            new (current++) Move(from_row, from_col, from_row -1, from_col - 1, captured.GetRaw(), castling_rights, true);
+            new (current++) Move(from_row, from_col, from_row -1, from_col - 1, captured.GetRaw(), castling_rights);
         }
       //}
     }
@@ -1069,7 +1069,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
         const Piece captured = location_to_piece_[from_row - 1][from_col + 1];
         if (captured.Missing() || captured.GetTeam() != my_team) {
             //*current++ = Move(from, {row - 1, col + 1}, captured, castling_rights);
-            new (current++) Move(from_row, from_col, from_row -1, from_col + 1, captured.GetRaw(), castling_rights, true);
+            new (current++) Move(from_row, from_col, from_row -1, from_col + 1, captured.GetRaw(), castling_rights);
         }
     }
 
@@ -1078,7 +1078,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
         const Piece captured = location_to_piece_[from_row + 1][from_col - 1];
         if (captured.Missing() || captured.GetTeam() != my_team) {
             //*current++ = Move(from, {row + 1, col - 1}, captured, castling_rights);
-            new (current++) Move(from_row, from_col, from_row + 1, from_col - 1, captured.GetRaw(), castling_rights, true);
+            new (current++) Move(from_row, from_col, from_row + 1, from_col - 1, captured.GetRaw(), castling_rights);
         }
     }
 
@@ -1087,7 +1087,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
         const Piece captured = location_to_piece_[from_row + 1][from_col + 1];
         if (captured.Missing() || captured.GetTeam() != my_team) {
             //*current++ = Move(from, {row + 1, col + 1}, captured, castling_rights);
-            new (current++) Move(from_row, from_col, from_row + 1, from_col + 1, captured.GetRaw(), castling_rights, true);
+            new (current++) Move(from_row, from_col, from_row + 1, from_col + 1, captured.GetRaw(), castling_rights);
         }
     }
 
@@ -1096,7 +1096,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
       const Piece captured = location_to_piece_[from_row - 1][from_col];
       if (captured.Missing()) {
         //*current++ = Move(from, {row - 1, col});
-        new (current++) Move(from_row, from_col, from_row - 1, from_col, 0, true);
+        new (current++) Move(from_row, from_col, from_row - 1, from_col, 0);
 
         // Blue queenside castling
         if (current_color == BLUE &&
@@ -1111,7 +1111,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                 7, 0,  // king_from
                 5, 0,  // king_to
                 3, 0, 6, 0,  // rook_from, rook_to
-                castling_rights, true
+                castling_rights
             );
         }
 
@@ -1127,12 +1127,12 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                 6, 13,  // king_from
                 4, 13,  // king_to
                 3, 13, 5, 13,  // rook_from, rook_to
-                castling_rights, true
+                castling_rights
             );
         }
       } else if (captured.GetTeam() != my_team) {
         //*current++ = Move(from, {row - 1, col}, captured, castling_rights);
-        new (current++) Move(from_row, from_col, from_row - 1, from_col, captured.GetRaw(), castling_rights, true);
+        new (current++) Move(from_row, from_col, from_row - 1, from_col, captured.GetRaw(), castling_rights);
       }
     }
 
@@ -1141,7 +1141,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
       const Piece captured = location_to_piece_[from_row][from_col - 1];
       if (captured.Missing()) {
         //*current++ = Move(from, {row, col - 1});
-        new (current++) Move(from_row, from_col, from_row, from_col - 1, 0, true);
+        new (current++) Move(from_row, from_col, from_row, from_col - 1, 0);
 
         // Red queenside castling - optimized
         if (current_color == RED &&
@@ -1157,7 +1157,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
               13, 7,  // king_from
               13, 5,  // king_to
               13, 3, 13, 6,  // rook_from, rook_to
-              castling_rights, true
+              castling_rights
             );
         }
         // YELLOW kingside castling - optimized
@@ -1172,12 +1172,12 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                 0, 6,  // king_from
                 0, 4,  // king_to
                 0, 3, 0, 5,  // rook_from, rook_to
-                castling_rights, true
+                castling_rights
             );
         }   
       } else if (captured.GetTeam() != my_team) {
         //*current++ = Move(from, {row, col - 1}, captured, castling_rights);
-        new (current++) Move(from_row, from_col, from_row, from_col - 1, captured.GetRaw(), castling_rights, true);
+        new (current++) Move(from_row, from_col, from_row, from_col - 1, captured.GetRaw(), castling_rights);
       }
     }
 
@@ -1186,7 +1186,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
       const Piece captured = location_to_piece_[from_row][from_col + 1];
       if (captured.Missing()) {
         //*current++ = Move(from, {row, col + 1});
-        new (current++) Move(from_row, from_col, from_row, from_col + 1, 0, true);
+        new (current++) Move(from_row, from_col, from_row, from_col + 1, 0);
 
         // RED kingside castling - optimized
         if (current_color == RED &&
@@ -1200,7 +1200,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                 13, 7,  // king_from
                 13, 9,  // king_to
                 13, 10, 13, 8,  // rook_from, rook_to
-                castling_rights, true
+                castling_rights
             );
         }
         // YELLOW queenside castling - optimized
@@ -1217,12 +1217,12 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                 0, 6,  // king_from
                 0, 8,  // king_to
                 0, 10, 0, 7,  // rook_from, rook_to
-                castling_rights, true
+                castling_rights
             );
         }
       } else if (captured.GetTeam() != my_team) {
         //*current++ = Move(from, {row, col + 1}, captured, castling_rights);
-        new (current++) Move(from_row, from_col, from_row, from_col + 1, captured.GetRaw(), castling_rights, true);
+        new (current++) Move(from_row, from_col, from_row, from_col + 1, captured.GetRaw(), castling_rights);
       }
     }
   // down
@@ -1231,7 +1231,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
       const Piece captured = location_to_piece_[from_row + 1][from_col];
       if (captured.Missing()) {
         //*current++ = Move(from, {row + 1, col});
-        new (current++) Move(from_row, from_col, from_row + 1, from_col, 0, true);
+        new (current++) Move(from_row, from_col, from_row + 1, from_col, 0);
 
         // BLUE kingside castling
           if (current_color == BLUE &&
@@ -1244,7 +1244,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
               7, 0,  // king_from
               9, 0,  // king_to
               10, 0, 8, 0,  // rook_from, rook_to
-              castling_rights, true
+              castling_rights
             );
         }
         // GREEN queenside castling
@@ -1261,12 +1261,12 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
               6, 13,  // king_from
               8, 13,  // king_to
               10, 13, 7, 13,  // rook_from, rook_to
-              castling_rights, true
+              castling_rights
             );
         }
       } else if (captured.GetTeam() != my_team) {
         //*current++ = Move(from, {row + 1, col}, captured, castling_rights);
-        new (current++) Move(from_row, from_col, from_row + 1, from_col, captured.GetRaw(), castling_rights, true);
+        new (current++) Move(from_row, from_col, from_row + 1, from_col, captured.GetRaw(), castling_rights);
       }
     }
             } break;
@@ -1316,7 +1316,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                   }
                   
                   if (!blocked) {
-                      new (current++) Move(from_row, from_col, r, c, 0, true);
+                      new (current++) Move(from_row, from_col, r, c, 0);
                       threats += 16;
                   }
                 }
@@ -1338,7 +1338,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                     }
                     
                     if (!blocked) {
-                        new (current++) Move(from_row, from_col, r, c, 0, true);
+                        new (current++) Move(from_row, from_col, r, c, 0);
                         threats += 16;
                     }
                 }
@@ -1362,7 +1362,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                       }
                       
                       if (!blocked) {
-                          new (current++) Move(from_row, from_col, r, c, 0, true);
+                          new (current++) Move(from_row, from_col, r, c, 0);
                           threats += 16;
                       }
                   }
@@ -1386,7 +1386,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                   }
                   
                   if (!blocked) {
-                      new (current++) Move(from_row, from_col, r, c, 0, true);
+                      new (current++) Move(from_row, from_col, r, c, 0);
                       threats += 16;
                   }
               }
@@ -1396,7 +1396,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
               uint8_t dc = c > from_col ? c - from_col : from_col - c;
               
               if (dr * dc == 2) {
-                  new (current++) Move(from_row, from_col, r, c, 0, true);
+                  new (current++) Move(from_row, from_col, r, c, 0);
                   threats += 16;
               }
             } break;
@@ -1406,11 +1406,11 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                 case RED:
                   // RED moves up (-1, 0), starts at row 12
                   if (row_diff == -1 && col_diff == 0) {
-                      new (current++) Move(from_row, from_col, r, c, 0, true);
+                      new (current++) Move(from_row, from_col, r, c, 0);
                       threats += 16;
                   } else if (row_diff == -2 && col_diff == 0 && from_row == 12) {
                       if (GetPiece(from_row - 1, c).Missing()) {
-                          new (current++) Move(from_row, from_col, r, c, 0, true);
+                          new (current++) Move(from_row, from_col, r, c, 0);
                           threats += 16;
                       }
                   }
@@ -1418,11 +1418,11 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                 case BLUE:
                   // BLUE moves right (0, +1), starts at col 1
                   if (row_diff == 0 && col_diff == 1) {
-                      new (current++) Move(from_row, from_col, r, c, 0, true);
+                      new (current++) Move(from_row, from_col, r, c, 0);
                       threats += 16;
                   } else if (row_diff == 0 && col_diff == 2 && from_col == 1) {
                       if (GetPiece(r, from_col + 1).Missing()) {
-                          new (current++) Move(from_row, from_col, r, c, 0, true);
+                          new (current++) Move(from_row, from_col, r, c, 0);
                           threats += 16;
                       }
                   }
@@ -1430,11 +1430,11 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                 case YELLOW:
                   // YELLOW moves down (+1, 0), starts at row 1
                   if (row_diff == 1 && col_diff == 0) {
-                      new (current++) Move(from_row, from_col, r, c, 0, true);
+                      new (current++) Move(from_row, from_col, r, c, 0);
                       threats += 16;
                   } else if (row_diff == 2 && col_diff == 0 && from_row == 1) {
                       if (GetPiece(from_row + 1, c).Missing()) {
-                          new (current++) Move(from_row, from_col, r, c, 0, true);
+                          new (current++) Move(from_row, from_col, r, c, 0);
                           threats += 16;
                       }
                   }
@@ -1442,11 +1442,11 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                 case GREEN:
                   // GREEN moves left (0, -1), starts at col 12
                   if (row_diff == 0 && col_diff == -1) {
-                      new (current++) Move(from_row, from_col, r, c, 0, true);
+                      new (current++) Move(from_row, from_col, r, c, 0);
                       threats += 16;
                   } else if (row_diff == 0 && col_diff == -2 && from_col == 12) {
                       if (GetPiece(r, from_col - 1).Missing()) {
-                          new (current++) Move(from_row, from_col, r, c, 0, true);
+                          new (current++) Move(from_row, from_col, r, c, 0);
                           threats += 16;
                       }
                   }
@@ -1483,7 +1483,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                           tc += col_step;
                       }
                       if (!occupied) {
-                        new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw(), true);
+                        new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw());
                         threats += 16;
                       }
                   }
@@ -1498,7 +1498,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                           }
                       }
                       if (occupied == true) {
-                        new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw(), true);
+                        new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw());
                         threats += 16;
                       }
                   } else if (from_col == att_col) {
@@ -1510,7 +1510,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                           }
                       }
                       if (occupied == true) {
-                        new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw(), true);
+                        new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw());
                         threats += 16;
                       }
                   }
@@ -1526,7 +1526,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                           }
                       }
                       if (occupied == true) {
-                        new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw(), true);
+                        new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw());
                         threats += 16;
                       }
                   } else if (from_col == att_col) {
@@ -1538,7 +1538,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                           }
                       }
                       if (occupied == true) {
-                        new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw(), true);
+                        new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw());
                         threats += 16;
                       }
                   }
@@ -1559,7 +1559,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                           tc += col_step;
                       }
                       if (!occupied) {
-                        new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw(), true);
+                        new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw());
                         threats += 16;
                       }
                   }
@@ -1570,28 +1570,28 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                     case RED:
                         // RED captures up-left (-1,-1) and up-right (-1,+1)
                         if (row_diff == -1 && (col_diff == -1 || col_diff == 1)) {
-                            new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw(), true);
+                            new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw());
                             threats += 16;
                         }
                         break;
                     case BLUE:
                         // BLUE captures up-right (-1,+1) and down-right (+1,+1)
                         if (col_diff == 1 && (row_diff == -1 || row_diff == 1)) {
-                            new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw(), true);
+                            new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw());
                             threats += 16;
                         }
                         break;
                     case YELLOW:
                         // YELLOW captures down-right (+1,+1) and down-left (+1,-1)
                         if (row_diff == 1 && (col_diff == 1 || col_diff == -1)) {
-                            new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw(), true);
+                            new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw());
                             threats += 16;
                         }
                         break;
                     case GREEN:
                         // GREEN captures down-left (+1,-1) and up-left (-1,-1)
                         if (col_diff == -1 && (row_diff == 1 || row_diff == -1)) {
-                            new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw(), true);
+                            new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw());
                             threats += 16;
                         }
                         break;
@@ -1603,7 +1603,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
               uint8_t dc = c > from_col ? c - from_col : from_col - c;
               
               if (dr * dc == 2) {
-                    new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw(), true);
+                    new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw());
                     threats += 16;
                 }
             } break;
@@ -1619,7 +1619,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
       //if (!IsAttackedByTeam(enemy_team, {row - 1, col - 1})) {
         const Piece captured = location_to_piece_[from_row - 1][from_col - 1];
         if (captured.Missing() || captured.GetTeam() != my_team) {
-            new (current++) Move(from_row, from_col, from_row -1, from_col - 1, captured.GetRaw(), castling_rights, true);
+            new (current++) Move(from_row, from_col, from_row -1, from_col - 1, captured.GetRaw(), castling_rights);
         }
       //}
     }
@@ -1628,7 +1628,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     if (IsLegalLocation(from_row - 1, from_col + 1)) {
         const Piece captured = location_to_piece_[from_row - 1][from_col + 1];
         if (captured.Missing() || captured.GetTeam() != my_team) {
-            new (current++) Move(from_row, from_col, from_row -1, from_col + 1, captured.GetRaw(), castling_rights, true);
+            new (current++) Move(from_row, from_col, from_row -1, from_col + 1, captured.GetRaw(), castling_rights);
         }
     }
 
@@ -1636,7 +1636,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     if (IsLegalLocation(from_row + 1, from_col - 1)) {
         const Piece captured = location_to_piece_[from_row + 1][from_col - 1];
         if (captured.Missing() || captured.GetTeam() != my_team) {
-            new (current++) Move(from_row, from_col, from_row + 1, from_col - 1, captured.GetRaw(), castling_rights, true);
+            new (current++) Move(from_row, from_col, from_row + 1, from_col - 1, captured.GetRaw(), castling_rights);
         }
     }
 
@@ -1644,7 +1644,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     if (IsLegalLocation(from_row + 1, from_col + 1)) {
         const Piece captured = location_to_piece_[from_row + 1][from_col + 1];
         if (captured.Missing() || captured.GetTeam() != my_team) {
-            new (current++) Move(from_row, from_col, from_row + 1, from_col + 1, captured.GetRaw(), castling_rights, true);
+            new (current++) Move(from_row, from_col, from_row + 1, from_col + 1, captured.GetRaw(), castling_rights);
         }
     }
 
@@ -1652,9 +1652,9 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     if (IsLegalLocation(from_row - 1, from_col)) {
       const Piece captured = location_to_piece_[from_row - 1][from_col];
       if (captured.Missing()) {
-        new (current++) Move(from_row, from_col, from_row - 1, from_col, 0, true);
+        new (current++) Move(from_row, from_col, from_row - 1, from_col, 0);
       } else if (captured.GetTeam() != my_team) {
-        new (current++) Move(from_row, from_col, from_row - 1, from_col, captured.GetRaw(), castling_rights, true);
+        new (current++) Move(from_row, from_col, from_row - 1, from_col, captured.GetRaw(), castling_rights);
       }
     }
 
@@ -1662,9 +1662,9 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     if (IsLegalLocation(from_row, from_col - 1)) {
       const Piece captured = location_to_piece_[from_row][from_col - 1];
       if (captured.Missing()) {
-        new (current++) Move(from_row, from_col, from_row, from_col - 1, 0, true);
+        new (current++) Move(from_row, from_col, from_row, from_col - 1, 0);
       } else if (captured.GetTeam() != my_team) {
-        new (current++) Move(from_row, from_col, from_row, from_col - 1, captured.GetRaw(), castling_rights, true);
+        new (current++) Move(from_row, from_col, from_row, from_col - 1, captured.GetRaw(), castling_rights);
       }
     }
 
@@ -1672,9 +1672,9 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     if (IsLegalLocation(from_row, from_col + 1)) {
       const Piece captured = location_to_piece_[from_row][from_col + 1];
       if (captured.Missing()) {
-        new (current++) Move(from_row, from_col, from_row, from_col + 1, 0, true);
+        new (current++) Move(from_row, from_col, from_row, from_col + 1, 0);
       } else if (captured.GetTeam() != my_team) {
-        new (current++) Move(from_row, from_col, from_row, from_col + 1, captured.GetRaw(), castling_rights, true);
+        new (current++) Move(from_row, from_col, from_row, from_col + 1, captured.GetRaw(), castling_rights);
       }
     }
   // down
@@ -1682,9 +1682,9 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
 
       const Piece captured = location_to_piece_[from_row + 1][from_col];
       if (captured.Missing()) {
-        new (current++) Move(from_row, from_col, from_row + 1, from_col, 0, true);
+        new (current++) Move(from_row, from_col, from_row + 1, from_col, 0);
       } else if (captured.GetTeam() != my_team) {
-        new (current++) Move(from_row, from_col, from_row + 1, from_col, captured.GetRaw(), castling_rights, true);
+        new (current++) Move(from_row, from_col, from_row + 1, from_col, captured.GetRaw(), castling_rights);
       }
     }
             } break;
@@ -1724,7 +1724,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                           tc += col_step;
                       }
                       if (!occupied) {
-                        new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw(), true);
+                        new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw());
                         threats += 16;
                       }
                   }
@@ -1739,7 +1739,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                           }
                       }
                       if (occupied == true) {
-                        new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw(), true);
+                        new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw());
                         threats += 16;
                       }
                   } else if (from_col == att_col) {
@@ -1751,7 +1751,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                           }
                       }
                       if (occupied == true) {
-                        new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw(), true);
+                        new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw());
                         threats += 16;
                       }
                   }
@@ -1767,7 +1767,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                           }
                       }
                       if (occupied == true) {
-                        new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw(), true);
+                        new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw());
                         threats += 16;
                       }
                   } else if (from_col == att_col) {
@@ -1779,7 +1779,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                           }
                       }
                       if (occupied == true) {
-                        new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw(), true);
+                        new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw());
                         threats += 16;
                       }
                   }
@@ -1801,7 +1801,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                           tc += col_step;
                       }
                       if (!occupied) {
-                        new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw(), true);
+                        new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw());
                         threats += 16;
                       }
                   }
@@ -1813,28 +1813,28 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                     case RED:
                         // RED captures up-left (-1,-1) and up-right (-1,+1)
                         if (row_diff == -1 && (col_diff == -1 || col_diff == 1)) {
-                            new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw(), true);
+                            new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw());
                             threats += 16;
                         }
                         break;
                     case BLUE:
                         // BLUE captures up-right (-1,+1) and down-right (+1,+1)
                         if (col_diff == 1 && (row_diff == -1 || row_diff == 1)) {
-                            new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw(), true);
+                            new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw());
                             threats += 16;
                         }
                         break;
                     case YELLOW:
                         // YELLOW captures down-right (+1,+1) and down-left (+1,-1)
                         if (row_diff == 1 && (col_diff == 1 || col_diff == -1)) {
-                            new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw(), true);
+                            new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw());
                             threats += 16;
                         }
                         break;
                     case GREEN:
                         // GREEN captures down-left (+1,-1) and up-left (-1,-1)
                         if (col_diff == -1 && (row_diff == 1 || row_diff == -1)) {
-                            new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw(), true);
+                            new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw());
                             threats += 16;
                         }
                         break;
@@ -1846,7 +1846,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
                 uint8_t dc = col_diff > 0 ? col_diff : -col_diff;
                 
                 if (dr * dc == 2) {
-                    new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw(), true);
+                    new (current++) Move(from_row, from_col, att_row, att_col, attacking_piece.GetRaw());
                     threats += 16;
                 }
             } break;
@@ -1861,7 +1861,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     if (IsLegalLocation(from_row - 1, from_col - 1)) {
         const Piece captured = location_to_piece_[from_row - 1][from_col - 1];
         if (captured.Missing() || captured.GetTeam() != my_team) {
-            new (current++) Move(from_row, from_col, from_row -1, from_col - 1, captured.GetRaw(), castling_rights, true);
+            new (current++) Move(from_row, from_col, from_row -1, from_col - 1, captured.GetRaw(), castling_rights);
         }
     }
 
@@ -1869,7 +1869,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     if (IsLegalLocation(from_row - 1, from_col + 1)) {
         const Piece captured = location_to_piece_[from_row - 1][from_col + 1];
         if (captured.Missing() || captured.GetTeam() != my_team) {
-            new (current++) Move(from_row, from_col, from_row -1, from_col + 1, captured.GetRaw(), castling_rights, true);
+            new (current++) Move(from_row, from_col, from_row -1, from_col + 1, captured.GetRaw(), castling_rights);
         }
     }
 
@@ -1877,7 +1877,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     if (IsLegalLocation(from_row + 1, from_col - 1)) {
         const Piece captured = location_to_piece_[from_row + 1][from_col - 1];
         if (captured.Missing() || captured.GetTeam() != my_team) {
-            new (current++) Move(from_row, from_col, from_row + 1, from_col - 1, captured.GetRaw(), castling_rights, true);
+            new (current++) Move(from_row, from_col, from_row + 1, from_col - 1, captured.GetRaw(), castling_rights);
         }
     }
 
@@ -1885,7 +1885,7 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     if (IsLegalLocation(from_row + 1, from_col + 1)) {
         const Piece captured = location_to_piece_[from_row + 1][from_col + 1];
         if (captured.Missing() || captured.GetTeam() != my_team) {
-            new (current++) Move(from_row, from_col, from_row + 1, from_col + 1, captured.GetRaw(), castling_rights, true);
+            new (current++) Move(from_row, from_col, from_row + 1, from_col + 1, captured.GetRaw(), castling_rights);
         }
     }
 
@@ -1893,9 +1893,9 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     if (IsLegalLocation(from_row - 1, from_col)) {
       const Piece captured = location_to_piece_[from_row - 1][from_col];
       if (captured.Missing()) {
-        new (current++) Move(from_row, from_col, from_row - 1, from_col, 0, true);
+        new (current++) Move(from_row, from_col, from_row - 1, from_col, 0);
       } else if (captured.GetTeam() != my_team) {
-        new (current++) Move(from_row, from_col, from_row - 1, from_col, captured.GetRaw(), castling_rights, true);
+        new (current++) Move(from_row, from_col, from_row - 1, from_col, captured.GetRaw(), castling_rights);
       }
     }
 
@@ -1903,9 +1903,9 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     if (IsLegalLocation(from_row, from_col - 1)) {
       const Piece captured = location_to_piece_[from_row][from_col - 1];
       if (captured.Missing()) {
-        new (current++) Move(from_row, from_col, from_row, from_col - 1, 0, true);
+        new (current++) Move(from_row, from_col, from_row, from_col - 1, 0);
       } else if (captured.GetTeam() != my_team) {
-        new (current++) Move(from_row, from_col, from_row, from_col - 1, captured.GetRaw(), castling_rights, true);
+        new (current++) Move(from_row, from_col, from_row, from_col - 1, captured.GetRaw(), castling_rights);
       }
     }
 
@@ -1913,9 +1913,9 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     if (IsLegalLocation(from_row, from_col + 1)) {
       const Piece captured = location_to_piece_[from_row][from_col + 1];
       if (captured.Missing()) {
-        new (current++) Move(from_row, from_col, from_row, from_col + 1, 0, true);
+        new (current++) Move(from_row, from_col, from_row, from_col + 1, 0);
       } else if (captured.GetTeam() != my_team) {
-        new (current++) Move(from_row, from_col, from_row, from_col + 1, captured.GetRaw(), castling_rights, true);
+        new (current++) Move(from_row, from_col, from_row, from_col + 1, captured.GetRaw(), castling_rights);
       }
     }
   // down
@@ -1923,9 +1923,9 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
 
       const Piece captured = location_to_piece_[from_row + 1][from_col];
       if (captured.Missing()) {
-        new (current++) Move(from_row, from_col, from_row + 1, from_col, 0, true);
+        new (current++) Move(from_row, from_col, from_row + 1, from_col, 0);
       } else if (captured.GetTeam() != my_team) {
-        new (current++) Move(from_row, from_col, from_row + 1, from_col, captured.GetRaw(), castling_rights, true);
+        new (current++) Move(from_row, from_col, from_row + 1, from_col, captured.GetRaw(), castling_rights);
       }
     }
              }
@@ -2025,21 +2025,23 @@ void Board::MakeMove(const Move& move) {
     const auto ep_capture_team = ep_capture.GetTeam();
 
     //RemovePiece(move.To());
-    auto& placed_pieces = piece_list_[ep_capture_color];
-    auto it = std::find_if(placed_pieces.begin(), placed_pieces.end(),
-        [ep_target_row, ep_target_col](const auto& placed_piece) {
-            return placed_piece.GetRow() == ep_target_row &&
-                   placed_piece.GetCol() == ep_target_col;
-        });
-    if (it != placed_pieces.end()) {
-        placed_pieces.erase(it);
+    int8_t idx = piece_list_index_[ep_target_row][ep_target_col];
+    if (idx >= 0) {
+      // Swap with last element to avoid O(n) erase
+      int8_t last_idx = piece_list_[ep_capture_color].size() - 1;
+      piece_list_[ep_capture_color][idx] = piece_list_[ep_capture_color][last_idx];
+      // Update index of the moved piece
+      PlacedPiece& moved = piece_list_[ep_capture_color][idx];
+      piece_list_index_[moved.GetRow()][moved.GetCol()] = idx;
+      piece_list_[ep_capture_color].pop_back();
+      piece_list_index_[ep_target_row][ep_target_col] = -1;
     } else {
         std::cout << "MakeMove en passant: Failed to find captured piece in piece_list_" << std::endl;
         abort();
     }
 
     UpdatePieceHash(ep_capture, ep_target_row, ep_target_col);
-    location_to_piece_[ep_target_row][ep_target_col] = Piece();
+    location_to_piece_[ep_target_row][ep_target_col] = Piece(Piece::kRawNoPiece);
 
     // Update piece eval
     int piece_eval = kPieceEvaluations[PAWN];
@@ -2060,21 +2062,23 @@ void Board::MakeMove(const Move& move) {
     const auto capture_type = standard_capture.GetPieceType();
 
     //RemovePiece(move.To());
-    auto& placed_pieces = piece_list_[capture_color];
-    auto it = std::find_if(placed_pieces.begin(), placed_pieces.end(),
-        [to_row, to_col](const auto& placed_piece) {
-            return placed_piece.GetRow() == to_row &&
-                   placed_piece.GetCol() == to_col;
-        });
-    if (it != placed_pieces.end()) {
-        placed_pieces.erase(it);
+    int8_t idx = piece_list_index_[to_row][to_col];
+    if (idx >= 0) {
+      // Swap with last element to avoid O(n) erase
+      int8_t last_idx = piece_list_[capture_color].size() - 1;
+      piece_list_[capture_color][idx] = piece_list_[capture_color][last_idx];
+      // Update index of the moved piece
+      PlacedPiece& moved = piece_list_[capture_color][idx];
+      piece_list_index_[moved.GetRow()][moved.GetCol()] = idx;
+      piece_list_[capture_color].pop_back();
+      piece_list_index_[to_row][to_col] = -1;
     } else {
         std::cout << "MakeMove Failed to find captured piece in piece_list_" << std::endl;
         abort();
     }
 
     UpdatePieceHash(standard_capture, to_row, to_col);
-    location_to_piece_[to_row][to_col] = Piece();
+    location_to_piece_[to_row][to_col] = Piece(Piece::kRawNoPiece);
 
     // Update king location
     if (capture_type == KING) {
@@ -2091,23 +2095,19 @@ void Board::MakeMove(const Move& move) {
     player_piece_evaluations_[capture_color] -= piece_eval;
   }
 
-  // Find the piece in the piece list
-  auto& pieces = piece_list_[color];
-  auto it = std::find_if(pieces.begin(), pieces.end(),
-    [from_row, from_col](const auto& placed_piece) {
-        return placed_piece.GetRow() == from_row &&
-               placed_piece.GetCol() == from_col;
-  });
-  if (it != pieces.end()) {
-    // Update the piece's location by creating a new PlacedPiece with the new location
-    *it = PlacedPiece(to_row, to_col);
+  // Update the piece's location in piece_list_ using index lookup
+  int8_t idx = piece_list_index_[from_row][from_col];
+  if (idx >= 0) {
+    piece_list_[color][idx] = PlacedPiece(to_row, to_col);
+    piece_list_index_[from_row][from_col] = -1;
+    piece_list_index_[to_row][to_col] = idx;
   } else {
     std::cout << "MakeMove Failed to find moving piece in piece_list_" << std::endl;
     abort();
   }
 
   UpdatePieceHash(piece, from_row, from_col);
-  location_to_piece_[from_row][from_col] = Piece();
+  location_to_piece_[from_row][from_col] = Piece(Piece::kRawNoPiece);
 
   // Update king location
   if (piece_type == KING) {
@@ -2133,17 +2133,12 @@ void Board::MakeMove(const Move& move) {
   if (promotion_type != NO_PIECE) {
     // Create promoted piece with same player/color (optimized with raw constructor)
     const int8_t promoted_raw = Piece::ComputeRawBits(color, promotion_type);
-    const Piece promoted_piece(promoted_raw, true);
+    const Piece promoted_piece(promoted_raw);
     
-    // Replace in piece_list_
-    auto& pieces = piece_list_[color];
-    auto it = std::find_if(pieces.begin(), pieces.end(),
-      [to_row, to_col](const auto& placed_piece) {
-        return placed_piece.GetRow() == to_row &&
-               placed_piece.GetCol() == to_col;
-      });
-    if (it != pieces.end()) {
-      *it = PlacedPiece(to_row, to_col);
+    // Replace in piece_list_ (piece stays at same position, no index change needed)
+    int8_t idx = piece_list_index_[to_row][to_col];
+    if (idx >= 0) {
+      piece_list_[color][idx] = PlacedPiece(to_row, to_col);
     }
     
     // Replace on board
@@ -2163,32 +2158,28 @@ void Board::MakeMove(const Move& move) {
     player_piece_evaluations_[color] += promotion_eval;
   }
 
-  const auto rook_move = move.GetRookMove();
-  if (rook_move.FromRow() >= 0) {
+  if (move.RookFromRow() >= 0) {
     castling_rights_[color] = CastlingRights(false, false);
 
     // Handle the rook move for castling
-    const int8_t rook_from_row = rook_move.FromRow();
-    const int8_t rook_from_col = rook_move.FromCol();
-    const int8_t rook_to_row = rook_move.ToRow();
-    const int8_t rook_to_col = rook_move.ToCol();
+    const int8_t rook_from_row = move.RookFromRow();
+    const int8_t rook_from_col = move.RookFromCol();
+    const int8_t rook_to_row = move.RookToRow();
+    const int8_t rook_to_col = move.RookToCol();
 
     // Get the rook piece from its original position
     const auto rook_piece = location_to_piece_[rook_from_row][rook_from_col];
 
     // Move the rook to its new position
-    location_to_piece_[rook_from_row][rook_from_col] = Piece();
+    location_to_piece_[rook_from_row][rook_from_col] = Piece(Piece::kRawNoPiece);
     location_to_piece_[rook_to_row][rook_to_col] = rook_piece;
     
     // Update the rook's position in the piece list
-    auto& pieces = piece_list_[rook_piece.GetColor()];
-    auto it = std::find_if(pieces.begin(), pieces.end(),
-        [rook_from_row, rook_from_col](const auto& placed_piece) {
-            return placed_piece.GetRow() == rook_from_row &&
-                   placed_piece.GetCol() == rook_from_col;
-        });
-    if (it != pieces.end()) {
-        *it = PlacedPiece(rook_to_row, rook_to_col);
+    int8_t rook_idx = piece_list_index_[rook_from_row][rook_from_col];
+    if (rook_idx >= 0) {
+      piece_list_[rook_piece.GetColor()][rook_idx] = PlacedPiece(rook_to_row, rook_to_col);
+      piece_list_index_[rook_from_row][rook_from_col] = -1;
+      piece_list_index_[rook_to_row][rook_to_col] = rook_idx;
     }
     
     // Update piece hash for the rook move
@@ -2225,22 +2216,19 @@ void Board::UndoMove() {
   const PlayerColor color = piece.GetColor();
                        
   // Find and update the moved piece's location in one pass
-  auto& pieces = piece_list_[color];
-  auto it = std::find_if(pieces.begin(), pieces.end(),
-      [to_row, to_col](const auto& placed_piece) {
-          return placed_piece.GetRow() == to_row &&
-                 placed_piece.GetCol() == to_col;
-      });
-  if (it != pieces.end()) {
-      // Update the piece's location by creating a new PlacedPiece
-      *it = PlacedPiece(from_row, from_col);
+  // Update the piece's location using index lookup
+  int8_t idx = piece_list_index_[to_row][to_col];
+  if (idx >= 0) {
+    piece_list_[color][idx] = PlacedPiece(from_row, from_col);
+    piece_list_index_[to_row][to_col] = -1;
+    piece_list_index_[from_row][from_col] = idx;
   } else {
       std::cout << "Failed to find moved piece in piece_list_ during UndoMove" << std::endl;
       std::abort();
   }
 
   UpdatePieceHash(piece, to_row, to_col);
-  location_to_piece_[to_row][to_col] = Piece();
+  location_to_piece_[to_row][to_col] = Piece(Piece::kRawNoPiece);
 
   // end remove
 
@@ -2250,18 +2238,13 @@ void Board::UndoMove() {
   const PieceType promotion_type = move.GetPromotionPieceType();
   if (promotion_type != NO_PIECE) {
     // Create original pawn piece (optimized with precomputed raw bits)
-    const Piece pawn_piece(Piece::kRawPawn[color], true);
+    const Piece pawn_piece(Piece::kRawPawn[color]);
     location_to_piece_[from_row][from_col] = pawn_piece;
     
-    // Replace promoted piece with pawn in piece_list_
-    auto& pieces = piece_list_[color];
-    auto it = std::find_if(pieces.begin(), pieces.end(),
-      [from_row, from_col](const auto& placed_piece) {
-        return placed_piece.GetRow() == from_row &&
-               placed_piece.GetCol() == from_col;
-      });
-    if (it != pieces.end()) {
-      *it = PlacedPiece(from_row, from_col);
+    // Replace promoted piece with pawn in piece_list_ (piece stays at same position, no index change needed)
+    int8_t idx = piece_list_index_[from_row][from_col];
+    if (idx >= 0) {
+      piece_list_[color][idx] = PlacedPiece(from_row, from_col);
     }
     
     // Update hash: remove promoted piece, add pawn
@@ -2296,7 +2279,9 @@ void Board::UndoMove() {
     const int8_t ep_target_col = move.GetEnpassantTargetCol();
     const PlayerColor ep_color = ep_capture.GetColor();
     location_to_piece_[ep_target_row][ep_target_col] = ep_capture;
+    int8_t idx = piece_list_[ep_color].size();
     piece_list_[ep_color].emplace_back(ep_target_row, ep_target_col);
+    piece_list_index_[ep_target_row][ep_target_col] = idx;
     UpdatePieceHash(ep_capture, ep_target_row, ep_target_col);
     
     const int piece_eval = kPieceEvaluations[PAWN];
@@ -2311,7 +2296,9 @@ void Board::UndoMove() {
       const PlayerColor capture_color = standard_capture.GetColor();
       const PieceType capture_type = standard_capture.GetPieceType();
       location_to_piece_[to_row][to_col] = standard_capture;
+      int8_t idx = piece_list_[capture_color].size();
       piece_list_[capture_color].emplace_back(to_row, to_col);
+      piece_list_index_[to_row][to_col] = idx;
       UpdatePieceHash(standard_capture, to_row, to_col);
       // Update king location if needed
       if (capture_type == KING) {
@@ -2329,33 +2316,30 @@ void Board::UndoMove() {
   // Clear en passant target for the current player when undoing a move
   en_passant_targets_[color] = EnPassantTarget{};
 
-  const auto rook_move = move.GetRookMove();
-  if (rook_move.FromRow() >= 0) {
+  if (move.RookFromRow() >= 0) {
 
     castling_rights_[color] = move.GetInitialCastlingRights();
 
     // Undo the rook move for castling
-    const int8_t rook_from_row = rook_move.FromRow();
-    const int8_t rook_from_col = rook_move.FromCol();
-    const int8_t rook_to_row = rook_move.ToRow();
-    const int8_t rook_to_col = rook_move.ToCol();
+    const int8_t rook_from_row = move.RookFromRow();
+    const int8_t rook_from_col = move.RookFromCol();
+    const int8_t rook_to_row = move.RookToRow();
+    const int8_t rook_to_col = move.RookToCol();
 
     // Get the rook piece from its current position
     const auto rook_piece = location_to_piece_[rook_to_row][rook_to_col];
 
     // Move the rook back to its original position
-    location_to_piece_[rook_to_row][rook_to_col] = Piece();
+    location_to_piece_[rook_to_row][rook_to_col] = Piece(Piece::kRawNoPiece);
     location_to_piece_[rook_from_row][rook_from_col] = rook_piece;
 
     // Update the rook's position in the piece list
-    auto& pieces = piece_list_[rook_piece.GetColor()];
-    auto it = std::find_if(pieces.begin(), pieces.end(),
-        [rook_to_row, rook_to_col](const auto& placed_piece) {
-            return placed_piece.GetRow() == rook_to_row &&
-                   placed_piece.GetCol() == rook_to_col;
-        });
-    if (it != pieces.end()) {
-        *it = PlacedPiece(rook_from_row, rook_from_col);
+    // Update the rook's position using index lookup
+    int8_t rook_idx = piece_list_index_[rook_to_row][rook_to_col];
+    if (rook_idx >= 0) {
+      piece_list_[rook_piece.GetColor()][rook_idx] = PlacedPiece(rook_from_row, rook_from_col);
+      piece_list_index_[rook_to_row][rook_to_col] = -1;
+      piece_list_index_[rook_from_row][rook_from_col] = rook_idx;
     }
 
     // Update piece hash for the rook move
@@ -2394,7 +2378,7 @@ int Board::PieceEvaluation(PlayerColor color) const {
 
 Board::Board(
     Player turn,
-    std::unordered_map<BoardLocation, Piece> location_to_piece,
+    std::unordered_map<std::pair<int8_t, int8_t>, Piece> location_to_piece,
     std::optional<std::unordered_map<Player, CastlingRights>> castling_rights,
     std::optional<EnpassantInitialization> enp)
   : turn_(std::move(turn)) {
@@ -2417,8 +2401,6 @@ Board::Board(
   if (enp.has_value()) {
     enp_ = std::move(*enp);
   }
-  move_buffer_.reserve(1000);
-
   for (int i = 0; i < 4; i++) {
     piece_list_.push_back(std::vector<PlacedPiece>());
     piece_list_[i].reserve(16);
@@ -2426,13 +2408,22 @@ Board::Board(
     king_col_[i] = -1;
   }
 
+  // Initialize piece_list_index_ to -1 (no piece at any position)
+  for (int row = 0; row < 14; row++) {
+    for (int col = 0; col < 14; col++) {
+      piece_list_index_[row][col] = -1;
+    }
+  }
+
   for (const auto& it : location_to_piece) {
     const auto& location = it.first;
     const auto& piece = it.second;
     PlayerColor color = piece.GetColor();
-    location_to_piece_[location.GetRow()][location.GetCol()] = piece;
+    location_to_piece_[location.first][location.second] = piece;
+    int8_t idx = piece_list_[piece.GetColor()].size();
     piece_list_[piece.GetColor()].push_back(PlacedPiece(
-          location.GetRow(), location.GetCol()));
+          location.first, location.second));
+    piece_list_index_[location.first][location.second] = idx;
     PieceType piece_type = piece.GetPieceType();
     if (piece.GetTeam() == RED_YELLOW) {
       piece_evaluation_ += kPieceEvaluations[static_cast<int>(piece_type)];
@@ -2441,8 +2432,8 @@ Board::Board(
     }
     player_piece_evaluations_[piece.GetColor()] += kPieceEvaluations[static_cast<int>(piece_type)];
     if (piece.GetPieceType() == KING) {
-      king_row_[color] = location.GetRow();
-      king_col_[color] = location.GetCol();
+      king_row_[color] = location.first;
+      king_col_[color] = location.second;
     }
   }
 
@@ -2534,7 +2525,7 @@ Player GetPreviousPlayer(const Player& player) {
 }
 
 std::shared_ptr<Board> Board::CreateStandardSetup() {
-  std::unordered_map<BoardLocation, Piece> location_to_piece;
+  std::unordered_map<std::pair<int8_t, int8_t>, Piece> location_to_piece;
   std::unordered_map<Player, CastlingRights> castling_rights;
 
   std::vector<PieceType> piece_types = {
@@ -2546,30 +2537,35 @@ std::shared_ptr<Board> Board::CreateStandardSetup() {
     Player player(color);
     castling_rights[player] = CastlingRights(true, true);
 
-    BoardLocation piece_location;
-    int delta_row = 0;
-    int delta_col = 0;
-    int pawn_offset_row = 0;
-    int pawn_offset_col = 0;
+    int8_t piece_row = 0;
+    int8_t piece_col = 0;
+    int8_t delta_row = 0;
+    int8_t delta_col = 0;
+    int8_t pawn_offset_row = 0;
+    int8_t pawn_offset_col = 0;
 
     switch (color) {
     case RED:
-      piece_location = BoardLocation(13, 3);
+      piece_row = 13;
+      piece_col = 3;
       delta_col = 1;
       pawn_offset_row = -1;
       break;
     case BLUE:
-      piece_location = BoardLocation(3, 0);
+      piece_row = 3;
+      piece_col = 0;
       delta_row = 1;
       pawn_offset_col = 1;
       break;
     case YELLOW:
-      piece_location = BoardLocation(0, 10);
+      piece_row = 0;
+      piece_col = 10;
       delta_col = -1;
       pawn_offset_row = 1;
       break;
     case GREEN:
-      piece_location = BoardLocation(10, 13);
+      piece_row = 10;
+      piece_col = 13;
       delta_row = -1;
       pawn_offset_col = -1;
       break;
@@ -2579,11 +2575,12 @@ std::shared_ptr<Board> Board::CreateStandardSetup() {
     }
 
     for (const PieceType piece_type : piece_types) {
-      BoardLocation pawn_location = piece_location.Relative(
-          pawn_offset_row, pawn_offset_col);
-      location_to_piece[piece_location] = Piece(player.GetColor(), piece_type);
-      location_to_piece[pawn_location] = Piece(player.GetColor(), PAWN);
-      piece_location = piece_location.Relative(delta_row, delta_col);
+      int8_t pawn_row = piece_row + pawn_offset_row;
+      int8_t pawn_col = piece_col + pawn_offset_col;
+      location_to_piece[{piece_row, piece_col}] = Piece(player.GetColor(), piece_type);
+      location_to_piece[{pawn_row, pawn_col}] = Piece(player.GetColor(), PAWN);
+      piece_row += delta_row;
+      piece_col += delta_col;
     }
   }
 
@@ -2652,12 +2649,6 @@ std::ostream& operator<<(
   return os;
 }
 
-std::ostream& operator<<(
-    std::ostream& os, const BoardLocation& location) {
-  os << "Loc(" << (int)location.GetRow() << ", " << (int)location.GetCol() << ")";
-  return os;
-}
-
 std::ostream& operator<<(std::ostream& os, const Move& move) {
   os << "Move(" << move.FromRow() << "," << move.FromCol() << " -> " << move.ToRow() << "," << move.ToCol()<< ")";
   return os;
@@ -2694,54 +2685,9 @@ const CastlingRights& Board::GetCastlingRights(const Player& player) const {
   return castling_rights_[player.GetColor()];
 }
 
-std::optional<CastlingType> Board::GetRookLocationType(
-    const Player& player, const BoardLocation& location) const {
-  switch (player.GetColor()) {
-  case RED:
-    if (location == kRedInitialRookLocationKingside) {
-      return KINGSIDE;
-    } else if (location == kRedInitialRookLocationQueenside) {
-      return QUEENSIDE;
-    }
-    break;
-  case BLUE:
-    if (location == kBlueInitialRookLocationKingside) {
-      return KINGSIDE;
-    } else if (location == kBlueInitialRookLocationQueenside) {
-      return QUEENSIDE;
-    }
-    break;
-  case YELLOW:
-    if (location == kYellowInitialRookLocationKingside) {
-      return KINGSIDE;
-    } else if (location == kYellowInitialRookLocationQueenside) {
-      return QUEENSIDE;
-    }
-    break;
-  case GREEN:
-    if (location == kGreenInitialRookLocationKingside) {
-      return KINGSIDE;
-    } else if (location == kGreenInitialRookLocationQueenside) {
-      return QUEENSIDE;
-    }
-    break;
-  default:
-    assert(false);
-    break;
-  }
-  return std::nullopt;
-}
-
 Team OtherTeam(Team team) {
   return team == RED_YELLOW ? BLUE_GREEN : RED_YELLOW;
 }
-
-//std::string BoardLocation::PrettyStr() const {
-//  std::string s;
-//  s += ('a' + GetCol());
-//  s += std::to_string(14 - GetRow());
-//  return s;
-//}
 
 std::string Move::PrettyStr() const {
   std::string s;
@@ -2763,7 +2709,7 @@ uint32_t Move::Pack() const {
   packed |= (static_cast<uint32_t>(to_row_) & 0xF) << 8;
   packed |= (static_cast<uint32_t>(to_col_) & 0xF) << 12;
   packed |= (static_cast<uint32_t>(promotion_piece_type_) & 0x7) << 16;
-  if (rook_move_.FromRow() >= 0) {
+  if (rook_from_row_ >= 0) {
     packed |= (1u << 19);  // Is castling
   }
   if (en_passant_capture_.Present()) {
@@ -2786,9 +2732,9 @@ Move Move::Unpack(uint32_t packed, const Board& board) {
     CastlingRights rights = board.GetCastlingRights(board.GetTurn());
     // Rook move is derived from king's from/to
     if (to_c > from_c) {  // Kingside
-      return Move(from_r, from_c, to_r, to_c, from_r, 13, from_r, to_c - 1, rights, true);
+      return Move(from_r, from_c, to_r, to_c, from_r, 13, from_r, to_c - 1, rights);
     } else {  // Queenside
-      return Move(from_r, from_c, to_r, to_c, from_r, 0, from_r, to_c + 1, rights, true);
+      return Move(from_r, from_c, to_r, to_c, from_r, 0, from_r, to_c + 1, rights);
     }
   }
 
@@ -2809,19 +2755,19 @@ Move Move::Unpack(uint32_t packed, const Board& board) {
       captured_col = (moving_piece.GetColor() == BLUE) ? to_c - 1 : to_c + 1;
     }
     const Piece& captured = board.GetPiece(captured_row, captured_col);
-    return Move(from_r, from_c, to_r, to_c, captured_row, captured_col, captured.GetRaw(), true);
+    return Move(from_r, from_c, to_r, to_c, captured_row, captured_col, captured.GetRaw());
   }
 
   // Standard move or promotion
   // en passant promotion not implemented
   const Piece& captured = board.GetPiece(to_r, to_c);
   if (promotion != NO_PIECE) {
-    return Move(from_r, from_c, to_r, to_c, captured.GetRaw(), promotion, true);
+    return Move(from_r, from_c, to_r, to_c, captured.GetRaw(), promotion);
   }
 
   // Regular move with possible capture
-  int8_t capture_raw = captured.Missing() ? Piece().GetRaw() : captured.GetRaw();
-  return Move(from_r, from_c, to_r, to_c, capture_raw, true);
+  int8_t capture_raw = captured.Missing() ? Piece::kRawNoPiece : captured.GetRaw();
+  return Move(from_r, from_c, to_r, to_c, capture_raw);
 }
 
 void Board::PrintBoard() const {

@@ -71,7 +71,7 @@ std::optional<std::vector<bool>> ParseCastlingAvailability(
   return availability;
 }
 
-std::optional<BoardLocation> ParseEnpLocation(const std::string& enp) {
+std::optional<std::pair<int8_t, int8_t>> ParseEnpLocation(const std::string& enp) {
   size_t pos = enp.find(':');
   if (pos == std::string::npos) {
     return std::nullopt;
@@ -99,10 +99,9 @@ std::optional<BoardLocation> ParseEnpLocation(const std::string& enp) {
     row = 10 * row + digit;
   }
   row = 14 - row;  // transform to 0-13
-  return BoardLocation(row, col);
+  return std::make_pair(row, col);
 }
 
-/*
 std::shared_ptr<Board> ParseBoardFromFEN(const std::string& fen) {
   std::vector<std::string> parts = SplitStr(fen, "-");
   if (parts.size() < 7 || parts.size() > 8) {
@@ -190,9 +189,9 @@ std::shared_ptr<Board> ParseBoardFromFEN(const std::string& fen) {
     for (int i = 0; i < 4; i++) {
       auto enp_location = ParseEnpLocation(parts[i]);
       if (enp_location.has_value()) {
-        BoardLocation& to = *enp_location;
-        int from_row = to.GetRow();
-        int from_col = to.GetCol();
+        auto& to = *enp_location;
+        int8_t from_row = to.first;
+        int8_t from_col = to.second;
         switch (static_cast<PlayerColor>(i)) {
         case RED:
           from_row += 2;
@@ -209,7 +208,7 @@ std::shared_ptr<Board> ParseBoardFromFEN(const std::string& fen) {
         default:
           break;
         }
-        enp.enp_moves[i] = Move(BoardLocation(from_row, from_col), to);
+        enp.enp_moves[i] = Move(from_row, from_col, to.first, to.second, 0);
       }
     }
   }
@@ -219,7 +218,7 @@ std::shared_ptr<Board> ParseBoardFromFEN(const std::string& fen) {
   if (rows.size() != 14) {
     return nullptr;  // invalid format
   }
-  std::unordered_map<BoardLocation, Piece> location_to_piece;
+  std::unordered_map<std::pair<int8_t, int8_t>, Piece> location_to_piece;
   for (size_t row = 0; row < rows.size(); row++) {
     std::vector<std::string> cols = SplitStr(rows[row], ",");
     int col = 0;
@@ -235,7 +234,7 @@ std::shared_ptr<Board> ParseBoardFromFEN(const std::string& fen) {
         if (col_str.size() != 2) {
           return nullptr;  // invalid format
         }
-        BoardLocation location(row, col);
+        std::pair<int8_t, int8_t> location(row, col);
 
         PlayerColor player_color;
         switch (ch) {
@@ -304,7 +303,6 @@ std::shared_ptr<Board> ParseBoardFromFEN(const std::string& fen) {
       std::move(player), std::move(location_to_piece),
       std::move(castling_rights), std::move(enp));
 }
-*/
 
 void SendInfoMessage(const std::string& message) {
   std::cout << "info string " << message << std::endl;
@@ -316,7 +314,13 @@ void SendInvalidCommandMessage(const std::string& line) {
 
 namespace {
 
-std::optional<std::tuple<size_t, BoardLocation>> ParseLocation(
+struct ParseLocationResult {
+  size_t next_pos;
+  int8_t row;
+  int8_t col;
+};
+
+std::optional<ParseLocationResult> ParseLocation(
     const std::string& move_str, size_t start) {
   // Skip '-' and 'x'
   if (start < move_str.size() && (move_str[start] == '-'
@@ -351,7 +355,7 @@ std::optional<std::tuple<size_t, BoardLocation>> ParseLocation(
   }
   // transform 1-14 upwards to 0-13 downwards
   row = 14 - row;
-  return std::make_tuple(start, BoardLocation(row, col));
+  return ParseLocationResult{start, static_cast<int8_t>(row), static_cast<int8_t>(col)};
 }
 
 std::optional<std::tuple<size_t, PieceType>> ParsePromotion(
@@ -399,17 +403,19 @@ std::optional<Move> ParseMove(Board& board, const std::string& move_str_ref) {
   if (!from.has_value()) {
     return std::nullopt;
   }
-  auto to = ParseLocation(move_str, std::get<0>(*from));
+  auto to = ParseLocation(move_str, from->next_pos);
   if (!to.has_value()) {
     return std::nullopt;
   }
-  auto promotion = ParsePromotion(move_str, std::get<0>(*to));
+  auto promotion = ParsePromotion(move_str, to->next_pos);
   if (!promotion.has_value()) {
     return std::nullopt;
   }
 
-  BoardLocation from_loc = std::get<1>(*from);
-  BoardLocation to_loc = std::get<1>(*to);
+  int8_t from_row = from->row;
+  int8_t from_col = from->col;
+  int8_t to_row = to->row;
+  int8_t to_col = to->col;
   PieceType promotion_piece_type = std::get<1>(*promotion);
 
   Move moves[300];
@@ -418,8 +424,8 @@ std::optional<Move> ParseMove(Board& board, const std::string& move_str_ref) {
 
   for (size_t i = 0; i < num_moves; i++) {
     const auto& move = moves[i];
-    if (move.FromRow() == from_loc.GetRow() && move.FromCol() == from_loc.GetCol() &&
-        move.ToRow() == to_loc.GetRow() && move.ToCol() == to_loc.GetCol()
+    if (move.FromRow() == from_row && move.FromCol() == from_col &&
+        move.ToRow() == to_row && move.ToCol() == to_col
         && move.GetPromotionPieceType() == promotion_piece_type) {
       return move;
     }
