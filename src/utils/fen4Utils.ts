@@ -209,6 +209,57 @@ const parseSquare = (square: string): { x: number; y: number } => {
 };
 
 /**
+ * Parses a PGN4 file/string and extracts individual move strings
+ * PGN4 format includes tag pairs and movetext. This function extracts just the moves.
+ * @param pgn4Content - PGN4 file content as a string
+ * @returns Array of move strings (e.g., ['d2-d4', 'b8-c8', 'k13-k11', 'm8-l8'])
+ */
+export const pgn4ToString = (pgn4Content: string): string[] => {
+  const moves: string[] = [];
+  
+  // Split into lines
+  const lines = pgn4Content.split('\n');
+  
+  // Find where movetext starts (after tag pairs)
+  let inMovetext = false;
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    
+    // Skip empty lines
+    if (!trimmed) continue;
+    
+    // Check if we're still in tag pairs
+    if (trimmed.startsWith('[')) {
+      inMovetext = false;
+      continue;
+    }
+    
+    // We're now in movetext
+    inMovetext = true;
+    
+    // Remove move numbers (e.g., "1.", "2.")
+    let moveLine = trimmed.replace(/^\d+\.\s*/, '');
+    
+    // Remove check/checkmate/elimination markers (+, #, R, T)
+    moveLine = moveLine.replace(/[+#RT]/g, '');
+    
+    // Split by two periods to get individual moves
+    const parts = moveLine.split(/\.\./);
+    
+    for (const part of parts) {
+      const move = part.trim();
+      // Skip empty moves (indicated by ".." in PGN4)
+      if (move && move !== '..') {
+        moves.push(move);
+      }
+    }
+  }
+  
+  return moves;
+};
+
+/**
  * Converts PGN4 move string to a Move object
  * PGN4 format: 'Qn8-m9' (queen from n8 to m9), 'd2-d4' (pawn), 'Qg1xQn8+' (capture)
  * Castling: '0-0' (kingside), '0-0-0' (queenside)
@@ -217,7 +268,7 @@ const parseSquare = (square: string): { x: number; y: number } => {
  * @param moveNumber - The move number in the sequence
  * @returns Move object
  */
-const pgn4ToMove = (pgn4: string, basePoints: BasePoint[], moveNumber: number): Move => {
+const pgn4StringToMove = (pgn4: string, basePoints: BasePoint[], moveNumber: number): Move => {
   // Handle castling
   if (pgn4 === '0-0' || pgn4 === '0-0-0') {
     const isQueenside = pgn4 === '0-0-0';
@@ -352,7 +403,7 @@ export const fen4FromMoves = (pgn4Moves: string[]): string => {
   let enPassantTargets = ['R', 'B', 'Y', 'G'].map(() => '');
   
   for (let i = 0; i < pgn4Moves.length; i++) {
-    const move = pgn4ToMove(pgn4Moves[i], currentBasePoints, i);
+    const move = pgn4StringToMove(pgn4Moves[i], currentBasePoints, i);
     moves.push(move);
     
     // Update en passant targets: when a pawn moves 2 squares, the skipped square becomes target

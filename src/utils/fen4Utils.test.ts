@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { fen4FromMoves, parseFen4, generateFen4 } from './fen4Utils';
+import { fen4FromMoves, parseFen4, generateFen4, pgn4ToString } from './fen4Utils';
 
 describe('fen4FromMoves', () => {
   it('returns starting FEN4 when no moves are provided', () => {
@@ -113,7 +113,7 @@ describe('fen4FromMoves', () => {
   });
 });
 
-describe('pgn4ToMove (integration test via fen4FromMoves)', () => {
+describe('pgn4StringToMove (integration test via fen4FromMoves)', () => {
   it('correctly converts PGN4 file letters to x coordinates', () => {
     // 'a' should be x=0, 'n' should be x=13
     // Blue pawn at b4 (x=1, y=10) moving to b5 (x=1, y=9)
@@ -155,5 +155,85 @@ describe('pgn4ToMove (integration test via fen4FromMoves)', () => {
     // Castling rights should be present as comma-separated values
     expect(kingsideCastling).toMatch(/^[0-1],[0-1],[0-1],[0-1]$/);
     expect(queensideCastling).toMatch(/^[0-1],[0-1],[0-1],[0-1]$/);
+  });
+});
+
+describe('pgn4ToString', () => {
+  it('extracts moves from PGN4 content', () => {
+    const pgn4Content = `
+[GameNr "519084"]
+[Result "0-1"]
+[Variant "Teams"]
+
+1. d2-d4 .. b8-c8 .. k13-k11 .. m8-l8
+2. d4-d5 .. b4-d4 .. k11-k10 .. Qn8-m8
+`;
+    const moves = pgn4ToString(pgn4Content);
+    
+    expect(moves).toEqual([
+      'd2-d4',
+      'b8-c8',
+      'k13-k11',
+      'm8-l8',
+      'd4-d5',
+      'b4-d4',
+      'k11-k10',
+      'Qn8-m8'
+    ]);
+  });
+
+  it('handles empty moves (..) correctly', () => {
+    const pgn4Content = `
+1. d2-d4 .. .. b8-c8
+`;
+    const moves = pgn4ToString(pgn4Content);
+    
+    expect(moves).toEqual(['d2-d4', 'b8-c8']);
+  });
+
+  it('removes check and checkmate markers', () => {
+    const pgn4Content = `
+1. d2-d4 .. Qf4xh2+ .. Qf12-b8+
+`;
+    const moves = pgn4ToString(pgn4Content);
+    
+    expect(moves).toEqual(['d2-d4', 'Qf4xh2', 'Qf12-b8']);
+  });
+
+  it('handles elimination markers (R, T)', () => {
+    const pgn4Content = `
+1. d2-d4 .. .. .. R
+`;
+    const moves = pgn4ToString(pgn4Content);
+    
+    expect(moves).toEqual(['d2-d4']);
+  });
+
+  it('handles castling notation', () => {
+    const pgn4Content = `
+1. 0-0 .. .. .. 0-0-0
+`;
+    const moves = pgn4ToString(pgn4Content);
+    
+    expect(moves).toEqual(['0-0', '0-0-0']);
+  });
+
+  it('handles capture notation with piece letters', () => {
+    const pgn4Content = `
+1. Qg1xQn8 .. Qb8xf4 .. Kh1xQh2
+`;
+    const moves = pgn4ToString(pgn4Content);
+    
+    expect(moves).toEqual(['Qg1xQn8', 'Qb8xf4', 'Kh1xQh2']);
+  });
+
+  it('returns empty array for content with no moves', () => {
+    const pgn4Content = `
+[GameNr "519084"]
+[Result "0-1"]
+`;
+    const moves = pgn4ToString(pgn4Content);
+    
+    expect(moves).toEqual([]);
   });
 });
