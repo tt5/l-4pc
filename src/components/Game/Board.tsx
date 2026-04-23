@@ -976,7 +976,7 @@ const Board: Component<BoardProps> = (props) => {
 
   // Function to analyze position with proper guards
   const analyzePosition = (moveIndex: number) => {
-    if (!isEngineReady() || isHandlingGoBack.current || !isAnalyzing()) return;
+    if (!isEngineReady() || isHandlingGoBack.current || isAnalysisStopped()) return;
     try {
       engine.stopAnalysis();
     } catch (error) {
