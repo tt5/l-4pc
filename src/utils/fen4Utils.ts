@@ -176,6 +176,35 @@ interface SimpleMove {
 }
 
 /**
+ * Converts a UCI move string to SimpleMove coordinates
+ * UCI format: 'a2a4' where a=0, n=13 for files and 1-14 for ranks (inverted)
+ * @param uci - UCI move string (e.g., 'a2a4')
+ * @returns SimpleMove with coordinates
+ */
+const uciToSimpleMove = (uci: string): SimpleMove => {
+  if (uci.length !== 4) {
+    throw new Error(`Invalid UCI move: ${uci}. Must be 4 characters.`);
+  }
+
+  const fromFile = uci.charCodeAt(0) - 97; // 'a' = 0
+  const fromRank = 14 - parseInt(uci[1], 10); // Rank 1 is at y=13
+  const toFile = uci.charCodeAt(2) - 97;
+  const toRank = 14 - parseInt(uci[3], 10);
+
+  if (fromFile < 0 || fromFile > 13 || toFile < 0 || toFile > 13 ||
+      fromRank < 0 || fromRank > 13 || toRank < 0 || toRank > 13) {
+    throw new Error(`Invalid UCI move: ${uci}. Coordinates out of bounds.`);
+  }
+
+  return {
+    fromX: fromFile,
+    fromY: fromRank,
+    toX: toFile,
+    toY: toRank
+  };
+};
+
+/**
  * Applies a move to the basePoints array
  * @param basePoints - Current board state
  * @param move - Move to apply
@@ -217,11 +246,11 @@ const applyMove = (basePoints: BasePoint[], move: SimpleMove): BasePoint[] => {
 };
 
 /**
- * Creates a FEN4 string from a list of moves starting from the initial position
- * @param moves - Array of moves to apply
+ * Creates a FEN4 string from a list of UCI moves starting from the initial position
+ * @param uciMoves - Array of UCI move strings (e.g., ['a2a4', 'b2b4'])
  * @returns FEN4 string representing the position after all moves
  */
-export const fen4FromMoves = (moves: SimpleMove[]): string => {
+export const fen4FromMoves = (uciMoves: string[]): string => {
   // Parse the starting position
   const { basePoints, currentPlayerIndex } = parseFen4(STARTING_FEN4);
   
@@ -229,7 +258,8 @@ export const fen4FromMoves = (moves: SimpleMove[]): string => {
   let currentBasePoints = [...basePoints];
   let currentPlayerIdx = currentPlayerIndex;
   
-  for (const move of moves) {
+  for (const uci of uciMoves) {
+    const move = uciToSimpleMove(uci);
     currentBasePoints = applyMove(currentBasePoints, move);
     // Alternate to next player (R -> B -> Y -> G -> R)
     currentPlayerIdx = (currentPlayerIdx + 1) % 4;
