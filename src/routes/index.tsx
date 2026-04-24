@@ -18,6 +18,9 @@ export default function Home() {
         <A href="/game" class={styles.link}>
           Enter Game
         </A>
+        <A href="/training" class={styles.link}>
+          Training
+        </A>
       </div>
     </div>
   );
