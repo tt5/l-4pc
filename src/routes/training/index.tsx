@@ -8,6 +8,7 @@ export default function TrainingPage() {
   const [currentPuzzle, setCurrentPuzzle] = createSignal<any | null>(null);
   const [loading, setLoading] = createSignal(true);
   const [error, setError] = createSignal<string | null>(null);
+  const [puzzleSolved, setPuzzleSolved] = createSignal(false);
 
   const loadPuzzles = async () => {
     try {
@@ -36,6 +37,25 @@ export default function TrainingPage() {
   const handleMove = (move: { fromX: number; fromY: number; toX: number; toY: number }) => {
     console.log('Move made:', move);
     // TODO: Implement solution verification
+  };
+
+  const handleCheckmate = (winnerColor: string) => {
+    setPuzzleSolved(true);
+    console.log('Checkmate! Winner:', winnerColor);
+
+    // Auto-advance to next puzzle after 2 seconds
+    setTimeout(() => {
+      const puzzleList = puzzles();
+      if (puzzleList.length === 0) return;
+
+      const currentIndex = puzzleList.findIndex(p => p.id === currentPuzzle()?.id);
+      const nextIndex = (currentIndex + 1) % puzzleList.length;
+      const nextPuzzle = puzzleList[nextIndex];
+
+      setCurrentPuzzle(nextPuzzle);
+      setCurrentFen4(nextPuzzle.fen4);
+      setPuzzleSolved(false);
+    }, 2000);
   };
 
   const selectPuzzle = (puzzle: any) => {
@@ -89,10 +109,11 @@ export default function TrainingPage() {
                     Color to move: {currentPuzzle().color_to_move}
                   </p>
                 </div>
-                <TrainingBoard 
-                  fen4={currentFen4()} 
+                <TrainingBoard
+                  fen4={currentFen4()}
                   onMove={handleMove}
-                  readOnly={false}
+                  onCheckmate={handleCheckmate}
+                  readOnly={puzzleSolved()}
                 />
               </div>
             ) : (
