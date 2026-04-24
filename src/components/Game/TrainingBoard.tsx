@@ -62,7 +62,7 @@ export const TrainingBoard: Component<TrainingBoardProps> = (props) => {
   const handleBasePointPickup = (point: Point) => {
     if (props.readOnly) return;
     
-    const piece = basePoints().find(bp => bp.x === point.x && bp.y === point.y);
+    const piece = basePoints().find(bp => bp.x === point[0] && bp.y === point[1]);
     if (!piece) return;
 
     const currentPlayerColor = PLAYER_COLORS[currentPlayerIndex()];
@@ -75,7 +75,7 @@ export const TrainingBoard: Component<TrainingBoardProps> = (props) => {
 
   const handleCellHover = (x: number, y: number, isHovered: boolean) => {
     if (isHovered) {
-      setHoveredCell({ x, y });
+      setHoveredCell(createPoint(x, y));
     } else {
       setHoveredCell(null);
     }
@@ -88,7 +88,7 @@ export const TrainingBoard: Component<TrainingBoardProps> = (props) => {
     const selected = selectedCell();
 
     // If clicking on same cell, deselect
-    if (selected && selected.x === x && selected.y === y) {
+    if (selected && selected[0] === x && selected[1] === y) {
       setSelectedCell(null);
       setPickedUpBasePoint(null);
       return;
@@ -99,7 +99,7 @@ export const TrainingBoard: Component<TrainingBoardProps> = (props) => {
       if (piece) {
         const currentPlayerColor = PLAYER_COLORS[currentPlayerIndex()];
         if (piece.color === currentPlayerColor) {
-          setSelectedCell({ x, y });
+          setSelectedCell(createPoint(x, y));
           setPickedUpBasePoint(piece);
         }
       }
@@ -107,7 +107,7 @@ export const TrainingBoard: Component<TrainingBoardProps> = (props) => {
     }
 
     // If piece selected, try to move
-    const selectedPiece = basePoints().find(bp => bp.x === selected.x && bp.y === selected.y);
+    const selectedPiece = basePoints().find(bp => bp.x === selected[0] && bp.y === selected[1]);
     if (selectedPiece) {
       const legalMoves = getLegalMoves(selectedPiece, basePoints());
       const isValidMove = legalMoves.some(move => move.x === x && move.y === y);
@@ -119,7 +119,7 @@ export const TrainingBoard: Component<TrainingBoardProps> = (props) => {
       } else {
         // If clicking on another piece of current player, select it instead
         if (piece && piece.color === PLAYER_COLORS[currentPlayerIndex()]) {
-          setSelectedCell({ x, y });
+          setSelectedCell(createPoint(x, y));
           setPickedUpBasePoint(piece);
         } else {
           setSelectedCell(null);
@@ -166,10 +166,10 @@ export const TrainingBoard: Component<TrainingBoardProps> = (props) => {
     const piece = pickedUpBasePoint()!;
     const target = hoveredCell()!;
     const legalMoves = getLegalMoves(piece, basePoints());
-    const isValidMove = legalMoves.some(move => move.x === target.x && move.y === target.y);
+    const isValidMove = legalMoves.some(move => move.x === target[0] && move.y === target[1]);
 
     if (isValidMove) {
-      makeMove(piece, target.x, target.y);
+      makeMove(piece, target[0], target[1]);
     }
 
     cleanupDragState();
@@ -201,8 +201,8 @@ export const TrainingBoard: Component<TrainingBoardProps> = (props) => {
     const pickedUp = pickedUpBasePoint();
 
     const isBasePoint = !!piece;
-    const isSelected = selected && selected.x === x && selected.y === y;
-    const isHovered = hovered && hovered.x === x && hovered.y === y;
+    const isSelected = selected && selected[0] === x && selected[1] === y;
+    const isHovered = hovered && hovered[0] === x && hovered[1] === y;
     const isNonPlayable = isInNonPlayableCorner(x, y);
 
     // Check if this is a valid drop target
