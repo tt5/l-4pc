@@ -344,20 +344,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
           std::unique_lock<std::shared_mutex> lock(checkmate_mutex_);
           // Double-check in case another thread added it between our check and now
           checkmate_positions_.insert(key).second;
-
-          // Checkmate discovery mode: export FEN to file
-          if (options_.checkmate_discovery_mode && checkmate_file_ && checkmate_file_->is_open()) {
-            std::lock_guard<std::mutex> file_lock(checkmate_file_mutex_);
-            std::string fen = board.ToFEN();
-            *checkmate_file_ << fen << std::endl;
-            checkmate_file_->flush();
-
-            int discovered = checkmates_discovered_.fetch_add(1) + 1;
-            if (discovered >= options_.max_checkmates_to_discover) {
-              canceled_ = true;
-              std::cout << "Checkmate discovery complete: found " << discovered << " checkmates" << std::endl;
-            }
-          }
         }
 
       //const auto game_result = capture.GetTeam() == RED_YELLOW ? WIN_BG : WIN_RY;
