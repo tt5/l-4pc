@@ -94,7 +94,7 @@ export default function TrainingPage() {
     // Auto-advance to next puzzle after 2 seconds
     setTimeout(() => {
       goToNext();
-    }, 500);
+    }, 200);
   };
 
 
