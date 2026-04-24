@@ -84,9 +84,19 @@ export default function TrainingPage() {
     loadRandomPuzzle();
   });
 
-  const handleMove = (move: { fromX: number; fromY: number; toX: number; toY: number }) => {
+  const handleMove = (move: { fromX: number; fromY: number; toX: number; toY: number; isCheckmate: boolean }) => {
     console.log('Move made:', move);
-    // TODO: Implement solution verification
+    
+    if (!move.isCheckmate) {
+      // Puzzle failed - move didn't result in checkmate
+      setPuzzleSolved(true);
+      console.log('Puzzle failed - move did not result in checkmate');
+      
+      // Auto-advance to next puzzle after 500ms
+      setTimeout(() => {
+        goToNext();
+      }, 500);
+    }
   };
 
   const handleCheckmate = (winnerColor: string) => {
@@ -129,7 +139,7 @@ export default function TrainingPage() {
 
   return (
     <div class={styles.container}>
-      <h1 class={styles.title}>Training Mode</h1>
+      <h1 class={styles.title}>#1</h1>
       
       {loading() && <div>Loading puzzle...</div>}
       

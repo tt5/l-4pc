@@ -22,5 +22,3 @@ cp cli ..
 - [ ] rotate board
 - [ ] promote branch
 - [ ] keyboard controls
-- [x] export/import pgn4
-- [ ] start from fen4, show fen4

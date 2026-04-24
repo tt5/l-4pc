@@ -23,7 +23,7 @@ import styles from './TrainingBoard.module.css';
 
 interface TrainingBoardProps {
   fen4?: string;
-  onMove?: (move: { fromX: number; fromY: number; toX: number; toY: number }) => void;
+  onMove?: (move: { fromX: number; fromY: number; toX: number; toY: number; isCheckmate: boolean }) => void;
   onCheckmate?: (winnerColor: string) => void;
   onStalemate?: () => void;
   readOnly?: boolean;
@@ -161,6 +161,7 @@ export const TrainingBoard: Component<TrainingBoardProps> = (props) => {
     // Check for checkmate or stalemate
     const currentPlayerColor = PLAYER_COLORS[currentPlayerIndex()];
     const king = newBasePoints.find(bp => bp.pieceType === 'king' && bp.color === currentPlayerColor);
+    let isCheckmate = false;
 
     if (king) {
       const hasLegalMoves = hasAnyLegalMoves(currentPlayerColor, newBasePoints);
@@ -168,6 +169,7 @@ export const TrainingBoard: Component<TrainingBoardProps> = (props) => {
         const inCheck = isKingInCheck(king, newBasePoints);
         if (inCheck) {
           // Checkmate - previous player wins
+          isCheckmate = true;
           const winnerIndex = (currentPlayerIndex() - 1 + 4) % 4;
           const winnerColor = PLAYER_COLORS[winnerIndex];
           if (props.onCheckmate) {
@@ -184,7 +186,7 @@ export const TrainingBoard: Component<TrainingBoardProps> = (props) => {
 
     // Call callback
     if (props.onMove) {
-      props.onMove({ fromX, fromY, toX, toY });
+      props.onMove({ fromX, fromY, toX, toY, isCheckmate });
     }
   };
 

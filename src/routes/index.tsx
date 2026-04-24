@@ -19,7 +19,7 @@ export default function Home() {
           Enter Game
         </A>
         <A href="/training" class={styles.link}>
-          Training
+          Training (checkmate in one)
         </A>
       </div>
     </div>
