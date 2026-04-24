@@ -150,10 +150,11 @@ export const TrainingBoard: Component<TrainingBoardProps> = (props) => {
     }).filter((bp): bp is BasePoint => bp !== null);
 
     setBasePoints(newBasePoints);
-    updateRestrictedSquares(newBasePoints);
 
     // Update current player
     setCurrentPlayerIndex(prev => (prev + 1) % 4);
+
+    updateRestrictedSquares(newBasePoints);
 
     // Call callback
     if (props.onMove) {
