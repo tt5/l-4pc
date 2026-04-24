@@ -22,3 +22,9 @@ cp cli ..
 - [ ] rotate board
 - [ ] promote branch
 - [ ] keyboard controls
+
+# Scripts
+
+```bash
+npx tsx scripts/verify-puzzles.ts
+```

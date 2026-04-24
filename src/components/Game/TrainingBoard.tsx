@@ -10,6 +10,7 @@ import { TrainingGridCell } from './TrainingGridCell';
 import { parseFen4 } from '~/utils/fen4Utils';
 import { getLegalMoves, hasAnyLegalMoves, isKingInCheck } from '~/utils/gameUtils';
 import { calculateRestrictedSquares } from '~/utils/boardUtils';
+import { verifyCheckmateInOne as verifyCheckmateInOneUtil } from '~/utils/puzzleVerification';
 import { 
   BOARD_CONFIG,
   isInNonPlayableCorner,
@@ -56,6 +57,64 @@ export const TrainingBoard: Component<TrainingBoardProps> = (props) => {
       }
     }
   });
+
+  const verifyCheckmateInOne = (fen4?: string): { found: boolean; move?: { fromX: number; fromY: number; toX: number; toY: number } } => {
+    // Use provided fen4 or construct from current board state
+    if (fen4) {
+      return verifyCheckmateInOneUtil(fen4);
+    } else {
+      // Construct FEN4 from current board state for verification
+      // This is a simplified approach - in a real implementation you'd want a proper FEN4 serializer
+      // For now, we'll just use the utility directly with the pieces and player index
+      const pieces = basePoints();
+      const playerIndex = currentPlayerIndex();
+      
+      const currentPlayerColor = PLAYER_COLORS[playerIndex];
+      const currentPlayerPieces = pieces.filter(p => p.color === currentPlayerColor);
+      
+      // Try all pieces of the current player
+      for (const piece of currentPlayerPieces) {
+        const legalMoves = getLegalMoves(piece, pieces);
+        
+        // Try each legal move for this piece
+        for (const move of legalMoves) {
+          // Simulate the move
+          const newBasePoints = pieces.map(bp => {
+            if (bp.x === piece.x && bp.y === piece.y) {
+              return { ...bp, x: move.x, y: move.y, hasMoved: true };
+            }
+            // Remove captured piece
+            if (bp.x === move.x && bp.y === move.y) {
+              return null;
+            }
+            return bp;
+          }).filter((bp): bp is BasePoint => bp !== null);
+          
+          // Check if the next player is in checkmate
+          const nextPlayerIndex = (playerIndex + 1) % 4;
+          const nextPlayerColor = PLAYER_COLORS[nextPlayerIndex];
+          const nextPlayerKing = newBasePoints.find(bp => bp.pieceType === 'king' && bp.color === nextPlayerColor);
+          
+          if (nextPlayerKing) {
+            const hasLegalMoves = hasAnyLegalMoves(nextPlayerColor, newBasePoints);
+            if (!hasLegalMoves) {
+              const inCheck = isKingInCheck(nextPlayerKing, newBasePoints);
+              if (inCheck) {
+                // Checkmate found!
+                return {
+                  found: true,
+                  move: { fromX: piece.x, fromY: piece.y, toX: move.x, toY: move.y }
+                };
+              }
+            }
+          }
+        }
+      }
+      
+      // No checkmate in one found
+      return { found: false };
+    }
+  };
 
   const updateRestrictedSquares = (pieces: BasePoint[]) => {
     const currentPlayerColor = PLAYER_COLORS[currentPlayerIndex()];
