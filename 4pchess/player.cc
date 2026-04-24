@@ -443,15 +443,25 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     if (checkmate) {
         // Checkmate discovery mode: export FEN to file
         if (options_.checkmate_discovery_mode && checkmate_file_ && checkmate_file_->is_open()) {
-          std::lock_guard<std::mutex> file_lock(checkmate_file_mutex_);
           std::string fen = board.ToFEN();
-          *checkmate_file_ << fen << std::endl;
-          checkmate_file_->flush();
+          bool is_new = false;
+          
+          // Check if this FEN has already been written
+          {
+            std::lock_guard<std::mutex> lock(discovered_fens_mutex_);
+            is_new = discovered_fens_.insert(fen).second;
+          }
+          
+          if (is_new) {
+            std::lock_guard<std::mutex> file_lock(checkmate_file_mutex_);
+            *checkmate_file_ << fen << std::endl;
+            checkmate_file_->flush();
 
-          int discovered = checkmates_discovered_.fetch_add(1) + 1;
-          if (discovered >= options_.max_checkmates_to_discover) {
-            canceled_ = true;
-            std::cout << "Checkmate discovery complete: found " << discovered << " checkmates" << std::endl;
+            int discovered = checkmates_discovered_.fetch_add(1) + 1;
+            if (discovered >= options_.max_checkmates_to_discover) {
+              canceled_ = true;
+              std::cout << "Checkmate discovery complete: found " << discovered << " checkmates" << std::endl;
+            }
           }
         }
       board.UndoMove();

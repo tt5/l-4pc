@@ -319,6 +319,8 @@ class AlphaBetaPlayer {
   std::atomic<int> checkmates_discovered_ = 0;
   std::unique_ptr<std::ofstream> checkmate_file_;
   std::mutex checkmate_file_mutex_;
+  std::unordered_set<std::string> discovered_fens_;
+  std::mutex discovered_fens_mutex_;
 };
 
 }  // namespace chess
