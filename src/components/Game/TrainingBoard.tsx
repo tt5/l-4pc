@@ -243,12 +243,12 @@ export const TrainingBoard: Component<TrainingBoardProps> = (props) => {
       isValidDrop = legalMoves.some(move => move.x === x && move.y === y);
     }
 
-    // Check if this square is restricted
+    // Check if this square is restricted - only show when dragging
     const index = y * BOARD_CONFIG.GRID_SIZE + x;
-    let isRestricted = restrictedSquares().includes(index);
+    let isRestricted = false;
     
     // When dragging, only show restricted squares for the dragged piece
-    if (isRestricted && isDragging() && pickedUp) {
+    if (isDragging() && pickedUp) {
       isRestricted = restrictedSquaresInfo().some(info => 
         info.index === index && 
         info.restrictedBy.some(r => 

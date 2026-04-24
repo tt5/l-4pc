@@ -19,7 +19,7 @@
 
 .content {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   flex: 1;
   gap: var(--spacing-xl);
   min-height: 0;
@@ -27,6 +27,7 @@
 
 .navigation {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: var(--spacing-lg);
@@ -142,4 +143,36 @@
 
 .selectPuzzle {
   color: var(--color-text-muted);
+}
+
+.colorToMoveR {
+  background-color: #ef4444;
+  color: white;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius-sm);
+  display: inline-block;
+}
+
+.colorToMoveB {
+  background-color: #3b82f6;
+  color: white;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius-sm);
+  display: inline-block;
+}
+
+.colorToMoveY {
+  background-color: #eab308;
+  color: black;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius-sm);
+  display: inline-block;
+}
+
+.colorToMoveG {
+  background-color: #22c55e;
+  color: white;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius-sm);
+  display: inline-block;
 }

@@ -94,7 +94,7 @@ export default function TrainingPage() {
     // Auto-advance to next puzzle after 2 seconds
     setTimeout(() => {
       goToNext();
-    }, 2000);
+    }, 500);
   };
 
 
@@ -136,7 +136,7 @@ export default function TrainingPage() {
                 <h2 class={styles.boardTitle}>
                   Difficulty: {currentPuzzle().difficulty}
                 </h2>
-                <p class={styles.boardDescription}>
+                <p class={`${styles.boardDescription} ${styles['colorToMove' + currentPuzzle().color_to_move]}`}>
                   Color to move: {currentPuzzle().color_to_move}
                 </p>
               </div>
