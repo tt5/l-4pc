@@ -403,6 +403,19 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     int64_t current_hash = board.HashKey();
     bool checkmate = IsKnownCheckmate(current_hash);
     if (checkmate) {
+        // Checkmate discovery mode: export FEN to file
+        if (options_.checkmate_discovery_mode && checkmate_file_ && checkmate_file_->is_open()) {
+          std::lock_guard<std::mutex> file_lock(checkmate_file_mutex_);
+          std::string fen = board.ToFEN();
+          *checkmate_file_ << fen << std::endl;
+          checkmate_file_->flush();
+
+          int discovered = checkmates_discovered_.fetch_add(1) + 1;
+          if (discovered >= options_.max_checkmates_to_discover) {
+            canceled_ = true;
+            std::cout << "Checkmate discovery complete: found " << discovered << " checkmates" << std::endl;
+          }
+        }
       board.UndoMove();
       //cm_skip_count++;
       continue;
@@ -665,19 +678,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         checkmate_positions_.insert(hash_key).second;
         //total_checkmates_found++;     // Increment total checkmate counter
 
-        // Checkmate discovery mode: export FEN to file
-        if (options_.checkmate_discovery_mode && checkmate_file_ && checkmate_file_->is_open()) {
-          std::lock_guard<std::mutex> file_lock(checkmate_file_mutex_);
-          std::string fen = checkmateboard.ToFEN();
-          *checkmate_file_ << fen << std::endl;
-          checkmate_file_->flush();
-
-          int discovered = checkmates_discovered_.fetch_add(1) + 1;
-          if (discovered >= options_.max_checkmates_to_discover) {
-            canceled_ = true;
-            std::cout << "Checkmate discovery complete: found " << discovered << " checkmates" << std::endl;
-          }
-        }
       }
     /*
     }
