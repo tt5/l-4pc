@@ -11,6 +11,8 @@ export default function TrainingPage() {
   const [loading, setLoading] = createSignal(true);
   const [error, setError] = createSignal<string | null>(null);
   const [puzzleSolved, setPuzzleSolved] = createSignal(false);
+  const [reloadLoading, setReloadLoading] = createSignal(false);
+  const [reloadMessage, setReloadMessage] = createSignal<string | null>(null);
 
   const loadRandomPuzzle = async () => {
     try {
@@ -97,6 +99,33 @@ export default function TrainingPage() {
     }, 200);
   };
 
+  const handleReload = async () => {
+    try {
+      setReloadLoading(true);
+      setReloadMessage(null);
+      
+      const response = await fetch('/api/puzzles/reload', {
+        method: 'POST'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to reload puzzles');
+      }
+      
+      const data = await response.json();
+      const { imported, skipped, total } = data.data;
+      
+      setReloadMessage(`Reloaded ${imported} new puzzles (${skipped} duplicates skipped)`);
+      
+      // Refresh current puzzle after reload
+      await loadRandomPuzzle();
+    } catch (err) {
+      setReloadMessage(err instanceof Error ? err.message : 'Failed to reload puzzles');
+    } finally {
+      setReloadLoading(false);
+    }
+  };
+
 
   return (
     <div class={styles.container}>
@@ -122,11 +151,21 @@ export default function TrainingPage() {
             </div>
             <button 
               class={styles.navButton}
+              onClick={handleReload}
+              disabled={reloadLoading()}
+            >
+              {reloadLoading() ? 'Reloading...' : '↻ Reload Puzzles'}
+            </button>
+            <button 
+              class={styles.navButton}
               onClick={goToNext}
               disabled={!nextPuzzle()}
             >
               Next →
             </button>
+            {reloadMessage() && (
+              <div class={styles.reloadMessage}>{reloadMessage()}</div>
+            )}
           </div>
 
           {/* Board area */}

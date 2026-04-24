@@ -64,6 +64,13 @@
   color: var(--color-text-primary);
 }
 
+.reloadMessage {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  text-align: center;
+  padding: var(--spacing-sm);
+}
+
 .sidebar {
   width: 16rem;
   flex-shrink: 0;
