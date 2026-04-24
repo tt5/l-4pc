@@ -63,11 +63,18 @@ async function importPuzzles() {
         difficulty = 'hard';
       }
       
+      // Check if puzzle already exists
+      const existing = await db.get('SELECT id FROM puzzles WHERE fen4 = ?', [finalFen4]);
+      if (existing) {
+        console.log(`Skipping duplicate puzzle ${i + 1}`);
+        continue;
+      }
+      
       // Insert into database
       await db.run(
         `INSERT INTO puzzles (fen4, solution, difficulty, color_to_move) 
          VALUES (?, ?, ?, ?)`,
-        [fen4, solution, difficulty, currentPlayer]
+        [finalFen4, solution, difficulty, currentPlayer]
       );
       
       console.log(`Imported puzzle ${i + 1}: ${difficulty} difficulty, color ${currentPlayer}`);
