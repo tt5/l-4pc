@@ -13,6 +13,9 @@ export default function TrainingPage() {
   const [puzzleSolved, setPuzzleSolved] = createSignal(false);
   const [reloadLoading, setReloadLoading] = createSignal(false);
   const [reloadMessage, setReloadMessage] = createSignal<string | null>(null);
+  const [solved, setSolved] = createSignal(0);
+  const [failed, setFailed] = createSignal(0);
+  const [attempts, setAttempts] = createSignal(0);
 
   const loadRandomPuzzle = async () => {
     try {
@@ -87,8 +90,12 @@ export default function TrainingPage() {
   const handleMove = (move: { fromX: number; fromY: number; toX: number; toY: number; isCheckmate: boolean }) => {
     console.log('Move made:', move);
     
+    // Increment attempts on every move
+    setAttempts(prev => prev + 1);
+    
     if (!move.isCheckmate) {
       // Puzzle failed - move didn't result in checkmate
+      setFailed(prev => prev + 1);
       setPuzzleSolved(true);
       console.log('Puzzle failed - move did not result in checkmate');
       
@@ -100,6 +107,7 @@ export default function TrainingPage() {
   };
 
   const handleCheckmate = (winnerColor: string) => {
+    setSolved(prev => prev + 1);
     setPuzzleSolved(true);
     console.log('Checkmate! Winner:', winnerColor);
 
@@ -174,6 +182,9 @@ export default function TrainingPage() {
             </button>
             <div class={styles.puzzleCounter}>
               Puzzle #{currentPuzzle().id} of {totalCount()}
+            </div>
+            <div class={styles.scoreDisplay}>
+              Solved: {solved()} | Failed: {failed()} | Attempts: {attempts()}
             </div>
             <button 
               class={styles.navButton}
