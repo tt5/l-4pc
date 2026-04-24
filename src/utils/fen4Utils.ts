@@ -66,9 +66,9 @@ export const generateFen4 = (
     }
   });
   
-  // Convert board to FEN4 notation
+  // Convert board to FEN4 notation (compact format)
   const fenRows = board.map(row => {
-    const rowPieces: string[] = [];
+    let result = '';
     let emptyCount = 0;
     
     for (const square of row) {
@@ -76,19 +76,19 @@ export const generateFen4 = (
         emptyCount++;
       } else {
         if (emptyCount > 0) {
-          rowPieces.push(emptyCount.toString());
+          result += emptyCount.toString();
           emptyCount = 0;
         }
-        rowPieces.push(square);
+        result += square;
       }
     }
     
     // Add any remaining empty squares
     if (emptyCount > 0) {
-      rowPieces.push(emptyCount.toString());
+      result += emptyCount.toString();
     }
     
-    return rowPieces.join(',');
+    return result;
   });
   
   // Combine all FEN4 parts
@@ -132,27 +132,28 @@ export const parseFen4 = (fen4: string): {
   let idCounter = 1; // Start from 1 to match game.ts
   rows.forEach((row, y) => {
     let x = 0;
-    const elements = row.split(',');
+    let i = 0;
     
-    for (const element of elements) {
-      if (element === '') continue;
+    while (i < row.length && x < 14) {
+      const char = row[i];
       
-      // Handle empty squares
-      const emptySquares = parseInt(element, 10);
-      if (!isNaN(emptySquares)) {
-        x += emptySquares;
-        continue;
-      }
-      
-      // Handle pieces
-      const colorPrefix = element[0].toLowerCase();
-      const pieceCode = element[1]?.toUpperCase() || 'P';
-      
-      const color = PREFIX_TO_COLOR[colorPrefix] as NamedColor;
-      const pieceType = FEN_TO_PIECE[pieceCode] || 'pawn';
-      const team = ['r', 'y'].includes(colorPrefix) ? 1 : 2;
-      
-      if (x < 14) {  // Ensure we don't go beyond the board width
+      if (char >= '0' && char <= '9') {
+        // Parse number (could be multi-digit)
+        let numStr = char;
+        while (i + 1 < row.length && row[i + 1] >= '0' && row[i + 1] <= '9') {
+          i++;
+          numStr += row[i];
+        }
+        x += parseInt(numStr, 10);
+      } else if (char.toLowerCase() in PREFIX_TO_COLOR) {
+        // Parse piece: color prefix + piece code
+        const colorPrefix = char.toLowerCase();
+        const pieceCode = row[i + 1]?.toUpperCase() || 'P';
+        
+        const color = PREFIX_TO_COLOR[colorPrefix] as NamedColor;
+        const pieceType = FEN_TO_PIECE[pieceCode] || 'pawn';
+        const team = ['r', 'y'].includes(colorPrefix) ? 1 : 2;
+        
         basePoints.push({
           id: idCounter++,
           x,
@@ -164,9 +165,12 @@ export const parseFen4 = (fen4: string): {
           isCastle: false,
           castleType: null
         });
+        
+        x++;
+        i++; // Skip the piece code
       }
       
-      x++;
+      i++;
     }
   });
 
@@ -181,7 +185,7 @@ export const parseFen4 = (fen4: string): {
 
 // Add this to src/utils/fen4Utils.ts
 
-export const STARTING_FEN4 = 'R-0,0,0,0-1,1,1,1-1,1,1,1-0,0,0,0-0-3,yR,yN,yB,yK,yQ,yB,yN,yR,3/3,yP,yP,yP,yP,yP,yP,yP,yP,3/14/bR,bP,10,gP,gR/bN,bP,10,gP,gN/bB,bP,10,gP,gB/bK,bP,10,gP,gQ/bQ,bP,10,gP,gK/bB,bP,10,gP,gB/bN,bP,10,gP,gN/bR,bP,10,gP,gR/14/3,rP,rP,rP,rP,rP,rP,rP,rP,3/3,rR,rN,rB,rQ,rK,rB,rN,rR,3-,,,';
+export const STARTING_FEN4 = 'R-0,0,0,0-1,1,1,1-1,1,1,1-0,0,0,0-0-3yRyNyByKyQyByNyR3/3yPyPyPyPyPyPyPyP3/14/bRbP10gPgR/bNbP10gPgN/bBbP10gPgB/bKbP10gPgQ/bQbP10gPgK/bBbP10gPgB/bNbP10gPgN/bRbP10gPgR/14/3rPrPrPrPrPrPrPrP3/3rRrNrBrQrKrBrNrR3-,,,';
 
 /**
  * Parses a square notation (e.g., 'a2', 'n14') to coordinates
