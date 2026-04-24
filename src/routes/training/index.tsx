@@ -48,6 +48,7 @@ export default function TrainingPage() {
 
   const goToPrevious = async () => {
     const prev = prevPuzzle();
+    const current = currentPuzzle();
     if (!prev) return;
     
     setCurrentPuzzle(prev);
@@ -55,15 +56,15 @@ export default function TrainingPage() {
     setPuzzleSolved(false);
     await loadNeighbors(prev.id);
     
-    // Prefetch the next puzzle (which was the current)
-    if (currentPuzzle()) {
-      // The current puzzle becomes the next, no additional fetch needed
-      setNextPuzzle(currentPuzzle());
+    // The old current puzzle becomes the next
+    if (current) {
+      setNextPuzzle(current);
     }
   };
 
   const goToNext = async () => {
     const next = nextPuzzle();
+    const current = currentPuzzle();
     if (!next) return;
     
     setCurrentPuzzle(next);
@@ -71,10 +72,9 @@ export default function TrainingPage() {
     setPuzzleSolved(false);
     await loadNeighbors(next.id);
     
-    // Prefetch the next puzzle
-    if (nextPuzzle()) {
-      // The current puzzle becomes the previous
-      setPrevPuzzle(currentPuzzle());
+    // The old current puzzle becomes the previous
+    if (current) {
+      setPrevPuzzle(current);
     }
   };
 
