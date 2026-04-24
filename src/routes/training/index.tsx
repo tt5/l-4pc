@@ -1,5 +1,6 @@
 import { Component, createSignal, onMount } from 'solid-js';
 import { TrainingBoard } from '~/components/Game/TrainingBoard';
+import styles from './index.module.css';
 
 export default function TrainingPage() {
   const [currentFen4, setCurrentFen4] = createSignal<string>('');
@@ -16,10 +17,10 @@ export default function TrainingPage() {
         throw new Error('Failed to load puzzles');
       }
       const data = await response.json();
-      setPuzzles(data.puzzles || []);
-      if (data.puzzles && data.puzzles.length > 0) {
-        setCurrentPuzzle(data.puzzles[0]);
-        setCurrentFen4(data.puzzles[0].fen4);
+      setPuzzles(data.data.puzzles || []);
+      if (data.data.puzzles && data.data.puzzles.length > 0) {
+        setCurrentPuzzle(data.data.puzzles[0]);
+        setCurrentFen4(data.data.puzzles[0].fen4);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load puzzles');
@@ -43,32 +44,32 @@ export default function TrainingPage() {
   };
 
   return (
-    <div class="p-8">
-      <h1 class="text-3xl font-bold mb-6">Training Mode</h1>
+    <div class={styles.container}>
+      <h1 class={styles.title}>Training Mode</h1>
       
       {loading() && <div>Loading puzzles...</div>}
       
-      {error() && <div class="text-red-500">{error()}</div>}
+      {error() && <div class={styles.error}>{error()}</div>}
       
       {!loading() && !error() && (
-        <div class="flex gap-8">
+        <div class={styles.content}>
           {/* Puzzle list sidebar */}
-          <div class="w-64 flex-shrink-0">
-            <h2 class="text-xl font-semibold mb-4">Checkmate Puzzles</h2>
+          <div class={styles.sidebar}>
+            <h2 class={styles.sidebarTitle}>Checkmate Puzzles</h2>
             {puzzles().length === 0 ? (
-              <p class="text-gray-500">No puzzles available yet.</p>
+              <p class={styles.noPuzzles}>No puzzles available yet.</p>
             ) : (
-              <ul class="space-y-2">
+              <ul class={styles.puzzleList}>
                 {puzzles().map((puzzle, index) => (
                   <li
-                    class={`p-3 rounded cursor-pointer hover:bg-gray-100 ${
-                      currentPuzzle()?.id === puzzle.id ? 'bg-blue-100' : 'bg-gray-50'
+                    class={`${styles.puzzleItem} ${
+                      currentPuzzle()?.id === puzzle.id ? styles.puzzleItemActive : styles.puzzleItemInactive
                     }`}
                     onClick={() => selectPuzzle(puzzle)}
                   >
-                    <div class="font-medium">Puzzle #{index + 1}</div>
-                    <div class="text-sm text-gray-600">Difficulty: {puzzle.difficulty}</div>
-                    <div class="text-sm text-gray-600">Color: {puzzle.color_to_move}</div>
+                    <div class={styles.puzzleTitle}>Puzzle #{index + 1}</div>
+                    <div class={styles.puzzleMeta}>Difficulty: {puzzle.difficulty}</div>
+                    <div class={styles.puzzleMeta}>Color: {puzzle.color_to_move}</div>
                   </li>
                 ))}
               </ul>
@@ -76,14 +77,14 @@ export default function TrainingPage() {
           </div>
 
           {/* Board area */}
-          <div class="flex-1">
+          <div class={styles.boardArea}>
             {currentPuzzle() ? (
               <div>
-                <div class="mb-4">
-                  <h2 class="text-xl font-semibold">
+                <div class={styles.boardHeader}>
+                  <h2 class={styles.boardTitle}>
                     Puzzle #{puzzles().findIndex(p => p.id === currentPuzzle().id) + 1}
                   </h2>
-                  <p class="text-gray-600">
+                  <p class={styles.boardDescription}>
                     Difficulty: {currentPuzzle().difficulty} | 
                     Color to move: {currentPuzzle().color_to_move}
                   </p>
@@ -95,7 +96,7 @@ export default function TrainingPage() {
                 />
               </div>
             ) : (
-              <p class="text-gray-500">Select a puzzle to start training.</p>
+              <p class={styles.selectPuzzle}>Select a puzzle to start training.</p>
             )}
           </div>
         </div>
