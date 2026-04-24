@@ -8,7 +8,7 @@ import {
 
 import { TrainingGridCell } from './TrainingGridCell';
 import { parseFen4 } from '~/utils/fen4Utils';
-import { getLegalMoves } from '~/utils/gameUtils';
+import { getLegalMoves, hasAnyLegalMoves, isKingInCheck } from '~/utils/gameUtils';
 import { calculateRestrictedSquares } from '~/utils/boardUtils';
 import { 
   BOARD_CONFIG,
@@ -24,6 +24,8 @@ import styles from './TrainingBoard.module.css';
 interface TrainingBoardProps {
   fen4?: string;
   onMove?: (move: { fromX: number; fromY: number; toX: number; toY: number }) => void;
+  onCheckmate?: (winnerColor: string) => void;
+  onStalemate?: () => void;
   readOnly?: boolean;
 }
 
@@ -155,6 +157,30 @@ export const TrainingBoard: Component<TrainingBoardProps> = (props) => {
     setCurrentPlayerIndex(prev => (prev + 1) % 4);
 
     updateRestrictedSquares(newBasePoints);
+
+    // Check for checkmate or stalemate
+    const currentPlayerColor = PLAYER_COLORS[currentPlayerIndex()];
+    const king = newBasePoints.find(bp => bp.pieceType === 'king' && bp.color === currentPlayerColor);
+
+    if (king) {
+      const hasLegalMoves = hasAnyLegalMoves(currentPlayerColor, newBasePoints);
+      if (!hasLegalMoves) {
+        const inCheck = isKingInCheck(king, newBasePoints);
+        if (inCheck) {
+          // Checkmate - previous player wins
+          const winnerIndex = (currentPlayerIndex() - 1 + 4) % 4;
+          const winnerColor = PLAYER_COLORS[winnerIndex];
+          if (props.onCheckmate) {
+            props.onCheckmate(winnerColor);
+          }
+        } else {
+          // Stalemate
+          if (props.onStalemate) {
+            props.onStalemate();
+          }
+        }
+      }
+    }
 
     // Call callback
     if (props.onMove) {

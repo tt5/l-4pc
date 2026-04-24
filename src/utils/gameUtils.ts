@@ -864,6 +864,14 @@ export function getLegalMoves(
         allBasePoints,
       );
     });
+  } else {
+    // For king, filter moves to destination squares under attack
+    const opponentTeam = team === 1 ? 2 : 1;
+    possibleMoves = possibleMoves.filter(move => {
+      // Castling moves are already validated by canCastle
+      if (move.isCastle) return true;
+      return !isSquareUnderAttack(createPoint(move.x, move.y), opponentTeam, allBasePoints);
+    });
   }
 
   return possibleMoves;
@@ -934,3 +942,22 @@ export const canCastle = (
 
   return true;
 };
+
+export function hasAnyLegalMoves(
+  color: NamedColor,
+  allBasePoints: BasePoint[],
+  options: {
+    enPassantTarget?: Record<NamedColor, {x: number, y: number, color: NamedColor} | null>;
+  } = {}
+): boolean {
+  const playerPieces = allBasePoints.filter(bp => bp.color === color);
+  
+  for (const piece of playerPieces) {
+    const legalMoves = getLegalMoves(piece, allBasePoints, options);
+    if (legalMoves.length > 0) {
+      return true;
+    }
+  }
+  
+  return false;
+}
