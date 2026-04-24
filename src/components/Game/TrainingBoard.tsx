@@ -54,7 +54,9 @@ export const TrainingBoard: Component<TrainingBoardProps> = (props) => {
   });
 
   const updateRestrictedSquares = (pieces: BasePoint[]) => {
-    const result = calculateRestrictedSquares(pieces, pieces);
+    const currentPlayerColor = PLAYER_COLORS[currentPlayerIndex()];
+    const currentPlayerPieces = pieces.filter(p => p.color === currentPlayerColor);
+    const result = calculateRestrictedSquares(currentPlayerPieces, pieces);
     setRestrictedSquaresInfo(result.restrictedSquaresInfo);
     setRestrictedSquares(result.restrictedSquares);
   };
@@ -214,7 +216,18 @@ export const TrainingBoard: Component<TrainingBoardProps> = (props) => {
 
     // Check if this square is restricted
     const index = y * BOARD_CONFIG.GRID_SIZE + x;
-    const isRestricted = restrictedSquares().includes(index);
+    let isRestricted = restrictedSquares().includes(index);
+    
+    // When dragging, only show restricted squares for the dragged piece
+    if (isRestricted && isDragging() && pickedUp) {
+      isRestricted = restrictedSquaresInfo().some(info => 
+        info.index === index && 
+        info.restrictedBy.some(r => 
+          r.basePointX === pickedUp.x && 
+          r.basePointY === pickedUp.y
+        )
+      );
+    }
 
     return {
       isBasePoint,
