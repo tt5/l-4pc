@@ -61,7 +61,6 @@ export default function TrainingPage() {
               <ul class="space-y-2">
                 {puzzles().map((puzzle, index) => (
                   <li
-                    key={puzzle.id}
                     class={`p-3 rounded cursor-pointer hover:bg-gray-100 ${
                       currentPuzzle()?.id === puzzle.id ? 'bg-blue-100' : 'bg-gray-50'
                     }`}
