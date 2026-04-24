@@ -37,16 +37,18 @@ export const TrainingBoard: Component<TrainingBoardProps> = (props) => {
   const [hoveredCell, setHoveredCell] = createSignal<Point | null>(null);
   const [targetPosition, setTargetPosition] = createSignal<Point | null>(null);
   const [selectedCell, setSelectedCell] = createSignal<Point | null>(null);
+  const [lastFen4, setLastFen4] = createSignal<string>('');
 
   // Load FEN4 when it changes
   createEffect(() => {
     const fen4String = props.fen4;
-    if (fen4String) {
+    if (fen4String && fen4String !== lastFen4()) {
       try {
         const parsed = parseFen4(fen4String);
         setBasePoints(parsed.basePoints);
         setCurrentPlayerIndex(parsed.currentPlayerIndex);
         updateRestrictedSquares(parsed.basePoints);
+        setLastFen4(fen4String);
       } catch (error) {
         console.error('Error parsing FEN4:', error);
       }
