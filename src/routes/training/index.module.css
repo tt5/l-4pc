@@ -189,3 +189,12 @@
   border-radius: var(--border-radius-sm);
   display: inline-block;
 }
+
+.flagged {
+  background-color: var(--color-error) !important;
+}
+
+.badBadge {
+  color: var(--color-error);
+  font-weight: var(--font-weight-bold);
+}

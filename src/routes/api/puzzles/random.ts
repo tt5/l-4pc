@@ -6,10 +6,11 @@ export const GET = async (event: APIEvent) => {
   try {
     const db = await getDb();
     
-    // Get a random puzzle
+    // Get a random puzzle (excluding bad puzzles)
     const puzzle = await db.get<any>(
-      `SELECT id, fen4, solution, difficulty, color_to_move, created_at_ms 
+      `SELECT id, fen4, solution, difficulty, color_to_move, created_at_ms, is_bad 
        FROM puzzles 
+       WHERE is_bad = 0
        ORDER BY RANDOM() 
        LIMIT 1`
     );

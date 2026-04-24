@@ -16,6 +16,8 @@ export default function TrainingPage() {
   const [solved, setSolved] = createSignal(0);
   const [failed, setFailed] = createSignal(0);
   const [attempts, setAttempts] = createSignal(0);
+  const [isBad, setIsBad] = createSignal(false);
+  const [flagLoading, setFlagLoading] = createSignal(false);
 
   const loadRandomPuzzle = async () => {
     try {
@@ -28,6 +30,7 @@ export default function TrainingPage() {
       const puzzle = data.data.puzzle;
       setCurrentPuzzle(puzzle);
       setCurrentFen4(puzzle.fen4);
+      setIsBad(puzzle.is_bad === 1);
       await loadNeighbors(puzzle.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load puzzle');
@@ -59,6 +62,7 @@ export default function TrainingPage() {
     setCurrentPuzzle(prev);
     setCurrentFen4(prev.fen4);
     setPuzzleSolved(false);
+    setIsBad(prev.is_bad === 1);
     await loadNeighbors(prev.id);
     
     // The old current puzzle becomes the next
@@ -75,6 +79,7 @@ export default function TrainingPage() {
     setCurrentPuzzle(next);
     setCurrentFen4(next.fen4);
     setPuzzleSolved(false);
+    setIsBad(next.is_bad === 1);
     await loadNeighbors(next.id);
     
     // The old current puzzle becomes the previous
@@ -144,6 +149,34 @@ export default function TrainingPage() {
     }
   };
 
+  const handleFlag = async () => {
+    const puzzle = currentPuzzle();
+    if (!puzzle) return;
+
+    try {
+      setFlagLoading(true);
+      const response = await fetch(`/api/puzzles/${puzzle.id}/flag`, {
+        method: 'POST'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to flag puzzle');
+      }
+      
+      const data = await response.json();
+      setIsBad(data.data.isBad);
+      
+      // Auto-advance to next puzzle after flagging
+      setTimeout(() => {
+        goToNext();
+      }, 500);
+    } catch (err) {
+      console.error('Failed to flag puzzle:', err);
+    } finally {
+      setFlagLoading(false);
+    }
+  };
+
 
   return (
     <div class={styles.container}>
@@ -187,6 +220,13 @@ export default function TrainingPage() {
               Solved: {solved()} | Failed: {failed()} | Attempts: {attempts()}
             </div>
             <button 
+              class={`${styles.navButton} ${isBad() ? styles.flagged : ''}`}
+              onClick={handleFlag}
+              disabled={flagLoading()}
+            >
+              {flagLoading() ? '...' : isBad() ? '✓ Flagged' : '🚩 Flag as Bad'}
+            </button>
+            <button 
               class={styles.navButton}
               onClick={handleReload}
               disabled={reloadLoading()}
@@ -211,6 +251,7 @@ export default function TrainingPage() {
               <div class={styles.boardHeader}>
                 <h2 class={styles.boardTitle}>
                   Difficulty: {currentPuzzle().difficulty}
+                  {isBad() && <span class={styles.badBadge}> (Bad Puzzle)</span>}
                 </h2>
                 <p class={`${styles.boardDescription} ${styles['colorToMove' + currentPuzzle().color_to_move]}`}>
                   Color to move: {currentPuzzle().color_to_move}

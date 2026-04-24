@@ -163,14 +163,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     }
   }
 
-  ss->move_count = 0;
 
-  std::optional<Move> best_move;
-
-  std::optional<Move> pv_move = pvinfo.GetBestMove();
-  Move* moves = thread_state.GetNextMoveBufferPartition();
-
-  //~300ns
   // Check for king capture first
   if (board.CanCaptureKing()) {
     Board::MoveGenResult result{0, -1};
@@ -201,9 +194,16 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     //std::cout << "king capture" << std::endl;
 
     eval = maximizing_player ? eval : -eval;
-    thread_state.ReleaseMoveBufferPartition();
+    transposition_table_->Save(key, depth, std::nullopt, eval, eval, EXACT, is_pv_node);
+    //thread_state.ReleaseMoveBufferPartition();
     return std::make_tuple(eval, std::nullopt);
   }
+
+  ss->move_count = 0;
+
+  std::optional<Move> best_move;
+  std::optional<Move> pv_move = pvinfo.GetBestMove();
+  Move* moves = thread_state.GetNextMoveBufferPartition();
 
   // Generate moves with pieces
   const auto& pieces = board.GetPieceList()[board.GetTurn().GetColor()];
