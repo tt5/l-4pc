@@ -14,6 +14,7 @@ cp cli ..
 - no en passant double capture
 - can still castle if rook moved away and back to initial square
 - no underpromotion
+- first king capture always wins
 
 # TODO
 

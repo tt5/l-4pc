@@ -404,11 +404,48 @@ for (const auto& [dr, dc] : diagonal) {
   return false;
 }
 
+bool Board::CanCaptureKing() const {
+    const PlayerColor current_color = GetTurn().GetColor();
+    const Team my_team = GetTeam(current_color);
+    const Team enemy_team = OtherTeam(my_team);
+
+    int8_t enemy_king_row1 = -1;
+    int8_t enemy_king_col1 = -1;
+    int8_t enemy_king_row2 = -1;
+    int8_t enemy_king_col2 = -1;
+
+    if (enemy_team == BLUE_GREEN) {
+      if (KingPresent(BLUE)) {
+          enemy_king_row1 = GetKingRow(BLUE);
+          enemy_king_col1 = GetKingCol(BLUE);
+      }
+      if (KingPresent(GREEN)) {
+          enemy_king_row2 = GetKingRow(GREEN);
+          enemy_king_col2 = GetKingCol(GREEN);
+      }
+    } else {
+      if (KingPresent(RED)) {
+          enemy_king_row1 = GetKingRow(RED);
+          enemy_king_col1 = GetKingCol(RED);
+      }
+      if (KingPresent(YELLOW)) {
+          enemy_king_row2 = GetKingRow(YELLOW);
+          enemy_king_col2 = GetKingCol(YELLOW);
+      }
+    }
+
+    auto king1_attacker = GetAttacker(my_team, enemy_king_row1, enemy_king_col1);
+    auto king2_attacker = GetAttacker(my_team, enemy_king_row2, enemy_king_col2);
+
+    return king1_attacker.first != -1 || king2_attacker.first != -1;
+}
+
 Board::MoveGenResult Board::GetPseudoLegalMoves2(
-    Move* buffer, 
-    size_t limit, 
+    Move* buffer,
+    size_t limit,
+    const std::vector<PlacedPiece>& pieces,
     const std::optional<Move>& pv_move) {
-    
+
     MoveGenResult result{0, -1};
 
     if (buffer == nullptr && limit == 0) {
@@ -416,21 +453,25 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
           result.mobility_counts[i] = 20;  // Each player has 20 legal moves initially
           result.threat_counts[i] = 0;     // No immediate threats in starting position
       }
-      return result; 
+      return result;
     }
 
     if (buffer == nullptr || limit == 0) return result;
-    
+
     //auto pstart = std::chrono::high_resolution_clock::now();
 
     const PlayerColor current_color = GetTurn().GetColor();
     const Team my_team = GetTeam(current_color);
-    bool has_pv_move = pv_move.has_value();
-    int pv_index = -1;  // -1 means PV move not found
 
     const int8_t king_row = GetKingRow(current_color);
     const int8_t king_col = GetKingCol(current_color);
+
+    
+
     auto attacker = GetAttacker(OtherTeam(my_team), king_row, king_col);
+
+    bool has_pv_move = pv_move.has_value();
+    int pv_index = -1;  // -1 means PV move not found
     const bool in_check = KingPresent(current_color) && attacker.first != -1;
     const auto attacking_piece = in_check ? location_to_piece_[attacker.first][attacker.second] : Piece(Piece::kRawNoPiece);
     const PieceType att_type = attacking_piece.GetPieceType();
@@ -441,8 +482,6 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
         auto second_attacker = GetRevAttacker(OtherTeam(my_team), king_row, king_col);
         double_check = second_attacker.first != -1 && (second_attacker.first != attacker.first || second_attacker.second != attacker.second);
     }
-
-    const auto& pieces = piece_list_[current_color];
 
     Move* current = buffer;
 

@@ -487,9 +487,12 @@ class Board {
   };
   
   MoveGenResult GetPseudoLegalMoves2(
-    Move* buffer, 
-    size_t limit, 
+    Move* buffer,
+    size_t limit,
+    const std::vector<PlacedPiece>& pieces,
     const std::optional<Move>& pv_move = std::nullopt);
+
+  bool CanCaptureKing() const;
   
   Team TeamToPlay() const;
   int PieceEvaluation() const;

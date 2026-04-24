@@ -419,7 +419,8 @@ std::optional<Move> ParseMove(Board& board, const std::string& move_str_ref) {
   PieceType promotion_piece_type = std::get<1>(*promotion);
 
   Move moves[300];
-  auto result = board.GetPseudoLegalMoves2(moves, 300);
+  const auto& pieces = board.GetPieceList()[board.GetTurn().GetColor()];
+  auto result = board.GetPseudoLegalMoves2(moves, 300, pieces);
   size_t num_moves = result.count;
 
   for (size_t i = 0; i < num_moves; i++) {

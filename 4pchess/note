@@ -79,3 +79,11 @@ Runs completed: 1
 Total nodes: 73,954,902
 Total time: 24.64s
 Average NPS: 3,001,892
+
+---
+
+in the checkmate table we store many king captures.
+The current move is not the king capture move.
+
+And positions where the teammate already checkmated the next player
+(any move is winning for the current player).

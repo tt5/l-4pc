@@ -169,12 +169,48 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
   std::optional<Move> pv_move = pvinfo.GetBestMove();
   Move* moves = thread_state.GetNextMoveBufferPartition();
-  
+
   //~300ns
-  // Generate moves first
+  // Check for king capture first
+  if (board.CanCaptureKing()) {
+    Board::MoveGenResult result{0, -1};
+    result.count = -2;
+    thread_state.TotalMoves()[player_color] = result.mobility_counts[player_color];
+    thread_state.NThreats()[player_color] = result.threat_counts[player_color];
+    // king capture possible
+    // capturing the king not always wins but it always ends the game
+
+    /*
+    bool is_new_checkmate = false;
+
+    // First try a read-only check with shared lock
+    {
+      std::shared_lock<std::shared_mutex> lock(checkmate_mutex_);
+      is_new_checkmate = (checkmate_positions_.find(key) == checkmate_positions_.end());
+    }
+
+    // If it's a new checkmate, take exclusive lock to update
+    if (is_new_checkmate) {
+      std::unique_lock<std::shared_mutex> lock(checkmate_mutex_);
+      // Double-check in case another thread added it between our check and now
+      checkmate_positions_.insert(key).second;
+    }
+
+    */
+    auto eval = kMateValue;
+    //std::cout << "king capture" << std::endl;
+
+    eval = maximizing_player ? eval : -eval;
+    thread_state.ReleaseMoveBufferPartition();
+    return std::make_tuple(eval, std::nullopt);
+  }
+
+  // Generate moves with pieces
+  const auto& pieces = board.GetPieceList()[board.GetTurn().GetColor()];
   auto result = board.GetPseudoLegalMoves2(
     moves,
     kBufferPartitionSize,
+    pieces,
     pv_move);
   thread_state.TotalMoves()[player_color] = result.mobility_counts[player_color];
   thread_state.NThreats()[player_color] = result.threat_counts[player_color];
@@ -327,6 +363,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
     std::optional<std::tuple<int, std::optional<Move>>> value_and_move_or;
 
+    /*
     const auto capture = move.GetCapturePiece();
     if (UNLIKELY(capture.Present() && capture.GetPieceType() == KING)) {
         // capturing the king not always wins but it always ends the game
@@ -359,6 +396,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       thread_state.ReleaseMoveBufferPartition();
       return std::make_tuple(eval, std::nullopt);
     }
+    */
 
     const int8_t old_king_row = board.GetKingRow(player_color);
     const int8_t old_king_col = board.GetKingCol(player_color);
@@ -906,7 +944,8 @@ void AlphaBetaPlayer::UpdateMobilityEvaluation(
     
     /*
     // Get move and threat counts for all players in one go
-    auto result = board.GetPseudoLegalMoves2(nullptr, 0);
+    const auto& pieces = board.GetPieceList()[board.GetTurn().GetColor()];
+    auto result = board.GetPseudoLegalMoves2(nullptr, 0, pieces);
     
     // Update thread state for all players
     for (int i = 0; i < 4; i++) {
