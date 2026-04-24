@@ -29,20 +29,20 @@ export const GET = async (event: APIEvent) => {
     const previous = await db.get<any>(
       `SELECT id, fen4, solution, difficulty, color_to_move, created_at_ms 
        FROM puzzles 
-       WHERE created_at_ms < ? 
-       ORDER BY created_at_ms DESC 
+       WHERE id < ? 
+       ORDER BY id DESC 
        LIMIT 1`,
-      [current.created_at_ms]
+      [id]
     );
 
     // Get next puzzle (with looping)
     const next = await db.get<any>(
       `SELECT id, fen4, solution, difficulty, color_to_move, created_at_ms 
        FROM puzzles 
-       WHERE created_at_ms > ? 
-       ORDER BY created_at_ms ASC 
+       WHERE id > ? 
+       ORDER BY id ASC 
        LIMIT 1`,
-      [current.created_at_ms]
+      [id]
     );
 
     // Handle looping
@@ -54,7 +54,7 @@ export const GET = async (event: APIEvent) => {
       finalPrevious = await db.get<any>(
         `SELECT id, fen4, solution, difficulty, color_to_move, created_at_ms 
          FROM puzzles 
-         ORDER BY created_at_ms DESC 
+         ORDER BY id DESC 
          LIMIT 1`
       );
     }
@@ -64,7 +64,7 @@ export const GET = async (event: APIEvent) => {
       finalNext = await db.get<any>(
         `SELECT id, fen4, solution, difficulty, color_to_move, created_at_ms 
          FROM puzzles 
-         ORDER BY created_at_ms ASC 
+         ORDER BY id ASC 
          LIMIT 1`
       );
     }
