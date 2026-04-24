@@ -79,7 +79,7 @@ export default function TrainingPage() {
           {/* Board area */}
           <div class={styles.boardArea}>
             {currentPuzzle() ? (
-              <div>
+                <div class={styles.boardWrapper}>
                 <div class={styles.boardHeader}>
                   <h2 class={styles.boardTitle}>
                     Puzzle #{puzzles().findIndex(p => p.id === currentPuzzle().id) + 1}

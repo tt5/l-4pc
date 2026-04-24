@@ -1,13 +1,16 @@
 @import '../../styles/variables.css';
 
 .container {
-  padding: var(--spacing-xxl);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  min-height: 100vh;
 }
 
 .title {
   font-size: var(--font-size-xxl);
   font-weight: var(--font-weight-bold);
-  margin-bottom: var(--spacing-xl);
+  margin-bottom: 0;
 }
 
 .error {
@@ -16,7 +19,9 @@
 
 .content {
   display: flex;
+  flex: 1;
   gap: var(--spacing-xl);
+  min-height: 0;
 }
 
 .sidebar {
@@ -27,7 +32,7 @@
 .sidebarTitle {
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
-  margin-bottom: var(--spacing-md);
+  margin-bottom: 0;
 }
 
 .noPuzzles {
@@ -41,7 +46,7 @@
 }
 
 .puzzleItem {
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: 0;
   border-radius: var(--border-radius-sm);
   cursor: pointer;
   transition: var(--transition-default);
@@ -69,11 +74,22 @@
 }
 
 .boardArea {
+  display: flex;
+  flex-direction: column;
   flex: 1;
+  min-height: 0;
+}
+
+.boardWrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .boardHeader {
-  margin-bottom: var(--spacing-md);
+  flex-shrink: 0;
+  margin-bottom: 0;
 }
 
 .boardTitle {
