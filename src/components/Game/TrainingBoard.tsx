@@ -201,8 +201,8 @@ export const TrainingBoard: Component<TrainingBoardProps> = (props) => {
     const pickedUp = pickedUpBasePoint();
 
     const isBasePoint = !!piece;
-    const isSelected = selected && selected[0] === x && selected[1] === y;
-    const isHovered = hovered && hovered[0] === x && hovered[1] === y;
+    const isSelected = !!(selected && selected[0] === x && selected[1] === y);
+    const isHovered = !!(hovered && hovered[0] === x && hovered[1] === y);
     const isNonPlayable = isInNonPlayableCorner(x, y);
 
     // Check if this is a valid drop target
@@ -239,7 +239,6 @@ export const TrainingBoard: Component<TrainingBoardProps> = (props) => {
             
             return (
               <GridCell
-                key={`${x}-${y}`}
                 x={x}
                 y={y}
                 state={state}
