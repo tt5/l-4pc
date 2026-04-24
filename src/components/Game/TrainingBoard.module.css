@@ -1,0 +1,28 @@
+@import '../../styles/variables.css';
+
+/* Container */
+.boardContainer {
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: var(--spacing-md);
+}
+
+/* Board Grid */
+.board {
+  display: grid;
+  gap: 1px;
+  background: lightgray;
+  padding: var(--spacing-sm);
+  border-radius: var(--border-radius-sm);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .boardContainer {
+    padding: var(--spacing-sm);
+  }
+}

@@ -19,7 +19,7 @@ import {
 
 import { type Point, type BasePoint, type RestrictedSquareInfo, createPoint } from '../../types/board';
 
-import styles from './Board.module.css';
+import styles from './TrainingBoard.module.css';
 
 interface TrainingBoardProps {
   fen4?: string;
