@@ -133,7 +133,23 @@ export default function TrainingPage() {
       
       {loading() && <div>Loading puzzle...</div>}
       
-      {error() && <div class={styles.error}>{error()}</div>}
+      {error() && (
+        <div>
+          <div class={styles.error}>{error()}</div>
+          <div class={styles.navigation}>
+            <button 
+              class={styles.navButton}
+              onClick={handleReload}
+              disabled={reloadLoading()}
+            >
+              {reloadLoading() ? 'Reloading...' : '↻ Reload Puzzles'}
+            </button>
+            {reloadMessage() && (
+              <div class={styles.reloadMessage}>{reloadMessage()}</div>
+            )}
+          </div>
+        </div>
+      )}
       
       {!loading() && !error() && currentPuzzle() && (
         <div class={styles.content}>
