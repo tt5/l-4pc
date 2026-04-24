@@ -1,0 +1,214 @@
+
+.square {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  aspect-ratio: 1;
+  position: relative;
+}
+
+/* Black squares - using nth-child to create the checkerboard pattern */
+.square:nth-child(28n + 2),
+.square:nth-child(28n + 4),
+.square:nth-child(28n + 6),
+.square:nth-child(28n + 8),
+.square:nth-child(28n + 10),
+.square:nth-child(28n + 12),
+.square:nth-child(28n + 14),
+.square:nth-child(28n + 15),
+.square:nth-child(28n + 17),
+.square:nth-child(28n + 19),
+.square:nth-child(28n + 21),
+.square:nth-child(28n + 23),
+.square:nth-child(28n + 25),
+.square:nth-child(28n + 27) {
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+/* Hover States */
+.square:hover { background-color: color-mix(in srgb, var(--color-bg) 50%, white); }
+
+.square:active { transform: scale(0.98); }
+
+/* Valid Placement Hover */
+.square.valid-hover {
+  border-color: #4caf50;
+  box-shadow: 0 0 0 2px #4caf50;
+  transform: translateY(-2px);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+/* Invalid Placement Hover */
+.square.invalid-hover {
+  border-color: #f44336;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.square.interactive {
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+}
+
+.square.loading {
+  position: relative;
+  cursor: wait;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.square.loading::after {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-primary);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  content: '';
+}
+
+.square.selected { 
+  border: 5px solid white;
+  box-shadow: 0 0 0 5px #4caf50;
+  transform: scale(0.9);
+}
+
+.square.basePoint { 
+  background-image: none;
+  position: relative;
+  z-index: 2;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.square.basePoint.inCheck {
+  box-shadow: 0 0 15px red !important;
+}
+
+.square.basePoint.bestMoveFrom {
+  background-color: rgb(255, 238, 3) !important;
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.911);
+  border: 3px solid black;
+}
+
+.square.bestMoveTo {
+  background-color: rgb(255, 238, 3) !important;
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.911);
+  border: 3px solid black;
+}
+
+.square.basePoint {
+  z-index: 4;
+}
+
+.square.selected.basePoint {
+  background-color: #d0ebe7;
+}
+
+.square.dragging {
+  transform: scale(0.95);
+  cursor: grabbing;
+}
+
+.square.draggable {
+  cursor: grab;
+}
+
+.square.draggable:active {
+  cursor: grabbing;
+}
+
+/* Drop Targets */
+.square.valid-drop {
+  background-color: rgba(76, 175, 80, 0.2);
+  box-shadow: inset 0 0 0 2px #4CAF50;
+  transform: scale(1.05);
+}
+
+.square.nonPlayable {
+  background-color: transparent !important;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Disable hover effects on non-playable squares */
+.square.nonPlayable:hover {
+  transform: none !important;
+  box-shadow: none !important;
+  cursor: not-allowed;
+}
+
+.square.invalid-drop {
+  background-color: rgba(244, 67, 54, 0.2);
+  cursor: not-allowed;
+}
+
+/* Restricted squares styling */
+.square.restricted {
+  background-color: rgba(255, 160, 0, 0.3);
+  box-shadow: inset 0 0 0 2px #ffa000;
+}
+
+.basePointMarker {
+  width: 70%;
+  height: 70%;
+  border-radius: 50%;
+  background: currentColor;
+  transition: transform 0.15s ease;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit
+}
+
+/* Base Point Marker */
+.pieceIcon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 210%;
+  height: 210%;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.5));
+  color: var(--piece-color, #000);
+}
+
+.square:hover .basePointMarker {
+  transform: scale(1.1);
+}
+
+.square.restricted.basePoint .basePointMarker {
+  background: #ffa000;
+}
+
+.basePointMarker {
+  width: 70%;
+  height: 70%;
+  background: var(--color-success);
+  border-radius: 50%;
+  opacity: 0.8;
+  transition: all 0.2s ease;
+}
+
+.emptyMarker {
+  margin-top: -1px;
+  color: rgb(0 0 0 / 30%);
+  font-size: 1.2rem;
+  line-height: 1;
+  opacity: 0.6;
+  transition: all 0.2s ease;
+  user-select: none;
+  pointer-events: none;
+}
+
+.square:hover .emptyMarker {
+  color: rgb(0 0 0 / 40%);
+  opacity: 0.8;
+}

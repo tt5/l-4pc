@@ -6,7 +6,7 @@ import {
   onCleanup,
 } from 'solid-js';
 
-import { GridCell } from './GridCell';
+import { TrainingGridCell } from './TrainingGridCell';
 import { parseFen4 } from '~/utils/fen4Utils';
 import { getLegalMoves } from '~/utils/gameUtils';
 import { calculateRestrictedSquares } from '~/utils/boardUtils';
@@ -212,11 +212,16 @@ export const TrainingBoard: Component<TrainingBoardProps> = (props) => {
       isValidDrop = legalMoves.some(move => move.x === x && move.y === y);
     }
 
+    // Check if this square is restricted
+    const index = y * BOARD_CONFIG.GRID_SIZE + x;
+    const isRestricted = restrictedSquares().includes(index);
+
     return {
       isBasePoint,
       isSelected,
       isHovered,
       isNonPlayable,
+      isRestricted,
       id: piece?.id,
       color: piece?.color ? COLOR_TO_HEX[piece.color as keyof typeof COLOR_TO_HEX] : undefined,
       pieceType: piece?.pieceType,
@@ -238,7 +243,7 @@ export const TrainingBoard: Component<TrainingBoardProps> = (props) => {
             const pickedUp = pickedUpBasePoint();
             
             return (
-              <GridCell
+              <TrainingGridCell
                 x={x}
                 y={y}
                 state={state}
