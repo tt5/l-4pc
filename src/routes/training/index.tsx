@@ -4,34 +4,82 @@ import styles from './index.module.css';
 
 export default function TrainingPage() {
   const [currentFen4, setCurrentFen4] = createSignal<string>('');
-  const [puzzles, setPuzzles] = createSignal<any[]>([]);
+  const [prevPuzzle, setPrevPuzzle] = createSignal<any | null>(null);
   const [currentPuzzle, setCurrentPuzzle] = createSignal<any | null>(null);
+  const [nextPuzzle, setNextPuzzle] = createSignal<any | null>(null);
+  const [totalCount, setTotalCount] = createSignal<number>(0);
   const [loading, setLoading] = createSignal(true);
   const [error, setError] = createSignal<string | null>(null);
   const [puzzleSolved, setPuzzleSolved] = createSignal(false);
 
-  const loadPuzzles = async () => {
+  const loadRandomPuzzle = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/puzzles');
+      const response = await fetch('/api/puzzles/random');
       if (!response.ok) {
-        throw new Error('Failed to load puzzles');
+        throw new Error('Failed to load random puzzle');
       }
       const data = await response.json();
-      setPuzzles(data.data.puzzles || []);
-      if (data.data.puzzles && data.data.puzzles.length > 0) {
-        setCurrentPuzzle(data.data.puzzles[0]);
-        setCurrentFen4(data.data.puzzles[0].fen4);
-      }
+      const puzzle = data.data.puzzle;
+      setCurrentPuzzle(puzzle);
+      setCurrentFen4(puzzle.fen4);
+      await loadNeighbors(puzzle.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load puzzles');
+      setError(err instanceof Error ? err.message : 'Failed to load puzzle');
     } finally {
       setLoading(false);
     }
   };
 
+  const loadNeighbors = async (currentId: number) => {
+    try {
+      const response = await fetch(`/api/puzzles/${currentId}/neighbors`);
+      if (!response.ok) {
+        throw new Error('Failed to load neighbors');
+      }
+      const data = await response.json();
+      setPrevPuzzle(data.data.previous);
+      setNextPuzzle(data.data.next);
+      setTotalCount(data.data.totalCount);
+    } catch (err) {
+      console.error('Failed to load neighbors:', err);
+    }
+  };
+
+  const goToPrevious = async () => {
+    const prev = prevPuzzle();
+    if (!prev) return;
+    
+    setCurrentPuzzle(prev);
+    setCurrentFen4(prev.fen4);
+    setPuzzleSolved(false);
+    await loadNeighbors(prev.id);
+    
+    // Prefetch the next puzzle (which was the current)
+    if (currentPuzzle()) {
+      // The current puzzle becomes the next, no additional fetch needed
+      setNextPuzzle(currentPuzzle());
+    }
+  };
+
+  const goToNext = async () => {
+    const next = nextPuzzle();
+    if (!next) return;
+    
+    setCurrentPuzzle(next);
+    setCurrentFen4(next.fen4);
+    setPuzzleSolved(false);
+    await loadNeighbors(next.id);
+    
+    // Prefetch the next puzzle
+    if (nextPuzzle()) {
+      // The current puzzle becomes the previous
+      setPrevPuzzle(currentPuzzle());
+    }
+  };
+
   onMount(() => {
-    loadPuzzles();
+    loadRandomPuzzle();
   });
 
   const handleMove = (move: { fromX: number; fromY: number; toX: number; toY: number }) => {
@@ -45,80 +93,60 @@ export default function TrainingPage() {
 
     // Auto-advance to next puzzle after 2 seconds
     setTimeout(() => {
-      const puzzleList = puzzles();
-      if (puzzleList.length === 0) return;
-
-      const currentIndex = puzzleList.findIndex(p => p.id === currentPuzzle()?.id);
-      const nextIndex = (currentIndex + 1) % puzzleList.length;
-      const nextPuzzle = puzzleList[nextIndex];
-
-      setCurrentPuzzle(nextPuzzle);
-      setCurrentFen4(nextPuzzle.fen4);
-      setPuzzleSolved(false);
+      goToNext();
     }, 2000);
   };
 
-  const selectPuzzle = (puzzle: any) => {
-    setCurrentPuzzle(puzzle);
-    setCurrentFen4(puzzle.fen4);
-  };
 
   return (
     <div class={styles.container}>
       <h1 class={styles.title}>Training Mode</h1>
       
-      {loading() && <div>Loading puzzles...</div>}
+      {loading() && <div>Loading puzzle...</div>}
       
       {error() && <div class={styles.error}>{error()}</div>}
       
-      {!loading() && !error() && (
+      {!loading() && !error() && currentPuzzle() && (
         <div class={styles.content}>
-          {/* Puzzle list sidebar */}
-          <div class={styles.sidebar}>
-            <h2 class={styles.sidebarTitle}>Checkmate Puzzles</h2>
-            {puzzles().length === 0 ? (
-              <p class={styles.noPuzzles}>No puzzles available yet.</p>
-            ) : (
-              <ul class={styles.puzzleList}>
-                {puzzles().map((puzzle, index) => (
-                  <li
-                    class={`${styles.puzzleItem} ${
-                      currentPuzzle()?.id === puzzle.id ? styles.puzzleItemActive : styles.puzzleItemInactive
-                    }`}
-                    onClick={() => selectPuzzle(puzzle)}
-                  >
-                    <div class={styles.puzzleTitle}>Puzzle #{index + 1}</div>
-                    <div class={styles.puzzleMeta}>Difficulty: {puzzle.difficulty}</div>
-                    <div class={styles.puzzleMeta}>Color: {puzzle.color_to_move}</div>
-                  </li>
-                ))}
-              </ul>
-            )}
+          {/* Navigation controls */}
+          <div class={styles.navigation}>
+            <button 
+              class={styles.navButton}
+              onClick={goToPrevious}
+              disabled={!prevPuzzle()}
+            >
+              ← Previous
+            </button>
+            <div class={styles.puzzleCounter}>
+              Puzzle #{currentPuzzle().id} of {totalCount()}
+            </div>
+            <button 
+              class={styles.navButton}
+              onClick={goToNext}
+              disabled={!nextPuzzle()}
+            >
+              Next →
+            </button>
           </div>
 
           {/* Board area */}
           <div class={styles.boardArea}>
-            {currentPuzzle() ? (
-                <div class={styles.boardWrapper}>
-                <div class={styles.boardHeader}>
-                  <h2 class={styles.boardTitle}>
-                    Puzzle #{puzzles().findIndex(p => p.id === currentPuzzle().id) + 1}
-                  </h2>
-                  <p class={styles.boardDescription}>
-                    Difficulty: {currentPuzzle().difficulty} | 
-                    Color to move: {currentPuzzle().color_to_move}
-                  </p>
-                </div>
-                <TrainingBoard
-                  fen4={currentFen4()}
-                  onMove={handleMove}
-                  onCheckmate={handleCheckmate}
-                  readOnly={puzzleSolved()}
-                />
+            <div class={styles.boardWrapper}>
+              <div class={styles.boardHeader}>
+                <h2 class={styles.boardTitle}>
+                  Difficulty: {currentPuzzle().difficulty}
+                </h2>
+                <p class={styles.boardDescription}>
+                  Color to move: {currentPuzzle().color_to_move}
+                </p>
               </div>
-            ) : (
-              <p class={styles.selectPuzzle}>Select a puzzle to start training.</p>
-            )}
+              <TrainingBoard
+                fen4={currentFen4()}
+                onMove={handleMove}
+                onCheckmate={handleCheckmate}
+                readOnly={puzzleSolved()}
+              />
+            </div>
           </div>
         </div>
       )}
