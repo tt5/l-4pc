@@ -151,6 +151,11 @@
   box-shadow: inset 0 0 0 2px #ffa000;
 }
 
+/* Current player's king highlight */
+.square.currentPlayerKing {
+  box-shadow: 0 0 0 4px #2196F3, 0 0 15px rgba(33, 150, 243, 0.5);
+}
+
 .basePointMarker {
   width: 70%;
   height: 70%;

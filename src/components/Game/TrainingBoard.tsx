@@ -258,12 +258,17 @@ export const TrainingBoard: Component<TrainingBoardProps> = (props) => {
       );
     }
 
+    // Check if this is the current player's king
+    const currentPlayerColor = PLAYER_COLORS[currentPlayerIndex()];
+    const isCurrentPlayerKing = piece?.pieceType === 'king' && piece.color === currentPlayerColor;
+
     return {
       isBasePoint,
       isSelected,
       isHovered,
       isNonPlayable,
       isRestricted,
+      isCurrentPlayerKing,
       id: piece?.id,
       color: piece?.color ? COLOR_TO_HEX[piece.color as keyof typeof COLOR_TO_HEX] : undefined,
       pieceType: piece?.pieceType,

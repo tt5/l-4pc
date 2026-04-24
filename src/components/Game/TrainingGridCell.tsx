@@ -12,6 +12,7 @@ interface TrainingCellState {
   isBestMoveFrom?: boolean;
   isBestMoveTo?: boolean;
   isRestricted?: boolean;
+  isCurrentPlayerKing?: boolean;
   id?: number;
   color?: string;
   pieceType?: string;
@@ -67,6 +68,9 @@ export const TrainingGridCell: Component<TrainingGridCellProps> = (props) => {
     }
     if (state.isRestricted) {
       classes.push(styles.restricted);
+    }
+    if (state.isCurrentPlayerKing) {
+      classes.push(styles.currentPlayerKing);
     }
     return classes.join(' ');
   };
