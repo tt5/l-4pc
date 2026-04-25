@@ -747,6 +747,17 @@ AlphaBetaPlayer::MakeMove(
     num_threads = options_.num_threads;
   }
   assert(num_threads >= 1);
+
+  // Generate root moves for helper thread assignment
+  const auto& pieces = board.GetPieceList()[board.GetTurn().GetColor()];
+  Move root_moves_buffer[256];
+  auto root_result = board.GetPseudoLegalMoves2(
+    root_moves_buffer,
+    256,
+    pieces,
+    std::nullopt);
+  int num_root_moves = root_result.count;
+
   std::vector<ThreadState> thread_states;
   thread_states.reserve(num_threads);
   for (int i = 0; i < num_threads; i++) {
@@ -755,9 +766,23 @@ AlphaBetaPlayer::MakeMove(
     if (i > 0) {
       thread_options.transposition_table_size = 0;
     }
-    thread_states.emplace_back(thread_options, board, *pv_copy);
+
+    Board* board_for_thread = &board;
+    // Helper threads get a board with their assigned move made
+    if (i > 0 && (i - 1) < num_root_moves) {
+      static std::vector<std::unique_ptr<Board>> helper_boards;
+      if (helper_boards.size() < static_cast<size_t>(num_threads - 1)) {
+        helper_boards.push_back(std::make_unique<Board>(board));
+      } else {
+        helper_boards[i - 1] = std::make_unique<Board>(board);
+      }
+      helper_boards[i - 1]->MakeMove(root_moves_buffer[i - 1]);
+      board_for_thread = helper_boards[i - 1].get();
+    }
+
+    thread_states.emplace_back(thread_options, *board_for_thread, *pv_copy);
     auto& thread_state = thread_states.back();
-    ResetMobilityScores(thread_state, board);
+    ResetMobilityScores(thread_state, *board_for_thread);
   }
 
   root_team_ = board.GetTurn().GetTeam();
@@ -787,11 +812,15 @@ AlphaBetaPlayer::MakeMove(
 
   std::vector<std::unique_ptr<std::thread>> threads;
   for (int i = 1; i < num_threads; i++) {
+    // Only create helper thread if it has a move assigned
+    if ((i - 1) >= num_root_moves) {
+      break;
+    }
     threads.push_back(std::make_unique<std::thread>([
-      this, i, &thread_states, max_depth] {
+      this, i, &thread_states, max_depth, &root_moves_buffer] {
           //int helper_depth = std::max(1, max_depth - 0);
           int helper_depth = 100;
-          std::cout << "starting " << i << " depth: " << max_depth << std::endl;
+          std::cout << "starting " << i << " move: " << root_moves_buffer[i - 1].PrettyStr() << " depth: " << max_depth << std::endl;
           MakeMoveSingleThread(i, thread_states[i], helper_depth);
     }));
   }
