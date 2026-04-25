@@ -113,7 +113,7 @@ enum NodeType {
 };
 
 constexpr size_t kBufferPartitionSize = 512; // number of elements per buffer partition
-constexpr size_t kBufferNumPartitions = 1000; // number of recursive calls
+constexpr size_t kBufferNumPartitions = 100; // number of recursive calls
 
 // Manages state of worker threads during search
 class ThreadState {
@@ -127,7 +127,6 @@ class ThreadState {
   ThreadState& operator=(ThreadState&& other) noexcept;
   Move* GetNextMoveBufferPartition();
   void ReleaseMoveBufferPartition();
-  int* NActivated() { return n_activated_; }
   int* NThreats() { return n_threats; }
   int* TotalMoves() { return total_moves_; }
   PVInfo& GetPVInfo() { return pv_info_; }
@@ -135,7 +134,6 @@ class ThreadState {
 
   int n_threats[4] = {0, 0, 0, 0};
   Move* GetMoveGenBuffer() { return move_gen_buffer_; }
-  static constexpr int kMaxMoves = 256;
   TranspositionTable* GetTranspositionTable() { return transposition_table_.get(); }
   int16_t* GetHistoryHeuristic() { return history_heuristic_[0][0]; }
 
@@ -143,17 +141,15 @@ class ThreadState {
   PlayerOptions options_;
   const Board* root_board_;
   PVInfo pv_info_;
-  Move move_gen_buffer_[kMaxMoves];  // Buffer for move generation
+  Move move_gen_buffer_[kBufferPartitionSize];  // Buffer for move generation
   std::unique_ptr<TranspositionTable> transposition_table_;
   int16_t history_heuristic_[2][224][224] = {0};
 
   // Buffer used to store moves per node.
-  // Each node generates up to `partition_size` moves, and there
   Move* move_buffer_ = nullptr;
   // Id within move_buffer_
   size_t buffer_id_ = 0;
 
-  int n_activated_[4] = {0, 0, 0, 0};
   int total_moves_[4] = {0, 0, 0, 0};
 
 };
@@ -166,7 +162,7 @@ class AlphaBetaPlayer {
 
   std::optional<std::tuple<int, std::optional<Move>, int>> MakeMove(
       Board& board,
-      int max_depth = 20);
+      int max_depth = 100);
   void CancelEvaluation() { canceled_ = true; }
   // NOTE: Should wait until evaluation is done before resetting this to true.
   void SetCanceled(bool canceled) { canceled_ = canceled; }

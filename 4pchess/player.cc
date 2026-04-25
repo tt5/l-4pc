@@ -94,7 +94,6 @@ ThreadState::ThreadState(ThreadState&& other) noexcept
     buffer_id_(other.buffer_id_) {
   other.move_buffer_ = nullptr;
   other.buffer_id_ = 0;
-  std::memcpy(n_activated_, other.n_activated_, sizeof(n_activated_));
   std::memcpy(total_moves_, other.total_moves_, sizeof(total_moves_));
   std::memcpy(n_threats, other.n_threats, sizeof(n_threats));
   std::memcpy(move_gen_buffer_, other.move_gen_buffer_, sizeof(move_gen_buffer_));
@@ -112,7 +111,6 @@ ThreadState& ThreadState::operator=(ThreadState&& other) noexcept {
     buffer_id_ = other.buffer_id_;
     other.move_buffer_ = nullptr;
     other.buffer_id_ = 0;
-    std::memcpy(n_activated_, other.n_activated_, sizeof(n_activated_));
     std::memcpy(total_moves_, other.total_moves_, sizeof(total_moves_));
     std::memcpy(n_threats, other.n_threats, sizeof(n_threats));
     std::memcpy(move_gen_buffer_, other.move_gen_buffer_, sizeof(move_gen_buffer_));
