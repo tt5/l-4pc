@@ -57,7 +57,7 @@ std::string GetPVStr(const AlphaBetaPlayer& player) {
 }  // namespace
 
 CommandLine::CommandLine() {
-  player_options_.num_threads = 2;
+  player_options_.num_threads = 4;
   // Initialize the board with standard setup
   board_ = Board::CreateStandardSetup();
 }
@@ -155,6 +155,7 @@ void CommandLine::StartEvaluation() {
     while (!player->IsCanceled()
            && (!options.depth.has_value() || depth <= *options.depth)
            && depth < 100) {
+      // start again from the same board position
       auto res = player->MakeMove(*board, depth);
 
       if (res.has_value()) {

@@ -390,42 +390,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
     std::optional<std::tuple<int, std::optional<Move>>> value_and_move_or;
 
-    /*
-    const auto capture = move.GetCapturePiece();
-    if (UNLIKELY(capture.Present() && capture.GetPieceType() == KING)) {
-        // capturing the king not always wins but it always ends the game
-
-        bool is_new_checkmate = false;
-
-        // First try a read-only check with shared lock
-        {
-          std::shared_lock<std::shared_mutex> lock(checkmate_mutex_);
-          is_new_checkmate = (checkmate_positions_.find(key) == checkmate_positions_.end());
-        }
-
-        // If it's a new checkmate, take exclusive lock to update
-        if (is_new_checkmate) {
-          std::unique_lock<std::shared_mutex> lock(checkmate_mutex_);
-          // Double-check in case another thread added it between our check and now
-          auto [it, inserted] = checkmate_positions_.insert(key);
-          is_new_checkmate = inserted;
-        }
-
-      //const auto game_result = capture.GetTeam() == RED_YELLOW ? WIN_BG : WIN_RY;
-      auto eval = capture.GetTeam() == RED_YELLOW ? -kMateValue : kMateValue;
-      //if (game_result == WIN_RY) {
-      //  eval = kMateValue;
-      //  //std::cout << "win ry" << std::endl;
-      //} else if (game_result == WIN_BG) {
-      //  eval = -kMateValue;
-      //  //std::cout << "win bg" << std::endl;
-      //}
-      eval = maximizing_player ? eval : -eval;
-      thread_state.ReleaseMoveBufferPartition();
-      return std::make_tuple(eval, std::nullopt);
-    }
-    */
-
     const int8_t old_king_row = board.GetKingRow(player_color);
     const int8_t old_king_col = board.GetKingCol(player_color);
     //~20ns
@@ -469,6 +433,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     int64_t current_hash = board.HashKey();
     bool checkmate = IsKnownCheckmate(current_hash);
     if (checkmate) {
+        /*
         // Checkmate discovery mode: export FEN to file
         if (options_.checkmate_discovery_mode
           && checkmate_file_
@@ -495,6 +460,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
             }
           }
         }
+        */
       board.UndoMove();
       //cm_skip_count++;
       continue;
@@ -726,41 +692,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
   int score = alpha;
   if (!has_legal_moves) {
-    /*
-    if (!in_check) {
-      // stalemate
-      score = std::min(beta, std::max(alpha, 0));
-    } else {
-      // checkmate
-    */
       score = std::min(beta, std::max(alpha, -kMateValue));
-
-      //// Track unique checkmate positions
-      //Board checkmateboard = board;
-      ////Move last_move = board.GetLastMove();
-      //checkmateboard.UndoMove();
-//      int64_t hash_key = checkmateboard.HashKey();
-
-//      bool is_new_checkmate = false;
-
-      //// First try a read-only check with shared lock
-      //{
-      //  std::shared_lock<std::shared_mutex> lock(checkmate_mutex_);
-      //  is_new_checkmate = (checkmate_positions_.find(hash_key) == checkmate_positions_.end());
-//      }
-
-      //// If it's a new checkmate, take exclusive lock to update
-      //if (is_new_checkmate) {
-      //  std::unique_lock<std::shared_mutex> lock(checkmate_mutex_);
-      //  // Double-check in case another thread added it between our check and now
-      //  auto [it, inserted] = checkmate_positions_.insert(hash_key);
-      //  is_new_checkmate = inserted;
-//        //total_checkmates_found++;     // Increment total checkmate counter
-
-      //}
-    /*
-    }
-    */
   }
 
   ScoreBound bound = beta <= alpha ? LOWER_BOUND : is_pv_node &&
@@ -809,26 +741,6 @@ std::optional<std::tuple<int, std::optional<Move>, int>>
 AlphaBetaPlayer::MakeMove(
     Board& board,
     int max_depth) {
-  root_team_ = board.GetTurn().GetTeam();
-  int64_t hash_key = board.HashKey();
-  if (hash_key != last_board_key_) {
-    average_root_eval_ = 0;
-    asp_nobs_ = 0;
-    asp_sum_ = 0;
-    asp_sum_sq_ = 0;
-  }
-  last_board_key_ = hash_key;
-
-  SetCanceled(false);
-  // Use Alpha-Beta search with iterative deepening
-  auto start = std::chrono::system_clock::now();
-
-  if (options_.max_search_depth.has_value()) {
-    max_depth = std::min(max_depth, *options_.max_search_depth);
-  }
-
-  // ResetHistoryHeuristics();
-  //AgeHistoryHeuristics();
 
   int num_threads = 1;
   if (options_.enable_multithreading) {
@@ -848,9 +760,29 @@ AlphaBetaPlayer::MakeMove(
     ResetMobilityScores(thread_state, board);
   }
 
-  // Increment generation counter for new search
-  if (hash_key != last_board_key_ && num_threads > 0) {
-    thread_states[0].GetTranspositionTable()->NewSearch();
+  root_team_ = board.GetTurn().GetTeam();
+
+  // (we search the same position anyway)
+  int64_t hash_key = board.HashKey();
+  if (hash_key != last_board_key_) {
+    average_root_eval_ = 0;
+    asp_nobs_ = 0;
+    asp_sum_ = 0;
+    asp_sum_sq_ = 0;
+
+    // Increment generation counter for new search
+    if (hash_key != last_board_key_) {
+      thread_states[0].GetTranspositionTable()->NewSearch();
+    }
+  }
+  last_board_key_ = hash_key;
+
+  SetCanceled(false);
+  // Use Alpha-Beta search with iterative deepening
+  auto start = std::chrono::system_clock::now();
+
+  if (options_.max_search_depth.has_value()) {
+    max_depth = std::min(max_depth, *options_.max_search_depth);
   }
 
   std::vector<std::unique_ptr<std::thread>> threads;
@@ -859,7 +791,7 @@ AlphaBetaPlayer::MakeMove(
       this, i, &thread_states, max_depth] {
           //int helper_depth = std::max(1, max_depth - 0);
           int helper_depth = 100;
-          //std::cout << "starting " << i << " depth: " << max_depth << std::endl;
+          std::cout << "starting " << i << " depth: " << max_depth << std::endl;
           MakeMoveSingleThread(i, thread_states[i], helper_depth);
     }));
   }
@@ -1097,8 +1029,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
   //bool in_check = result.in_check;
 
   //~20ns
-  int eval = 0;
-    //eval = board.PieceEvaluation();
     
     static const uint8_t LOG2_MOVES[256] = {
         0, 0, 0, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
@@ -1186,11 +1116,10 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     len_idx = (len_idx < 0) ? 0 : (len_idx > 63 ? 63 : len_idx);
     threat_eval = threat_sign * THREAT_SCORE[len_idx];
 
-    eval += moves_eval + threat_eval;
+    int unflipped_eval = board.PieceEvaluation() + moves_eval + threat_eval;
 
-    eval = maximizing_player ? eval : -eval;
 
-  ss->static_eval = eval;
+  ss->static_eval = maximizing_player ? unflipped_eval : -unflipped_eval;
 
   //~10ns
   // Then initialize the move picker with the generated moves
@@ -1291,8 +1220,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
 
     ss->move_count = move_count++;
 
-    int r = 1;
-
     //auto endA2 = std::chrono::high_resolution_clock::now();
     //auto durationA2 = std::chrono::duration_cast<std::chrono::nanoseconds>(endA2 - startA2);
     //total_timeA2 += durationA2;
@@ -1310,44 +1237,17 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
 
     static std::atomic<int64_t> capture_extension_count{0};
     //static std::atomic<int64_t> check_extension_count{0};
-
-    if (thread_id == 1) {
-      if (move.IsCapture()
-        && (ss-2)->current_move.IsCapture()
-      ) {
-          //capture_extension_count++;
-          r = -1;
-      }
-    } else if (thread_id == 2) {
-      if ((ss-1)->current_move.IsCapture()
-        && (ss-3)->current_move.IsCapture()
-      ) {
-          //capture_extension_count++;
-          r = -1;
-      }
-    }
-
+    const int is_capture = move.IsCapture();
+      int new_depth = depth - 1 + is_capture;
 
     // lmr
-    if (move_count >= 2) {
-      int new_depth = depth - 3
-          + (r < 0);
-      SEARCH_OR_EVAL_M(value_and_move_or, new_depth,
-          ss+1, NonPV, thread_state, thread_id, board, ply + 1, new_depth,
-          -alpha-1, -alpha, !maximizing_player,
-          *child_pvinfo, is_cut_node);
+    if (move_count >= 1) {
+        if (unflipped_eval > alpha) {
           
-      if (value_and_move_or.has_value()) {
-        int score = -std::get<0>(*value_and_move_or);
-        
-        if (score > alpha) {
-          
-          int new_depth = depth - 1 + (r < 0);
           SEARCH_OR_EVAL_M(value_and_move_or, new_depth,
             ss+1, NonPV, thread_state, thread_id, board, ply + 1, new_depth,
             -beta, -alpha, !maximizing_player,
             *child_pvinfo, is_cut_node);
-        }
       }
     }
 
@@ -1355,7 +1255,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     // high (in the latter case search only if value < beta), otherwise let the
     // parent node fail low with value <= alpha and try another move.
     bool full_search =
-      move_count < 2
+      move_count < 1
           || (value_and_move_or.has_value()
               && -std::get<0>(*value_and_move_or) > alpha
               && (is_root_node
@@ -1363,8 +1263,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
               );
 
     if (full_search) {
-      (ss+1)->extension_count = ss->extension_count + (r < 0 ? 1 : 0);
-      int new_depth = depth - 1 + (r < 0);
       SEARCH_OR_EVAL_M(value_and_move_or, new_depth,
           ss+1, PV, thread_state, thread_id, board, ply + 1, new_depth,
           -beta, -alpha, !maximizing_player,
