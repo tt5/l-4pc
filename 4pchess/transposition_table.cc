@@ -9,7 +9,7 @@ namespace chess {
 TranspositionTable::TranspositionTable(size_t table_size) {
   assert((table_size > 0) && "transposition table_size = 0");
   table_size_ = table_size;
-  hash_table_ = (HashTableEntry*) calloc(table_size, sizeof(HashTableEntry));
+  hash_table_ = (HashTableEntry*) malloc(table_size * sizeof(HashTableEntry));
   assert(
       (hash_table_ != nullptr) && 
       "Can't create transposition table. Try using a smaller size.");

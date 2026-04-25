@@ -18,8 +18,8 @@ enum ScoreBound {
 
 struct HashTableEntry {
   int64_t key;
-  int depth;
   uint32_t packed_move;  // Packed move representation (0 = no move)
+  int depth;
   int score;
   int eval;
   ScoreBound bound;
