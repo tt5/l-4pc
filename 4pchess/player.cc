@@ -25,7 +25,6 @@
 #define SEARCH_OR_EVAL(result, new_depth_var, ...) \
     do { \
         if ((new_depth_var) <= 0) { \
-            num_nodes_++; \
             result = std::make_tuple(-(ss->static_eval), std::nullopt); \
         } else { \
             result = Search(__VA_ARGS__); \
@@ -750,29 +749,29 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     */
       score = std::min(beta, std::max(alpha, -kMateValue));
 
-      // Track unique checkmate positions
-      Board checkmateboard = board;
-      //Move last_move = board.GetLastMove();
-      checkmateboard.UndoMove();
-      int64_t hash_key = checkmateboard.HashKey();
+      //// Track unique checkmate positions
+      //Board checkmateboard = board;
+      ////Move last_move = board.GetLastMove();
+      //checkmateboard.UndoMove();
+//      int64_t hash_key = checkmateboard.HashKey();
 
-      bool is_new_checkmate = false;
+//      bool is_new_checkmate = false;
 
-      // First try a read-only check with shared lock
-      {
-        std::shared_lock<std::shared_mutex> lock(checkmate_mutex_);
-        is_new_checkmate = (checkmate_positions_.find(hash_key) == checkmate_positions_.end());
-      }
+      //// First try a read-only check with shared lock
+      //{
+      //  std::shared_lock<std::shared_mutex> lock(checkmate_mutex_);
+      //  is_new_checkmate = (checkmate_positions_.find(hash_key) == checkmate_positions_.end());
+//      }
 
-      // If it's a new checkmate, take exclusive lock to update
-      if (is_new_checkmate) {
-        std::unique_lock<std::shared_mutex> lock(checkmate_mutex_);
-        // Double-check in case another thread added it between our check and now
-        auto [it, inserted] = checkmate_positions_.insert(hash_key);
-        is_new_checkmate = inserted;
-        //total_checkmates_found++;     // Increment total checkmate counter
+      //// If it's a new checkmate, take exclusive lock to update
+      //if (is_new_checkmate) {
+      //  std::unique_lock<std::shared_mutex> lock(checkmate_mutex_);
+      //  // Double-check in case another thread added it between our check and now
+      //  auto [it, inserted] = checkmate_positions_.insert(hash_key);
+      //  is_new_checkmate = inserted;
+//        //total_checkmates_found++;     // Increment total checkmate counter
 
-      }
+      //}
     /*
     }
     */

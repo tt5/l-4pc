@@ -113,7 +113,7 @@ enum NodeType {
 };
 
 constexpr size_t kBufferPartitionSize = 512; // number of elements per buffer partition
-constexpr size_t kBufferNumPartitions = 2000; // number of recursive calls
+constexpr size_t kBufferNumPartitions = 1000; // number of recursive calls
 
 // Manages state of worker threads during search
 class ThreadState {
@@ -127,8 +127,8 @@ class ThreadState {
   ThreadState& operator=(ThreadState&& other) noexcept;
   Move* GetNextMoveBufferPartition();
   void ReleaseMoveBufferPartition();
-    int* NActivated() { return n_activated_; }
-    int* NThreats() { return n_threats; }
+  int* NActivated() { return n_activated_; }
+  int* NThreats() { return n_threats; }
   int* TotalMoves() { return total_moves_; }
   PVInfo& GetPVInfo() { return pv_info_; }
   const Board& GetRootBoard() { return *root_board_; }
