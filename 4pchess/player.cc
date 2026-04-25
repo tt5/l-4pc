@@ -207,21 +207,21 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   }
 
 
-  //// Check for king capture first
-  //if (board.CanCaptureKing()) {
-  //  // king capture possible
-  //  // capturing the king not always wins but it always ends the game
+  // Check for king capture first
+  if (board.CanCaptureKing()) {
+    // king capture possible
+    // capturing the king not always wins but it always ends the game
 
-  //  auto eval = kMateValue;
-  //  //std::cout << "king capture" << std::endl;
+    auto eval = kMateValue;
+    //std::cout << "king capture" << std::endl;
 
-  //  eval = maximizing_player ? eval : -eval;
-  //  if (tt != nullptr) {
-  //    tt->Save(key, depth, std::nullopt, eval, eval, EXACT, is_pv_node);
-  //  }
-  //  //thread_state.ReleaseMoveBufferPartition();
-  //  return std::make_tuple(eval, std::nullopt);
-  //}
+    eval = maximizing_player ? eval : -eval;
+    if (tt != nullptr) {
+      tt->Save(key, depth, std::nullopt, eval, eval, EXACT, is_pv_node);
+    }
+    //thread_state.ReleaseMoveBufferPartition();
+    //return std::make_tuple(eval, std::nullopt);
+  }
 
   ss->move_count = 0;
 
@@ -1067,9 +1067,9 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
       is_new_checkmate = inserted;
     }
 
-    auto eval = kMateValue;
-    eval = maximizing_player ? eval : -eval;
-    return std::make_tuple(eval, std::nullopt);
+    //auto eval = kMateValue;
+    //eval = maximizing_player ? eval : -eval;
+    //return std::make_tuple(eval, std::nullopt);
   }
 
   //auto startA = std::chrono::high_resolution_clock::now();

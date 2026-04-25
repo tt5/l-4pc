@@ -57,7 +57,7 @@ std::string GetPVStr(const AlphaBetaPlayer& player) {
 }  // namespace
 
 CommandLine::CommandLine() {
-  player_options_.num_threads = 2;
+  player_options_.num_threads = 4;
   // Initialize the board with standard setup
   board_ = Board::CreateStandardSetup();
 }
