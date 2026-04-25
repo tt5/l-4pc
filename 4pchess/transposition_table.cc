@@ -8,15 +8,19 @@ namespace chess {
 
 TranspositionTable::TranspositionTable(size_t table_size) {
   assert((table_size > 0) && "transposition table_size = 0");
-  table_size_ = table_size;
-  hash_table_ = (HashTableEntry*) malloc(table_size * sizeof(HashTableEntry));
+  // Round up to next power of 2 for bitmask hashing
+  table_size_ = 1;
+  while (table_size_ < table_size) {
+    table_size_ <<= 1;
+  }
+  hash_table_ = (HashTableEntry*) malloc(table_size_ * sizeof(HashTableEntry));
   assert(
       (hash_table_ != nullptr) && 
       "Can't create transposition table. Try using a smaller size.");
 }
 
 const HashTableEntry* TranspositionTable::Get(int64_t key) {
-  size_t n = key % table_size_;
+  size_t n = key & (table_size_ - 1);
   HashTableEntry* entry = hash_table_ + n;
   if (entry->key == key) {
     return entry;
@@ -27,11 +31,12 @@ const HashTableEntry* TranspositionTable::Get(int64_t key) {
 void TranspositionTable::Save(
     int64_t key, int depth, std::optional<Move> move, int score, int eval,
     ScoreBound bound, bool is_pv) {
-  size_t n = key % table_size_;
+  size_t n = key & (table_size_ - 1);
   HashTableEntry& entry = hash_table_[n];
   if (bound == EXACT
       || entry.key != key
-      || entry.depth <= depth) { // Prioritize entries from deeper searches
+      || entry.depth <= depth
+      || entry.generation != generation_) { // Replace old generation entries
     entry.key = key;
     entry.depth = depth;
     if (move.has_value()) {
@@ -43,8 +48,12 @@ void TranspositionTable::Save(
     entry.eval = eval;
     entry.bound = bound;
     entry.is_pv = is_pv;
+    entry.generation = generation_;
   }
 }
 
+void TranspositionTable::NewSearch() {
+  generation_++;
+}
 
 }  // namespace chess

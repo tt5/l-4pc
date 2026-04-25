@@ -24,6 +24,7 @@ struct HashTableEntry {
   int eval;
   ScoreBound bound;
   bool is_pv;
+  uint8_t generation;
 };
 
 class TranspositionTable {
@@ -33,6 +34,7 @@ class TranspositionTable {
    const HashTableEntry* Get(int64_t key);
    void Save(int64_t key, int depth, std::optional<Move> move,
              int score, int eval, ScoreBound bound, bool is_pv);
+   void NewSearch();
 
   ~TranspositionTable() {
     if (hash_table_ != nullptr) {
@@ -43,6 +45,7 @@ class TranspositionTable {
  private:
   HashTableEntry* hash_table_ = nullptr;
   size_t table_size_ = 0;
+  uint8_t generation_ = 0;
 };
 
 

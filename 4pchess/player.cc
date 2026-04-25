@@ -863,6 +863,11 @@ AlphaBetaPlayer::MakeMove(
     ResetMobilityScores(thread_state, board);
   }
 
+  // Increment generation counter for new search
+  if (hash_key != last_board_key_ && num_threads > 0) {
+    thread_states[0].GetTranspositionTable()->NewSearch();
+  }
+
   std::vector<std::unique_ptr<std::thread>> threads;
   for (int i = 1; i < num_threads; i++) {
     threads.push_back(std::make_unique<std::thread>([
