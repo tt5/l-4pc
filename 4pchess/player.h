@@ -121,23 +121,31 @@ class ThreadState {
   ThreadState(
       PlayerOptions options, const Board& board, const PVInfo& pv_info);
   ~ThreadState();
+  ThreadState(const ThreadState&) = delete;
+  ThreadState& operator=(const ThreadState&) = delete;
+  ThreadState(ThreadState&& other) noexcept;
+  ThreadState& operator=(ThreadState&& other) noexcept;
   Move* GetNextMoveBufferPartition();
   void ReleaseMoveBufferPartition();
     int* NActivated() { return n_activated_; }
     int* NThreats() { return n_threats; }
   int* TotalMoves() { return total_moves_; }
   PVInfo& GetPVInfo() { return pv_info_; }
-  const Board& GetRootBoard() { return root_board_; }
+  const Board& GetRootBoard() { return *root_board_; }
 
   int n_threats[4] = {0, 0, 0, 0};
   Move* GetMoveGenBuffer() { return move_gen_buffer_; }
   static constexpr int kMaxMoves = 256;
+  TranspositionTable* GetTranspositionTable() { return transposition_table_.get(); }
+  int16_t* GetHistoryHeuristic() { return history_heuristic_[0][0]; }
 
  private:
   PlayerOptions options_;
-  const Board& root_board_;
+  const Board* root_board_;
   PVInfo pv_info_;
   Move move_gen_buffer_[kMaxMoves];  // Buffer for move generation
+  std::unique_ptr<TranspositionTable> transposition_table_;
+  int16_t history_heuristic_[2][224][224] = {0};
 
   // Buffer used to store moves per node.
   // Each node generates up to `partition_size` moves, and there
@@ -287,7 +295,6 @@ class AlphaBetaPlayer {
   PlayerOptions options_;
   int location_evaluations_[14][14];
 
-  std::unique_ptr<TranspositionTable> transposition_table_;
   PVInfo pv_info_;
 
   bool enable_debug_ = false;
@@ -314,14 +321,6 @@ class AlphaBetaPlayer {
   bool knight_to_king_[14][14][14][14];
   Team root_team_ = NO_TEAM;
 
-  // Heuristics (shared across threads)
-  // (queen_or_not, from_square, to_square) where square = row * 16 + col (power of 2 for bit shift)
-  int16_t history_heuristic[2][224][224];
-  // (piece_type, piece_color, capture_piece_type, capture_piece_color, to_row, to_col)
-
-  static constexpr size_t kHeuristicMutexes = 256;
-  std::unique_ptr<std::mutex[]> heuristic_mutexes_;
-  
   // Checkmate position tracking
   std::unordered_set<int64_t> checkmate_positions_;
   mutable std::shared_mutex checkmate_mutex_;  // mutable allows const methods to lock it

@@ -59,14 +59,6 @@ AlphaBetaPlayer::AlphaBetaPlayer(std::optional<PlayerOptions> options) {
     options_ = *options;
   }
 
-  if (options_.enable_transposition_table) {
-    transposition_table_ = std::make_unique<TranspositionTable>(
-        options_.transposition_table_size);
-  }
-
-  heuristic_mutexes_ = std::make_unique<std::mutex[]>(kHeuristicMutexes);
-  ResetHistoryHeuristics();
-
   // Initialize checkmate discovery mode
   if (options_.checkmate_discovery_mode) {
     checkmate_file_ = std::make_unique<std::ofstream>(options_.checkmate_output_file);
@@ -83,12 +75,51 @@ AlphaBetaPlayer::~AlphaBetaPlayer() {
 
 ThreadState::ThreadState(
     PlayerOptions options, const Board& board, const PVInfo& pv_info)
-  : options_(options), root_board_(board), pv_info_(pv_info) {
+  : options_(options), root_board_(&board), pv_info_(pv_info) {
   move_buffer_ = new Move[kBufferPartitionSize * kBufferNumPartitions];
+  if (options_.transposition_table_size > 0) {
+    transposition_table_ = std::make_unique<TranspositionTable>(options_.transposition_table_size);
+  }
 }
 
 ThreadState::~ThreadState() {
   delete[] move_buffer_;
+}
+
+ThreadState::ThreadState(ThreadState&& other) noexcept
+  : options_(other.options_),
+    root_board_(other.root_board_),
+    pv_info_(std::move(other.pv_info_)),
+    transposition_table_(std::move(other.transposition_table_)),
+    move_buffer_(other.move_buffer_),
+    buffer_id_(other.buffer_id_) {
+  other.move_buffer_ = nullptr;
+  other.buffer_id_ = 0;
+  std::memcpy(n_activated_, other.n_activated_, sizeof(n_activated_));
+  std::memcpy(total_moves_, other.total_moves_, sizeof(total_moves_));
+  std::memcpy(n_threats, other.n_threats, sizeof(n_threats));
+  std::memcpy(move_gen_buffer_, other.move_gen_buffer_, sizeof(move_gen_buffer_));
+  std::memcpy(history_heuristic_, other.history_heuristic_, sizeof(history_heuristic_));
+}
+
+ThreadState& ThreadState::operator=(ThreadState&& other) noexcept {
+  if (this != &other) {
+    delete[] move_buffer_;
+    options_ = other.options_;
+    root_board_ = other.root_board_;
+    pv_info_ = std::move(other.pv_info_);
+    transposition_table_ = std::move(other.transposition_table_);
+    move_buffer_ = other.move_buffer_;
+    buffer_id_ = other.buffer_id_;
+    other.move_buffer_ = nullptr;
+    other.buffer_id_ = 0;
+    std::memcpy(n_activated_, other.n_activated_, sizeof(n_activated_));
+    std::memcpy(total_moves_, other.total_moves_, sizeof(total_moves_));
+    std::memcpy(n_threats, other.n_threats, sizeof(n_threats));
+    std::memcpy(move_gen_buffer_, other.move_gen_buffer_, sizeof(move_gen_buffer_));
+    std::memcpy(history_heuristic_, other.history_heuristic_, sizeof(history_heuristic_));
+  }
+  return *this;
 }
 
 Move* ThreadState::GetNextMoveBufferPartition() {
@@ -143,7 +174,10 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   const HashTableEntry* tte = nullptr;
   bool tt_hit = false;
   int64_t key = board.HashKey();
-  tte = transposition_table_->Get(key);
+  auto* tt = thread_state.GetTranspositionTable();
+  if (tt != nullptr) {
+    tte = tt->Get(key);
+  }
   if (tte != nullptr) {
     if (tte->key == key) { // valid entry
       tt_hit = true;
@@ -204,7 +238,9 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     //std::cout << "king capture" << std::endl;
 
     eval = maximizing_player ? eval : -eval;
-    transposition_table_->Save(key, depth, std::nullopt, eval, eval, EXACT, is_pv_node);
+    if (tt != nullptr) {
+      tt->Save(key, depth, std::nullopt, eval, eval, EXACT, is_pv_node);
+    }
     //thread_state.ReleaseMoveBufferPartition();
     return std::make_tuple(eval, std::nullopt);
   }
@@ -343,7 +379,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     move_count2,
     pv_ptr,
     tt_ptr,
-    history_heuristic);
+    reinterpret_cast<int16_t(*)[224][224]>(thread_state.GetHistoryHeuristic()));
 
   //auto endA = std::chrono::high_resolution_clock::now();
   //auto durationA = std::chrono::duration_cast<std::chrono::nanoseconds>(endA - startA);
@@ -700,12 +736,11 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     // [224][224] some values unused
     int from_sq = (from_row << 4) + from_col;
     int to_sq = (to_row << 4) + to_col;
-    size_t lock_key = (from_sq * 224) + to_sq;
-    std::lock_guard<std::mutex> lock(heuristic_mutexes_[lock_key % kHeuristicMutexes]);
     int queen_idx = (piece.GetPieceType() == QUEEN) ? 1 : 0;
-    history_heuristic[queen_idx][from_sq][to_sq] += bonus;
-    history_heuristic[queen_idx][from_sq][to_sq] =
-    (history_heuristic[queen_idx][from_sq][to_sq] >> 1) | (rand() & 0x7);
+    auto* hh = thread_state.GetHistoryHeuristic();
+    hh[queen_idx * 224 * 224 + from_sq * 224 + to_sq] += bonus;
+    hh[queen_idx * 224 * 224 + from_sq * 224 + to_sq] =
+    (hh[queen_idx * 224 * 224 + from_sq * 224 + to_sq] >> 1) | (rand() & 0x7);
   }
 
   int score = alpha;
@@ -749,7 +784,9 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
   ScoreBound bound = beta <= alpha ? LOWER_BOUND : is_pv_node &&
     best_move.has_value() ? EXACT : UPPER_BOUND;
-  transposition_table_->Save(board.HashKey(), depth, best_move, score, ss->static_eval, bound, is_pv_node);
+  if (tt != nullptr) {
+    tt->Save(board.HashKey(), depth, best_move, score, ss->static_eval, bound, is_pv_node);
+  }
 
   thread_state.ReleaseMoveBufferPartition();
   //auto endC = std::chrono::high_resolution_clock::now();
@@ -770,16 +807,13 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 }
 
 void AlphaBetaPlayer::ResetHistoryHeuristics() {
-  std::memset(history_heuristic, 0, sizeof(history_heuristic));
+  // History heuristic is now thread-local in ThreadState
+  // Each thread's heuristic is zero-initialized in ThreadState constructor
 }
 
 void AlphaBetaPlayer::AgeHistoryHeuristics() {
-  // Age quiet move history heuristic by dividing all scores by 2
-  for (int queen_idx = 0; queen_idx < 2; ++queen_idx) {
-    for (int sq = 0; sq < 224 * 224; ++sq) {
-      history_heuristic[queen_idx][0][sq] >>= 1;
-    }
-  }
+  // History heuristic is now thread-local in ThreadState
+  // Aging would need to be done per-thread if needed
 }
 
 void AlphaBetaPlayer::ResetMobilityScores(ThreadState& thread_state, Board& board) {
@@ -834,7 +868,7 @@ AlphaBetaPlayer::MakeMove(
     threads.push_back(std::make_unique<std::thread>([
       this, i, &thread_states, max_depth] {
           //int helper_depth = std::max(1, max_depth - 0);
-          int helper_depth = std::max(1, max_depth >> 3);
+          int helper_depth = std::max(1, max_depth >> 4);
           //int helper_depth = 1;
           std::cout << "starting " << i << " depth: " << helper_depth << std::endl;
           MakeMoveSingleThread(i, thread_states[i], helper_depth);
@@ -1036,7 +1070,10 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
   const HashTableEntry* tte = nullptr;
   bool tt_hit = false;
   int64_t key = board.HashKey();
-  tte = transposition_table_->Get(key);
+  auto* tt = thread_state.GetTranspositionTable();
+  if (tt != nullptr) {
+    tte = tt->Get(key);
+  }
   if (tte != nullptr) {
     if (tte->key == key) { // valid entry
       tt_hit = true;
@@ -1097,7 +1134,9 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     //std::cout << "king capture" << std::endl;
 
     eval = maximizing_player ? eval : -eval;
-    transposition_table_->Save(key, depth, std::nullopt, eval, eval, EXACT, is_pv_node);
+    if (tt != nullptr) {
+      tt->Save(key, depth, std::nullopt, eval, eval, EXACT, is_pv_node);
+    }
     //thread_state.ReleaseMoveBufferPartition();
     return std::make_tuple(eval, std::nullopt);
   }
@@ -1236,7 +1275,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     move_count2,
     pv_ptr,
     tt_ptr,
-    history_heuristic);
+    reinterpret_cast<int16_t(*)[224][224]>(thread_state.GetHistoryHeuristic()));
 
   //auto endA = std::chrono::high_resolution_clock::now();
   //auto durationA = std::chrono::duration_cast<std::chrono::nanoseconds>(endA - startA);
@@ -1595,12 +1634,11 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     // [224][224] some values unused
     int from_sq = (from_row << 4) + from_col;
     int to_sq = (to_row << 4) + to_col;
-    size_t lock_key = (from_sq * 224) + to_sq;
-    std::lock_guard<std::mutex> lock(heuristic_mutexes_[lock_key % kHeuristicMutexes]);
     int queen_idx = (piece.GetPieceType() == QUEEN) ? 1 : 0;
-    history_heuristic[queen_idx][from_sq][to_sq] += bonus;
-    history_heuristic[queen_idx][from_sq][to_sq] =
-    (history_heuristic[queen_idx][from_sq][to_sq] >> 1) | (rand() & 0x7);
+    auto* hh = thread_state.GetHistoryHeuristic();
+    hh[queen_idx * 224 * 224 + from_sq * 224 + to_sq] += bonus;
+    hh[queen_idx * 224 * 224 + from_sq * 224 + to_sq] =
+    (hh[queen_idx * 224 * 224 + from_sq * 224 + to_sq] >> 1) | (rand() & 0x7);
   }
 
   int score = alpha;
@@ -1644,7 +1682,9 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
 
   ScoreBound bound = beta <= alpha ? LOWER_BOUND : is_pv_node &&
     best_move.has_value() ? EXACT : UPPER_BOUND;
-  transposition_table_->Save(board.HashKey(), depth, best_move, score, ss->static_eval, bound, is_pv_node);
+  if (tt != nullptr) {
+    tt->Save(board.HashKey(), depth, best_move, score, ss->static_eval, bound, is_pv_node);
+  }
 
   thread_state.ReleaseMoveBufferPartition();
   //auto endC = std::chrono::high_resolution_clock::now();
