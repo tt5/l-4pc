@@ -25,6 +25,7 @@
 #define SEARCH_OR_EVAL(result, new_depth_var, ...) \
     do { \
         if ((new_depth_var) <= 0) { \
+          num_nodes_++; \
             result = std::make_tuple(-(ss->static_eval), std::nullopt); \
         } else { \
             result = Search(__VA_ARGS__); \
@@ -209,24 +210,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     // king capture possible
     // capturing the king not always wins but it always ends the game
 
-    /*
-    bool is_new_checkmate = false;
-
-    // First try a read-only check with shared lock
-    {
-      std::shared_lock<std::shared_mutex> lock(checkmate_mutex_);
-      is_new_checkmate = (checkmate_positions_.find(key) == checkmate_positions_.end());
-    }
-
-    // If it's a new checkmate, take exclusive lock to update
-    if (is_new_checkmate) {
-      std::unique_lock<std::shared_mutex> lock(checkmate_mutex_);
-      // Double-check in case another thread added it between our check and now
-      auto [it, inserted] = checkmate_positions_.insert(key);
-      is_new_checkmate = inserted;
-    }
-
-    */
     auto eval = kMateValue;
     //std::cout << "king capture" << std::endl;
 
@@ -258,7 +241,12 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   //~20ns
   int eval = 0;
   if (tt_hit) {
-    eval = tte->eval;
+    if (tte->bound == UPPER_BOUND) {
+      eval = board.PieceEvaluation();
+      eval = maximizing_player ? eval : -eval;
+    } else {
+      eval = tte->eval;
+    }
   } else {
     eval = board.PieceEvaluation();
     
@@ -870,9 +858,8 @@ AlphaBetaPlayer::MakeMove(
     threads.push_back(std::make_unique<std::thread>([
       this, i, &thread_states, max_depth] {
           //int helper_depth = std::max(1, max_depth - 0);
-          int helper_depth = std::clamp((max_depth << 1) - 7, 0, 11);
-          //int helper_depth = 1;
-          std::cout << "starting " << i << " depth: " << helper_depth << std::endl;
+          int helper_depth = 100;
+          //std::cout << "starting " << i << " depth: " << max_depth << std::endl;
           MakeMoveSingleThread(i, thread_states[i], helper_depth);
     }));
   }
@@ -970,7 +957,7 @@ AlphaBetaPlayer::MakeMoveSingleThread(
       } else {
           // Helper threads use a full window
           move_and_value = SearchM(
-            ss, Root, thread_state, board, 1, next_depth, -kMateValue, kMateValue, maximizing_player,
+            ss, Root, thread_state, thread_id, board, 1, next_depth, -kMateValue, kMateValue, maximizing_player,
             pv_info, false);
       }
 
@@ -1043,6 +1030,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     Stack* ss,
     NodeType node_type,
     ThreadState& thread_state,
+    size_t thread_id,
     Board& board,
     int ply,
     int depth,
@@ -1057,8 +1045,25 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
   if (canceled_) {
     return std::nullopt;
   }
+  int64_t key = board.HashKey();
   // Check for king capture first
   if (board.CanCaptureKing()) {
+    bool is_new_checkmate = false;
+
+    // First try a read-only check with shared lock
+    {
+      std::shared_lock<std::shared_mutex> lock(checkmate_mutex_);
+      is_new_checkmate = (checkmate_positions_.find(key) == checkmate_positions_.end());
+    }
+
+    // If it's a new checkmate, take exclusive lock to update
+    if (is_new_checkmate) {
+      std::unique_lock<std::shared_mutex> lock(checkmate_mutex_);
+      // Double-check in case another thread added it between our check and now
+      auto [it, inserted] = checkmate_positions_.insert(key);
+      is_new_checkmate = inserted;
+    }
+
     auto eval = kMateValue;
     eval = maximizing_player ? eval : -eval;
     return std::make_tuple(eval, std::nullopt);
@@ -1073,8 +1078,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
   bool is_root_node = ply == 1;
   bool is_pv_node = node_type != NonPV;
 
-  //~60ns
-  int64_t key = board.HashKey();
 
   ss->move_count = 0;
 
@@ -1308,24 +1311,29 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     static std::atomic<int64_t> capture_extension_count{0};
     //static std::atomic<int64_t> check_extension_count{0};
 
-    //constexpr int kMaxExtensionsPerPath = 3;
-    if ((move.IsCapture()
-      && (ss-2)->current_move.IsCapture()
-    )
-    // && ss->extension_count < kMaxExtensionsPerPath
-    ) 
-     {
-        capture_extension_count++;
-        r = -1;
+    if (thread_id == 1) {
+      if (move.IsCapture()
+        && (ss-2)->current_move.IsCapture()
+      ) {
+          //capture_extension_count++;
+          r = -1;
+      }
+    } else if (thread_id == 2) {
+      if ((ss-1)->current_move.IsCapture()
+        && (ss-3)->current_move.IsCapture()
+      ) {
+          //capture_extension_count++;
+          r = -1;
+      }
     }
+
 
     // lmr
     if (move_count >= 2) {
-      (ss+1)->extension_count = ss->extension_count + (r < 0 ? 1 : 0);
       int new_depth = depth - 3
           + (r < 0);
       SEARCH_OR_EVAL_M(value_and_move_or, new_depth,
-          ss+1, NonPV, thread_state, board, ply + 1, new_depth,
+          ss+1, NonPV, thread_state, thread_id, board, ply + 1, new_depth,
           -alpha-1, -alpha, !maximizing_player,
           *child_pvinfo, is_cut_node);
           
@@ -1334,13 +1342,11 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
         
         if (score > alpha) {
           
-            (ss+1)->extension_count = ss->extension_count;
-            int new_depth = depth - 1 + (r < 0);
-            SEARCH_OR_EVAL_M(value_and_move_or, new_depth,
-              ss+1, NonPV, thread_state, board, ply + 1, new_depth,
-              -beta, -alpha, !maximizing_player,
-              *child_pvinfo, is_cut_node);
-          //}
+          int new_depth = depth - 1 + (r < 0);
+          SEARCH_OR_EVAL_M(value_and_move_or, new_depth,
+            ss+1, NonPV, thread_state, thread_id, board, ply + 1, new_depth,
+            -beta, -alpha, !maximizing_player,
+            *child_pvinfo, is_cut_node);
         }
       }
     }
@@ -1360,11 +1366,11 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
       (ss+1)->extension_count = ss->extension_count + (r < 0 ? 1 : 0);
       int new_depth = depth - 1 + (r < 0);
       SEARCH_OR_EVAL_M(value_and_move_or, new_depth,
-          ss+1, PV, thread_state, board, ply + 1, new_depth,
+          ss+1, PV, thread_state, thread_id, board, ply + 1, new_depth,
           -beta, -alpha, !maximizing_player,
           *child_pvinfo, is_cut_node);
     }
-    auto startB = std::chrono::high_resolution_clock::now();
+    //auto startB = std::chrono::high_resolution_clock::now();
 
     board.UndoMove();
 
@@ -1398,20 +1404,20 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
       pvinfo.SetChild(child_pvinfo);
       pvinfo.SetBestMove(move);
     }
-    auto endB = std::chrono::high_resolution_clock::now();
-    auto durationB = std::chrono::duration_cast<std::chrono::nanoseconds>(endB - startB);
-    total_timeB += durationB;
-    call_countB++;
+    //auto endB = std::chrono::high_resolution_clock::now();
+    //auto durationB = std::chrono::duration_cast<std::chrono::nanoseconds>(endB - startB);
+    //total_timeB += durationB;
+    //call_countB++;
     
-    if (call_countB % 2000 == 0) {
-      auto avg_ns = total_timeB.count() / call_countB;
-      auto current_avg = durationB.count() / 1;  // Current call's time in ns
+    //if (call_countB % 2000 == 0) {
+    //  auto avg_ns = total_timeB.count() / call_countB;
+    //  auto current_avg = durationB.count() / 1;  // Current call's time in ns
 
-      std::cout << "--- [Move - after recursion]"
-                << " Average: " << avg_ns << " ns,"
-                << " Calls: " << call_countB << std::endl
-                << " capture extension: " << capture_extension_count << std::endl;
-    }
+    //  std::cout << "--- [Move - after recursion]"
+    //            << " Average: " << avg_ns << " ns,"
+    //            << " Calls: " << call_countB << std::endl
+    //            << " capture extension: " << capture_extension_count << std::endl;
+    //}
   }
   //static std::atomic<int64_t> total_checkmates_found = 0;
   //auto startC = std::chrono::high_resolution_clock::now();

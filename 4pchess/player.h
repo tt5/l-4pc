@@ -186,6 +186,7 @@ class AlphaBetaPlayer {
       Stack* ss,
       NodeType node_type,
       ThreadState& thread_state,
+      size_t thread_id,
       Board& board,
       int ply,
       int depth,
