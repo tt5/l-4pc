@@ -4,7 +4,6 @@
 #include <atomic>
 #include <cstdint>
 #include <memory>
-#include <mutex>
 #include <optional>
 
 #include "board.h"
@@ -44,8 +43,6 @@ class TranspositionTable {
  private:
   HashTableEntry* hash_table_ = nullptr;
   size_t table_size_ = 0;
-  static constexpr size_t kNumMutexes = 256;
-  std::unique_ptr<std::mutex[]> a_mutexes_;
 };
 
 
