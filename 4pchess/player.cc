@@ -748,8 +748,18 @@ AlphaBetaPlayer::MakeMove(
   }
   assert(num_threads >= 1);
 
-  // Get PV move for first helper thread
-  auto pv_move = pv_info_.GetBestMove();
+  // Get PV moves for helper threads
+  std::vector<Move> pv_moves;
+  PVInfo* current = &pv_info_;
+  while (current && pv_moves.size() < 20) {
+    auto move = current->GetBestMove();
+    if (move.has_value()) {
+      pv_moves.push_back(*move);
+      current = current->GetChild().get();
+    } else {
+      break;
+    }
+  }
 
   // Generate root moves for remaining helper threads
   const auto& pieces = board.GetPieceList()[board.GetTurn().GetColor()];
@@ -779,9 +789,16 @@ AlphaBetaPlayer::MakeMove(
       } else {
         helper_boards[i - 1] = std::make_unique<Board>(board);
       }
-      // First helper thread gets PV move, others get sequential moves
-      if (i == 1 && pv_move.has_value()) {
-        helper_boards[i - 1]->MakeMove(*pv_move);
+      // Helper threads progress into PV line based on max_depth
+      // Thread 1 explores after 1 move, thread 2 after 2 moves, etc.
+      // Scale with max_depth: at depth 10, thread 1 goes 1 deep, thread 2 goes 2 deep
+      // At depth 20, thread 1 goes 2 deep, thread 2 goes 4 deep, etc.
+      int pv_depth = (i * max_depth) / 10;
+      if (pv_depth > 0 && !pv_moves.empty()) {
+        int moves_to_apply = std::min(pv_depth, static_cast<int>(pv_moves.size()));
+        for (int j = 0; j < moves_to_apply; j++) {
+          helper_boards[i - 1]->MakeMove(pv_moves[j]);
+        }
       } else if ((i - 1) < num_root_moves) {
         helper_boards[i - 1]->MakeMove(root_moves_buffer[i - 1]);
       }
@@ -821,15 +838,29 @@ AlphaBetaPlayer::MakeMove(
   std::vector<std::unique_ptr<std::thread>> threads;
   for (int i = 1; i < num_threads; i++) {
     // Only create helper thread if it has a move assigned
-    bool has_move = (i == 1 && pv_move.has_value()) || ((i - 1) < num_root_moves);
+    int pv_depth = (i * max_depth) / 10;
+    bool has_move = (pv_depth > 0 && !pv_moves.empty()) || ((i - 1) < num_root_moves);
     if (!has_move) {
       break;
     }
     threads.push_back(std::make_unique<std::thread>([
-      this, i, &thread_states, max_depth, &pv_move, &root_moves_buffer] {
+      this, i, &thread_states, max_depth, &pv_moves, &root_moves_buffer] {
           //int helper_depth = std::max(1, max_depth - 0);
+
           int helper_depth = 100;
-          Move move = (i == 1 && pv_move.has_value()) ? *pv_move : root_moves_buffer[i - 1];
+          if (max_depth > 10) {
+            helper_depth = 100;
+          } else {
+            helper_depth = 0;
+          }
+          Move move;
+          int pv_depth = (i * max_depth) / 10;
+          if (pv_depth > 0 && !pv_moves.empty()) {
+            int move_idx = std::min(pv_depth - 1, static_cast<int>(pv_moves.size()) - 1);
+            move = pv_moves[move_idx];
+          } else {
+            move = root_moves_buffer[i - 1];
+          }
           std::cout << "starting " << i << " move: " << move.PrettyStr() << " depth: " << max_depth << std::endl;
           MakeMoveSingleThread(i, thread_states[i], helper_depth);
     }));
