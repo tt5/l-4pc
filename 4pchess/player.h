@@ -97,8 +97,6 @@ struct PlayerOptions {
 };
 
 struct Stack {
-  Move killers[2];
-  Move excludedMove;
   bool tt_pv = false;
   int move_count = 0;
   bool in_check = false;
@@ -168,6 +166,19 @@ class AlphaBetaPlayer {
   const PVInfo& GetPVInfo() const { return pv_info_; }
 
   std::optional<std::tuple<int, std::optional<Move>>> Search(
+      Stack* ss,
+      NodeType node_type,
+      ThreadState& thread_state,
+      Board& board,
+      int ply,
+      int depth,
+      int alpha,
+      int beta,
+      bool maximizing_player,
+      PVInfo& pv_info,
+      bool is_cut_node = false);
+
+  std::optional<std::tuple<int, std::optional<Move>>> SearchM(
       Stack* ss,
       NodeType node_type,
       ThreadState& thread_state,
