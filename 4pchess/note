@@ -84,3 +84,13 @@ Average NPS: 3,001,892
 
 And positions where the teammate already checkmated the next player
 (any move is winning for the current player).
+
+---
+
+Depth 32: 9,277,406 nps, 68,652,807 nodes
+
+=== Benchmark Summary ===
+Runs completed: 1
+Total nodes: 68,652,807
+Total time: 7.40s
+Average NPS: 9,275,906

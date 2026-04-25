@@ -751,7 +751,7 @@ AlphaBetaPlayer::MakeMove(
   // Get PV moves for helper threads
   std::vector<Move> pv_moves;
   PVInfo* current = &pv_info_;
-  while (current && pv_moves.size() < 20) {
+  while (current) {
     auto move = current->GetBestMove();
     if (move.has_value()) {
       pv_moves.push_back(*move);
@@ -793,7 +793,7 @@ AlphaBetaPlayer::MakeMove(
       // Thread 1 explores after 1 move, thread 2 after 2 moves, etc.
       // Scale with max_depth: at depth 10, thread 1 goes 1 deep, thread 2 goes 2 deep
       // At depth 20, thread 1 goes 2 deep, thread 2 goes 4 deep, etc.
-      int pv_depth = (i * max_depth) / 10;
+      int pv_depth = max_depth - i;
       if (pv_depth > 0 && !pv_moves.empty()) {
         int moves_to_apply = std::min(pv_depth, static_cast<int>(pv_moves.size()));
         for (int j = 0; j < moves_to_apply; j++) {
@@ -838,7 +838,7 @@ AlphaBetaPlayer::MakeMove(
   std::vector<std::unique_ptr<std::thread>> threads;
   for (int i = 1; i < num_threads; i++) {
     // Only create helper thread if it has a move assigned
-    int pv_depth = (i * max_depth) / 10;
+    int pv_depth = max_depth - i;
     bool has_move = (pv_depth > 0 && !pv_moves.empty()) || ((i - 1) < num_root_moves);
     if (!has_move) {
       break;
@@ -853,15 +853,14 @@ AlphaBetaPlayer::MakeMove(
           } else {
             helper_depth = 0;
           }
-          Move move;
-          int pv_depth = (i * max_depth) / 10;
+          int pv_depth = max_depth - i;
           if (pv_depth > 0 && !pv_moves.empty()) {
-            int move_idx = std::min(pv_depth - 1, static_cast<int>(pv_moves.size()) - 1);
-            move = pv_moves[move_idx];
+            int moves_to_apply = std::min(pv_depth, static_cast<int>(pv_moves.size()));
+            std::cout << "starting " << i << " pv_depth: " << moves_to_apply << " depth: " << max_depth << std::endl;
           } else {
-            move = root_moves_buffer[i - 1];
+            Move move = root_moves_buffer[i - 1];
+            std::cout << "starting " << i << " move: " << move.PrettyStr() << " depth: " << max_depth << std::endl;
           }
-          std::cout << "starting " << i << " move: " << move.PrettyStr() << " depth: " << max_depth << std::endl;
           MakeMoveSingleThread(i, thread_states[i], helper_depth);
     }));
   }
