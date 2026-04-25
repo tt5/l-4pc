@@ -492,8 +492,16 @@ class Board {
     const std::vector<PlacedPiece>& pieces,
     const std::optional<Move>& pv_move = std::nullopt);
 
-  bool CanCaptureKing() const;
-  
+  struct KingCaptureInfo {
+    int8_t from_row;
+    int8_t from_col;
+    int8_t to_row;
+    int8_t to_col;
+    PieceType piece_type;
+  };
+
+  KingCaptureInfo CanCaptureKing() const;
+
   Team TeamToPlay() const;
   int PieceEvaluation() const;
   int PieceEvaluation(PlayerColor color) const;
@@ -540,6 +548,8 @@ class Board {
   }
 
   std::pair<int8_t, int8_t> GetAttacker(Team team, int8_t row, int8_t col) const;
+
+  std::pair<int8_t, int8_t> GetAttackerForOneColor(PlayerColor color, int8_t row, int8_t col) const;
 
   std::pair<int8_t, int8_t> GetRevAttacker(Team team, int8_t row, int8_t col) const;
 

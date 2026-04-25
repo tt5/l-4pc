@@ -208,19 +208,25 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
 
   // Check for king capture first
-  if (board.CanCaptureKing()) {
+  auto capture_info = board.CanCaptureKing();
+  if (capture_info.from_row != -1) {
     // king capture possible
     // capturing the king not always wins but it always ends the game
 
-    auto eval = kMateValue;
+    auto eval = 2000;
     //std::cout << "king capture" << std::endl;
-
     eval = maximizing_player ? eval : -eval;
+
+    const auto& target_piece = board.GetPiece(capture_info.to_row, capture_info.to_col);
+    int8_t capture_raw = target_piece.GetRaw();
+    Move move(capture_info.from_row, capture_info.from_col,
+              capture_info.to_row, capture_info.to_col, capture_raw);
+
     if (tt != nullptr) {
-      tt->Save(key, depth, std::nullopt, eval, eval, EXACT, is_pv_node);
+      tt->Save(key, depth+1, move, eval, eval, LOWER_BOUND, is_pv_node);
     }
     //thread_state.ReleaseMoveBufferPartition();
-    //return std::make_tuple(eval, std::nullopt);
+    //return std::make_tuple(eval, move);
   }
 
   ss->move_count = 0;
@@ -1050,7 +1056,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
   }
   int64_t key = board.HashKey();
   // Check for king capture first
-  if (board.CanCaptureKing()) {
+  auto capture_info = board.CanCaptureKing();
+  if (capture_info.from_row != -1) {
     bool is_new_checkmate = false;
 
     // First try a read-only check with shared lock
@@ -1067,9 +1074,16 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
       is_new_checkmate = inserted;
     }
 
-    //auto eval = kMateValue;
-    //eval = maximizing_player ? eval : -eval;
-    //return std::make_tuple(eval, std::nullopt);
+    int eval = 2000;
+    eval = maximizing_player ? eval : -eval;
+
+    // Construct the king capture move
+    const auto& target_piece = board.GetPiece(capture_info.to_row, capture_info.to_col);
+    int8_t capture_raw = target_piece.GetRaw();
+    Move move(capture_info.from_row, capture_info.from_col,
+              capture_info.to_row, capture_info.to_col, capture_raw);
+    
+    //return std::make_tuple(eval, move);
   }
 
   //auto startA = std::chrono::high_resolution_clock::now();

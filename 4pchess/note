@@ -87,21 +87,11 @@ And positions where the teammate already checkmated the next player
 
 ---
 
-1 thread:
-
-Depth 24: 11,070,468 nps, 92,648,752 nodes
+Depth 31: 9,984,119 nps, 81,091,015 nodes
 
 === Benchmark Summary ===
 Runs completed: 1
-Total nodes: 92,648,752
-Total time: 8.37s
-Average NPS: 11,069,275
-
-Depth 31: 10,753,359 nps, 297,405,667 nodes
-
-=== Benchmark Summary ===
-Runs completed: 1
-Total nodes: 297,405,667
-Total time: 27.66s
-Average NPS: 10,753,024
+Total nodes: 81,091,015
+Total time: 8.12s
+Average NPS: 9,982,631
 

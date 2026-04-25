@@ -200,6 +200,92 @@ std::pair<int8_t, int8_t> Board::GetAttacker(Team team, int8_t row, int8_t col) 
   return {-1, -1};
 }
 
+std::pair<int8_t, int8_t> Board::GetAttackerForOneColor(PlayerColor color, int8_t row, int8_t col) const {
+  int loc_row = row;
+  int loc_col = col;
+
+  // Orthogonal (rook/queen) - 4 directions
+  constexpr std::array<std::pair<int, int>, 4> orthogonal = {{
+      {0, 1}, {1, 0}, {0, -1}, {-1, 0}
+  }};
+  for (const auto& [dr, dc] : orthogonal) {
+      int row = loc_row + dr;
+      int col = loc_col + dc;
+      while (IsLegalLocation(row, col)) {
+          const auto piece = GetPiece(row, col);
+          if (piece.Present()) {
+              if (piece.GetColor() == color) {
+                  PieceType type = piece.GetPieceType();
+                  if (type == QUEEN || type == ROOK) return {row, col};
+              }
+              break;
+          }
+          row += dr;
+          col += dc;
+      }
+  }
+
+  // Diagonal (bishop/queen) - 4 directions
+  constexpr std::array<std::pair<int, int>, 4> diagonal = {{
+      {1, 1}, {1, -1}, {-1, -1}, {-1, 1}
+  }};
+  for (const auto& [dr, dc] : diagonal) {
+      int row = loc_row + dr;
+      int col = loc_col + dc;
+      while (IsLegalLocation(row, col)) {
+          const auto piece = GetPiece(row, col);
+          if (piece.Present()) {
+              if (piece.GetColor() == color) {
+                  PieceType type = piece.GetPieceType();
+                  if (type == QUEEN || type == BISHOP) return {row, col};
+              }
+              break;
+          }
+          row += dr;
+          col += dc;
+      }
+  }
+
+  // Check for knight attacks
+  constexpr std::array<std::pair<int, int>, 8> knight_moves = {{
+    {1, 2}, {1, -2}, {-1, 2}, {-1, -2}, {2, 1}, {2, -1}, {-2, 1}, {-2, -1}
+  }};
+
+  for (const auto& [dr, dc] : knight_moves) {
+    int row = loc_row + dr;
+    int col = loc_col + dc;
+    if (IsLegalLocation(row, col)) {
+      const auto piece = GetPiece(row, col);
+      if (piece.Present() &&
+          piece.GetColor() == color &&
+          piece.GetPieceType() == KNIGHT) {
+        return {row, col};
+      }
+    }
+  }
+
+  // Combined pawn attack check - simplified
+  constexpr std::pair<int, int> pawn_attacks[4][2] = {
+      {{-1, -1}, {-1, 1}},   // Red attacks up-left, up-right
+      {{1, -1}, {1, 1}},     // Yellow attacks down-left, down-right
+      {{-1, 1}, {1, 1}},     // Blue attacks up-right, down-right
+      {{-1, -1}, {1, -1}}    // Green attacks up-left, down-left
+  };
+
+  // Check only the specific color's pawns
+  for (int j = 0; j < 2; ++j) {
+      const auto& [dr, dc] = pawn_attacks[color][j];
+      int row = loc_row + dr, col = loc_col + dc;
+      if (IsLegalLocation(row, col)) {
+          const auto piece = GetPiece(row, col);
+          if (piece.GetRaw() == Piece::kRawPawn[color])
+              return {row, col};
+      }
+  }
+
+  return {-1, -1};
+}
+
 std::pair<int8_t, int8_t> Board::GetRevAttacker(Team team, int8_t row, int8_t col) const {
   int loc_row = row;
   int loc_col = col;
@@ -404,7 +490,7 @@ for (const auto& [dr, dc] : diagonal) {
   return false;
 }
 
-bool Board::CanCaptureKing() const {
+Board::KingCaptureInfo Board::CanCaptureKing() const {
     const PlayerColor current_color = GetTurn().GetColor();
     const Team my_team = GetTeam(current_color);
     const Team enemy_team = OtherTeam(my_team);
@@ -434,10 +520,18 @@ bool Board::CanCaptureKing() const {
       }
     }
 
-    auto king1_attacker = GetAttacker(my_team, enemy_king_row1, enemy_king_col1);
-    auto king2_attacker = GetAttacker(my_team, enemy_king_row2, enemy_king_col2);
+    auto king1_attacker = GetAttackerForOneColor(current_color, enemy_king_row1, enemy_king_col1);
+    auto king2_attacker = GetAttackerForOneColor(current_color, enemy_king_row2, enemy_king_col2);
 
-    return king1_attacker.first != -1 || king2_attacker.first != -1;
+    if (king1_attacker.first != -1) {
+      const auto& piece = GetPiece(king1_attacker.first, king1_attacker.second);
+      return {king1_attacker.first, king1_attacker.second, enemy_king_row1, enemy_king_col1, piece.GetPieceType()};
+    }
+    if (king2_attacker.first != -1) {
+      const auto& piece = GetPiece(king2_attacker.first, king2_attacker.second);
+      return {king2_attacker.first, king2_attacker.second, enemy_king_row2, enemy_king_col2, piece.GetPieceType()};
+    }
+    return {-1, -1, -1, -1, NO_PIECE};
 }
 
 Board::MoveGenResult Board::GetPseudoLegalMoves2(
