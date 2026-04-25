@@ -2503,21 +2503,6 @@ Board::Board(
   }
   */
 
-  // Initialize hashes for each piece at each location, and each turn
-  std::srand(958829);
-  for (int color = 0; color < 4; color++) {
-    turn_hashes_[color] = rand64();
-  }
-  for (int color = 0; color < 4; color++) {
-    for (int piece_type = 0; piece_type < 6; piece_type++) {
-      for (int row = 0; row < 14; row++) {
-        for (int col = 0; col < 14; col++) {
-          piece_hashes_[color][piece_type][row][col] = rand64();
-        }
-      }
-    }
-  }
-
   InitializeHash();
 }
 
@@ -2967,6 +2952,30 @@ std::string Board::ToFEN() const {
   }
 
   return fen.str();
+}
+
+// Static hash table initialization
+int64_t Board::piece_hashes_[4][6][14][14];
+int64_t Board::turn_hashes_[4];
+
+namespace {
+  struct HashInitializer {
+    HashInitializer() {
+      std::srand(958829);
+      for (int color = 0; color < 4; color++) {
+        Board::turn_hashes_[color] = rand64();
+      }
+      for (int color = 0; color < 4; color++) {
+        for (int piece_type = 0; piece_type < 6; piece_type++) {
+          for (int row = 0; row < 14; row++) {
+            for (int col = 0; col < 14; col++) {
+              Board::piece_hashes_[color][piece_type][row][col] = rand64();
+            }
+          }
+        }
+      }
+    }
+  } hash_initializer;
 }
 
 }  // namespace chess

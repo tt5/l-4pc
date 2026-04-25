@@ -59,6 +59,7 @@ AlphaBetaPlayer::AlphaBetaPlayer(std::optional<PlayerOptions> options) {
     options_ = *options;
   }
 
+  /*
   // Initialize checkmate discovery mode
   if (options_.checkmate_discovery_mode) {
     checkmate_file_ = std::make_unique<std::ofstream>(options_.checkmate_output_file);
@@ -68,6 +69,7 @@ AlphaBetaPlayer::AlphaBetaPlayer(std::optional<PlayerOptions> options) {
       checkmate_file_.reset();
     }
   }
+  */
 }
 
 AlphaBetaPlayer::~AlphaBetaPlayer() {
@@ -848,7 +850,7 @@ AlphaBetaPlayer::MakeMove(
           //int helper_depth = std::max(1, max_depth - 0);
 
           int helper_depth = 100;
-          if (max_depth > 10) {
+          if (max_depth > 11) {
             helper_depth = 100;
           } else {
             helper_depth = 0;

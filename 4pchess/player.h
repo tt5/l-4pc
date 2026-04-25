@@ -113,7 +113,7 @@ enum NodeType {
 };
 
 constexpr size_t kBufferPartitionSize = 512; // number of elements per buffer partition
-constexpr size_t kBufferNumPartitions = 100; // number of recursive calls
+constexpr size_t kBufferNumPartitions = 1000; // number of recursive calls
 
 // Manages state of worker threads during search
 class ThreadState {

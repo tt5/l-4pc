@@ -589,6 +589,10 @@ class Board {
   const EnpassantInitialization& GetEnpassantInitialization() { return enp_; }
   const std::vector<std::vector<PlacedPiece>>& GetPieceList() { return piece_list_; };
 
+  // Static hash tables (shared across all Board instances for thread compatibility)
+  static int64_t piece_hashes_[4][6][14][14];
+  static int64_t turn_hashes_[4];
+
  private:
   int GetMaxRow() const { return 13; }
   int GetMaxCol() const { return 13; }
@@ -622,8 +626,6 @@ class Board {
   int player_piece_evaluations_[4] = {0, 0, 0, 0}; // one per player
 
   int64_t hash_key_ = 0;
-  int64_t piece_hashes_[4][6][14][14];
-  int64_t turn_hashes_[4];
   int8_t king_row_[4] = {-1, -1, -1, -1};
   int8_t king_col_[4] = {-1, -1, -1, -1};
   struct EnPassantTarget {
