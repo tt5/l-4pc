@@ -834,8 +834,8 @@ AlphaBetaPlayer::MakeMove(
     threads.push_back(std::make_unique<std::thread>([
       this, i, &thread_states, max_depth] {
           //int helper_depth = std::max(1, max_depth - 0);
-          //int helper_depth = std::max(1, max_depth >> 2);
-          int helper_depth = 1;
+          int helper_depth = std::max(1, max_depth >> 3);
+          //int helper_depth = 1;
           std::cout << "starting " << i << " depth: " << helper_depth << std::endl;
           MakeMoveSingleThread(i, thread_states[i], helper_depth);
     }));
