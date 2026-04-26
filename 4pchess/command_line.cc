@@ -209,7 +209,46 @@ void CommandLine::StartEvaluation() {
 
         best_move = std::get<1>(*res);
         if (std::abs(score_centipawn) == kMateValue) {
-          break;
+          // Verify the mate line by walking back through the PV
+          std::vector<Move> pv_moves;
+          const PVInfo* pv_info = &player->GetPVInfo();
+          while (pv_info != nullptr) {
+            auto best_move_pv = pv_info->GetBestMove();
+            if (best_move_pv.has_value()) {
+              pv_moves.push_back(*best_move_pv);
+            }
+            pv_info = pv_info->GetChild().get();
+          }
+
+          if (pv_moves.size() > 0) {
+            bool mate_verified = true;
+            // Walk back from the end, verifying from each position
+            for (size_t skip_last = 0; skip_last < pv_moves.size(); ++skip_last) {
+              std::shared_ptr<Board> board_copy = std::make_shared<Board>(*board);
+              // Apply all moves except the last 'skip_last' moves
+              for (size_t i = 0; i < pv_moves.size() - skip_last; ++i) {
+                board_copy->MakeMove(pv_moves[i]);
+              }
+              // Run verification search from this position
+              auto verify_res = player->MakeMove(*board_copy, depth);
+              if (verify_res.has_value()) {
+                int verify_score = std::get<0>(*verify_res);
+                if (board_copy->GetTurn().GetTeam() == BLUE_GREEN) {
+                  verify_score = -verify_score;
+                }
+                if (std::abs(verify_score) != kMateValue) {
+                  mate_verified = false;
+                  break;
+                }
+              } else {
+                mate_verified = false;
+                break;
+              }
+            }
+            if (mate_verified) {
+              break;
+            }
+          }
         }
 
       } else {
