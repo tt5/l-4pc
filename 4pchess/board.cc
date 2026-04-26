@@ -560,7 +560,9 @@ Board::MoveGenResult Board::GetPseudoLegalMoves2(
     const int8_t king_row = GetKingRow(current_color);
     const int8_t king_col = GetKingCol(current_color);
 
-    
+    if (!KingPresent(current_color)) {
+      return result;
+    }
 
     auto attacker = GetAttacker(OtherTeam(my_team), king_row, king_col);
 

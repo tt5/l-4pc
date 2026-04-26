@@ -207,13 +207,13 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   }
 
 
-  // Check for king capture first
+  //// Check for king capture first
   auto capture_info = board.CanCaptureKing();
   if (capture_info.from_row != -1) {
     // king capture possible
     // capturing the king not always wins but it always ends the game
 
-    auto eval = 2000;
+    auto eval = kMateValue;
     //std::cout << "king capture" << std::endl;
     eval = maximizing_player ? eval : -eval;
 
@@ -223,28 +223,11 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
               capture_info.to_row, capture_info.to_col, capture_raw);
 
     if (tt != nullptr) {
-      tt->Save(key, depth+1, move, eval, eval, LOWER_BOUND, is_pv_node);
+      tt->Save(key, depth, move, eval, eval, EXACT, false /*is_pv_node*/);
     }
     //thread_state.ReleaseMoveBufferPartition();
-    //return std::make_tuple(eval, move);
+    return std::make_tuple(eval, move);
   }
-
-  ss->move_count = 0;
-
-  std::optional<Move> best_move;
-  std::optional<Move> pv_move = pvinfo.GetBestMove();
-  Move* moves = thread_state.GetNextMoveBufferPartition();
-
-  // Generate moves with pieces
-  const auto& pieces = board.GetPieceList()[board.GetTurn().GetColor()];
-  auto result = board.GetPseudoLegalMoves2(
-    moves,
-    kBufferPartitionSize,
-    pieces,
-    pv_move);
-  thread_state.TotalMoves()[player_color] = result.mobility_counts[player_color];
-  thread_state.NThreats()[player_color] = result.threat_counts[player_color];
-  //bool in_check = result.in_check;
 
   //~20ns
   int eval = 0;
@@ -348,17 +331,33 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
     eval = maximizing_player ? eval : -eval;
   } 
-
   ss->static_eval = eval;
+  ss->move_count = 0;
+
+  std::optional<Move> best_move;
+  std::optional<Move> pv_move = pvinfo.GetBestMove();
+  Move* moves = thread_state.GetNextMoveBufferPartition();
+
+  // Generate moves with pieces
+  const auto& pieces = board.GetPieceList()[board.GetTurn().GetColor()];
+  auto result = board.GetPseudoLegalMoves2(
+    moves,
+    kBufferPartitionSize,
+    pieces,
+    pv_move);
+  thread_state.TotalMoves()[player_color] = result.mobility_counts[player_color];
+  thread_state.NThreats()[player_color] = result.threat_counts[player_color];
+  //bool in_check = result.in_check;
 
   //~10ns
   // Then initialize the move picker with the generated moves
   MovePicker2 picker;
   const Move* pv_ptr = (result.pv_index >= 0) ? &moves[result.pv_index] : nullptr;
-  const Move* tt_ptr = tt_move.has_value() ? &(*tt_move) : nullptr;
-  // Initialize move picker parameters
   size_t move_count2 = result.count;
-
+  const Move* tt_ptr = nullptr;
+  if (move_count2 > 0 && tt_move.has_value()) {
+    tt_ptr = &(*tt_move);
+  }
 
   //~10ns
   InitMovePicker2(
@@ -700,11 +699,21 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
   int score = alpha;
   if (!has_legal_moves) {
-      score = std::min(beta, std::max(alpha, -kMateValue));
+      score = -kMateValue;
+      score = maximizing_player ? score : -score;
   }
-
-  ScoreBound bound = beta <= alpha ? LOWER_BOUND : is_pv_node &&
-    best_move.has_value() ? EXACT : UPPER_BOUND;
+  //ScoreBound bound = beta <= alpha ? LOWER_BOUND : is_pv_node &&
+  //  best_move.has_value() ? EXACT : UPPER_BOUND;
+  ScoreBound bound;
+  if (!has_legal_moves) {
+    bound = EXACT;
+  } else if (beta <= alpha) {
+    bound = LOWER_BOUND;
+  } else if (is_pv_node && best_move.has_value()) {
+    bound = EXACT;
+  } else {
+    bound = UPPER_BOUND;
+  }
   if (tt != nullptr) {
     tt->Save(board.HashKey(), depth, best_move, score, ss->static_eval, bound, is_pv_node);
   }
@@ -724,6 +733,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   //            << ", Checkmates: " 
   //            << total_checkmates_found << std::endl;
   //}
+
   return std::make_tuple(score, best_move);
 }
 
@@ -1074,7 +1084,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
       is_new_checkmate = inserted;
     }
 
-    int eval = 2000;
+    int eval = kMateValue;
     eval = maximizing_player ? eval : -eval;
 
     // Construct the king capture move
@@ -1083,7 +1093,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     Move move(capture_info.from_row, capture_info.from_col,
               capture_info.to_row, capture_info.to_col, capture_raw);
     
-    //return std::make_tuple(eval, move);
+    return std::make_tuple(eval, move);
   }
 
   //auto startA = std::chrono::high_resolution_clock::now();
@@ -1094,24 +1104,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
 
   bool is_root_node = ply == 1;
   bool is_pv_node = node_type != NonPV;
-
-
-  ss->move_count = 0;
-
-  std::optional<Move> best_move;
-  std::optional<Move> pv_move = pvinfo.GetBestMove();
-  Move* moves = thread_state.GetNextMoveBufferPartition();
-
-  // Generate moves with pieces
-  const auto& pieces = board.GetPieceList()[board.GetTurn().GetColor()];
-  auto result = board.GetPseudoLegalMoves2(
-    moves,
-    kBufferPartitionSize,
-    pieces,
-    pv_move);
-  thread_state.TotalMoves()[player_color] = result.mobility_counts[player_color];
-  thread_state.NThreats()[player_color] = result.threat_counts[player_color];
-  //bool in_check = result.in_check;
 
   //~20ns
     
@@ -1203,6 +1195,24 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
 
     int unflipped_eval = board.PieceEvaluation() + moves_eval + threat_eval;
 
+  ss->move_count = 0;
+
+  std::optional<Move> best_move;
+  std::optional<Move> pv_move = pvinfo.GetBestMove();
+  Move* moves = thread_state.GetNextMoveBufferPartition();
+
+  // Generate moves with pieces
+  const auto& pieces = board.GetPieceList()[board.GetTurn().GetColor()];
+  auto result = board.GetPseudoLegalMoves2(
+    moves,
+    kBufferPartitionSize,
+    pieces,
+    pv_move);
+  thread_state.TotalMoves()[player_color] = result.mobility_counts[player_color];
+  thread_state.NThreats()[player_color] = result.threat_counts[player_color];
+  //bool in_check = result.in_check;
+
+
 
   ss->static_eval = maximizing_player ? unflipped_eval : -unflipped_eval;
 
@@ -1210,10 +1220,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
   // Then initialize the move picker with the generated moves
   MovePicker2 picker;
   const Move* pv_ptr = (result.pv_index >= 0) ? &moves[result.pv_index] : nullptr;
-  const Move* tt_ptr = nullptr;
-  // Initialize move picker parameters
   size_t move_count2 = result.count;
-
+  const Move* tt_ptr = nullptr;
 
   //~10ns
   InitMovePicker2(
@@ -1427,7 +1435,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
 
   int score = alpha;
   if (!has_legal_moves) {
-      score = std::min(beta, std::max(alpha, -kMateValue));
+      score = -kMateValue;
+      score = maximizing_player ? score : -score;
 
       // Track unique checkmate positions
       Board checkmateboard = board;

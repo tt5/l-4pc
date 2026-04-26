@@ -57,7 +57,7 @@ std::string GetPVStr(const AlphaBetaPlayer& player) {
 }  // namespace
 
 CommandLine::CommandLine() {
-  player_options_.num_threads = 1;
+  player_options_.num_threads = 4;
   // Initialize the board with standard setup
   board_ = Board::CreateStandardSetup();
 }
@@ -210,6 +210,8 @@ void CommandLine::StartEvaluation() {
         best_move = std::get<1>(*res);
 
         if (std::abs(score_centipawn) == kMateValue) {
+          std::cout << "checkmate score" << std::endl;
+          abort();
           // Verify the mate line by walking back through the PV
           std::vector<Move> pv_moves;
           const PVInfo* pv_info = &player->GetPVInfo();
