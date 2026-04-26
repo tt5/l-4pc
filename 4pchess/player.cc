@@ -879,7 +879,16 @@ AlphaBetaPlayer::MakeMove(
             Move move = root_moves_buffer[i - 1];
             std::cout << "starting " << i << " move: " << move.PrettyStr() << " depth: " << max_depth << std::endl;
           }
-          MakeMoveSingleThread(i, thread_states[i], helper_depth);
+          auto result = MakeMoveSingleThread(i, thread_states[i], helper_depth);
+          if (result.has_value()) {
+            auto [score, move, depth] = *result;
+            std::cout << "Thread " << i << " result: score=" << score
+                      << " depth=" << depth
+                      << " move=" << (move.has_value() ? move->PrettyStr() : "none")
+                      << std::endl;
+          } else {
+            std::cout << "Thread " << i << " result: canceled" << std::endl;
+          }
     }));
   }
 
