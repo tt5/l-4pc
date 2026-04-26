@@ -95,9 +95,6 @@ void CommandLine::StopEvaluation() {
 
 void CommandLine::ResetBoard() {
   std::lock_guard lock(mutex_);
-  if (!board_) {
-    board_ = Board::CreateStandardSetup();
-  }
   board_ = Board::CreateStandardSetup();
 }
 
@@ -228,10 +225,6 @@ void CommandLine::StartEvaluation() {
     }
 
   });
-}
-
-void CommandLine::MakePonderMove() {
-  std::lock_guard lock(mutex_);
 }
 
 void CommandLine::HandleCommand(
@@ -373,23 +366,23 @@ void CommandLine::HandleCommand(
     size_t next_pos = 1;
     std::shared_ptr<Board> board;
 
-    //if (parts[1] == "fen") {
-    //  if (parts.size() < 3) {
-    //    SendInvalidCommandMessage(line);
-    //  }
-    //  const auto& fen = parts[2];
-    //  board = ParseBoardFromFEN(fen);
-    //  if (board == nullptr) {
-    //    SendInfoMessage("Invalid FEN: " + fen);
-    //    return;
-    //  }
-    //  next_pos += 2;
-    //} else {
+    if (parts[1] == "fen") {
+      if (parts.size() < 3) {
+        SendInvalidCommandMessage(line);
+      }
+      const auto& fen = parts[2];
+      board = ParseBoardFromFEN(fen);
+      if (board == nullptr) {
+        SendInfoMessage("Invalid FEN: " + fen);
+        return;
+      }
+      next_pos += 2;
+    } else {
       if (parts[1] == "startpos") {
         next_pos += 1;
       }
       board = Board::CreateStandardSetup();
-    //}
+    }
 
     if (parts.size() < next_pos + 1) {
       // Invalid, but we'll accept it
@@ -425,18 +418,10 @@ void CommandLine::HandleCommand(
     // integer options
     std::unordered_map<std::string, std::optional<int>*>
       option_name_to_value;
-    option_name_to_value["movetime"] = &options.movetime;
     option_name_to_value["rtime"] = &options.red_time;
     option_name_to_value["btime"] = &options.blue_time;
     option_name_to_value["ytime"] = &options.yellow_time;
-    option_name_to_value["gtime"] = &options.green_time;
-    option_name_to_value["rinc"] = &options.red_time;
-    option_name_to_value["binc"] = &options.blue_time;
-    option_name_to_value["yinc"] = &options.yellow_time;
-    option_name_to_value["ginc"] = &options.green_time;
-    option_name_to_value["moves_to_go"] = &options.moves_to_go;
     option_name_to_value["depth"] = &options.depth;
-    option_name_to_value["nodes"] = &options.nodes;
     option_name_to_value["mate"] = &options.mate;
 
     while (cmd_id < parts.size()) {
@@ -455,24 +440,6 @@ void CommandLine::HandleCommand(
           SendInvalidCommandMessage("Can not parse integer: {}" + int_str);
         }
         cmd_id += 2;
-      } else if (option_name == "searchmoves") {
-        options.search_moves.clear();
-        size_t move_id = cmd_id + 1;
-
-        while (move_id < parts.size()) {
-          auto move = ParseMove(*board_, parts[move_id]);
-          if (move.has_value()) {
-            options.search_moves.push_back(std::move(*move));
-            move_id++;
-          } else {
-            break;
-          }
-        }
-
-        cmd_id += 1 + options.search_moves.size();
-      } else if (option_name == "ponder") { 
-        options.ponder = true;
-        cmd_id++;
       } else if (option_name == "infinite") { 
         options.infinite = true;
         cmd_id++;

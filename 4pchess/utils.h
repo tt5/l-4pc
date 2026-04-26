@@ -30,7 +30,7 @@ std::optional<int> ParseInt(const std::string& input);
 std::optional<std::vector<bool>> ParseCastlingAvailability(
     const std::string& fen_substr);
 
-//std::shared_ptr<Board> ParseBoardFromFEN(const std::string& fen);
+std::shared_ptr<Board> ParseBoardFromFEN(const std::string& fen);
 
 void SendInfoMessage(const std::string& message);
 
