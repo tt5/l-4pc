@@ -57,7 +57,7 @@ std::string GetPVStr(const AlphaBetaPlayer& player) {
 }  // namespace
 
 CommandLine::CommandLine() {
-  player_options_.num_threads = 4;
+  player_options_.num_threads = 1;
   // Initialize the board with standard setup
   board_ = Board::CreateStandardSetup();
 }
@@ -208,6 +208,7 @@ void CommandLine::StartEvaluation() {
         std::cout << std::endl;
 
         best_move = std::get<1>(*res);
+
         if (std::abs(score_centipawn) == kMateValue) {
           // Verify the mate line by walking back through the PV
           std::vector<Move> pv_moves;
@@ -222,15 +223,19 @@ void CommandLine::StartEvaluation() {
 
           if (pv_moves.size() > 0) {
             bool mate_verified = true;
+            // Use PV-based depth for verification
             // Walk back from the end, verifying from each position
-            for (size_t skip_last = 0; skip_last < pv_moves.size(); ++skip_last) {
+            // stop one move before the final position
+            for (size_t skip_last = 1; skip_last < pv_moves.size(); ++skip_last) {
               std::shared_ptr<Board> board_copy = std::make_shared<Board>(*board);
+              int verify_depth = std::min(30, (int)skip_last + 10);
               // Apply all moves except the last 'skip_last' moves
               for (size_t i = 0; i < pv_moves.size() - skip_last; ++i) {
                 board_copy->MakeMove(pv_moves[i]);
               }
-              // Run verification search from this position
-              auto verify_res = player->MakeMove(*board_copy, depth);
+              // Run verification search from this position with PV-based depth
+              std::cout << "verifying " << verify_depth << std::endl;
+              auto verify_res = player->MakeMove(*board_copy, verify_depth);
               if (verify_res.has_value()) {
                 int verify_score = std::get<0>(*verify_res);
                 if (board_copy->GetTurn().GetTeam() == BLUE_GREEN) {
