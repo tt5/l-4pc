@@ -14,6 +14,7 @@
 #include <mutex>
 #include <atomic>
 #include <chrono>
+#include <ctime>
 
 #include "board.h"
 #include "player.h"
@@ -156,7 +157,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
 
   num_nodes_++;
-  if (canceled_) {
+  if (canceled_.load(std::memory_order_acquire)) {
     return std::nullopt;
   }
 
@@ -846,12 +847,15 @@ AlphaBetaPlayer::MakeMove(
   last_board_key_ = hash_key;
 
   SetCanceled(false);
+  std::atomic_thread_fence(std::memory_order_seq_cst);
   // Use Alpha-Beta search with iterative deepening
   auto start = std::chrono::system_clock::now();
 
   if (options_.max_search_depth.has_value()) {
     max_depth = std::min(max_depth, *options_.max_search_depth);
   }
+
+  auto parallel_start = std::chrono::high_resolution_clock::now();
 
   std::vector<std::unique_ptr<std::thread>> threads;
   for (int i = 1; i < num_threads; i++) {
@@ -866,11 +870,11 @@ AlphaBetaPlayer::MakeMove(
           //int helper_depth = std::max(1, max_depth - 0);
 
           int helper_depth = 100;
-          if (max_depth > 11) {
-            helper_depth = 100;
-          } else {
-            helper_depth = 0;
-          }
+          //if (max_depth > 11) {
+          //  helper_depth = 100;
+          //} else {
+          //  helper_depth = 0;
+          //}
           int pv_depth = max_depth - i;
           if (pv_depth > 0 && !pv_moves.empty()) {
             int moves_to_apply = std::min(pv_depth, static_cast<int>(pv_moves.size()));
@@ -879,7 +883,21 @@ AlphaBetaPlayer::MakeMove(
             Move move = root_moves_buffer[i - 1];
             std::cout << "starting " << i << " move: " << move.PrettyStr() << " depth: " << max_depth << std::endl;
           }
+          
+          struct timespec cpu_start, cpu_end;
+          clock_gettime(CLOCK_THREAD_CPUTIME_ID, &cpu_start);
+          
+          auto wall_start = std::chrono::high_resolution_clock::now();
           auto result = MakeMoveSingleThread(i, thread_states[i], helper_depth);
+          auto wall_end = std::chrono::high_resolution_clock::now();
+          
+          clock_gettime(CLOCK_THREAD_CPUTIME_ID, &cpu_end);
+          
+          auto wall_duration = std::chrono::duration_cast<std::chrono::milliseconds>(wall_end - wall_start).count();
+          auto cpu_duration = (cpu_end.tv_sec - cpu_start.tv_sec) * 1000 + (cpu_end.tv_nsec - cpu_start.tv_nsec) / 1000000;
+          
+          std::cout << "Thread " << i << " wall time: " << wall_duration << "ms, CPU time: " << cpu_duration << "ms" << std::endl;
+          
           if (result.has_value()) {
             auto [score, move, depth] = *result;
             std::cout << "Thread " << i << " result: score=" << score
@@ -895,6 +913,9 @@ AlphaBetaPlayer::MakeMove(
   auto res = MakeMoveSingleThread(0, thread_states[0], max_depth);
 
   SetCanceled(true);
+  auto parallel_end = std::chrono::high_resolution_clock::now();
+  auto parallel_duration = std::chrono::duration_cast<std::chrono::milliseconds>(parallel_end - parallel_start).count();
+  std::cout << "Parallel execution window: " << parallel_duration << "ms" << std::endl;
   for (auto& thread : threads) {
     thread->join();
   }
@@ -987,6 +1008,7 @@ AlphaBetaPlayer::MakeMoveSingleThread(
           move_and_value = SearchM(
             ss, Root, thread_state, thread_id, board, 1, next_depth, -kMateValue, kMateValue, maximizing_player,
             pv_info, false);
+
       }
 
       if (!move_and_value.has_value()) { // Hit deadline
@@ -1068,42 +1090,45 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     PVInfo& pvinfo,
     bool is_cut_node) {
 
+      if (canceled_.load(std::memory_order_acquire)) {
+  return std::nullopt;
+}
 
   //num_nodes_++;
-  if (canceled_) {
+  if (canceled_.load(std::memory_order_acquire)) {
     return std::nullopt;
   }
   int64_t key = board.HashKey();
   // Check for king capture first
-  auto capture_info = board.CanCaptureKing();
-  if (capture_info.from_row != -1) {
-    bool is_new_checkmate = false;
+  //auto capture_info = board.CanCaptureKing();
+  //if (capture_info.from_row != -1) {
+  //  bool is_new_checkmate = false;
 
-    // First try a read-only check with shared lock
-    {
-      std::shared_lock<std::shared_mutex> lock(checkmate_mutex_);
-      is_new_checkmate = (checkmate_positions_.find(key) == checkmate_positions_.end());
-    }
+  //  // First try a read-only check with shared lock
+  //  {
+  //    std::shared_lock<std::shared_mutex> lock(checkmate_mutex_);
+  //    is_new_checkmate = (checkmate_positions_.find(key) == checkmate_positions_.end());
+  //  }
 
-    // If it's a new checkmate, take exclusive lock to update
-    if (is_new_checkmate) {
-      std::unique_lock<std::shared_mutex> lock(checkmate_mutex_);
-      // Double-check in case another thread added it between our check and now
-      auto [it, inserted] = checkmate_positions_.insert(key);
-      is_new_checkmate = inserted;
-    }
+  //  // If it's a new checkmate, take exclusive lock to update
+  //  if (is_new_checkmate) {
+  //    std::unique_lock<std::shared_mutex> lock(checkmate_mutex_);
+  //    // Double-check in case another thread added it between our check and now
+  //    auto [it, inserted] = checkmate_positions_.insert(key);
+  //    is_new_checkmate = inserted;
+  //  }
 
-    int eval = kMateValue;
-    eval = maximizing_player ? eval : -eval;
+  //  int eval = kMateValue;
+  //  eval = maximizing_player ? eval : -eval;
 
-    // Construct the king capture move
-    const auto& target_piece = board.GetPiece(capture_info.to_row, capture_info.to_col);
-    int8_t capture_raw = target_piece.GetRaw();
-    Move move(capture_info.from_row, capture_info.from_col,
-              capture_info.to_row, capture_info.to_col, capture_raw);
-    
-    return std::make_tuple(eval, move);
-  }
+  //  // Construct the king capture move
+  //  const auto& target_piece = board.GetPiece(capture_info.to_row, capture_info.to_col);
+  //  int8_t capture_raw = target_piece.GetRaw();
+  //  Move move(capture_info.from_row, capture_info.from_col,
+  //            capture_info.to_row, capture_info.to_col, capture_raw);
+  //  
+  //  //return std::make_tuple(eval, move);
+  //}
 
   //auto startA = std::chrono::high_resolution_clock::now();
 
@@ -1375,6 +1400,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     board.UndoMove();
 
     if (!value_and_move_or.has_value()) {
+
       thread_state.ReleaseMoveBufferPartition();
       return std::nullopt; // stop canceled search
     }

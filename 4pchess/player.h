@@ -163,10 +163,10 @@ class AlphaBetaPlayer {
   std::optional<std::tuple<int, std::optional<Move>, int>> MakeMove(
       Board& board,
       int max_depth = 100);
-  void CancelEvaluation() { canceled_ = true; }
+  void CancelEvaluation() { canceled_.store(true, std::memory_order_release); }
   // NOTE: Should wait until evaluation is done before resetting this to true.
-  void SetCanceled(bool canceled) { canceled_ = canceled; }
-  bool IsCanceled() { return canceled_; }
+  void SetCanceled(bool canceled) { canceled_.store(canceled, std::memory_order_release); }
+  bool IsCanceled() { return canceled_.load(std::memory_order_acquire); }
   const PVInfo& GetPVInfo() const { return pv_info_; }
 
   std::optional<std::tuple<int, std::optional<Move>>> Search(
