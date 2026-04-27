@@ -66,6 +66,7 @@ inline bool MoveExists(const Move* moves, size_t start, size_t end, const Move& 
 
 // Get next move, returns nullptr when done
 inline const Move* GetNextMove2(MovePicker2* picker) {
+
     while (true) {
         switch (picker->phase) {
             // Phase 0: Return PV move if available
@@ -196,6 +197,7 @@ inline const Move* GetNextMove2(MovePicker2* picker) {
                 // Return next move in the sorted order
                 if (picker->sorted_current < picker->count) {
                     size_t idx = picker->move_indices[picker->sorted_current++];
+
                     /*
                     if (idx >= picker->count) {
                         std::cout << "Corrupted move index: " << idx << " >= " << picker->count << std::endl;

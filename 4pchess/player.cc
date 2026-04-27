@@ -870,11 +870,11 @@ AlphaBetaPlayer::MakeMove(
           //int helper_depth = std::max(1, max_depth - 0);
 
           int helper_depth = 100;
-          //if (max_depth > 11) {
-          //  helper_depth = 100;
-          //} else {
-          //  helper_depth = 0;
-          //}
+          if (max_depth > 11) {
+            helper_depth = 100;
+          } else {
+            helper_depth = 0;
+          }
           int pv_depth = max_depth - i;
           if (pv_depth > 0 && !pv_moves.empty()) {
             int moves_to_apply = std::min(pv_depth, static_cast<int>(pv_moves.size()));
@@ -916,9 +916,9 @@ AlphaBetaPlayer::MakeMove(
   auto parallel_end = std::chrono::high_resolution_clock::now();
   auto parallel_duration = std::chrono::duration_cast<std::chrono::milliseconds>(parallel_end - parallel_start).count();
   std::cout << "Parallel execution window: " << parallel_duration << "ms" << std::endl;
-  for (auto& thread : threads) {
-    thread->join();
-  }
+  //for (auto& thread : threads) {
+  //  thread->join();
+ // }
 
   if (res.has_value()) {
       pv_info_ = thread_states[0].GetPVInfo();
@@ -951,6 +951,7 @@ AlphaBetaPlayer::MakeMoveSingleThread(
   //  maximizing_player, warmup_pvinfo, false);
 
     while (next_depth <= max_depth) {
+
       std::optional<std::tuple<int, std::optional<Move>>> move_and_value;
 
       if (thread_id == 0) {
@@ -1090,14 +1091,15 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     PVInfo& pvinfo,
     bool is_cut_node) {
 
-      if (canceled_.load(std::memory_order_acquire)) {
-  return std::nullopt;
-}
+
 
   //num_nodes_++;
   if (canceled_.load(std::memory_order_acquire)) {
+    std::cout << "canceled" << std::endl;
     return std::nullopt;
   }
+
+
   int64_t key = board.HashKey();
   // Check for king capture first
   //auto capture_info = board.CanCaptureKing();
@@ -1229,6 +1231,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
 
     int unflipped_eval = board.PieceEvaluation() + moves_eval + threat_eval;
 
+    // Dummy CPU-intensive work to test multi-CPU utilization
+
   ss->move_count = 0;
 
   std::optional<Move> best_move;
@@ -1245,7 +1249,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
   thread_state.TotalMoves()[player_color] = result.mobility_counts[player_color];
   thread_state.NThreats()[player_color] = result.threat_counts[player_color];
   //bool in_check = result.in_check;
-
 
 
   ss->static_eval = maximizing_player ? unflipped_eval : -unflipped_eval;
@@ -1289,7 +1292,9 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
 
   while (true) {
     const Move* move_ptr = GetNextMove2(&picker);
-    if (move_ptr == nullptr) break;
+    if (move_ptr == nullptr) {
+      break;
+    }
     const Move& move = *move_ptr;
     //auto startA2 = std::chrono::high_resolution_clock::now();
 
@@ -1367,15 +1372,14 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     const int is_capture = move.IsCapture();
       int new_depth = depth - 1 + is_capture;
 
+
     // lmr
     if (move_count >= 1) {
-        if (unflipped_eval > alpha) {
-          
+      new_depth = depth - 1 - (depth/2)*(depth>3)*(!is_capture) + (is_capture);
           SEARCH_OR_EVAL_M(value_and_move_or, new_depth,
             ss+1, NonPV, thread_state, thread_id, board, ply + 1, new_depth,
             -beta, -alpha, !maximizing_player,
             *child_pvinfo, is_cut_node);
-      }
     }
 
     // For PV nodes only, do a full PV search on the first move or after a fail
@@ -1384,12 +1388,13 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     bool full_search =
       move_count < 1
           || (value_and_move_or.has_value()
-              && -std::get<0>(*value_and_move_or) > alpha
-              && (is_root_node
-                  || -std::get<0>(*value_and_move_or) < beta)
-              );
+          && -std::get<0>(*value_and_move_or) > alpha
+          && (is_root_node
+              || -std::get<0>(*value_and_move_or) < beta)
+          );
 
     if (full_search) {
+
       SEARCH_OR_EVAL_M(value_and_move_or, new_depth,
           ss+1, PV, thread_state, thread_id, board, ply + 1, new_depth,
           -beta, -alpha, !maximizing_player,
@@ -1400,10 +1405,11 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     board.UndoMove();
 
     if (!value_and_move_or.has_value()) {
-
+      std::cout << "canceled" << std::endl;
       thread_state.ReleaseMoveBufferPartition();
       return std::nullopt; // stop canceled search
     }
+
     int score = -std::get<0>(*value_and_move_or);
 
     if (score >= beta) {
@@ -1445,6 +1451,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     //            << " capture extension: " << capture_extension_count << std::endl;
     //}
   }
+
+
   //static std::atomic<int64_t> total_checkmates_found = 0;
   //auto startC = std::chrono::high_resolution_clock::now();
 
@@ -1516,6 +1524,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
   //            << ", Checkmates: " 
   //            << total_checkmates_found << std::endl;
   //}
+
   return std::make_tuple(score, best_move);
 }
 
