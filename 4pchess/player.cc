@@ -729,6 +729,29 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
   if (!has_legal_moves) {
       score = -kMateValue;
       score = maximizing_player ? score : -score;
+
+      // Track unique checkmate positions
+      Board checkmateboard = board;
+      //Move last_move = board.GetLastMove();
+      checkmateboard.UndoMove();
+      int64_t hash_key = checkmateboard.HashKey();
+
+      bool is_new_checkmate = false;
+
+      // First try a read-only check with shared lock
+      {
+        std::shared_lock<std::shared_mutex> lock(checkmate_mutex_);
+        is_new_checkmate = (checkmate_positions_.find(hash_key) == checkmate_positions_.end());
+      }
+
+      // If it's a new checkmate, take exclusive lock to update
+      if (is_new_checkmate) {
+        std::unique_lock<std::shared_mutex> lock(checkmate_mutex_);
+        // Double-check in case another thread added it between our check and now
+        auto [it, inserted] = checkmate_positions_.insert(hash_key);
+        is_new_checkmate = inserted;
+        //total_checkmates_found++;     // Increment total checkmate counter
+      }
   }
   //ScoreBound bound = beta <= alpha ? LOWER_BOUND : is_pv_node &&
   //  best_move.has_value() ? EXACT : UPPER_BOUND;
@@ -836,7 +859,8 @@ AlphaBetaPlayer::MakeMove(
       
       int pv_depth = max_depth - i;
       if (pv_depth > 0 && !pv_moves.empty()) {
-        moves_to_apply = std::clamp((max_depth - pv_depth) + 1, 1, static_cast<int>(pv_moves.size()));
+        //moves_to_apply = std::clamp((max_depth - pv_depth) + 1, 1, static_cast<int>(pv_moves.size()));
+        moves_to_apply = std::clamp(pv_depth - (max_depth/2) - 6, 1, static_cast<int>(pv_moves.size()));
         for (int j = 0; j < moves_to_apply; j++) {
           helper_boards[i - 1]->MakeMove(pv_moves[j]);
         }
@@ -1489,7 +1513,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     //}
 
     constexpr int kMaxExtensionsPerPath = 1;
-    if (depth < 2 && move.IsCapture() && ss->extension_count < kMaxExtensionsPerPath) {
+    if (depth < 2 && (move.IsCapture() || (ss-2)->current_move.IsCapture()) && ss->extension_count < kMaxExtensionsPerPath) {
         //capture_extension_count++;
         r = -1;
     }

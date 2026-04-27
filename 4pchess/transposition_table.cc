@@ -64,11 +64,8 @@ void TranspositionTable::Merge(const TranspositionTable& source) {
     if (src_entry.key != 0) {
       size_t n = src_entry.key & (table_size_ - 1);
       HashTableEntry& entry = hash_table_[n];
-      // Use the same replacement logic as Save
-      if (src_entry.bound == EXACT
-          || entry.key != src_entry.key
-          || entry.depth <= src_entry.depth
-          || entry.generation != generation_) {
+      // Only add completely new entries - don't touch existing entries
+      if (entry.key == 0) {
         entry.key = src_entry.key;
         entry.depth = src_entry.depth;
         entry.packed_move = src_entry.packed_move;
