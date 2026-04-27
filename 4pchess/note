@@ -106,3 +106,9 @@ Runs completed: 1
 Total nodes: 369,712,663
 Total time: 37.76s
 Average NPS: 9,792,280
+
+=== Benchmark Summary ===
+Runs completed: 1
+Total nodes: 668,291,896
+Total time: 86.98s
+Average NPS: 7,683,562

@@ -394,7 +394,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
     const Move* move_ptr = GetNextMove2(&picker);
     if (move_ptr == nullptr) break;
     const Move& move = *move_ptr;
-    //auto startA2 = std::chrono::high_resolution_clock::now();
+    auto startA2 = std::chrono::high_resolution_clock::now();
 
     std::optional<std::tuple<int, std::optional<Move>>> value_and_move_or;
 
@@ -437,7 +437,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         }
     }
 
-    //static std::atomic<int64_t> cm_skip_count{0};
+    static std::atomic<int64_t> cm_skip_count{0};
     int64_t current_hash = board.HashKey();
     bool checkmate = IsKnownCheckmate(current_hash);
     if (checkmate) {
@@ -470,7 +470,9 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         }
         */
       board.UndoMove();
-      //cm_skip_count++;
+      cm_skip_count++;
+      //std::cout << "checkmate position "  << cm_skip_count << std::endl;
+      //abort();
       continue;
     }
 
@@ -489,27 +491,27 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
 
     int r = 1;
 
-    //auto endA2 = std::chrono::high_resolution_clock::now();
-    //auto durationA2 = std::chrono::duration_cast<std::chrono::nanoseconds>(endA2 - startA2);
-    //total_timeA2 += durationA2;
-    //call_countA2++;
-    //if (call_countA2 % 1000000 == 0) {
-    //  auto avg_ns = total_timeA2.count() / call_countA2;
+    auto endA2 = std::chrono::high_resolution_clock::now();
+    auto durationA2 = std::chrono::duration_cast<std::chrono::nanoseconds>(endA2 - startA2);
+    total_timeA2 += durationA2;
+    call_countA2++;
+    if (call_countA2 % 2000000 == 0) {
+      auto avg_ns = total_timeA2.count() / call_countA2;
 
-    //  std::cout << "---[Move - before recursion]"
-    //            << "Average: " << avg_ns << " ns, "
-    //            << "Call count: " << call_countA2 << std::endl
-    //            << "Singular searches: " << GetNumSingularExtensionSearches() << std::endl
-    //            << "Singular hits: " << GetNumSingularExtensions() << std::endl
-    //            << "CM skips: " << cm_skip_count << std::endl;
-    //}
+      std::cout << "---[Move - before recursion]"
+                << "Average: " << avg_ns << " ns, "
+                << "Call count: " << call_countA2 << std::endl
+                << "Singular searches: " << GetNumSingularExtensionSearches() << std::endl
+                << "Singular hits: " << GetNumSingularExtensions() << std::endl
+                << "CM skips: " << cm_skip_count << std::endl;
+    }
 
     if (depth >= 5
         && tt_hit
         && (tte->bound == LOWER_BOUND)
         && tte->depth >= depth >> 1
         ) {
-      //num_singular_extension_searches_.fetch_add(1, std::memory_order_relaxed);
+      num_singular_extension_searches_.fetch_add(1, std::memory_order_relaxed);
       
       int beta = tte->score;
 
@@ -523,7 +525,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
         int score = std::get<0>(*res);
         // If the search fails low, we didn't find a better move
         if (score < beta) {
-          //num_singular_extensions_.fetch_add(1, std::memory_order_relaxed);
+          num_singular_extensions_.fetch_add(1, std::memory_order_relaxed);
           r = -1;
         }
       }
@@ -546,7 +548,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
           - (depth/2)*(r > 0)*(depth>3)
           - (depth/4)*(r > 0)*(depth>7)
           - (depth/8)*(r > 0)*(depth>15)
-          - (depth/16)*(r > 0)*(depth>31);
+          //- (depth/16)*(r > 0)*(depth>31);
           + (r < 0);
       SEARCH_OR_EVAL(value_and_move_or, new_depth,
           ss+1, NonPV, thread_state, board, ply + 1, new_depth,
@@ -566,7 +568,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
                 - (depth/2)*(r > 0)*(depth>3)
                 - (depth/4)*(r > 0)*(depth>7)
                 - (depth/8)*(r > 0)*(depth>15)
-                - (depth/16)*(r > 0)*(depth>31)
+                //- (depth/16)*(r > 0)*(depth>31)
                 + (r < 0);
             SEARCH_OR_EVAL(value_and_move_or, new_depth,
                 ss+1, NonPV, thread_state, board, ply + 1, new_depth,
@@ -855,8 +857,6 @@ AlphaBetaPlayer::MakeMove(
     max_depth = std::min(max_depth, *options_.max_search_depth);
   }
 
-  auto parallel_start = std::chrono::high_resolution_clock::now();
-
   std::vector<std::unique_ptr<std::thread>> threads;
   for (int i = 1; i < num_threads; i++) {
     // Only create helper thread if it has a move assigned
@@ -869,9 +869,9 @@ AlphaBetaPlayer::MakeMove(
       this, i, &thread_states, max_depth, &pv_moves, &root_moves_buffer] {
           //int helper_depth = std::max(1, max_depth - 0);
 
-          int helper_depth = 100;
+          int helper_depth;
           if (max_depth > 11) {
-            helper_depth = 100;
+            helper_depth = 1000;
           } else {
             helper_depth = 0;
           }
@@ -885,18 +885,8 @@ AlphaBetaPlayer::MakeMove(
           }
           
           struct timespec cpu_start, cpu_end;
-          clock_gettime(CLOCK_THREAD_CPUTIME_ID, &cpu_start);
           
-          auto wall_start = std::chrono::high_resolution_clock::now();
           auto result = MakeMoveSingleThread(i, thread_states[i], helper_depth);
-          auto wall_end = std::chrono::high_resolution_clock::now();
-          
-          clock_gettime(CLOCK_THREAD_CPUTIME_ID, &cpu_end);
-          
-          auto wall_duration = std::chrono::duration_cast<std::chrono::milliseconds>(wall_end - wall_start).count();
-          auto cpu_duration = (cpu_end.tv_sec - cpu_start.tv_sec) * 1000 + (cpu_end.tv_nsec - cpu_start.tv_nsec) / 1000000;
-          
-          std::cout << "Thread " << i << " wall time: " << wall_duration << "ms, CPU time: " << cpu_duration << "ms" << std::endl;
           
           if (result.has_value()) {
             auto [score, move, depth] = *result;
@@ -913,12 +903,9 @@ AlphaBetaPlayer::MakeMove(
   auto res = MakeMoveSingleThread(0, thread_states[0], max_depth);
 
   SetCanceled(true);
-  auto parallel_end = std::chrono::high_resolution_clock::now();
-  auto parallel_duration = std::chrono::duration_cast<std::chrono::milliseconds>(parallel_end - parallel_start).count();
-  std::cout << "Parallel execution window: " << parallel_duration << "ms" << std::endl;
-  //for (auto& thread : threads) {
-  //  thread->join();
- // }
+  for (auto& thread : threads) {
+    thread->join();
+  }
 
   if (res.has_value()) {
       pv_info_ = thread_states[0].GetPVInfo();
@@ -1095,42 +1082,40 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
 
   //num_nodes_++;
   if (canceled_.load(std::memory_order_acquire)) {
-    std::cout << "canceled" << std::endl;
     return std::nullopt;
   }
 
 
   int64_t key = board.HashKey();
-  // Check for king capture first
-  //auto capture_info = board.CanCaptureKing();
-  //if (capture_info.from_row != -1) {
-  //  bool is_new_checkmate = false;
+  auto capture_info = board.CanCaptureKing();
+  if (capture_info.from_row != -1) {
+    bool is_new_checkmate = false;
 
-  //  // First try a read-only check with shared lock
-  //  {
-  //    std::shared_lock<std::shared_mutex> lock(checkmate_mutex_);
-  //    is_new_checkmate = (checkmate_positions_.find(key) == checkmate_positions_.end());
-  //  }
+    //// First try a read-only check with shared lock
+    //{
+    //  std::shared_lock<std::shared_mutex> lock(checkmate_mutex_);
+    //  is_new_checkmate = (checkmate_positions_.find(key) == checkmate_positions_.end());
+    //}
 
-  //  // If it's a new checkmate, take exclusive lock to update
-  //  if (is_new_checkmate) {
-  //    std::unique_lock<std::shared_mutex> lock(checkmate_mutex_);
-  //    // Double-check in case another thread added it between our check and now
-  //    auto [it, inserted] = checkmate_positions_.insert(key);
-  //    is_new_checkmate = inserted;
-  //  }
+    //// If it's a new checkmate, take exclusive lock to update
+    //if (is_new_checkmate) {
+    //  std::unique_lock<std::shared_mutex> lock(checkmate_mutex_);
+    //  // Double-check in case another thread added it between our check and now
+    //  auto [it, inserted] = checkmate_positions_.insert(key);
+    //  is_new_checkmate = inserted;
+    //}
 
-  //  int eval = kMateValue;
-  //  eval = maximizing_player ? eval : -eval;
+    int eval = kMateValue;
+    eval = maximizing_player ? eval : -eval;
 
-  //  // Construct the king capture move
-  //  const auto& target_piece = board.GetPiece(capture_info.to_row, capture_info.to_col);
-  //  int8_t capture_raw = target_piece.GetRaw();
-  //  Move move(capture_info.from_row, capture_info.from_col,
-  //            capture_info.to_row, capture_info.to_col, capture_raw);
-  //  
-  //  //return std::make_tuple(eval, move);
-  //}
+    // Construct the king capture move
+    const auto& target_piece = board.GetPiece(capture_info.to_row, capture_info.to_col);
+    int8_t capture_raw = target_piece.GetRaw();
+    Move move(capture_info.from_row, capture_info.from_col,
+              capture_info.to_row, capture_info.to_col, capture_raw);
+    
+    return std::make_tuple(eval, move);
+  }
 
   //auto startA = std::chrono::high_resolution_clock::now();
 
@@ -1375,7 +1360,18 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
 
     // lmr
     if (move_count >= 1) {
-      new_depth = depth - 1 - (depth/2)*(depth>3)*(!is_capture) + (is_capture);
+      if (is_capture) {
+        new_depth = depth;
+      } else {
+        if (depth < 2) {
+          new_depth = 0;
+        } else if (depth > 2) {
+          new_depth = 2;
+        } else {
+          new_depth = depth - 1;
+        }
+      }
+      //new_depth = depth - 1 - (depth/2)*(depth>3)*(!is_capture) + (is_capture);
           SEARCH_OR_EVAL_M(value_and_move_or, new_depth,
             ss+1, NonPV, thread_state, thread_id, board, ply + 1, new_depth,
             -beta, -alpha, !maximizing_player,
@@ -1405,7 +1401,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     board.UndoMove();
 
     if (!value_and_move_or.has_value()) {
-      std::cout << "canceled" << std::endl;
       thread_state.ReleaseMoveBufferPartition();
       return std::nullopt; // stop canceled search
     }
@@ -1502,7 +1497,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
         auto [it, inserted] = checkmate_positions_.insert(hash_key);
         is_new_checkmate = inserted;
         //total_checkmates_found++;     // Increment total checkmate counter
-
       }
     /*
     }
