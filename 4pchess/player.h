@@ -38,6 +38,7 @@ class PVInfo {
   int GetDepth() const;
 
   std::shared_ptr<PVInfo> Copy() const;
+  std::shared_ptr<PVInfo> SkipMoves(int n) const;
 
  private:
   std::optional<Move> best_move_ = std::nullopt;
@@ -135,6 +136,8 @@ class ThreadState {
   int n_threats[4] = {0, 0, 0, 0};
   Move* GetMoveGenBuffer() { return move_gen_buffer_; }
   TranspositionTable* GetTranspositionTable() { return transposition_table_.get(); }
+  std::unique_ptr<TranspositionTable> ReleaseTranspositionTable();
+  void SetTranspositionTable(std::unique_ptr<TranspositionTable> tt);
   int16_t* GetHistoryHeuristic() { return history_heuristic_[0][0]; }
 
  private:

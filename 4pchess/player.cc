@@ -43,6 +43,24 @@
 
 namespace chess {
 
+namespace {
+std::string GetPVStrFromPVInfo(const PVInfo& pv_info) {
+  std::string pv;
+  const PVInfo* current = &pv_info;
+  while (current != nullptr) {
+    auto best_move = current->GetBestMove();
+    if (best_move.has_value()) {
+      if (!pv.empty()) {
+        pv += " ";
+      }
+      pv += best_move->PrettyStr();
+    }
+    current = current->GetChild().get();
+  }
+  return pv;
+}
+}  // namespace
+
 std::chrono::nanoseconds AlphaBetaPlayer::total_time{0};
 std::chrono::nanoseconds AlphaBetaPlayer::total_timeA{0};
 std::chrono::nanoseconds AlphaBetaPlayer::total_timeA2{0};
@@ -133,6 +151,14 @@ Move* ThreadState::GetNextMoveBufferPartition() {
 void ThreadState::ReleaseMoveBufferPartition() {
   assert(buffer_id_ > 0);
   buffer_id_--;
+}
+
+void ThreadState::SetTranspositionTable(std::unique_ptr<TranspositionTable> tt) {
+  transposition_table_ = std::move(tt);
+}
+
+std::unique_ptr<TranspositionTable> ThreadState::ReleaseTranspositionTable() {
+  return std::move(transposition_table_);
 }
 
 // Alpha-beta search with nega-max framework.
@@ -794,11 +820,12 @@ AlphaBetaPlayer::MakeMove(
   std::vector<ThreadState> thread_states;
   thread_states.reserve(num_threads);
   for (int i = 0; i < num_threads; i++) {
-    auto pv_copy = pv_info_.Copy();
     PlayerOptions thread_options = options_;
 
     Board* board_for_thread = &board;
-    // Helper threads get a board with their assigned move made
+    int moves_to_apply = 0;
+    
+    // Helper threads get a board with their assigned moves made
     if (i > 0) {
       static std::vector<std::unique_ptr<Board>> helper_boards;
       if (helper_boards.size() < static_cast<size_t>(num_threads - 1)) {
@@ -806,25 +833,31 @@ AlphaBetaPlayer::MakeMove(
       } else {
         helper_boards[i - 1] = std::make_unique<Board>(board);
       }
-      // Helper threads progress into PV line based on max_depth
-      // Thread 1 explores after 1 move, thread 2 after 2 moves, etc.
-      // Scale with max_depth: at depth 10, thread 1 goes 1 deep, thread 2 goes 2 deep
-      // At depth 20, thread 1 goes 2 deep, thread 2 goes 4 deep, etc.
+      
       int pv_depth = max_depth - i;
       if (pv_depth > 0 && !pv_moves.empty()) {
-        int moves_to_apply = std::min(pv_depth, static_cast<int>(pv_moves.size()));
+        moves_to_apply = std::clamp(pv_depth/10, 1, static_cast<int>(pv_moves.size()));
         for (int j = 0; j < moves_to_apply; j++) {
           helper_boards[i - 1]->MakeMove(pv_moves[j]);
         }
       } else if ((i - 1) < num_root_moves) {
+        moves_to_apply = 1;
         helper_boards[i - 1]->MakeMove(root_moves_buffer[i - 1]);
       }
       board_for_thread = helper_boards[i - 1].get();
+
+      auto pv_copy = std::make_shared<PVInfo>();
+
+      thread_states.emplace_back(thread_options, *board_for_thread, *pv_copy);
+      auto& thread_state = thread_states.back();
+      ResetMobilityScores(thread_state, *board_for_thread);
+    } else {
+
+      thread_states.emplace_back(thread_options, board, pv_info_);
+      auto& thread_state = thread_states.back();
+      ResetMobilityScores(thread_state, board);
     }
 
-    thread_states.emplace_back(thread_options, *board_for_thread, *pv_copy);
-    auto& thread_state = thread_states.back();
-    ResetMobilityScores(thread_state, *board_for_thread);
   }
 
   root_team_ = board.GetTurn().GetTeam();
@@ -886,12 +919,15 @@ AlphaBetaPlayer::MakeMove(
           
           if (result.has_value()) {
             auto [score, move, depth] = *result;
+            std::string pv = GetPVStrFromPVInfo(thread_states[i].GetPVInfo());
             std::cout << "Thread " << i << " result: score=" << score
                       << " depth=" << depth
                       << " move=" << (move.has_value() ? move->PrettyStr() : "none")
+                      << " pv=" << pv
                       << std::endl;
           } else {
-            std::cout << "Thread " << i << " result: canceled" << std::endl;
+            std::string pv = GetPVStrFromPVInfo(thread_states[i].GetPVInfo());
+            std::cout << "Thread " << i << " result: canceled pv=" << pv << std::endl;
           }
     }));
   }
@@ -899,8 +935,22 @@ AlphaBetaPlayer::MakeMove(
   auto res = MakeMoveSingleThread(0, thread_states[0], max_depth);
 
   SetCanceled(true);
+  
   for (auto& thread : threads) {
     thread->join();
+  }
+
+  // Overwrite main thread's TT with helper thread 1's TT
+  if (thread_states.size() > 1) {
+    thread_states[0].SetTranspositionTable(
+      thread_states[1].ReleaseTranspositionTable()
+    );
+    // Give thread 1 a new empty TT
+    if (options_.transposition_table_size > 0) {
+      thread_states[1].SetTranspositionTable(
+        std::make_unique<TranspositionTable>(options_.transposition_table_size)
+      );
+    }
   }
 
   if (res.has_value()) {
@@ -1060,6 +1110,20 @@ std::shared_ptr<PVInfo> PVInfo::Copy() const {
   return copy;
 }
 
+std::shared_ptr<PVInfo> PVInfo::SkipMoves(int n) const {
+  if (n <= 0) {
+    return Copy();
+  }
+  std::shared_ptr<PVInfo> current = child_;
+  for (int i = 1; i < n && current != nullptr; i++) {
+    current = current->GetChild();
+  }
+  if (current == nullptr) {
+    return std::make_shared<PVInfo>();
+  }
+  return current->Copy();
+}
+
 std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     Stack* ss,
     NodeType node_type,
@@ -1110,7 +1174,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     Move move(capture_info.from_row, capture_info.from_col,
               capture_info.to_row, capture_info.to_col, capture_raw);
     
-    return std::make_tuple(eval, move);
+    //return std::make_tuple(eval, move);
   }
 
   //auto startA = std::chrono::high_resolution_clock::now();
