@@ -13,7 +13,6 @@ import { getEngineClient } from '~/engine/wsClient';
 import { GridCell } from './GridCell';
 import BoardControls from './BoardControls';
 import { MoveHistory } from './MoveHistory';
-import ThreadControl from './ThreadControl';
 import EngineControl from '../EngineControl/EngineControl';
 
 import { useAuth } from '~/contexts/AuthContext';
@@ -1709,11 +1708,6 @@ const Board: Component<BoardProps> = (props) => {
           {fromCache() && <div style={{color: '#4CAF50'}}>✓ Cached</div>}
         </div>
         <div class={styles.engineControls}>
-          <ThreadControl 
-            threads={threads()} 
-            isLoading={isLoadingThreads()} 
-            onThreadChange={handleThreadChange} 
-          />
           <EngineControl />
         </div>
         </div>
