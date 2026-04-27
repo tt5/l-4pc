@@ -572,8 +572,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
       int new_depth = depth - 1
           - (depth/2)*(r > 0)*(depth>3)
           - (depth/4)*(r > 0)*(depth>7)
-          - (depth/8)*(r > 0)*(depth>15)
-          - (depth/16)*(r > 0)*(depth>31)
+          //- (depth/8)*(r > 0)*(depth>15)
+          //- (depth/16)*(r > 0)*(depth>31)
           + (r < 0);
       SEARCH_OR_EVAL(value_and_move_or, new_depth,
           ss+1, NonPV, thread_state, board, ply + 1, new_depth,
@@ -592,8 +592,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::Search(
             int new_depth = depth - 1
                 - (depth/2)*(r > 0)*(depth>3)
                 - (depth/4)*(r > 0)*(depth>7)
-                - (depth/8)*(r > 0)*(depth>15)
-                - (depth/16)*(r > 0)*(depth>31)
+                //- (depth/8)*(r > 0)*(depth>15)
+                //- (depth/16)*(r > 0)*(depth>31)
                 + (r < 0);
             SEARCH_OR_EVAL(value_and_move_or, new_depth,
                 ss+1, NonPV, thread_state, board, ply + 1, new_depth,
@@ -836,7 +836,7 @@ AlphaBetaPlayer::MakeMove(
       
       int pv_depth = max_depth - i;
       if (pv_depth > 0 && !pv_moves.empty()) {
-        moves_to_apply = std::clamp((max_depth - pv_depth) + 5, 1, static_cast<int>(pv_moves.size()));
+        moves_to_apply = std::clamp((max_depth - pv_depth) + 1, 1, static_cast<int>(pv_moves.size()));
         for (int j = 0; j < moves_to_apply; j++) {
           helper_boards[i - 1]->MakeMove(pv_moves[j]);
         }
