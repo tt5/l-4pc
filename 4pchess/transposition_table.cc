@@ -56,4 +56,30 @@ void TranspositionTable::NewSearch() {
   generation_++;
 }
 
+void TranspositionTable::Merge(const TranspositionTable& source) {
+  // Iterate through all entries in source table
+  for (size_t i = 0; i < source.table_size_; i++) {
+    const HashTableEntry& src_entry = source.hash_table_[i];
+    // Only merge valid entries (non-zero key indicates valid entry)
+    if (src_entry.key != 0) {
+      size_t n = src_entry.key & (table_size_ - 1);
+      HashTableEntry& entry = hash_table_[n];
+      // Use the same replacement logic as Save
+      if (src_entry.bound == EXACT
+          || entry.key != src_entry.key
+          || entry.depth <= src_entry.depth
+          || entry.generation != generation_) {
+        entry.key = src_entry.key;
+        entry.depth = src_entry.depth;
+        entry.packed_move = src_entry.packed_move;
+        entry.score = src_entry.score;
+        entry.eval = src_entry.eval;
+        entry.bound = src_entry.bound;
+        entry.is_pv = src_entry.is_pv;
+        entry.generation = generation_;
+      }
+    }
+  }
+}
+
 }  // namespace chess

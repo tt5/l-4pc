@@ -836,7 +836,7 @@ AlphaBetaPlayer::MakeMove(
       
       int pv_depth = max_depth - i;
       if (pv_depth > 0 && !pv_moves.empty()) {
-        moves_to_apply = std::clamp((max_depth - pv_depth) + 1, 1, static_cast<int>(pv_moves.size()));
+        moves_to_apply = std::clamp((max_depth - pv_depth) + 4, 1, static_cast<int>(pv_moves.size()));
         for (int j = 0; j < moves_to_apply; j++) {
           helper_boards[i - 1]->MakeMove(pv_moves[j]);
         }
@@ -940,12 +940,13 @@ AlphaBetaPlayer::MakeMove(
     thread->join();
   }
 
-  // Swap main thread's TT with helper thread 1's TT
+  // Merge main thread's TT entries into helper thread 1's TT
   if (thread_states.size() > 1) {
-    auto tt0 = thread_states[0].ReleaseTranspositionTable();
-    auto tt1 = thread_states[1].ReleaseTranspositionTable();
-    thread_states[0].SetTranspositionTable(std::move(tt1));
-    thread_states[1].SetTranspositionTable(std::move(tt0));
+    auto* tt0 = thread_states[0].GetTranspositionTable();
+    auto* tt1 = thread_states[1].GetTranspositionTable();
+    if (tt0 != nullptr && tt1 != nullptr) {
+      tt1->Merge(*tt0);
+    }
   }
 
   if (res.has_value()) {
@@ -1215,11 +1216,11 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     Move move(capture_info.from_row, capture_info.from_col,
               capture_info.to_row, capture_info.to_col, capture_raw);
 
-    if (tt != nullptr) {
-      tt->Save(key, depth+100, move, eval, eval, EXACT, false /*is_pv_node*/);
-    }
+    //if (tt != nullptr) {
+    //  tt->Save(key, depth+100, move, eval, eval, EXACT, false /*is_pv_node*/);
+    //}
     
-    //return std::make_tuple(eval, move);
+    return std::make_tuple(eval, move);
   }
 
   //~20ns
@@ -1447,30 +1448,30 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     ss->move_count = move_count++;
 
     int r = 1;
-    //if (depth >= 5
-    //    && tt_hit
-    //    && (tte->bound == LOWER_BOUND)
-    //    && tte->depth >= depth >> 1
-    //    ) {
-    //  num_singular_extension_searches_.fetch_add(1, std::memory_order_relaxed);
-    //  
-    //  int beta = tte->score;
+    if (depth >= 5
+        && tt_hit
+        && (tte->bound == LOWER_BOUND)
+        && tte->depth >= depth >> 1
+        ) {
+      num_singular_extension_searches_.fetch_add(1, std::memory_order_relaxed);
+      
+      int beta = tte->score;
 
-    //  PVInfo pvinfo;
-    //  auto res = SearchM(ss, NonPV, thread_state, thread_id, board, ply+1,
-    //    depth - 1 - (depth/2),
-    //    beta - 100, beta,
-    //    maximizing_player, pvinfo, is_cut_node);
+      PVInfo pvinfo;
+      auto res = SearchM(ss, NonPV, thread_state, thread_id, board, ply+1,
+        depth - 2,// - (depth/2),
+        beta - 100, beta,
+        maximizing_player, pvinfo, is_cut_node);
 
-    //  if (res.has_value()) {
-    //    int score = std::get<0>(*res);
-    //    // If the search fails low, we didn't find a better move
-    //    if (score < beta) {
-    //      num_singular_extensions_.fetch_add(1, std::memory_order_relaxed);
-    //      r = -1;
-    //    }
-    //  }
-    //}
+      if (res.has_value()) {
+        int score = std::get<0>(*res);
+        // If the search fails low, we didn't find a better move
+        if (score < beta) {
+          num_singular_extensions_.fetch_add(1, std::memory_order_relaxed);
+          r = -1;
+        }
+      }
+    }
 
     //auto endA2 = std::chrono::high_resolution_clock::now();
     //auto durationA2 = std::chrono::duration_cast<std::chrono::nanoseconds>(endA2 - startA2);
@@ -1545,7 +1546,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
       (ss+1)->extension_count = ss->extension_count + (r < 0 ? 1 : 0);
       int new_depth = depth - 1
           - (depth/2)*(r > 0)*(depth>3)
-          //- (depth/4)*(r > 0)*(depth>7)
+          - (depth/4)*(r > 0)*(depth>7)
           //- (depth/8)*(r > 0)*(depth>15)
           //- (depth/16)*(r > 0)*(depth>31)
           + (r < 0);
@@ -1560,44 +1561,44 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
         // If the reduced search fails high, we need to research
         if (score > alpha) {
           
-          //// If the score is not failing high by much, try a reduced-window search first
-          //if (score < alpha + 100) {
-          //  (ss+1)->extension_count = ss->extension_count;
-          //  int new_depth = depth - 1
-          //      - (depth/2)*(r > 0)*(depth>3)
-          //      //- (depth/4)*(r > 0)*(depth>7)
-          //      //- (depth/8)*(r > 0)*(depth>15)
-          //      //- (depth/16)*(r > 0)*(depth>31)
-          //      + (r < 0);
-          //  SEARCH_OR_EVAL(value_and_move_or, new_depth,
-          //      ss+1, NonPV, thread_state, board, ply + 1, new_depth,
-          //      -alpha-50, -alpha, !maximizing_player,
-          //      *child_pvinfo, is_cut_node);
-          //      
-          //  if (value_and_move_or && -std::get<0>(*value_and_move_or) > alpha) {
-          //    // If the reduced window search still fails high, do a full search
-          //    (ss+1)->extension_count = ss->extension_count;
-          //    int new_depth = depth - 1
-          //      //- (depth/3)*(r > 0)*(depth>2)
-          //      //- (depth/6)*(r > 0)*(depth>6)
-          //      + (r < 0);
-          //    SEARCH_OR_EVAL(value_and_move_or, new_depth,
-          //      ss+1, NonPV, thread_state, board, ply + 1, new_depth,
-          //      -beta, -alpha, !maximizing_player,
-          //      *child_pvinfo, is_cut_node);
-          //  }
-          //} else {
+          // If the score is not failing high by much, try a reduced-window search first
+          if (score < alpha + 100) {
+            (ss+1)->extension_count = ss->extension_count;
+            int new_depth = depth - 1
+                - (depth/2)*(r > 0)*(depth>3)
+                - (depth/4)*(r > 0)*(depth>7)
+                //- (depth/8)*(r > 0)*(depth>15)
+                //- (depth/16)*(r > 0)*(depth>31)
+                + (r < 0);
+            SEARCH_OR_EVAL_M(value_and_move_or, new_depth,
+                ss+1, NonPV, thread_state, thread_id, board, ply + 1, new_depth,
+                -alpha-50, -alpha, !maximizing_player,
+                *child_pvinfo, is_cut_node);
+                
+            if (value_and_move_or && -std::get<0>(*value_and_move_or) > alpha) {
+              // If the reduced window search still fails high, do a full search
+              (ss+1)->extension_count = ss->extension_count;
+              int new_depth = depth - 1
+                - (depth/3)*(r > 0)*(depth>2)
+                //- (depth/6)*(r > 0)*(depth>6)
+                + (r < 0);
+              SEARCH_OR_EVAL_M(value_and_move_or, new_depth,
+                ss+1, NonPV, thread_state, thread_id, board, ply + 1, new_depth,
+                -beta, -alpha, !maximizing_player,
+                *child_pvinfo, is_cut_node);
+            }
+          } else {
             // Failing high by a lot, do a full search immediately
             (ss+1)->extension_count = ss->extension_count;
             int new_depth = depth - 1
-              //- (depth/3)*(r > 0)*(depth>2)
+              - (depth/3)*(r > 0)*(depth>2)
               //- (depth/6)*(r > 0)*(depth>6)
               + (r < 0);
             SEARCH_OR_EVAL_M(value_and_move_or, new_depth,
               ss+1, NonPV, thread_state, thread_id, board, ply + 1, new_depth,
               -beta, -alpha, !maximizing_player,
               *child_pvinfo, is_cut_node);
-          //}
+          }
         }
       }
     }
@@ -1675,25 +1676,25 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
   static std::atomic<int64_t> total_checkmates_found = 0;
   auto startC = std::chrono::high_resolution_clock::now();
 
-  //if (!fail_low && best_move) {  // Add null check for best_move
-  //  int8_t from_row = best_move->FromRow();
-  //  int8_t from_col = best_move->FromCol();
-  //  int8_t to_row = best_move->ToRow();
-  //  int8_t to_col = best_move->ToCol();
-  //  Piece piece = board.GetPiece(from_row, from_col);
+  if (!fail_low && best_move) {  // Add null check for best_move
+    int8_t from_row = best_move->FromRow();
+    int8_t from_col = best_move->FromCol();
+    int8_t to_row = best_move->ToRow();
+    int8_t to_col = best_move->ToCol();
+    Piece piece = board.GetPiece(from_row, from_col);
 
-  //  int bonus = 1 + (fail_high ? (depth << 3) : depth << 2);
-  //  if (bonus > 16383) bonus = 16383;  // Cap for int16_t
+    int bonus = 1 + (fail_high ? (depth << 3) : depth << 2);
+    if (bonus > 16383) bonus = 16383;  // Cap for int16_t
 
-  //  // [224][224] some values unused
-  //  int from_sq = (from_row << 4) + from_col;
-  //  int to_sq = (to_row << 4) + to_col;
-  //  int queen_idx = (piece.GetPieceType() == QUEEN) ? 1 : 0;
-  //  auto* hh = thread_state.GetHistoryHeuristic();
-  //  hh[queen_idx * 224 * 224 + from_sq * 224 + to_sq] += bonus;
-  //  hh[queen_idx * 224 * 224 + from_sq * 224 + to_sq] =
-  //  (hh[queen_idx * 224 * 224 + from_sq * 224 + to_sq] >> 1) | (rand() & 0x7);
-  //}
+    // [224][224] some values unused
+    int from_sq = (from_row << 4) + from_col;
+    int to_sq = (to_row << 4) + to_col;
+    int queen_idx = (piece.GetPieceType() == QUEEN) ? 1 : 0;
+    auto* hh = thread_state.GetHistoryHeuristic();
+    hh[queen_idx * 224 * 224 + from_sq * 224 + to_sq] += bonus;
+    hh[queen_idx * 224 * 224 + from_sq * 224 + to_sq] =
+    (hh[queen_idx * 224 * 224 + from_sq * 224 + to_sq] >> 1) | (rand() & 0x7);
+  }
 
   int score = alpha;
   if (!has_legal_moves) {
@@ -1735,7 +1736,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     bound = UPPER_BOUND;
   }
   if (tt != nullptr) {
-    tt->Save(board.HashKey(), depth+100, best_move, score, ss->static_eval, bound, is_pv_node);
+    tt->Save(board.HashKey(), depth+1, best_move, score, ss->static_eval, bound, is_pv_node);
   }
 
   thread_state.ReleaseMoveBufferPartition();

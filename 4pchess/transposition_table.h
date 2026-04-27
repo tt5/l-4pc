@@ -35,6 +35,7 @@ class TranspositionTable {
    void Save(int64_t key, int depth, std::optional<Move> move,
              int score, int eval, ScoreBound bound, bool is_pv);
    void NewSearch();
+   void Merge(const TranspositionTable& source);
 
   ~TranspositionTable() {
     if (hash_table_ != nullptr) {
