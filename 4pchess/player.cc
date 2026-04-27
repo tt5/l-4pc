@@ -836,7 +836,7 @@ AlphaBetaPlayer::MakeMove(
       
       int pv_depth = max_depth - i;
       if (pv_depth > 0 && !pv_moves.empty()) {
-        moves_to_apply = std::clamp(pv_depth/10, 1, static_cast<int>(pv_moves.size()));
+        moves_to_apply = std::clamp((max_depth - pv_depth) + 1, 1, static_cast<int>(pv_moves.size()));
         for (int j = 0; j < moves_to_apply; j++) {
           helper_boards[i - 1]->MakeMove(pv_moves[j]);
         }
@@ -940,17 +940,12 @@ AlphaBetaPlayer::MakeMove(
     thread->join();
   }
 
-  // Overwrite main thread's TT with helper thread 1's TT
+  // Swap main thread's TT with helper thread 1's TT
   if (thread_states.size() > 1) {
-    thread_states[0].SetTranspositionTable(
-      thread_states[1].ReleaseTranspositionTable()
-    );
-    // Give thread 1 a new empty TT
-    if (options_.transposition_table_size > 0) {
-      thread_states[1].SetTranspositionTable(
-        std::make_unique<TranspositionTable>(options_.transposition_table_size)
-      );
-    }
+    auto tt0 = thread_states[0].ReleaseTranspositionTable();
+    auto tt1 = thread_states[1].ReleaseTranspositionTable();
+    thread_states[0].SetTranspositionTable(std::move(tt1));
+    thread_states[1].SetTranspositionTable(std::move(tt0));
   }
 
   if (res.has_value()) {
@@ -999,6 +994,9 @@ AlphaBetaPlayer::MakeMoveSingleThread(
           int fail_cnt = 0;
 
           while (true) {
+            //move_and_value = SearchM(
+            //  ss, Root, thread_state, thread_id, board, 1, next_depth, alpha, beta, maximizing_player,
+            //  pv_info, false);
             move_and_value = Search(
                 ss, Root, thread_state, board, 1, next_depth, alpha, beta, maximizing_player,
                 pv_info, false);
@@ -1139,7 +1137,6 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     bool is_cut_node) {
 
 
-
   //num_nodes_++;
   if (canceled_.load(std::memory_order_acquire)) {
     return std::nullopt;
@@ -1147,6 +1144,50 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
 
 
   int64_t key = board.HashKey();
+
+  auto startA = std::chrono::high_resolution_clock::now();
+
+  Player player = board.GetTurn();
+  PlayerColor player_color = player.GetColor();
+  Team other_team = OtherTeam(player.GetTeam());
+
+  bool is_root_node = ply == 1;
+  bool is_pv_node = node_type != NonPV;
+
+  //~20ns
+  std::optional<Move> tt_move;
+  const HashTableEntry* tte = nullptr;
+  bool tt_hit = false;
+  auto* tt = thread_state.GetTranspositionTable();
+  if (tt != nullptr) {
+    tte = tt->Get(key);
+  }
+  if (tte != nullptr) {
+    if (tte->key == key) { // valid entry
+      tt_hit = true;
+      //if (tte->depth >= depth) {
+      //  // at non-PV nodes check for an early TT cutoff
+      //  if (!is_root_node
+      //      && !is_pv_node
+      //      && (tte->bound == EXACT
+      //        || (tte->bound == LOWER_BOUND && tte->score >= beta)
+      //        || (tte->bound == UPPER_BOUND && tte->score <= alpha))
+      //      ) {
+
+      //    if (tte->packed_move != 0) {
+      //        return std::make_tuple(
+      //            std::min(beta, std::max(alpha, tte->score)),
+      //            Move::Unpack(tte->packed_move, board));
+      //    }
+      //    return std::make_tuple(
+      //      std::min(beta, std::max(alpha, tte->score)), std::nullopt);
+      //  }
+      //}
+      if (tte->packed_move != 0) {
+        tt_move = Move::Unpack(tte->packed_move, board);
+      }
+    }
+  }
   auto capture_info = board.CanCaptureKing();
   if (capture_info.from_row != -1) {
     bool is_new_checkmate = false;
@@ -1173,52 +1214,12 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     int8_t capture_raw = target_piece.GetRaw();
     Move move(capture_info.from_row, capture_info.from_col,
               capture_info.to_row, capture_info.to_col, capture_raw);
+
+    if (tt != nullptr) {
+      tt->Save(key, depth+100, move, eval, eval, EXACT, false /*is_pv_node*/);
+    }
     
     //return std::make_tuple(eval, move);
-  }
-
-  //auto startA = std::chrono::high_resolution_clock::now();
-
-  Player player = board.GetTurn();
-  PlayerColor player_color = player.GetColor();
-  Team other_team = OtherTeam(player.GetTeam());
-
-  bool is_root_node = ply == 1;
-  bool is_pv_node = node_type != NonPV;
-
-  //~20ns
-  std::optional<Move> tt_move;
-  const HashTableEntry* tte = nullptr;
-  bool tt_hit = false;
-  auto* tt = thread_state.GetTranspositionTable();
-  if (tt != nullptr) {
-    tte = tt->Get(key);
-  }
-  if (tte != nullptr) {
-    if (tte->key == key) { // valid entry
-      tt_hit = true;
-      if (tte->depth >= depth) {
-        // at non-PV nodes check for an early TT cutoff
-        if (!is_root_node
-            && !is_pv_node
-            && (tte->bound == EXACT
-              || (tte->bound == LOWER_BOUND && tte->score >= beta)
-              || (tte->bound == UPPER_BOUND && tte->score <= alpha))
-            ) {
-
-          if (tte->packed_move != 0) {
-              return std::make_tuple(
-                  std::min(beta, std::max(alpha, tte->score)),
-                  Move::Unpack(tte->packed_move, board));
-          }
-          return std::make_tuple(
-            std::min(beta, std::max(alpha, tte->score)), std::nullopt);
-        }
-      }
-      if (tte->packed_move != 0) {
-        tt_move = Move::Unpack(tte->packed_move, board);
-      }
-    }
   }
 
   //~20ns
@@ -1363,19 +1364,19 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     tt_ptr,
     reinterpret_cast<int16_t(*)[224][224]>(thread_state.GetHistoryHeuristic()));
 
-  //auto endA = std::chrono::high_resolution_clock::now();
-  //auto durationA = std::chrono::duration_cast<std::chrono::nanoseconds>(endA - startA);
-  //total_timeA += durationA;
-  //call_countA++;
-  //if (call_countA % 200000 == 0) {
-  //  auto avg_ns = total_timeA.count() / call_countA;
+  auto endA = std::chrono::high_resolution_clock::now();
+  auto durationA = std::chrono::duration_cast<std::chrono::nanoseconds>(endA - startA);
+  total_timeA += durationA;
+  call_countA++;
+  if (call_countA % 200000 == 0) {
+    auto avg_ns = total_timeA.count() / call_countA;
 
-  //  //std::cout << "--- [Search - before move]"
-  //  //          << "Average: " << avg_ns << " ns, "
-  //  //          << "Call count: " << call_countA << ", " 
-  //  //          << "cache hits: " << num_cache_hits_
-  //  //          << std::endl;
-  //}
+    //std::cout << "--- [Search - before move]"
+    //          << "Average: " << avg_ns << " ns, "
+    //          << "Call count: " << call_countA << ", " 
+    //          << "cache hits: " << num_cache_hits_
+    //          << std::endl;
+  }
   
   bool has_legal_moves = false;
   int move_count = 0;
@@ -1446,30 +1447,30 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     ss->move_count = move_count++;
 
     int r = 1;
-    if (depth >= 5
-        && tt_hit
-        && (tte->bound == LOWER_BOUND)
-        && tte->depth >= depth >> 1
-        ) {
-      num_singular_extension_searches_.fetch_add(1, std::memory_order_relaxed);
-      
-      int beta = tte->score;
+    //if (depth >= 5
+    //    && tt_hit
+    //    && (tte->bound == LOWER_BOUND)
+    //    && tte->depth >= depth >> 1
+    //    ) {
+    //  num_singular_extension_searches_.fetch_add(1, std::memory_order_relaxed);
+    //  
+    //  int beta = tte->score;
 
-      PVInfo pvinfo;
-      auto res = Search(ss, NonPV, thread_state, board, ply+1,
-        depth - 1 - (depth/2),
-        beta - 100, beta,
-        maximizing_player, pvinfo, is_cut_node);
+    //  PVInfo pvinfo;
+    //  auto res = SearchM(ss, NonPV, thread_state, thread_id, board, ply+1,
+    //    depth - 1 - (depth/2),
+    //    beta - 100, beta,
+    //    maximizing_player, pvinfo, is_cut_node);
 
-      if (res.has_value()) {
-        int score = std::get<0>(*res);
-        // If the search fails low, we didn't find a better move
-        if (score < beta) {
-          num_singular_extensions_.fetch_add(1, std::memory_order_relaxed);
-          r = -1;
-        }
-      }
-    }
+    //  if (res.has_value()) {
+    //    int score = std::get<0>(*res);
+    //    // If the search fails low, we didn't find a better move
+    //    if (score < beta) {
+    //      num_singular_extensions_.fetch_add(1, std::memory_order_relaxed);
+    //      r = -1;
+    //    }
+    //  }
+    //}
 
     //auto endA2 = std::chrono::high_resolution_clock::now();
     //auto durationA2 = std::chrono::duration_cast<std::chrono::nanoseconds>(endA2 - startA2);
@@ -1486,7 +1487,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     //  //          //<< "CM skips: " << cm_skip_count << std::endl;
     //}
 
-    constexpr int kMaxExtensionsPerPath = 2;
+    constexpr int kMaxExtensionsPerPath = 1;
     if (depth < 2 && move.IsCapture() && ss->extension_count < kMaxExtensionsPerPath) {
         //capture_extension_count++;
         r = -1;
@@ -1548,8 +1549,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
           //- (depth/8)*(r > 0)*(depth>15)
           //- (depth/16)*(r > 0)*(depth>31)
           + (r < 0);
-      SEARCH_OR_EVAL(value_and_move_or, new_depth,
-          ss+1, NonPV, thread_state, board, ply + 1, new_depth,
+      SEARCH_OR_EVAL_M(value_and_move_or, new_depth,
+          ss+1, NonPV, thread_state, thread_id, board, ply + 1, new_depth,
           -alpha-1, -alpha, !maximizing_player,
           *child_pvinfo, is_cut_node);
           
@@ -1592,8 +1593,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
               //- (depth/3)*(r > 0)*(depth>2)
               //- (depth/6)*(r > 0)*(depth>6)
               + (r < 0);
-            SEARCH_OR_EVAL(value_and_move_or, new_depth,
-              ss+1, NonPV, thread_state, board, ply + 1, new_depth,
+            SEARCH_OR_EVAL_M(value_and_move_or, new_depth,
+              ss+1, NonPV, thread_state, thread_id, board, ply + 1, new_depth,
               -beta, -alpha, !maximizing_player,
               *child_pvinfo, is_cut_node);
           //}
@@ -1615,8 +1616,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     if (full_search) {
       (ss+1)->extension_count = ss->extension_count + (r < 0 ? 1 : 0);
       int new_depth = depth - 1 + (r < 0);
-      SEARCH_OR_EVAL(value_and_move_or, new_depth,
-          ss+1, PV, thread_state, board, ply + 1, new_depth,
+      SEARCH_OR_EVAL_M(value_and_move_or, new_depth,
+          ss+1, PV, thread_state, thread_id, board, ply + 1, new_depth,
           -beta, -alpha, !maximizing_player,
           *child_pvinfo, is_cut_node);
     }
@@ -1671,8 +1672,8 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
   }
 
 
-  //static std::atomic<int64_t> total_checkmates_found = 0;
-  //auto startC = std::chrono::high_resolution_clock::now();
+  static std::atomic<int64_t> total_checkmates_found = 0;
+  auto startC = std::chrono::high_resolution_clock::now();
 
   //if (!fail_low && best_move) {  // Add null check for best_move
   //  int8_t from_row = best_move->FromRow();
@@ -1719,7 +1720,7 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
         // Double-check in case another thread added it between our check and now
         auto [it, inserted] = checkmate_positions_.insert(hash_key);
         is_new_checkmate = inserted;
-        //total_checkmates_found++;     // Increment total checkmate counter
+        total_checkmates_found++;     // Increment total checkmate counter
       }
   }
 
@@ -1734,24 +1735,24 @@ std::optional<std::tuple<int, std::optional<Move>>> AlphaBetaPlayer::SearchM(
     bound = UPPER_BOUND;
   }
   if (tt != nullptr) {
-    tt->Save(board.HashKey(), depth, best_move, score, ss->static_eval, bound, is_pv_node);
+    tt->Save(board.HashKey(), depth+100, best_move, score, ss->static_eval, bound, is_pv_node);
   }
 
   thread_state.ReleaseMoveBufferPartition();
-  //auto endC = std::chrono::high_resolution_clock::now();
-  //auto durationC = std::chrono::duration_cast<std::chrono::nanoseconds>(endC - startC);
-  //total_timeC += durationC;
-  //call_countC++;
-  //if (call_countC % 1000000 == 0) {
-  //  auto avg_ns = total_timeC.count() / call_countC;
-  //  auto current_avg = durationC.count() / 1;  // Current call's time in ns
+  auto endC = std::chrono::high_resolution_clock::now();
+  auto durationC = std::chrono::duration_cast<std::chrono::nanoseconds>(endC - startC);
+  total_timeC += durationC;
+  call_countC++;
+  if (call_countC % 1000000 == 0) {
+    auto avg_ns = total_timeC.count() / call_countC;
+    auto current_avg = durationC.count() / 1;  // Current call's time in ns
 
-  //  std::cout << "[Search - after move]"
-  //            << " Average: " << avg_ns << " ns,"
-  //            << " Call count: " << call_countC
-  //            << ", Checkmates: " 
-  //            << total_checkmates_found << std::endl;
-  //}
+    std::cout << "[Search - after move]"
+              << " Average: " << avg_ns << " ns,"
+              << " Call count: " << call_countC << std::endl
+              << "> > > Checkmates: "
+              << total_checkmates_found << std::endl;
+  }
 
   return std::make_tuple(score, best_move);
 }
