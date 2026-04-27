@@ -836,7 +836,7 @@ AlphaBetaPlayer::MakeMove(
       
       int pv_depth = max_depth - i;
       if (pv_depth > 0 && !pv_moves.empty()) {
-        moves_to_apply = std::clamp((max_depth - pv_depth) + 4, 1, static_cast<int>(pv_moves.size()));
+        moves_to_apply = std::clamp((max_depth - pv_depth) + 3, 1, static_cast<int>(pv_moves.size()));
         for (int j = 0; j < moves_to_apply; j++) {
           helper_boards[i - 1]->MakeMove(pv_moves[j]);
         }
