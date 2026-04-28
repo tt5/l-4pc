@@ -1,5 +1,4 @@
-import sqlite3 from 'sqlite3';
-import { open, type Database as SqliteDatabase } from 'sqlite';
+import { open, Database as SqliteDatabase } from '../../src/lib/server/sqlite-compat.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { mkdir, access, constants, readdir, unlink } from 'node:fs/promises';
@@ -41,8 +40,7 @@ export const createDatabaseConnection = async (): Promise<Database> => {
     
     console.log(`Connecting to database at: ${DB_PATH}`);
     const db = await open({
-      filename: DB_PATH,
-      driver: sqlite3.Database,
+      filename: DB_PATH
     });
     
     console.log('Configuring database settings...');
@@ -149,7 +147,7 @@ export const applyMigration = async (db: Database, migration: MigrationFile) => 
     await migration.up(db);
     await db.run(
       'INSERT INTO migrations (name, applied_at) VALUES (?, strftime("%s", "now"))',
-      migration.name
+      [migration.name]
     );
     await db.exec('COMMIT');
   } catch (error) {

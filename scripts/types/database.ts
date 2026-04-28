@@ -1,21 +1,22 @@
-// Import the base Database type from sqlite
-import type { Database as SqliteDatabase } from 'sqlite';
+// Import the base Database type from sqlite-compat
+import type { Database as SqliteDatabase } from '../../src/lib/server/sqlite-compat.js';
 
 // Export our enhanced Database type
 export interface Database extends SqliteDatabase {
-  // Add any custom methods or overrides here if needed
+  // Add any custom methods or properties here if needed
 }
 
-// Augment the sqlite module with our custom methods
-declare module 'sqlite' {
+// Augment the sqlite-compat module with our custom methods
+declare module '../../src/lib/server/sqlite-compat' {
   interface Database {
-    // Add any custom methods or overrides here if needed
+    // Add any custom methods or properties here if needed
   }
+}
 
-  interface BackupOptions {
-    maxBackups?: number;
-    backupDir?: string;
-  }
+// Backup options interface
+export interface BackupOptions {
+  maxBackups?: number;
+  backupDir?: string;
 }
 
 export interface DbMigration {

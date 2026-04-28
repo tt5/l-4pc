@@ -1,11 +1,10 @@
-import sqlite3 from 'sqlite3';
-import { open, Database } from 'sqlite';
+import { open, Database } from './sqlite-compat';
 import { promises as fs } from 'fs';
 import { dirname } from 'path';
 import { assertServer } from './utils';
 import { MoveRepository } from './repositories/move.repository';
 
-export type SqliteDatabase = Database<sqlite3.Database, sqlite3.Statement>;
+export type SqliteDatabase = Database;
 
 import { join } from 'path';
 
@@ -32,9 +31,7 @@ async function getDb(): Promise<SqliteDatabase> {
       
       // Initialize SQLite database
       db = await open({
-        filename: dbPath,
-        driver: sqlite3.Database,
-        mode: sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE
+        filename: dbPath
       });
       
       // Set pragmas
@@ -143,7 +140,7 @@ async function runMigrations() {
     // Get applied migrations - use a transaction to ensure consistency
     let appliedMigrations: Array<{ name: string }> = [];
     try {
-      appliedMigrations = await db.all<Array<{ name: string }>>(
+      appliedMigrations = await db.all<{ name: string }>(
         'SELECT name FROM migrations ORDER BY name'
       );
     } catch (error) {

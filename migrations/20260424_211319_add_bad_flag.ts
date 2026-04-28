@@ -1,4 +1,4 @@
-import { Database } from 'sqlite';
+import type { Database } from '../scripts/types/database.js';
 
 export const name = '20260424_211319_add_bad_flag';
 

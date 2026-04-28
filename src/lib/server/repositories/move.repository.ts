@@ -1,4 +1,4 @@
-import { Database } from 'sqlite';
+import type { Database } from '../sqlite-compat';
 
 export interface Move {
   id?: number;
@@ -220,20 +220,20 @@ export class MoveRepository {
       }
 
       // First, get all moves in the same branch with equal or higher move_number
-      const sameBranchMoves = await this.db.all<{id: number}[]>(
-        `SELECT id FROM moves 
-         WHERE game_id = ? 
-         AND branch_name = ? 
+      const sameBranchMoves = await this.db.all<{id: number}>(
+        `SELECT id FROM moves
+         WHERE game_id = ?
+         AND branch_name = ?
          AND move_number >= ?`,
         [move.game_id, move.branch_name, move.move_number]
       );
 
       // Then find all child branches
-      const childBranches = await this.db.all<{id: number, branch_name: string}[]>(
-        `SELECT id, branch_name 
-         FROM moves 
-         WHERE game_id = ? 
-         AND branch_name LIKE ? || '/%' 
+      const childBranches = await this.db.all<{id: number, branch_name: string}>(
+        `SELECT id, branch_name
+         FROM moves
+         WHERE game_id = ?
+         AND branch_name LIKE ? || '/%'
          AND move_number >= ?`,
         [move.game_id, move.branch_name, move.move_number]
       );

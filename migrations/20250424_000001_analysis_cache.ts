@@ -1,4 +1,4 @@
-import { Database } from 'sqlite';
+import type { Database } from '../scripts/types/database.js';
 
 export const name = '20250424_000001_analysis_cache';
 

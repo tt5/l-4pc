@@ -1,4 +1,4 @@
-import { Database } from 'sqlite';
+import type { Database } from '../sqlite-compat';
 
 export interface AnalysisCache {
   hashKey: number;

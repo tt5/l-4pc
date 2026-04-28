@@ -9,10 +9,10 @@ export const GET = withAuth(async ({ user }: { user: TokenPayload }) => {
     const db = await getDb();
     
     // Get all unique game IDs for the user
-    const games = await db.all<{ game_id: string }[]>(
-      `SELECT DISTINCT game_id 
-       FROM moves 
-       WHERE user_id = ? 
+    const games = await db.all<{ game_id: string }>(
+      `SELECT DISTINCT game_id
+       FROM moves
+       WHERE user_id = ?
        ORDER BY created_at_ms DESC`,
       [user.userId]
     );

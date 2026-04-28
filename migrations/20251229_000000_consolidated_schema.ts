@@ -1,4 +1,4 @@
-import { Database } from 'sqlite';
+import type { Database } from '../scripts/types/database.js';
 
 export const name = '20251229_000000_consolidated_schema';
 
