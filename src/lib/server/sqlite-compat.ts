@@ -26,7 +26,8 @@ export class Database {
 
   async run(sql: string, params: any[] = []): Promise<RunResult> {
     const stmt = this.db.prepare(sql);
-    const result = stmt.run(...params);
+    const args = Array.isArray(params) ? params : [params];
+    const result = stmt.run(...args);
     return {
       lastID: Number(result.lastInsertRowid),
       changes: Number(result.changes)
@@ -35,8 +36,9 @@ export class Database {
 
   async all<T = any>(sql: string, params: any[] = []): Promise<T[]> {
     const stmt = this.db.prepare(sql);
+    const args = Array.isArray(params) ? params : [params];
     const results: T[] = [];
-    for (const row of stmt.all(...params)) {
+    for (const row of stmt.all(...args)) {
       results.push(row as T);
     }
     return results;
@@ -44,7 +46,8 @@ export class Database {
 
   async get<T = any>(sql: string, params: any[] = []): Promise<T | undefined> {
     const stmt = this.db.prepare(sql);
-    const result = stmt.get(...params);
+    const args = Array.isArray(params) ? params : [params];
+    const result = stmt.get(...args);
     return result as T | undefined;
   }
 

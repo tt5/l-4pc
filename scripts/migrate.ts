@@ -101,7 +101,7 @@ const runMigrations = async (): Promise<MigrationResult> => {
           await migration.up(db);
           await db.run(
             "INSERT INTO migrations (name, applied_at) VALUES (?, strftime('%s', 'now'))",
-            migration.name
+            [migration.name]
           );
           await db.run('COMMIT');
           
